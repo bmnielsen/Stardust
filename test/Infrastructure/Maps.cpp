@@ -1,470 +1,125 @@
 #include "Maps.h"
 #include "BWTest.h"
+#include <algorithm>
+#include <random>
 
 namespace
 {
     std::vector<Maps::MapMetadata> maps = {
-            Maps::MapMetadata("maps/sscai/(2)Benzene.scx",
-                              "af618ea3ed8a8926ca7b17619eebcb9126f0d8b1",
-                              "5fba62687ba00c8868fdd64c7869c4005a142772",
-                              {1617, 36298}),
-            Maps::MapMetadata("maps/sscai/(2)Destination.scx",
-                              "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b",
-                              "e39c1c81740a97a733d227e238bd11df734eaf96",
-                              {50224, 60306}),
-            Maps::MapMetadata("maps/sscai/(2)Heartbreak Ridge.scx",
-                              "6f8da3c3cc8d08d9cf882700efa049280aedca8c",
-                              "fe25d8b79495870ac1981c2dfee9368f543321e3",
-                              {50962, 30202}),
-            Maps::MapMetadata("maps/sscai/(3)Neo Moon Glaive.scx",
-                              "c8386b87051f6773f6b2681b0e8318244aa086a6",
-                              "4236df9e8edaea4614833dd0bf66c11e6dcadcc2",
-                              {76916, 31337, 59667}),
-            Maps::MapMetadata("maps/sscai/(3)Tau Cross.scx",
-                              "9bfc271360fa5bab3707a29e1326b84d0ff58911",
-                              "85f6d2a51c1437a7e6743402614879e476c54de7",
-                              {6401, 65763, 83220}),
-            Maps::MapMetadata("maps/sscai/(4)Andromeda.scx",
-                              "1e983eb6bcfa02ef7d75bd572cb59ad3aab49285",
-                              "297e9cf5f39e8c2a19fe5e271e7cdffec9145e5f",
-                              {32598, 19968, 55343, 52071}),
-            Maps::MapMetadata("maps/sscai/(4)Circuit Breaker.scx",
-                              "450a792de0e544b51af5de578061cb8a2f020f32",
-                              "1221d83d6ff9a87955d3083257b31131261bc366",
-                              {80379, 54763, 5122, 90810}),
-            Maps::MapMetadata("maps/sscai/(4)Empire of the Sun.scm",
-                              "a220d93efdf05a439b83546a579953c63c863ca7",
-                              "38b6307d283a5ebc084822a08f932600f7f13588",
-                              {42899, 60288, 34521, 55127}),
-            Maps::MapMetadata("maps/sscai/(4)Fighting Spirit.scx",
-                              "d2f5633cc4bb0fca13cd1250729d5530c82c7451",
-                              "dcabb11c83e68f47c5c5bdbea0204167a00e336f",
-                              {4349, 43875, 50302, 71176}),
-            Maps::MapMetadata("maps/sscai/(4)Icarus.scm",
-                              "0409ca0d7fe0c7f4083a70996a8f28f664d2fe37",
-                              "31292c55e13ae699373185e80024197e530e294d",
-                              {93395, 89861, 63196, 23125}),
-            Maps::MapMetadata("maps/sscai/(4)Jade.scx",
-                              "df21ac8f19f805e1e0d4e9aa9484969528195d9f",
-                              "6b9fcc27634f26d772a8921db8c59dfd38bd1d74",
-                              {46733, 50350, 77957, 61667}),
-            Maps::MapMetadata("maps/sscai/(4)La Mancha1.1.scx",
-                              "e47775e171fe3f67cc2946825f00a6993b5a415e",
-                              "0245980146ac10d7c53ca0ad8727292074777afa",
-                              {62242, 59437, 45965, 51316}),
-            Maps::MapMetadata("maps/sscai/(4)Python.scx",
-                              "de2ada75fbc741cfa261ee467bf6416b10f9e301",
-                              "db1d92e08b7b45abefc6da1cee9a9978c98ac3eb",
-                              {75240, 76533, 11897, 85482}),
-            Maps::MapMetadata("maps/sscai/(4)Roadrunner.scx",
-                              "9a4498a896b28d115129624f1c05322f48188fe0",
-                              "997b31f09ddc7f7425daf08d5af0865df65c24d6",
-                              {13397, 6817, 51163, 83305}),
-            Maps::MapMetadata("maps/cog/(2)BlueStorm1.2.scx",
-                              "aab66dbf9c85f85c47c219277e1e36181fe5f9fc",
-                              "5c626c0a69d262ad8dd1b4ec7d21556cf7c9f2c9",
-                              {64709, 96831}),
-            Maps::MapMetadata("maps/cog/(2)Destination1.1.scx",
-                              "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b",
-                              "e39c1c81740a97a733d227e238bd11df734eaf96",
-                              {74355, 76568}),
-            Maps::MapMetadata("maps/cog/(2)Hitchhiker1.1.scx",
-                              "69a3b6a5a3d4120e47408defd3ca44c954997948",
-                              "26b8aef6c1fd5d15d84cfe3e23645ffbfc1559f7",
-                              {84575, 53842}),
-            Maps::MapMetadata("maps/cog/(2)MatchPoint1.3.scx",
-                              "0a41f144c6134a2204f3d47d57cf2afcd8430841",
-                              "7e14d53b944b1365973f2d8768c75358c6b28a8f",
-                              {6903, 42130}),
-            Maps::MapMetadata("maps/cog/(2)NeoChupungRyeong2.1.scx",
-                              "f391700c3551e145852822ff95e27edd3173fae6",
-                              "7a1407bd6c87d9c93282a26299f7e349ea609561",
-                              {98681, 79118}),
-            Maps::MapMetadata("maps/cog/(2)NeoHeartbreakerRidge.scx",
-                              "d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3",
-                              "ecb9c70c5594a5c6882baaf4857a61824fba0cfa",
-                              {622, 9952}),
-            Maps::MapMetadata("maps/cog/(2)RideofValkyries1.0.scx",
-                              "cd5d907c30d58333ce47c88719b6ddb2cba6612f",
-                              "22644b6ffe2ed3732a369e51657e4b555ac1404e",
-                              {90613, 55482}),
-            Maps::MapMetadata("maps/cog/(3)Alchemist1.0.scm",
-                              "8000dc6116e405ab878c14bb0f0cde8efa4d640c",
-                              "9e5770c62b523042e8af590c8dc267e6c12637fc",
-                              {82681, 68326, 72711}),
-            Maps::MapMetadata("maps/cog/(3)GreatBarrierReef1.0.scx",
-                              "3506e6d942f9721dc99495a141f41c5555e8eab5",
-                              "de0ef11a35683ab676f52f0a6f34b388d41cf400",
-                              {65006, 32887, 24549}),
-            Maps::MapMetadata("maps/cog/(3)NeoAztec2.1.scx",
-                              "19f00ba3a407e3f13fb60bdd2845d8ca2765cf10",
-                              "dd8978c6b03f26f54915516f6d9e20d37ff5a15b",
-                              {21453, 96014, 11829}),
-            Maps::MapMetadata("maps/cog/(3)Pathfinder1.0.scx",
-                              "b10e73a252d5c693f19829871a01043f0277fd58",
-                              "be8e87452219c387529d3331f0a699471a0bf7c7",
-                              {58913, 44718, 7775}),
-//            Maps::MapMetadata("maps/cog/(3)Plasma1.0.scx",
-//                              "6f5295624a7e3887470f3f2e14727b1411321a67",
-//                              "8b3e8ed9ce9620a606319ba6a593ed5c894e51df",
-//                              {65191, 40072, 49885}),
-            Maps::MapMetadata("maps/cog/(3)TauCross1.1.scx",
-                              "9bfc271360fa5bab3707a29e1326b84d0ff58911",
-                              "85f6d2a51c1437a7e6743402614879e476c54de7",
-                              {46537, 23489, 43850}),
-            Maps::MapMetadata("maps/cog/(4)Andromeda1.0.scx",
-                              "1e983eb6bcfa02ef7d75bd572cb59ad3aab49285",
-                              "297e9cf5f39e8c2a19fe5e271e7cdffec9145e5f",
-                              {77813, 16107, 12773, 24584}),
-            Maps::MapMetadata("maps/cog/(4)ArcadiaII2.02.scx",
-                              "442e456721c94fd085ecd10230542960d57928d9",
-                              "83cc5c3944a80915a68190d7b87714d8c0cf8a2f",
-                              {65804, 14578, 46693, 33866}),
-            Maps::MapMetadata("maps/cog/(4)CircuitBreakers1.0.scx",
-                              "450a792de0e544b51af5de578061cb8a2f020f32",
-                              "1221d83d6ff9a87955d3083257b31131261bc366",
-                              {66096, 34391, 84609, 92912}),
-            Maps::MapMetadata("maps/cog/(4)FightingSpirit1.3.scx",
-                              "5731c103687826de48ba3cc7d6e37e2537b0e902",
-                              "bf84532dcdd21b3328670d766edc209fa1520149",
-                              {38392, 46294, 96867, 12601}),
-            Maps::MapMetadata("maps/cog/(4)LunaTheFinal2.3.scx",
-                              "33527b4ce7662f83485575c4b1fcad5d737dfcf1",
-                              "215263bd93c8f0ef9d3ecf880c46890cec8d4655",
-                              {80572, 84161, 42442, 99643}),
-            Maps::MapMetadata("maps/cog/(4)NeoSniperRidge2.0.scx",
-                              "9e9e6a3372251ac7b0acabcf5d041fbf0b755fdb",
-                              "b90a29d8dffc603a57b67ec23e1ac24c897d042b",
-                              {59026, 13160, 27893, 89448}),
-            Maps::MapMetadata("maps/cog/(4)Python1.3.scx",
-                              "86afe0f744865befb15f65d47865f9216edc37e5",
-                              "466be924200fc61188f59bdf6ddeb949b42f5091",
-                              {16843, 62583, 21912, 39896}),
-            Maps::MapMetadata("maps/aiide/(2)Destination.scx",
-                              "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b",
-                              "e39c1c81740a97a733d227e238bd11df734eaf96",
-                              {46535, 91978}),
-            Maps::MapMetadata("maps/aiide/(2)HeartbreakRidge.scx",
-                              "6f8da3c3cc8d08d9cf882700efa049280aedca8c",
-                              "fe25d8b79495870ac1981c2dfee9368f543321e3",
-                              {8025, 53402}),
-            Maps::MapMetadata("maps/aiide/(2)PolarisRhapsody.scx",
-                              "614d0048c6cc9dcf08da1409462f22f2ac4f5a0b",
-                              "ec7259201347b0c718298c2d4205a89d0cd49080",
-                              {47386, 80743}),
-            Maps::MapMetadata("maps/aiide/(3)Aztec.scx",
-                              "ba2fc0ed637e4ec91cc70424335b3c13e131b75a",
-                              "222d038e84c3a0e0cb57e882f6e7cf092b06b150",
-                              {27868, 15308, 56024}),
-            Maps::MapMetadata("maps/aiide/(3)Longinus2.scx",
-                              "d16719e736252d77fdbb0d8405f7879f564bfe56",
-                              "4f1e36312c6b9ac6c482e40cbdacbebdb95bd45e",
-                              {38507, 8908, 56481}),
-            Maps::MapMetadata("maps/aiide/(4)CircuitBreaker.scx",
-                              "450a792de0e544b51af5de578061cb8a2f020f32",
-                              "1221d83d6ff9a87955d3083257b31131261bc366",
-                              {59698, 75387, 285, 2037}),
-            Maps::MapMetadata("maps/aiide/(4)EmpireoftheSun.scm",
-                              "a220d93efdf05a439b83546a579953c63c863ca7",
-                              "38b6307d283a5ebc084822a08f932600f7f13588",
-                              {76313, 91990, 34810, 49649}),
-            Maps::MapMetadata("maps/aiide/(4)FightingSpirit.scx",
-                              "d2f5633cc4bb0fca13cd1250729d5530c82c7451",
-                              "dcabb11c83e68f47c5c5bdbea0204167a00e336f",
-                              {61555, 8204, 85704, 90378}),
-            Maps::MapMetadata("maps/aiide/(4)Python.scx",
-                              "de2ada75fbc741cfa261ee467bf6416b10f9e301",
-                              "db1d92e08b7b45abefc6da1cee9a9978c98ac3eb",
-                              {72746, 72518, 48417}),
-            Maps::MapMetadata("maps/aiide/(4)Roadkill.scm",
-                              "5386ec02cc3ee913acc55181896c287ae9d5b5c6",
-                              "2f55a45d8b9cb7ef86c2f688aeeb3c738406beb9",
-                              {93388, 9193, 98731, 38186}),
-            Maps::MapMetadata("maps/aists4/(2)MatchPoint1.3.scx",
-                              "0a41f144c6134a2204f3d47d57cf2afcd8430841",
-                              "7e14d53b944b1365973f2d8768c75358c6b28a8f",
-                              {94122, 80854}),
-            Maps::MapMetadata("maps/aists4/(2)Overwatch2.1.scx",
-                              "",
-                              "2e35819660b50dc5028935a282f3538381f70971",
-                              {83911, 35146}),
-            Maps::MapMetadata("maps/aists4/(3)Aztec2.1.scx",
-                              "",
-                              "fae29a9ae79087bd1c210547214949ef0b02239d",
-                              {31658, 1499, 18195}),
-            Maps::MapMetadata("maps/aists4/(3)Medusa2.2.scx",
-                              "",
-                              "ac29a8d0b7898de83216c5d514b2e6e430f1d1ed",
-                              {59361, 5029, 26633}),
-            Maps::MapMetadata("maps/aists4/(4)CircuitBreakers1.0.scx",
-                              "",
-                              "1221d83d6ff9a87955d3083257b31131261bc366",
-                              {25055, 85862, 86969, 36995}),
-            Maps::MapMetadata("maps/aists4/(4)Eddy1.02.scx",
-                              "",
-                              "fd7357d0e0273bfe18ff385dd66061ad58c257e7",
-                              {25088, 92569, 58660, 2396}),
-            Maps::MapMetadata("maps/aists4/(4)FightingSpirit.scx",
-                              "d2f5633cc4bb0fca13cd1250729d5530c82c7451",
-                              "dcabb11c83e68f47c5c5bdbea0204167a00e336f",
-                              {9522, 28838, 12679, 48075}),
-
-            Maps::MapMetadata("maps/cog2022/(2)Benzene1.1.SCX",
-                              "af618ea3ed8a8926ca7b17619eebcb9126f0d8b1",
-                              "5fba62687ba00c8868fdd64c7869c4005a142772",
-                              {1617, 36298}),
-            Maps::MapMetadata("maps/cog2022/(2)Eclipse_BW1.16.1.scx",
-                              "3cf2b26da33b8e798b0e359cd621569b5725124d",
-                              "8b2b082c6f62574bad7e0deab9f8d4e9679969b0",
-                              {78169, 92906}),
-            Maps::MapMetadata("maps/cog2022/(2)MatchPoint1.3.scx",
-                              "0a41f144c6134a2204f3d47d57cf2afcd8430841",
-                              "7e14d53b944b1365973f2d8768c75358c6b28a8f",
-                              {6903, 42130}),
-            Maps::MapMetadata("maps/cog2022/(3)NeoAztec2.1.scx",
-                              "19f00ba3a407e3f13fb60bdd2845d8ca2765cf10",
-                              "dd8978c6b03f26f54915516f6d9e20d37ff5a15b",
-                              {21453, 96014, 11829}),
-            Maps::MapMetadata("maps/cog2022/(3)NeoSylphid2.0_BW1.16.1.scx",
-                              "dbd844012e678b23ca8ef21b3b62008589a554b5",
-                              "1be2d1d778131323d3a0e7dd2301285c5a9887c9",
-                              {27781, 6574, 80155}),
-            Maps::MapMetadata("maps/cog2022/(3)OutsiderSE2.2.scx",
-                              "63a94b3a878c912f2fa5e31700491a60ac3f29d9",
-                              "99324782b01af58f6b25aea13e2d62aa83564de0",
-                              {83755, 89842, 83721}),
-            Maps::MapMetadata("maps/cog2022/(4)CircuitBreakers1.0.scx",
-                              "450a792de0e544b51af5de578061cb8a2f020f32",
-                              "1221d83d6ff9a87955d3083257b31131261bc366",
-                              {80379, 54763, 5122, 90810}),
-            Maps::MapMetadata("maps/cog2022/(4)FightingSpirit1.3.scx",
-                              "5731c103687826de48ba3cc7d6e37e2537b0e902",
-                              "bf84532dcdd21b3328670d766edc209fa1520149",
-                              {38392, 46294, 96867, 12601}),
-            Maps::MapMetadata("maps/cog2022/(4)Polypoid1.65_BW1.16.1.scx",
-                              "ad870839912421dc3b4fd736a954bf770693ba9a",
-                              "02aea3ff11d063c9b3608f30c1f4572f23e56f35",
-                              {34740, 65445, 2225, 33929}),
-            Maps::MapMetadata("maps/aiide2023/(2)CarthageIII_3.0.scx",
-                              "fe0a18342c797203d585dc2a3241f3974b765e0b",
-                              "6ef7d3f9eea962fa4bd19fba55d0782159d9ef75",
-                              {58378, 6440}),
-            Maps::MapMetadata("maps/aiide2023/(2)ChupungRyeong_2.1.scx",
-                              "f391700c3551e145852822ff95e27edd3173fae6",
-                              "7a1407bd6c87d9c93282a26299f7e349ea609561",
-                              {84008, 1543}),
-            Maps::MapMetadata("maps/aiide2023/(2)Crossing_Field_1.34.scx",
-                              "97944269ea55365d13c310f46c9337f5e873dc6c",
-                              "a8fff0bad1956dba03e234744f2e12f7941a8f8a",
-                              {45388, 7592}),
-            Maps::MapMetadata("maps/aiide2023/(2)Destination.scx",
-                              "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b",
-                              "e39c1c81740a97a733d227e238bd11df734eaf96",
-                              {95076, 2104}),
-            Maps::MapMetadata("maps/aiide2023/(2)EclipseBW_1.16.1.scx",
-                              "3cf2b26da33b8e798b0e359cd621569b5725124d",
-                              "8b2b082c6f62574bad7e0deab9f8d4e9679969b0",
-                              {59460, 93364}),
-            Maps::MapMetadata("maps/aiide2023/(2)HeartbreakRidge.scx",
-                              "6f8da3c3cc8d08d9cf882700efa049280aedca8c",
-                              "fe25d8b79495870ac1981c2dfee9368f543321e3",
-                              {20400, 17053}),
-            Maps::MapMetadata("maps/aiide2023/(2)MatchPoint1.3.scx",
-                              "8b36cbc2df21bc628dd04e623408950638cdcbde",
-                              "7e14d53b944b1365973f2d8768c75358c6b28a8f",
-                              {34037, 13091}),
-            Maps::MapMetadata("maps/aiide2023/(2)NewBloodyRidge_2.0.scx",
-                              "30f8396f0399403ddf60fc733ce99f393602575e",
-                              "e3e8b34714258694688afefb63f137d8ffe317ff",
-                              {17829, 45478}),
-            Maps::MapMetadata("maps/aiide2023/(2)OddEyeIII_3.0.scx",
-                              "a4689419e88bb865e9003ba55d2913a38f3cf5d2",
-                              "d4e98c3221a02acd5f3ffbe3f6cee3082b90f447",
-                              {47644, 19029}),
-            Maps::MapMetadata("maps/aiide2023/(2)Overwatch_2.2.scx",
-                              "630fc57ab58f4ac8a28d2b8dcd1cf524fd1566ec",
-                              "a938731bc6da0f36bbded042afb6d7ff01a35b34",
-                              {75790, 31997}),
-            Maps::MapMetadata("maps/aiide2023/(2)PolarisRhapsody_1.0.scx",
-                              "614d0048c6cc9dcf08da1409462f22f2ac4f5a0b",
-                              "ec7259201347b0c718298c2d4205a89d0cd49080",
-                              {56867, 94926}),
-            Maps::MapMetadata("maps/aiide2023/(3)Demian_1.0.scx",
-                              "9b7b1f03fd03baa6e4310cea71fa5eab82e9af5d",
-                              "8c3e67ba1307812261895c74841713834cb83db5",
-                              {34136, 40158, 90479}),
-            Maps::MapMetadata("maps/aiide2023/(3)Longinus2.scx",
-                              "d16719e736252d77fdbb0d8405f7879f564bfe56",
-                              "4f1e36312c6b9ac6c482e40cbdacbebdb95bd45e",
-                              {26358, 74000, 88514}),
-            Maps::MapMetadata("maps/aiide2023/(3)NeoAztec_2.0_KeSPA.scx",
-                              "b20fc580f0743f61d0d4ef1a56054505a5c63217",
-                              "6d311f3ac1716284ac927298301099bca12807ad",
-                              {40781, 95822, 92845}),
-            Maps::MapMetadata("maps/aiide2023/(3)NeoMoonGlaive_2.1_KeSPA.scx",
-                              "ed37fce47d1312e39a3a379c122382790e190cbd",
-                              "458b17fa6f1abebb645eb64674499d99c74db1a5",
-                              {68076, 42605, 26278}),
-            Maps::MapMetadata("maps/aiide2023/(3)NeoSylphid_2.0.scx",
-                              "dbd844012e678b23ca8ef21b3b62008589a554b5",
-                              "1be2d1d778131323d3a0e7dd2301285c5a9887c9",
-                              {69244, 21170, 77130}),
-            Maps::MapMetadata("maps/aiide2023/(3)PowerBond_1.00.scx",
-                              "731138b5b844a4a0b4a4bb4e495969fd6659414c",
-                              "51f8da48894603709c222ff1828338ca9e2f2ddc",
-                              {88171, 44577, 9713}),
-            Maps::MapMetadata("maps/aiide2023/(4)Allegro_1.1.scx",
-                              "e3a3ff717eacb1af111aab9121004d9c0e88f074",
-                              "d1d44549d84de433008469bb2cf2584208d6875f",
-                              {89101, 35977, 75726, 25526}),
-            Maps::MapMetadata("maps/aiide2023/(4)ArcadiaII_2.02.scx",
-                              "442e456721c94fd085ecd10230542960d57928d9",
-                              "83cc5c3944a80915a68190d7b87714d8c0cf8a2f",
-                              {56010, 66907, 53800, 58651}),
-            Maps::MapMetadata("maps/aiide2023/(4)Beltway_1.1_KeSPA.scx",
-                              "7f711be2ca57e8bdae57eec945eeb432c67ca561",
-                              "791e2cd3e383d3163e32221af15a0a78809af2f3",
-                              {95511, 40070, 94378, 54791}),
-            Maps::MapMetadata("maps/aiide2023/(4)ByzantiumII_2.3.scx",
-                              "28062968c363950f15410190a3f06158f84ac944",
-                              "4eb4db755ab95f3c63f0b8247880468a4142daa5",
-                              {30620, 95959, 54190, 63057}),
-            Maps::MapMetadata("maps/aiide2023/(4)CircuitBreaker.scx",
-                              "450a792de0e544b51af5de578061cb8a2f020f32",
-                              "1221d83d6ff9a87955d3083257b31131261bc366",
-                              {90987, 16180, 98893, 74984}),
-            Maps::MapMetadata("maps/aiide2023/(4)ColosseumII_2.0.scx",
-                              "bde51d09a2ad733db9e5492354798045db2ced3e",
-                              "699c33ca1ff8f486d93b288371e57db49a0c403f",
-                              {87304, 45539, 82972, 38618}),
-            Maps::MapMetadata("maps/aiide2023/(4)DantesPeakSE_2.0.scx",
-                              "cb41ae895d66b71bbd54812fdef370f0e235cc38",
-                              "e230d0a3ca100469ee0565520153e2487cddf44b",
-                              {38206, 48741, 54558, 2692}),
-            Maps::MapMetadata("maps/aiide2023/(4)Eddy_1.02.scx",
-                              "3078ee93e4a0c3c2ad22c73ab62ef806d9436c3d",
-                              "fd7357d0e0273bfe18ff385dd66061ad58c257e7",
-                              {80343, 44720, 55055, 57858}),
-            Maps::MapMetadata("maps/aiide2023/(4)EyeOfTheStorm_1.0_iCCup.scx",
-                              "5e0bc3346c201ede3c92d6e970ffd4e8bab8b0cf",
-                              "e6b66bd7c87cb648ae50954cbe96efb3404b0b84",
-                              {37919, 32666, 69605, 44792}),
-            Maps::MapMetadata("maps/aiide2023/(4)FightingSpirit_1.3.scx",
-                              "d2f5633cc4bb0fca13cd1250729d5530c82c7451",
-                              "dcabb11c83e68f47c5c5bdbea0204167a00e336f",
-                              {19465, 17763, 61634, 83656}),
-            Maps::MapMetadata("maps/aiide2023/(4)Gladiator_1.1.scx",
-                              "798bea3acce68788ff1b32d9d777ba7a12c883a1",
-                              "b73c9c5415477082301d5fb1d618d7cf4b5dee75",
-                              {41520, 5565, 25828, 70212}),
-            Maps::MapMetadata("maps/aiide2023/(4)GodsGarden_1.0_KeSPA.scx",
-                              "2acb8e8cc2ec9b0911a73f2f29dcce424862dddd",
-                              "0d592ab56bd5c9230444e48177f150e58fce0a91",
-                              {33278, 56048, 40958, 40409}),
-            Maps::MapMetadata("maps/aiide2023/(4)GrandLineSE_2.2_KeSPA.scx",
-                              "e909d176390f5115e13c449497cc9e52805ac384",
-                              "0feee33ff49de85c1fbd0f7d621b92de6f1dd7c4",
-                              {26924, 94492, 10038, 59196}),
-            Maps::MapMetadata("maps/aiide2023/(4)JudgmentDay_1.2.scx",
-                              "2f69eaa1a73bb743934d55e7ea12186fe340e656",
-                              "a19d3ed890c2919c81a9aff55732d3f602a3323e",
-                              {48212, 94634, 17819, 95535}),
-            Maps::MapMetadata("maps/aiide2023/(4)KatrinaSE_2.0.scx",
-                              "444b805a88f971c6b2c5f8d2a467de3c1fb2f001",
-                              "625b16a3a6c861bc6c2f91b709329edb7e8e28aa",
-                              {52647, 31548, 10710, 57891}),
-            Maps::MapMetadata("maps/aiide2023/(4)La Mancha1.1.scx",
-                              "39bf400dbb3ee3b5d6710e8ca410c727c4636560",
-                              "0245980146ac10d7c53ca0ad8727292074777afa",
-                              {36995, 46936, 87408, 71377}),
-            Maps::MapMetadata("maps/aiide2023/(4)Largo_1.5.scx",
-                              "4176c3dd9e8cd11d3da1323b4c17e059d06a8fed",
-                              "c0d75db0e7a4e7e361107c351c5db28a4b0a9747",
-                              {10676, 40783, 2208, 73964}),
-            Maps::MapMetadata("maps/aiide2023/(4)NeoGroundZero_2.0_KeSPA.scx",
-                              "29f2c1ccb2f7dbee81d1c2387289471cdcb83cd9",
-                              "14026acfa83a425a45a8963025fd6f380434b463",
-                              {10562, 6821, 32830, 44640}),
-            Maps::MapMetadata("maps/aiide2023/(4)NeoJade_2.0_KeSPA.scx",
-                              "64e53c70a4036b42f6480f0fc9530b38789159c4",
-                              "8830540dde8e14699fd253118bfe42c4a61adff6",
-                              {19385, 72310, 56001, 98445}),
-            Maps::MapMetadata("maps/aiide2023/(4)NewEmpireOfTheSun_2.0.scm",
-                              "2237701cb9bfaa2600d4aa4bcdc6449a199c81cf",
-                              "8e430a8dbab4291cff6e61595b47ddeb1d2e1d3d",
-                              {95611, 76848, 29514, 10745}),
-            Maps::MapMetadata("maps/aiide2023/(4)NewSniperRidge_2.0_KeSPA.scx",
-                              "9e9e6a3372251ac7b0acabcf5d041fbf0b755fdb",
-                              "b90a29d8dffc603a57b67ec23e1ac24c897d042b",
-                              {48796, 88850, 41399, 75361}),
-            Maps::MapMetadata("maps/aiide2023/(4)NewWindAndCloud_2.2.scm",
-                              "e72a0a853545b77b39229a8c11d5c5624c09242b",
-                              "83e5d630a9b6a30e87f6ca823e4410dd1c890e5b",
-                              {79670, 64817, 34088, 97804}),
-            Maps::MapMetadata("maps/aiide2023/(4)Overwatch_1.3.scx",
-                              "75ded6b606db6546c46789a42c11cebe58cdab4b",
-                              "e5c54bc32a78b95ad68af72fbb926242c4b0b805",
-                              {42641, 56585, 83423, 94337}),
-            Maps::MapMetadata("maps/aiide2023/(4)PamirPlateau_1.2.scm",
-                              "75ded6b606db6546c46789a42c11cebe58cdab4b",
-                              "34220e533215969a644bbc09dc192a1da3cb6b23",
-                              {79664, 31808, 37924, 24457}),
-            Maps::MapMetadata("maps/aiide2023/(4)Polypoid_1.65.scx",
-                              "ad870839912421dc3b4fd736a954bf770693ba9a",
-                              "02aea3ff11d063c9b3608f30c1f4572f23e56f35",
-                              {51191, 55441, 50052, 48239}),
-            Maps::MapMetadata("maps/aiide2023/(4)Python.scx",
-                              "de2ada75fbc741cfa261ee467bf6416b10f9e301",
-                              "db1d92e08b7b45abefc6da1cee9a9978c98ac3eb",
-                              {25832, 16994, 92320, 4014}),
-            Maps::MapMetadata("maps/aiide2023/(4)Roadkill.scm",
-                              "5386ec02cc3ee913acc55181896c287ae9d5b5c6",
-                              "2f55a45d8b9cb7ef86c2f688aeeb3c738406beb9",
-                              {94110, 51670, 48761, 51720}),
-            Maps::MapMetadata("maps/aiide2023/(4)VermeerSE_2.1.scm",
-                              "90b6f33ba4f24a67ee875c18cc4a52ee490ce26a)",
-                              "0a306408d42d64cdef654b36286903b411246714",
-                              {38381, 12788, 54936, 19250}),
-            Maps::MapMetadata("maps/aiide2024/(2)EclipseBW_1.16.1.scx",
-                              "3cf2b26da33b8e798b0e359cd621569b5725124d",
-                              "8b2b082c6f62574bad7e0deab9f8d4e9679969b0",
-                              {59460, 93364}),
-            Maps::MapMetadata("maps/aiide2024/(2)MatchPoint1.3.scx",
-                              "8b36cbc2df21bc628dd04e623408950638cdcbde",
-                              "7e14d53b944b1365973f2d8768c75358c6b28a8f",
-                              {34037, 13091}),
-            Maps::MapMetadata("maps/aiide2024/(2)PolarisRhapsody_1.0.scx",
-                              "614d0048c6cc9dcf08da1409462f22f2ac4f5a0b",
-                              "ec7259201347b0c718298c2d4205a89d0cd49080",
-                              {56867, 94926}),
-            Maps::MapMetadata("maps/aiide2024/(3)NeoSylphid_2.0.scx",
-                              "dbd844012e678b23ca8ef21b3b62008589a554b5",
-                              "1be2d1d778131323d3a0e7dd2301285c5a9887c9",
-                              {69244, 21170, 77130}),
-            Maps::MapMetadata("maps/aiide2024/(3)PowerBond_1.00.scx",
-                              "731138b5b844a4a0b4a4bb4e495969fd6659414c",
-                              "51f8da48894603709c222ff1828338ca9e2f2ddc",
-                              {88171, 44577, 9713}),
-            Maps::MapMetadata("maps/aiide2024/(4)ArcadiaII_2.02.scx",
-                              "442e456721c94fd085ecd10230542960d57928d9",
-                              "83cc5c3944a80915a68190d7b87714d8c0cf8a2f",
-                              {56010, 66907, 53800, 58651}),
-            Maps::MapMetadata("maps/aiide2024/(4)Gladiator_1.1.scx",
-                              "798bea3acce68788ff1b32d9d777ba7a12c883a1",
-                              "b73c9c5415477082301d5fb1d618d7cf4b5dee75",
-                              {41520, 5565, 25828, 70212}),
-            Maps::MapMetadata("maps/aiide2024/(4)Polypoid_1.65.scx",
-                              "ad870839912421dc3b4fd736a954bf770693ba9a",
-                              "02aea3ff11d063c9b3608f30c1f4572f23e56f35",
-                              {51191, 55441, 50052, 48239}),
-            Maps::MapMetadata("maps/aiide2024/(4)Roadkill.scm",
-                              "5386ec02cc3ee913acc55181896c287ae9d5b5c6",
-                              "2f55a45d8b9cb7ef86c2f688aeeb3c738406beb9",
-                              {94110, 51670, 48761, 51720}),
-            Maps::MapMetadata("maps/aiide2024/(4)VermeerSE_2.1.scm",
-                              "90b6f33ba4f24a67ee875c18cc4a52ee490ce26a)",
-                              "0a306408d42d64cdef654b36286903b411246714",
-                              {38381, 12788, 54936, 19250}),
+            Maps::MapMetadata("maps/sscai/(2)Benzene.scx","af618ea3ed8a8926ca7b17619eebcb9126f0d8b1","5fba62687ba00c8868fdd64c7869c4005a142772",{{{0,0,0},{79772,2504,98017}},{{70429,41015,39432},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(2)Destination.scx","4e24f217d2fe4dbfa6799bc57f74d8dc939d425b","e39c1c81740a97a733d227e238bd11df734eaf96",{{{0,0,0},{75519,73581,93759}},{{65778,35799,26396},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(2)Heartbreak Ridge.scx","6f8da3c3cc8d08d9cf882700efa049280aedca8c","fe25d8b79495870ac1981c2dfee9368f543321e3",{{{0,0,0},{30405,9029,8889}},{{59995,47648,10786},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(3)Neo Moon Glaive.scx","c8386b87051f6773f6b2681b0e8318244aa086a6","4236df9e8edaea4614833dd0bf66c11e6dcadcc2",{{{0,0,0},{91976,79635,96797},{55668,20589,75311}},{{89051,47728,72654},{0,0,0},{25579,38084,78809}},{{758,23224,10303},{56208,85691,38124},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(3)Tau Cross.scx","9bfc271360fa5bab3707a29e1326b84d0ff58911","85f6d2a51c1437a7e6743402614879e476c54de7",{{{0,0,0},{59262,38640,96037},{85749,71777,54472}},{{37120,18695,65069},{0,0,0},{43812,15557,60247}},{{21104,81137,65181},{81588,70621,18524},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(4)Andromeda.scx","1e983eb6bcfa02ef7d75bd572cb59ad3aab49285","297e9cf5f39e8c2a19fe5e271e7cdffec9145e5f",{{{0,0,0},{80725,21429,49086},{19043,22561,21286},{77118,76985,15131}},{{17984,62308,3572},{0,0,0},{21480,58240,92536},{21679,31544,43231}},{{59909,68086,26491},{19613,40466,82106},{0,0,0},{1151,61944,82888}},{{29450,431,27038},{60285,50278,51945},{39186,20187,92518},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(4)Circuit Breaker.scx","450a792de0e544b51af5de578061cb8a2f020f32","1221d83d6ff9a87955d3083257b31131261bc366",{{{0,0,0},{46555,68740,47310},{59140,10652,66882},{4650,74407,548}},{{34087,29202,41253},{0,0,0},{87077,19052,58551},{32749,20294,22881}},{{71637,27379,57339},{59637,26645,31307},{0,0,0},{76381,16804,65287}},{{96905,44046,98306},{74874,82944,43596},{37209,74434,17017},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(4)Empire of the Sun.scm","a220d93efdf05a439b83546a579953c63c863ca7","38b6307d283a5ebc084822a08f932600f7f13588",{{{0,0,0},{46860,95801,53832},{66915,42547,36233},{59345,9519,63301}},{{40130,81902,28284},{0,0,0},{88028,62769,98950},{64063,75450,45689}},{{79974,19051,54099},{79509,55310,48996},{0,0,0},{56602,34572,78805}},{{52712,62874,62424},{45246,91749,46647},{17606,64850,50126},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(4)Fighting Spirit.scx","d2f5633cc4bb0fca13cd1250729d5530c82c7451","dcabb11c83e68f47c5c5bdbea0204167a00e336f",{{{0,0,0},{44100,16619,12183},{482,60326,68},{68604,4202,26371}},{{54904,25113,5377},{0,0,0},{49879,35439,23159},{3608,34293,83823}},{{34840,9600,2643},{35109,98819,94422},{0,0,0},{48736,94471,44929}},{{58008,31448,3011},{86300,49804,6501},{64252,62600,86289},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(4)Icarus.scm","0409ca0d7fe0c7f4083a70996a8f28f664d2fe37","31292c55e13ae699373185e80024197e530e294d",{{{0,0,0},{44106,93054,46051},{38160,90302,68869},{50556,27769,39923}},{{46099,90883,4906},{0,0,0},{16766,94387,65366},{51313,85490,82316}},{{68901,94670,78600},{16469,54926,16919},{0,0,0},{43247,94012,58272}},{{52999,58621,85523},{2570,64576,34613},{11666,91751,58636},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(4)Jade.scx","df21ac8f19f805e1e0d4e9aa9484969528195d9f","6b9fcc27634f26d772a8921db8c59dfd38bd1d74",{{{0,0,0},{2201,36189,89500},{15247,23889,50616},{93678,34875,59514}},{{41661,1736,90433},{0,0,0},{97860,57491,41515},{96730,12721,53443}},{{958,20863,64133},{7969,74617,40493},{0,0,0},{23200,47181,54492}},{{69739,40719,68191},{64543,91451,81745},{52255,1671,77478},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(4)La Mancha1.1.scx","e47775e171fe3f67cc2946825f00a6993b5a415e","0245980146ac10d7c53ca0ad8727292074777afa",{{{0,0,0},{41642,51236,56085},{61601,55685,89215},{62085,87479,87602}},{{68423,89654,45305},{0,0,0},{30010,84069,96389},{90664,73469,94140}},{{66171,3552,24954},{46952,91626,27056},{0,0,0},{6641,33355,59978}},{{85358,12440,71530},{74580,66367,94784},{31903,62579,64240},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(4)Python.scx","de2ada75fbc741cfa261ee467bf6416b10f9e301","db1d92e08b7b45abefc6da1cee9a9978c98ac3eb",{{{0,0,0},{8823,57202,81914},{55187,16612,13233},{81377,21064,33964}},{{40027,26922,66300},{0,0,0},{7004,60499,94520},{97177,39613,44924}},{{97753,52466,37724},{86505,5816,8111},{0,0,0},{44298,48105,40668}},{{37497,7431,61378},{72596,23704,21272},{96637,19266,19749},{0,0,0}}}),
+            Maps::MapMetadata("maps/sscai/(4)Roadrunner.scx","9a4498a896b28d115129624f1c05322f48188fe0","997b31f09ddc7f7425daf08d5af0865df65c24d6",{{{0,0,0},{21780,91351,181},{24798,15380,60825},{51011,85028,82295}},{{2488,20850,85725},{0,0,0},{89058,54278,8885},{34757,20018,5092}},{{16584,76015,26760},{9754,1374,28282},{0,0,0},{46746,23502,98689}},{{94639,47090,20336},{47244,46777,33868},{95393,5144,75962},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(2)BlueStorm1.2.scx","aab66dbf9c85f85c47c219277e1e36181fe5f9fc","5c626c0a69d262ad8dd1b4ec7d21556cf7c9f2c9",{{{0,0,0},{75435,87583,53352}},{{99660,66370,15310},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(2)Destination1.1.scx","4e24f217d2fe4dbfa6799bc57f74d8dc939d425b","e39c1c81740a97a733d227e238bd11df734eaf96",{{{0,0,0},{59613,6587,34242}},{{54341,46118,19569},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(2)Hitchhiker1.1.scx","69a3b6a5a3d4120e47408defd3ca44c954997948","26b8aef6c1fd5d15d84cfe3e23645ffbfc1559f7",{{{0,0,0},{86213,96559,76736}},{{33216,85670,81073},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(2)MatchPoint1.3.scx","0a41f144c6134a2204f3d47d57cf2afcd8430841","7e14d53b944b1365973f2d8768c75358c6b28a8f",{{{0,0,0},{36645,95617,93666}},{{54511,13944,52515},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(2)NeoChupungRyeong2.1.scx","f391700c3551e145852822ff95e27edd3173fae6","7a1407bd6c87d9c93282a26299f7e349ea609561",{{{0,0,0},{86502,62487,25546}},{{70499,11210,70653},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(2)NeoHeartbreakerRidge.scx","d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3","ecb9c70c5594a5c6882baaf4857a61824fba0cfa",{{{0,0,0},{83293,29384,14928}},{{36544,93546,37650},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(2)RideofValkyries1.0.scx","cd5d907c30d58333ce47c88719b6ddb2cba6612f","22644b6ffe2ed3732a369e51657e4b555ac1404e",{{{0,0,0},{86014,62206,84210}},{{13825,2414,78983},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(3)Alchemist1.0.scm","8000dc6116e405ab878c14bb0f0cde8efa4d640c","9e5770c62b523042e8af590c8dc267e6c12637fc",{{{0,0,0},{70705,72070,8982},{11939,30902,10855}},{{81299,61739,18541},{0,0,0},{31703,49920,65281}},{{90856,30230,93288},{95385,84155,85347},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(3)GreatBarrierReef1.0.scx","3506e6d942f9721dc99495a141f41c5555e8eab5","de0ef11a35683ab676f52f0a6f34b388d41cf400",{{{0,0,0},{64467,60506,20711},{14681,99880,59774}},{{74198,7326,74467},{0,0,0},{4922,18312,78042}},{{53755,89006,77751},{26424,5432,76259},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(3)NeoAztec2.1.scx","19f00ba3a407e3f13fb60bdd2845d8ca2765cf10","dd8978c6b03f26f54915516f6d9e20d37ff5a15b",{{{0,0,0},{31805,36962,5673},{13739,58893,20883}},{{91784,44244,76734},{0,0,0},{16014,76513,47963}},{{83377,19731,58928},{66049,84456,84774},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(3)Pathfinder1.0.scx","b10e73a252d5c693f19829871a01043f0277fd58","be8e87452219c387529d3331f0a699471a0bf7c7",{{{0,0,0},{67486,38931,86002},{33972,32139,38200}},{{42419,39980,26474},{0,0,0},{38047,17545,36976}},{{71082,23689,20802},{84317,63627,86758},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(3)TauCross1.1.scx","9bfc271360fa5bab3707a29e1326b84d0ff58911","85f6d2a51c1437a7e6743402614879e476c54de7",{{{0,0,0},{79321,19925,79931},{57643,89744,29684}},{{84793,20380,7927},{0,0,0},{30942,41118,67250}},{{51017,5732,16364},{97377,55116,751},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(4)Andromeda1.0.scx","1e983eb6bcfa02ef7d75bd572cb59ad3aab49285","297e9cf5f39e8c2a19fe5e271e7cdffec9145e5f",{{{0,0,0},{47899,94104,51842},{14770,32109,63675},{1917,23042,50709}},{{10505,57187,17951},{0,0,0},{96048,4304,74833},{75615,88517,564}},{{21310,77543,33481},{82812,88797,1595},{0,0,0},{32470,95516,56938}},{{78831,30987,16083},{21693,32973,79008},{95387,67894,75953},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(4)ArcadiaII2.02.scx","442e456721c94fd085ecd10230542960d57928d9","83cc5c3944a80915a68190d7b87714d8c0cf8a2f",{{{0,0,0},{48370,74513,36799},{41835,50957,57050},{6177,79727,45968}},{{17326,41485,64313},{0,0,0},{60490,84821,69053},{16372,85960,4807}},{{56137,99393,50319},{73162,55787,63867},{0,0,0},{54030,239,48425}},{{24435,66084,58942},{76574,90680,53932},{1816,70345,10017},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(4)CircuitBreakers1.0.scx","450a792de0e544b51af5de578061cb8a2f020f32","1221d83d6ff9a87955d3083257b31131261bc366",{{{0,0,0},{57927,6863,42742},{10244,93617,91676},{70310,11779,10115}},{{15822,42905,69338},{0,0,0},{80733,42614,98684},{37777,22298,64527}},{{70420,84844,13410},{85466,63837,4629},{0,0,0},{70139,5720,17879}},{{77026,37225,46928},{87055,11673,78979},{33703,45851,13795},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(4)FightingSpirit1.3.scx","5731c103687826de48ba3cc7d6e37e2537b0e902","bf84532dcdd21b3328670d766edc209fa1520149",{{{0,0,0},{97284,75742,48808},{93309,54731,48058},{14677,14998,97341}},{{90565,12359,54587},{0,0,0},{91522,92877,28760},{84891,99023,86845}},{{49896,62216,47305},{61240,77259,23737},{0,0,0},{96443,13483,91104}},{{84603,51791,79756},{96635,52093,22303},{16851,53605,61679},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(4)LunaTheFinal2.3.scx","33527b4ce7662f83485575c4b1fcad5d737dfcf1","215263bd93c8f0ef9d3ecf880c46890cec8d4655",{{{0,0,0},{13071,65527,18434},{5962,12617,70578},{32460,55691,48433}},{{8074,23428,79650},{0,0,0},{5778,89260,83142},{58303,33531,40196}},{{2769,76583,8978},{48830,71293,72371},{0,0,0},{36552,61636,19383}},{{34472,2415,93106},{54243,81712,9255},{97371,89945,33096},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(4)NeoSniperRidge2.0.scx","9e9e6a3372251ac7b0acabcf5d041fbf0b755fdb","b90a29d8dffc603a57b67ec23e1ac24c897d042b",{{{0,0,0},{14031,58057,77853},{15356,61734,49082},{20753,22289,77578}},{{4260,82552,93673},{0,0,0},{55646,98654,15981},{868,1929,83059}},{{70689,619,91195},{10530,82269,47571},{0,0,0},{1326,97333,29112}},{{37205,27774,27041},{99358,32798,60159},{86132,5905,85990},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog/(4)Python1.3.scx","86afe0f744865befb15f65d47865f9216edc37e5","466be924200fc61188f59bdf6ddeb949b42f5091",{{{0,0,0},{69465,33450,12205},{68703,77342,22213},{99001,73178,85807}},{{202,56438,57504},{0,0,0},{94819,27114,90731},{67864,60891,15305}},{{49594,53791,93477},{56397,70257,11716},{0,0,0},{79874,95513,37464}},{{51200,72147,95087},{54521,26252,17764},{14586,99967,97072},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(2)Destination.scx","4e24f217d2fe4dbfa6799bc57f74d8dc939d425b","e39c1c81740a97a733d227e238bd11df734eaf96",{{{0,0,0},{2281,97883,43800}},{{79888,24565,6794},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(2)HeartbreakRidge.scx","6f8da3c3cc8d08d9cf882700efa049280aedca8c","fe25d8b79495870ac1981c2dfee9368f543321e3",{{{0,0,0},{84339,98646,99730}},{{60751,83046,89879},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(2)PolarisRhapsody.scx","614d0048c6cc9dcf08da1409462f22f2ac4f5a0b","ec7259201347b0c718298c2d4205a89d0cd49080",{{{0,0,0},{79981,86826,38302}},{{85375,37794,23066},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(3)Aztec.scx","ba2fc0ed637e4ec91cc70424335b3c13e131b75a","222d038e84c3a0e0cb57e882f6e7cf092b06b150",{{{0,0,0},{91057,28906,32825},{12975,39407,7077}},{{68421,20386,79195},{0,0,0},{40623,59471,17867}},{{40236,68644,73500},{73354,88243,16259},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(3)Longinus2.scx","d16719e736252d77fdbb0d8405f7879f564bfe56","4f1e36312c6b9ac6c482e40cbdacbebdb95bd45e",{{{0,0,0},{59914,20391,99995},{55828,90616,34712}},{{87529,15835,92707},{0,0,0},{60112,7235,71036}},{{32196,418,47674},{50248,16514,38291},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(4)CircuitBreaker.scx","450a792de0e544b51af5de578061cb8a2f020f32","1221d83d6ff9a87955d3083257b31131261bc366",{{{0,0,0},{2768,45356,12679},{41083,70810,80712},{46279,8463,8320}},{{37880,36953,34797},{0,0,0},{17038,44893,54864},{17723,85202,36883}},{{2461,24643,95742},{97282,57185,1592},{0,0,0},{56780,35813,5557}},{{6815,68946,30063},{23091,14726,72449},{32480,96459,50887},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(4)EmpireoftheSun.scm","a220d93efdf05a439b83546a579953c63c863ca7","38b6307d283a5ebc084822a08f932600f7f13588",{{{0,0,0},{81782,42156,18712},{56419,68081,13895},{18188,1466,92915}},{{86311,71020,88630},{0,0,0},{75065,85407,17690},{62099,73939,11797}},{{43814,34191,87707},{96711,59003,360},{0,0,0},{98713,26546,68481}},{{88120,51323,55892},{58493,73672,19285},{53004,29771,2263},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(4)FightingSpirit.scx","d2f5633cc4bb0fca13cd1250729d5530c82c7451","dcabb11c83e68f47c5c5bdbea0204167a00e336f",{{{0,0,0},{68716,88606,19935},{25562,79628,54592},{31701,28802,62529}},{{78454,88899,53546},{0,0,0},{2203,17548,26299},{22719,9229,46430}},{{39563,3253,13416},{97397,84358,63094},{0,0,0},{40502,77268,9814}},{{22158,99215,41325},{99369,73083,1966},{61987,67613,59988},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(4)Python.scx","de2ada75fbc741cfa261ee467bf6416b10f9e301","db1d92e08b7b45abefc6da1cee9a9978c98ac3eb",{{{0,0,0},{72493,4311,81911},{44392,26924,7366},{69365,42328,87307}},{{43632,27668,11154},{0,0,0},{50936,12059,3392},{14696,15003,88071}},{{82704,20283,82688},{49129,74040,71794},{0,0,0},{41281,26829,43688}},{{90850,32328,50882},{876,61373,75030},{85356,67429,90238},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide/(4)Roadkill.scm","5386ec02cc3ee913acc55181896c287ae9d5b5c6","2f55a45d8b9cb7ef86c2f688aeeb3c738406beb9",{{{0,0,0},{29812,21140,77379},{29080,78284,8979},{67851,92482,14853}},{{82727,88343,85139},{0,0,0},{93801,47451,98204},{94437,43565,21384}},{{22536,94682,92997},{59924,96847,41254},{0,0,0},{84884,33829,36872}},{{6072,30507,26277},{12139,79903,10003},{66239,84453,2547},{0,0,0}}}),
+            Maps::MapMetadata("maps/aists4/(2)MatchPoint1.3.scx","0a41f144c6134a2204f3d47d57cf2afcd8430841","7e14d53b944b1365973f2d8768c75358c6b28a8f",{{{0,0,0},{6083,77825,53055}},{{67562,56524,25159},{0,0,0}}}),
+            Maps::MapMetadata("maps/aists4/(2)Overwatch2.1.scx","","2e35819660b50dc5028935a282f3538381f70971",{{{0,0,0},{60653,30598,44372}},{{70333,36301,62900},{0,0,0}}}),
+            Maps::MapMetadata("maps/aists4/(3)Aztec2.1.scx","","fae29a9ae79087bd1c210547214949ef0b02239d",{{{0,0,0},{95883,46518,57603},{59620,20290,89116}},{{69759,75079,92702},{0,0,0},{70901,9974,10108}},{{62570,43866,9832},{59712,23984,736},{0,0,0}}}),
+            Maps::MapMetadata("maps/aists4/(3)Medusa2.2.scx","","ac29a8d0b7898de83216c5d514b2e6e430f1d1ed",{{{0,0,0},{16284,79631,85248},{45528,91833,94418}},{{38147,52456,39237},{0,0,0},{58578,71196,76336}},{{19595,75354,63197},{58301,64394,27800},{0,0,0}}}),
+            Maps::MapMetadata("maps/aists4/(4)CircuitBreakers1.0.scx","","1221d83d6ff9a87955d3083257b31131261bc366",{{{0,0,0},{28779,33447,33761},{86787,51712,42106},{47217,65433,50994}},{{64630,9901,98211},{0,0,0},{10051,62208,28748},{19995,91278,2535}},{{86013,65700,44748},{32102,83422,38032},{0,0,0},{5424,80771,40683}},{{69576,88422,52404},{81102,71681,72457},{61990,23222,43601},{0,0,0}}}),
+            Maps::MapMetadata("maps/aists4/(4)Eddy1.02.scx","","fd7357d0e0273bfe18ff385dd66061ad58c257e7",{{{0,0,0},{75987,17821,5371},{82991,96549,5932},{52054,16976,23356}},{{26605,93805,20979},{0,0,0},{30569,71312,62815},{53871,81524,25627}},{{39666,35423,37274},{13842,75378,18145},{0,0,0},{88214,70918,62533}},{{72315,55119,34915},{4375,93902,63184},{66526,94964,49670},{0,0,0}}}),
+            Maps::MapMetadata("maps/aists4/(4)FightingSpirit.scx","d2f5633cc4bb0fca13cd1250729d5530c82c7451","dcabb11c83e68f47c5c5bdbea0204167a00e336f",{{{0,0,0},{73907,64310,9904},{16002,33344,61302},{25473,19258,66033}},{{79961,17093,93944},{0,0,0},{67187,74313,66592},{82612,41875,43995}},{{64345,28430,91016},{75994,43682,6405},{0,0,0},{49491,82924,63291}},{{83853,53305,87508},{3322,25222,61382},{87638,8194,28854},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog2022/(2)Benzene1.1.SCX","af618ea3ed8a8926ca7b17619eebcb9126f0d8b1","5fba62687ba00c8868fdd64c7869c4005a142772",{{{0,0,0},{46838,70072,22409}},{{32477,92200,3491},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog2022/(2)Eclipse_BW1.16.1.scx","3cf2b26da33b8e798b0e359cd621569b5725124d","8b2b082c6f62574bad7e0deab9f8d4e9679969b0",{{{0,0,0},{46657,66474,10489}},{{16855,80678,64244},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog2022/(2)MatchPoint1.3.scx","0a41f144c6134a2204f3d47d57cf2afcd8430841","7e14d53b944b1365973f2d8768c75358c6b28a8f",{{{0,0,0},{11273,99403,22231}},{{5598,57118,58188},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog2022/(3)NeoAztec2.1.scx","19f00ba3a407e3f13fb60bdd2845d8ca2765cf10","dd8978c6b03f26f54915516f6d9e20d37ff5a15b",{{{0,0,0},{42871,85595,25998},{62849,44127,50806}},{{10047,68847,64122},{0,0,0},{70894,94106,67548}},{{10150,97992,42661},{9571,21704,14544},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog2022/(3)NeoSylphid2.0_BW1.16.1.scx","dbd844012e678b23ca8ef21b3b62008589a554b5","1be2d1d778131323d3a0e7dd2301285c5a9887c9",{{{0,0,0},{56236,67800,87685},{86676,99584,34718}},{{23586,71117,13244},{0,0,0},{57834,88988,53266}},{{27914,11394,22303},{59826,96287,25068},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog2022/(3)OutsiderSE2.2.scx","63a94b3a878c912f2fa5e31700491a60ac3f29d9","99324782b01af58f6b25aea13e2d62aa83564de0",{{{0,0,0},{61415,31171,59877},{37294,80758,57990}},{{21772,21895,462},{0,0,0},{88673,61,96690}},{{81587,25788,47214},{13349,8179,61964},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog2022/(4)CircuitBreakers1.0.scx","450a792de0e544b51af5de578061cb8a2f020f32","1221d83d6ff9a87955d3083257b31131261bc366",{{{0,0,0},{56595,67514,70111},{89520,94870,60647},{74686,58424,13147}},{{17800,91840,63679},{0,0,0},{30113,62775,9637},{3426,29868,4058}},{{30864,7513,24779},{12788,83422,50802},{0,0,0},{38246,10738,40958}},{{84784,38288,94796},{53767,420,34318},{88122,63361,71248},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog2022/(4)FightingSpirit1.3.scx","5731c103687826de48ba3cc7d6e37e2537b0e902","bf84532dcdd21b3328670d766edc209fa1520149",{{{0,0,0},{29054,78019,36319},{94834,8846,59596},{35974,40648,73774}},{{24229,60029,84393},{0,0,0},{15069,32408,47584},{19224,63915,42481}},{{8543,11774,90624},{50355,55793,41344},{0,0,0},{35496,95063,78343}},{{45426,93142,64239},{54992,93902,55138},{88858,77641,27622},{0,0,0}}}),
+            Maps::MapMetadata("maps/cog2022/(4)Polypoid1.65_BW1.16.1.scx","ad870839912421dc3b4fd736a954bf770693ba9a","02aea3ff11d063c9b3608f30c1f4572f23e56f35",{{{0,0,0},{60666,73858,35742},{80715,13876,85621},{97938,23326,74845}},{{47603,96369,74160},{0,0,0},{64176,76125,5201},{68151,2236,49949}},{{72697,27098,36685},{71274,60504,5653},{0,0,0},{69366,39605,17855}},{{18661,27022,44659},{81570,71101,64692},{76270,61827,94508},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)CarthageIII_3.0.scx","fe0a18342c797203d585dc2a3241f3974b765e0b","6ef7d3f9eea962fa4bd19fba55d0782159d9ef75",{{{0,0,0},{50647,51249,90903}},{{56313,9809,14568},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)ChupungRyeong_2.1.scx","f391700c3551e145852822ff95e27edd3173fae6","7a1407bd6c87d9c93282a26299f7e349ea609561",{{{0,0,0},{40339,34103,17677}},{{46176,18492,282},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)Crossing_Field_1.34.scx","97944269ea55365d13c310f46c9337f5e873dc6c","a8fff0bad1956dba03e234744f2e12f7941a8f8a",{{{0,0,0},{92282,53706,19180}},{{52820,43754,64697},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)Destination.scx","4e24f217d2fe4dbfa6799bc57f74d8dc939d425b","e39c1c81740a97a733d227e238bd11df734eaf96",{{{0,0,0},{83177,68741,13889}},{{48559,56332,2716},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)EclipseBW_1.16.1.scx","3cf2b26da33b8e798b0e359cd621569b5725124d","8b2b082c6f62574bad7e0deab9f8d4e9679969b0",{{{0,0,0},{78741,87575,72937}},{{80819,14520,43602},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)HeartbreakRidge.scx","6f8da3c3cc8d08d9cf882700efa049280aedca8c","fe25d8b79495870ac1981c2dfee9368f543321e3",{{{0,0,0},{50643,34501,74361}},{{57065,4392,97526},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)MatchPoint1.3.scx","8b36cbc2df21bc628dd04e623408950638cdcbde","7e14d53b944b1365973f2d8768c75358c6b28a8f",{{{0,0,0},{19030,59002,9736}},{{76848,79434,21562},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)NewBloodyRidge_2.0.scx","30f8396f0399403ddf60fc733ce99f393602575e","e3e8b34714258694688afefb63f137d8ffe317ff",{{{0,0,0},{26506,34193,57616}},{{85178,39304,10479},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)OddEyeIII_3.0.scx","a4689419e88bb865e9003ba55d2913a38f3cf5d2","d4e98c3221a02acd5f3ffbe3f6cee3082b90f447",{{{0,0,0},{17534,20863,73889}},{{34175,39778,71716},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)Overwatch_2.2.scx","630fc57ab58f4ac8a28d2b8dcd1cf524fd1566ec","a938731bc6da0f36bbded042afb6d7ff01a35b34",{{{0,0,0},{55948,84825,98971}},{{83373,50394,28836},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(2)PolarisRhapsody_1.0.scx","614d0048c6cc9dcf08da1409462f22f2ac4f5a0b","ec7259201347b0c718298c2d4205a89d0cd49080",{{{0,0,0},{34351,89377,89498}},{{35209,47552,22126},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(3)Demian_1.0.scx","9b7b1f03fd03baa6e4310cea71fa5eab82e9af5d","8c3e67ba1307812261895c74841713834cb83db5",{{{0,0,0},{94074,14901,68686},{80154,39124,13134}},{{75988,22677,24484},{0,0,0},{77432,33648,79}},{{70788,435,62445},{45724,50278,62256},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(3)Longinus2.scx","d16719e736252d77fdbb0d8405f7879f564bfe56","4f1e36312c6b9ac6c482e40cbdacbebdb95bd45e",{{{0,0,0},{67206,69018,6235},{47047,60227,48995}},{{81010,19157,80421},{0,0,0},{99759,87463,4352}},{{61812,61643,22784},{29163,41310,45413},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(3)NeoAztec_2.0_KeSPA.scx","b20fc580f0743f61d0d4ef1a56054505a5c63217","6d311f3ac1716284ac927298301099bca12807ad",{{{0,0,0},{52098,41278,24787},{46832,83783,91858}},{{51680,155,21790},{0,0,0},{62347,16615,31217}},{{62745,49050,82028},{96613,26545,20034},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(3)NeoMoonGlaive_2.1_KeSPA.scx","ed37fce47d1312e39a3a379c122382790e190cbd","458b17fa6f1abebb645eb64674499d99c74db1a5",{{{0,0,0},{41388,50767,78402},{58037,72887,9666}},{{82816,56237,79364},{0,0,0},{63506,68626,61000}},{{57332,14861,91766},{85911,78742,45387},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(3)NeoSylphid_2.0.scx","dbd844012e678b23ca8ef21b3b62008589a554b5","1be2d1d778131323d3a0e7dd2301285c5a9887c9",{{{0,0,0},{15164,84076,91499},{54321,11021,71506}},{{20066,99695,22231},{0,0,0},{55853,51399,57500}},{{58007,28233,5001},{28408,43578,65460},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(3)PowerBond_1.00.scx","731138b5b844a4a0b4a4bb4e495969fd6659414c","51f8da48894603709c222ff1828338ca9e2f2ddc",{{{0,0,0},{10806,48506,35898},{40117,1282,18901}},{{2302,3596,83677},{0,0,0},{53708,44422,81986}},{{67760,48731,53164},{48108,62411,41899},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)Allegro_1.1.scx","e3a3ff717eacb1af111aab9121004d9c0e88f074","d1d44549d84de433008469bb2cf2584208d6875f",{{{0,0,0},{61611,23373,85672},{4458,40446,97871},{70125,73185,62689}},{{50909,6295,63580},{0,0,0},{56024,68647,36965},{18127,74154,71037}},{{23583,72799,3574},{3411,74037,91513},{0,0,0},{39001,6468,88087}},{{72004,25796,82245},{9870,49929,69733},{53635,48013,40500},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)ArcadiaII_2.02.scx","442e456721c94fd085ecd10230542960d57928d9","83cc5c3944a80915a68190d7b87714d8c0cf8a2f",{{{0,0,0},{49116,78783,89672},{94363,75086,74613},{49033,68160,52306}},{{58963,55683,52298},{0,0,0},{97283,32998,93361},{67114,96746,72553}},{{54715,43887,95984},{99855,88788,98846},{0,0,0},{40801,99042,34433}},{{8338,22933,53793},{99369,18215,80042},{83064,85158,38592},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)Beltway_1.1_KeSPA.scx","7f711be2ca57e8bdae57eec945eeb432c67ca561","791e2cd3e383d3163e32221af15a0a78809af2f3",{{{0,0,0},{86044,63721,68686},{44878,65245,654},{74989,98723,81072}},{{27416,78871,28927},{0,0,0},{58204,99101,1077},{60400,6580,35950}},{{6456,32510,13833},{19962,50769,22687},{0,0,0},{76368,35348,49476}},{{16325,47547,37370},{65778,91915,77492},{68805,26544,63183},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)ByzantiumII_2.3.scx","28062968c363950f15410190a3f06158f84ac944","4eb4db755ab95f3c63f0b8247880468a4142daa5",{{{0,0,0},{30008,1854,92906},{51878,37582,77852},{40042,27295,24874}},{{57170,78387,31811},{0,0,0},{91045,45479,5603},{61436,65723,50707}},{{45521,9261,65089},{58855,46233,65380},{0,0,0},{57947,72173,39415}},{{92371,56521,25802},{95362,83975,97818},{99194,30994,98292},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)CircuitBreaker.scx","450a792de0e544b51af5de578061cb8a2f020f32","1221d83d6ff9a87955d3083257b31131261bc366",{{{0,0,0},{48645,37995,58667},{20073,61698,42272},{30774,95056,59799}},{{79889,12761,23020},{0,0,0},{42704,90314,14536},{77424,42585,83346}},{{40620,20579,13574},{2464,38923,94220},{0,0,0},{55857,84076,88084}},{{81461,36284,62143},{58480,41987,68222},{6676,72017,24768},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)ColosseumII_2.0.scx","bde51d09a2ad733db9e5492354798045db2ced3e","699c33ca1ff8f486d93b288371e57db49a0c403f",{{{0,0,0},{75229,87088,89652},{72215,90888,93952},{45152,70580,23648}},{{30404,80884,99241},{0,0,0},{77249,41790,9166},{55086,49160,69996}},{{37407,81055,32995},{47738,61695,97827},{0,0,0},{17387,18782,1846}},{{19080,47070,71712},{92070,39791,27034},{33241,76699,96773},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)DantesPeakSE_2.0.scx","cb41ae895d66b71bbd54812fdef370f0e235cc38","e230d0a3ca100469ee0565520153e2487cddf44b",{{{0,0,0},{4272,70817,92880},{75239,40168,66876},{98675,59372,21387}},{{29815,72249,28936},{0,0,0},{88478,22194,39773},{91134,18666,39044}},{{1768,83301,3856},{69549,68557,62638},{0,0,0},{42788,18776,43691}},{{45251,84937,5383},{48744,370,3496},{62576,80201,62669},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)Eddy_1.02.scx","3078ee93e4a0c3c2ad22c73ab62ef806d9436c3d","fd7357d0e0273bfe18ff385dd66061ad58c257e7",{{{0,0,0},{39085,786,47582},{79660,33165,63844},{22266,90043,44170}},{{90160,44701,13408},{0,0,0},{53083,28721,32209},{96149,61751,45513}},{{85095,82120,1676},{64456,17354,13888},{0,0,0},{31171,11740,49932}},{{24438,97445,90437},{66097,88247,94791},{14879,51188,44950},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)EyeOfTheStorm_1.0_iCCup.scx","5e0bc3346c201ede3c92d6e970ffd4e8bab8b0cf","e6b66bd7c87cb648ae50954cbe96efb3404b0b84",{{{0,0,0},{98809,62973,81788},{90567,70657,61399},{59828,60112,79558}},{{82989,97043,60533},{0,0,0},{12503,5343,3661},{64063,33067,92287}},{{98230,77821,24477},{47897,13580,29040},{0,0,0},{6927,49168,7836}},{{3621,59102,1096},{63513,96931,61829},{17141,94946,16621},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)FightingSpirit_1.3.scx","d2f5633cc4bb0fca13cd1250729d5530c82c7451","dcabb11c83e68f47c5c5bdbea0204167a00e336f",{{{0,0,0},{27076,71784,92724},{29077,61737,32827},{3610,9211,18615}},{{17507,71594,36992},{0,0,0},{7789,36085,10196},{10438,93252,64047}},{{96355,3555,28735},{4566,985,43799},{0,0,0},{97487,83513,1323}},{{7576,87656,41905},{7879,92981,47863},{18197,90398,85697},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)Gladiator_1.1.scx","798bea3acce68788ff1b32d9d777ba7a12c883a1","b73c9c5415477082301d5fb1d618d7cf4b5dee75",{{{0,0,0},{21786,99878,66596},{54607,81910,33775},{3133,62863,69829}},{{50919,99386,40468},{0,0,0},{23868,31176,40591},{69847,52374,5092}},{{64939,3555,81650},{16572,78860,94975},{0,0,0},{47048,95063,78044}},{{79011,56345,52407},{30965,55304,62445},{97383,58633,65454},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)GodsGarden_1.0_KeSPA.scx","2acb8e8cc2ec9b0911a73f2f29dcce424862dddd","0d592ab56bd5c9230444e48177f150e58fce0a91",{{{0,0,0},{83001,38949,51368},{77514,80099,24780},{26685,90788,66490}},{{18286,87848,47878},{0,0,0},{5029,46418,98476},{38235,66486,10283}},{{59906,48504,20718},{49887,43205,75408},{0,0,0},{17716,38829,47963}},{{44946,33269,22305},{31131,29749,66216},{54224,56060,87515},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)GrandLineSE_2.2_KeSPA.scx","e909d176390f5115e13c449497cc9e52805ac384","0feee33ff49de85c1fbd0f7d621b92de6f1dd7c4",{{{0,0,0},{46386,83023,94995},{33797,19173,67921},{59044,69217,19375}},{{96336,35899,41706},{0,0,0},{70421,48478,7354},{27920,25316,44463}},{{62931,13576,83452},{33321,64589,89105},{0,0,0},{30471,30788,9814}},{{44198,78388,36897},{51964,64393,4998},{93128,13487,8798},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)JudgmentDay_1.2.scx","2f69eaa1a73bb743934d55e7ea12186fe340e656","a19d3ed890c2919c81a9aff55732d3f602a3323e",{{{0,0,0},{93307,81609,79085},{53846,29180,84389},{95976,48118,91573}},{{89349,86818,54768},{0,0,0},{4449,77716,38480},{74688,38855,17409}},{{484,26449,78627},{75233,2039,94999},{0,0,0},{46756,15295,30350}},{{44204,45092,85059},{27928,58037,96304},{56220,22008,39642},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)KatrinaSE_2.0.scx","444b805a88f971c6b2c5f8d2a467de3c1fb2f001","625b16a3a6c861bc6c2f91b709329edb7e8e28aa",{{{0,0,0},{74477,78406,49566},{51666,2798,67365},{38247,52365,57987}},{{96707,12078,97254},{0,0,0},{70116,17071,99714},{69844,64962,32925}},{{30106,12344,95932},{66908,97418,33013},{0,0,0},{5406,10563,33965}},{{56514,34303,38579},{598,61654,15319},{80065,2408,7261},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)La Mancha1.1.scx","39bf400dbb3ee3b5d6710e8ca410c727c4636560","0245980146ac10d7c53ca0ad8727292074777afa",{{{0,0,0},{49119,89355,98945},{3510,989,22799},{39280,13011,89305}},{{32378,47259,48240},{0,0,0},{81488,12635,52032},{23202,56157,55242}},{{39669,30897,23749},{2483,30710,41338},{0,0,0},{85928,39605,81538}},{{14119,96007,3488},{16094,32032,1033},{35678,85389,38595},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)Largo_1.5.scx","4176c3dd9e8cd11d3da1323b4c17e059d06a8fed","c0d75db0e7a4e7e361107c351c5db28a4b0a9747",{{{0,0,0},{87549,60219,28574},{49698,51706,32519},{46754,83043,16343}},{{23099,9140,42101},{0,0,0},{12210,91827,2641},{77145,14817,90058}},{{39080,26177,66419},{30873,44895,48522},{0,0,0},{74856,66947,66802}},{{2557,13947,53171},{65030,46021,91309},{35977,73389,34035},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)NeoGroundZero_2.0_KeSPA.scx","29f2c1ccb2f7dbee81d1c2387289471cdcb83cd9","14026acfa83a425a45a8963025fd6f380434b463",{{{0,0,0},{66249,60793,88168},{15045,98162,23171},{18944,59192,21359}},{{52437,2608,15206},{0,0,0},{91029,92576,81180},{50836,33842,79090}},{{21032,62312,63372},{38153,58997,99719},{0,0,0},{43265,39137,35188}},{{6815,44056,67738},{45716,7423,22309},{32202,34766,65940},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)NeoJade_2.0_KeSPA.scx","64e53c70a4036b42f6480f0fc9530b38789159c4","8830540dde8e14699fd253118bfe42c4a61adff6",{{{0,0,0},{43345,86347,39710},{80715,12533,70665},{22426,73474,71224}},{{87534,14795,23927},{0,0,0},{1067,47454,98210},{33217,91552,29709}},{{95292,20210,67168},{51107,55784,91669},{0,0,0},{66633,77271,28073}},{{8630,49829,98761},{37959,87652,28097},{81572,16410,39627},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)NewEmpireOfTheSun_2.0.scm","2237701cb9bfaa2600d4aa4bcdc6449a199c81cf","8e430a8dbab4291cff6e61595b47ddeb1d2e1d3d",{{{0,0,0},{77992,85764,6597},{7955,7333,11153},{99467,3732,86856}},{{75132,11598,42005},{0,0,0},{23769,12062,39715},{24418,78490,84565}},{{81022,40454,76927},{56403,44424,25141},{0,0,0},{98248,65441,1604}},{{27174,93265,86746},{80069,4385,79284},{63784,85694,28857},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)NewSniperRidge_2.0_KeSPA.scx","9e9e6a3372251ac7b0acabcf5d041fbf0b755fdb","b90a29d8dffc603a57b67ec23e1ac24c897d042b",{{{0,0,0},{4173,17824,35739},{41086,22654,47300},{87917,61187,86105}},{{11266,44535,17389},{0,0,0},{38610,29391,15706},{38537,49339,56942}},{{89522,16904,34979},{76951,86357,20434},{0,0,0},{92919,34572,34424}},{{95114,57399,71712},{51205,83703,14551},{63047,29466,26115},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)NewWindAndCloud_2.2.scm","e72a0a853545b77b39229a8c11d5c5624c09242b","83e5d630a9b6a30e87f6ca823e4410dd1c890e5b",{{{0,0,0},{78919,81791,46256},{90471,30415,63675},{46273,86243,61478}},{{18005,55490,27505},{0,0,0},{75134,94680,93457},{37771,28800,15895}},{{82251,75834,71616},{12680,27397,76909},{0,0,0},{14389,21518,69242}},{{38443,22009,15491},{51481,3467,30078},{98150,20501,56957},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)Overwatch_1.3.scx","75ded6b606db6546c46789a42c11cebe58cdab4b","e5c54bc32a78b95ad68af72fbb926242c4b0b805",{{{0,0,0},{46670,3070,29048},{11557,20574,13991},{69385,54943,42188}},{{93513,50949,68870},{0,0,0},{90761,77719,11720},{10882,58439,64054}},{{3244,44977,13900},{35411,22859,74653},{0,0,0},{10134,22291,81556}},{{33879,25800,52691},{14862,3931,80967},{53484,86446,35376},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)PamirPlateau_1.2.scm","75ded6b606db6546c46789a42c11cebe58cdab4b","34220e533215969a644bbc09dc192a1da3cb6b23",{{{0,0,0},{63426,91372,57142},{53846,21730,80989},{34268,69703,85810}},{{70685,62218,51559},{0,0,0},{4178,91642,40020},{32931,86534,43695}},{{99828,89081,71136},{34082,69034,71721},{0,0,0},{1160,73177,23647}},{{79587,47544,47375},{65483,71403,53174},{8637,52086,86292},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)Polypoid_1.65.scx","ad870839912421dc3b4fd736a954bf770693ba9a","02aea3ff11d063c9b3608f30c1f4572f23e56f35",{{{0,0,0},{30869,37998,73112},{73447,71028,5385},{30479,15274,35186}},{{91046,20104,25998},{0,0,0},{81756,89846,14175},{15736,65720,60738}},{{68530,3077,9733},{89235,14322,44282},{0,0,0},{83957,22270,64508}},{{13361,5152,39640},{70044,43279,78518},{75799,74890,27320},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)Python.scx","de2ada75fbc741cfa261ee467bf6416b10f9e301","db1d92e08b7b45abefc6da1cee9a9978c98ac3eb",{{{0,0,0},{90864,71485,84958},{12321,86618,61876},{95675,21514,26388}},{{74190,63818,40945},{0,0,0},{63974,31758,17216},{51287,78027,85049}},{{80249,73850,14944},{94718,23879,15506},{0,0,0},{20464,23792,84582}},{{48452,84158,80223},{9841,76878,42365},{47705,78393,3009},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)Roadkill.scm","5386ec02cc3ee913acc55181896c287ae9d5b5c6","2f55a45d8b9cb7ef86c2f688aeeb3c738406beb9",{{{0,0,0},{59630,14512,89225},{31816,26921,70104},{46754,21812,46456}},{{49991,76787,25448},{0,0,0},{2472,11107,88644},{83373,97501,25627}},{{6719,11128,70864},{78561,84080,50337},{0,0,0},{52816,93538,40200}},{{50723,25965,22305},{71075,25509,55913},{89329,55764,73516},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2023/(4)VermeerSE_2.1.scm","90b6f33ba4f24a67ee875c18cc4a52ee490ce26a)","0a306408d42d64cdef654b36286903b411246714",{{{0,0,0},{53681,93452,21644},{5020,99690,78323},{84716,55694,52984}},{{8424,53228,37542},{0,0,0},{43064,97313,31967},{6175,1931,79574}},{{63421,17173,28267},{81010,26337,43984},{0,0,0},{72588,63451,9835}},{{64547,1663,13800},{19126,48304,4994},{12134,77632,90253},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(2)EclipseBW_1.16.1.scx","3cf2b26da33b8e798b0e359cd621569b5725124d","8b2b082c6f62574bad7e0deab9f8d4e9679969b0",{{{0,0,0},{47421,76311,80124}},{{72121,70635,58639},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(2)MatchPoint1.3.scx","8b36cbc2df21bc628dd04e623408950638cdcbde","7e14d53b944b1365973f2d8768c75358c6b28a8f",{{{0,0,0},{18850,36652,65949}},{{60290,96758,34610},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(2)PolarisRhapsody_1.0.scx","614d0048c6cc9dcf08da1409462f22f2ac4f5a0b","ec7259201347b0c718298c2d4205a89d0cd49080",{{{0,0,0},{37285,13383,79383}},{{17721,40549,39167},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(3)NeoSylphid_2.0.scx","dbd844012e678b23ca8ef21b3b62008589a554b5","1be2d1d778131323d3a0e7dd2301285c5a9887c9",{{{0,0,0},{67770,18699,20245},{14669,94751,17694}},{{47610,56995,63855},{0,0,0},{68614,21056,31220}},{{71840,6680,13522},{80075,87666,8965},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(3)PowerBond_1.00.scx","731138b5b844a4a0b4a4bb4e495969fd6659414c","51f8da48894603709c222ff1828338ca9e2f2ddc",{{{0,0,0},{23108,56251,18436},{8149,40932,16643}},{{37093,14133,19018},{0,0,0},{78187,93532,95350}},{{72308,80668,42193},{20937,94185,89599},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(4)ArcadiaII_2.02.scx","442e456721c94fd085ecd10230542960d57928d9","83cc5c3944a80915a68190d7b87714d8c0cf8a2f",{{{0,0,0},{23117,63999,2738},{73549,7813,78426},{1632,38369,22885}},{{95587,18389,62619},{0,0,0},{6086,96951,66867},{26975,72438,91860}},{{36830,81336,57034},{27729,52176,67630},{0,0,0},{57831,39306,43410}},{{84606,89932,91293},{15171,97215,95844},{18659,26719,48897},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(4)Gladiator_1.1.scx","798bea3acce68788ff1b32d9d777ba7a12c883a1","b73c9c5415477082301d5fb1d618d7cf4b5dee75",{{{0,0,0},{11453,65252,87691},{36620,53227,57135},{54041,71970,78330}},{{38040,16616,39544},{0,0,0},{78450,8275,65097},{99476,67238,46444}},{{96355,13589,91022},{24535,88033,834},{0,0,0},{14223,71951,34439}},{{88580,95709,2548},{44189,41778,61958},{71553,16697,55148},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(4)Polypoid_1.65.scx","ad870839912421dc3b4fd736a954bf770693ba9a","02aea3ff11d063c9b3608f30c1f4572f23e56f35",{{{0,0,0},{74779,53521,54853},{69663,32420,23720},{49788,72711,32442}},{{64177,46993,65654},{0,0,0},{7212,45195,87590},{54050,1455,79262}},{{98982,52459,87994},{59447,94105,58834},{0,0,0},{80638,50847,68031}},{{10909,60612,30361},{8641,51043,75501},{33884,90697,99052},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(4)Roadkill.scm","5386ec02cc3ee913acc55181896c287ae9d5b5c6","2f55a45d8b9cb7ef86c2f688aeeb3c738406beb9",{{{0,0,0},{3526,52187,69356},{7203,18128,21474},{21508,94283,40380}},{{94838,11108,78152},{0,0,0},{25293,64010,54589},{75443,96293,93080}},{{14307,85294,15865},{44690,3364,14171},{0,0,0},{53290,76984,38403}},{{24434,55576,93748},{22925,98743,99064},{87056,97682,18068},{0,0,0}}}),
+            Maps::MapMetadata("maps/aiide2024/(4)VermeerSE_2.1.scm","90b6f33ba4f24a67ee875c18cc4a52ee490ce26a)","0a306408d42d64cdef654b36286903b411246714",{{{0,0,0},{492,15568,94880},{41838,5346,87874},{22426,88512,69528}},{{75241,25687,61393},{0,0,0},{47904,47560,85712},{15152,59191,8299}},{{64921,37437,47000},{47320,49235,55337},{0,0,0},{14386,30326,45675}},{{97091,79149,63490},{19120,46309,45879},{12889,72613,41916},{0,0,0}}})
     };
 }
 
@@ -476,7 +131,7 @@ namespace Maps
         for (auto &map : maps)
         {
             if (!search.empty() && map.filename.find(search) == std::string::npos) continue;
-            if (players > 0 && map.startLocationSeeds.size() != players) continue;
+            if (players > 0 && map.players != players) continue;
 
             result.push_back(map);
         }
@@ -517,20 +172,119 @@ namespace Maps
     {
         for (const auto &map : maps)
         {
-            for (auto seed : map.startLocationSeeds)
+            for (int i = 0; i < map.seeds.size(); i++)
             {
+                std::vector<int> possibleSeeds;
+                for (int j = 0; j < map.seeds[i].size(); j++)
+                {
+                    if (i == j) continue;
+
+                    for (auto seed : map.seeds[i][j])
+                    {
+                        possibleSeeds.emplace_back(seed);
+                    }
+                }
+
+                std::random_device rd;
+                auto rng = std::default_random_engine(rd());
+                std::shuffle(std::begin(possibleSeeds), std::end(possibleSeeds), rng);
+
                 BWTest test;
                 test.map = std::make_shared<MapMetadata>(map);
-                test.randomSeed = seed;
+                test.randomSeed = possibleSeeds[0];
 
                 std::ostringstream replayName;
                 replayName << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
                 replayName << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
                 replayName << "_" << test.map->shortname();
+                replayName << "_sl" << i;
                 replayName << "_" << test.randomSeed;
                 test.replayName = replayName.str();
 
                 runner(test);
+            }
+        }
+    }
+
+    void RunOnEachStartLocationPair(const std::vector<MapMetadata> &maps, const std::function<void(BWTest)> &runner)
+    {
+        for (const auto &map : maps)
+        {
+            for (int i = 0; i < map.seeds.size(); i++)
+            {
+                for (int j = 0; j < map.seeds[i].size(); j++)
+                {
+                    if (i == j) continue;
+
+                    std::vector<int> possibleSeeds;
+                    for (auto seed : map.seeds[i][j])
+                    {
+                        possibleSeeds.emplace_back(seed);
+                    }
+
+                    std::random_device rd;
+                    auto rng = std::default_random_engine(rd());
+                    std::shuffle(std::begin(possibleSeeds), std::end(possibleSeeds), rng);
+
+                    BWTest test;
+                    test.map = std::make_shared<MapMetadata>(map);
+                    test.randomSeed = possibleSeeds[0];
+
+                    std::ostringstream replayName;
+                    replayName << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
+                    replayName << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
+                    replayName << "_" << test.map->shortname();
+                    replayName << "_sl" << i;
+                    replayName << "_esl" << j;
+                    replayName << "_" << test.randomSeed;
+                    test.replayName = replayName.str();
+
+                    runner(test);
+                }
+            }
+        }
+    }
+
+    void RunOnEachStartLocationPairAndRandomRace(const std::vector<MapMetadata> &maps, const std::function<void(BWTest)> &runner)
+    {
+        for (const auto &map : maps)
+        {
+            for (int i = 0; i < map.seeds.size(); i++)
+            {
+                for (int j = 0; j < map.seeds[i].size(); j++)
+                {
+                    if (i == j) continue;
+
+                    for (int k = 0; k < 3; k++)
+                    {
+                        BWTest test;
+                        test.map = std::make_shared<MapMetadata>(map);
+                        test.randomSeed = map.seeds[i][j][k];
+
+                        std::ostringstream replayName;
+                        replayName << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
+                        replayName << "_" << ::testing::UnitTest::GetInstance()->current_test_info()->name();
+                        replayName << "_" << test.map->shortname();
+                        replayName << "_sl" << i;
+                        replayName << "_esl" << j;
+                        if (k == 0)
+                        {
+                            replayName << "_VsZerg";
+                        }
+                        else if (k == 1)
+                        {
+                            replayName << "_VsTerran";
+                        }
+                        else
+                        {
+                            replayName << "_VsProtoss";
+                        }
+                        replayName << "_" << test.randomSeed;
+                        test.replayName = replayName.str();
+
+                        runner(test);
+                    }
+                }
             }
         }
     }
