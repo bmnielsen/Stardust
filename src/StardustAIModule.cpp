@@ -75,7 +75,6 @@ void StardustAIModule::onStart()
     Builder::initialize();
     Opponent::initialize();
     General::initialize();
-    Units::initialize();
     Workers::initialize();
     Bullets::initialize();
     Players::initialize();
@@ -92,6 +91,9 @@ void StardustAIModule::onStart()
     }
 
     Timer::start("Startup");
+
+    Units::initialize();
+    Timer::checkpoint("Units::initialize");
 
     Map::initialize();
     Timer::checkpoint("Map::initialize");

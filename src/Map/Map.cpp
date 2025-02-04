@@ -12,8 +12,10 @@
 #include "MapSpecificOverrides/JudgmentDay.h"
 #include "MapSpecificOverrides/Katrina.h"
 #include "MapSpecificOverrides/MatchPoint.h"
+#include "MapSpecificOverrides/NeoSylphid.h"
 #include "MapSpecificOverrides/Outsider.h"
 #include "MapSpecificOverrides/Plasma.h"
+#include "MapSpecificOverrides/Roadkill.h"
 
 #include "StartingLocation.h"
 #include "Units.h"
@@ -1009,6 +1011,18 @@ namespace Map
         {
             Log::Get() << "Using map-specific override for Katrina";
             _mapSpecificOverride = new Katrina();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "5386ec02cc3ee913acc55181896c287ae9d5b5c6" ||
+                 BWAPI::Broodwar->mapHash() == "2f55a45d8b9cb7ef86c2f688aeeb3c738406beb9")
+        {
+            Log::Get() << "Using map-specific override for Roadkill";
+            _mapSpecificOverride = new Roadkill();
+        }
+        else if (BWAPI::Broodwar->mapHash() == "dbd844012e678b23ca8ef21b3b62008589a554b5" ||
+                 BWAPI::Broodwar->mapHash() == "1be2d1d778131323d3a0e7dd2301285c5a9887c9")
+        {
+            Log::Get() << "Using map-specific override for Neo Sylphid";
+            _mapSpecificOverride = new NeoSylphid();
         }
         else
         {

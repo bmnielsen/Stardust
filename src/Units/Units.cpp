@@ -766,8 +766,7 @@ namespace Units
 
         // If this is the first frame, set the order process index for our initial units
         // They are always initialized in this order: depot, leftmost worker to rightmost worker
-        // If this is a map that moves the initial worker position, we set the order process index to -1 to indicate we don't know the order
-        // (if these kinds of maps become common in bot play, a map-specific override can be developed to fix this)
+        // If this is a map that moves the initial worker position, we set the order process indices to the same value since we don't know the order
         if (currentFrame == 0)
         {
             bool nonstandardMap = false;

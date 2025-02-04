@@ -69,4 +69,15 @@ public:
     virtual void modifyStartingLocation(std::unique_ptr<StartingLocation> &startingLocation) {}
 
     virtual Base *naturalForWallPlacement(Base *main) { return nullptr; }
+
+    virtual std::vector<BWAPI::Position> startingWorkerPositions(BWAPI::TilePosition startPosition)
+    {
+        auto pos = BWAPI::Position(startPosition);
+        return {
+            pos + BWAPI::Position(16,104),
+            pos + BWAPI::Position(40,104),
+            pos + BWAPI::Position(64,104),
+            pos + BWAPI::Position(88,104)
+        };
+    }
 };
