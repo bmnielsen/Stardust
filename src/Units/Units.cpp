@@ -766,53 +766,34 @@ namespace Units
 
         // If this is the first frame, set the order process index for our initial units
         // They are always initialized in this order: depot, leftmost worker to rightmost worker
-        // If this is a map that moves the initial worker position, we set the order process indices to the same value since we don't know the order
+        // Some maps use tricks to move the starting workers. If we have a map-specific override, we use this to get the expected locations,
+        // otherwise we set the order process indices to the same value since we don't know which comes first.
         if (currentFrame == 0)
         {
-            bool nonstandardMap = false;
-
-            // First scan to get the leftmost worker's X position
-            int leftmostX = INT_MAX;
-            for (auto &unit : myUnits)
-            {
-                if (unit->type.isWorker() && unit->lastPosition.x < leftmostX) leftmostX = unit->lastPosition.x;
-            }
-
-            // Now assign the index based on the position
+            auto expectedWorkerPositions = Map::mapSpecificOverride()->startingWorkerPositions(BWAPI::Broodwar->self()->getStartLocation());
+            int countFound = 0;
             for (auto &unit : myUnits)
             {
                 if (unit->type.isResourceDepot())
                 {
                     unit->orderProcessIndex = 0;
                 }
-                else if (unit->type.isWorker())
+                if (!unit->type.isWorker()) continue;
+
+                for (int i = 0; i < expectedWorkerPositions.size(); i++)
                 {
-                    int offset = unit->lastPosition.x - leftmostX;
-                    if (offset == 0)
+                    if (unit->lastPosition == expectedWorkerPositions[i])
                     {
-                        unit->orderProcessIndex = 1;
-                    }
-                    else if (offset == 24)
-                    {
-                        unit->orderProcessIndex = 2;
-                    }
-                    else if (offset == 48)
-                    {
-                        unit->orderProcessIndex = 3;
-                    }
-                    else if (offset == 72)
-                    {
-                        unit->orderProcessIndex = 4;
-                    }
-                    else
-                    {
-                        nonstandardMap = true;
+                        unit->orderProcessIndex = i + 1;
+                        countFound++;
+                        break;
                     }
                 }
             }
 
-            if (nonstandardMap)
+            if (countFound != 4)
             {
+                Log::Get() << "WARNING: Could not determine order process index of all starting workers";
                 for (auto &unit : myUnits)
                 {
                     if (unit->type.isWorker()) unit->orderProcessIndex = 1;
