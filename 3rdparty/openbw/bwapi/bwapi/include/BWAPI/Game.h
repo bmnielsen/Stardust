@@ -77,6 +77,10 @@ namespace BWAPI
     /// @returns Unitset containing all known units in the game.
     virtual const Unitset& getAllUnits() const = 0;
 
+    // Helper to allow us to access the visible units list in tests
+    // Only implemented in OpenBW
+    virtual std::vector<Unit> getVisibleUnits() = 0;
+
     /// <summary>Retrieves the set of all accessible @minerals in the game.</summary>
     ///
     /// @returns Unitset containing @minerals

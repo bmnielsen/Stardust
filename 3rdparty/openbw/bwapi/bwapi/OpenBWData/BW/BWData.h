@@ -234,6 +234,7 @@ struct Game {
   u8 bExploredFlags(int tile_x, int tile_y) const;
 
   Unit getUnit(size_t index) const;
+  std::vector<Unit> getVisibleUnits() const;
   Bullet getBullet(size_t index) const;
 
   bool triggersCanAllowGameplayForPlayer(int player) const;

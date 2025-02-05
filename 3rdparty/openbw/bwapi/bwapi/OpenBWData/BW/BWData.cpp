@@ -1259,6 +1259,16 @@ Unit Game::getUnit(size_t index) const
   return {impl->funcs.get_unit(index), impl};
 }
 
+std::vector<Unit> Game::getVisibleUnits() const
+{
+  std::vector<Unit> result;
+  for (auto &unit : impl->st.visible_units)
+  {
+    result.emplace_back(Unit{&unit, impl});
+  }
+  return result;
+}
+
 Bullet Game::getBullet(size_t index) const
 {
   return {impl->funcs.st.bullets_container.try_get(index), impl};

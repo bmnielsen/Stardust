@@ -80,6 +80,7 @@ namespace BWAPI
       virtual const Forceset&   getForces() const override;
       virtual const Playerset&  getPlayers() const override;
       virtual const Unitset&    getAllUnits() const override;
+      virtual std::vector<Unit> getVisibleUnits() override;
       virtual const Unitset&    getMinerals() const override;
       virtual const Unitset&    getGeysers() const override;
       virtual const Unitset&    getNeutralUnits() const override;

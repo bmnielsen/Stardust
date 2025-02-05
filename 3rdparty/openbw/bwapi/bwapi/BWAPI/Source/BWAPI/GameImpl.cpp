@@ -35,6 +35,21 @@
 
 namespace BWAPI
 {
+  std::vector<Unit> GameImpl::getVisibleUnits()
+  {
+    std::vector<Unit> result;
+    for (auto &bwUnit : bwgame.getVisibleUnits())
+    {
+      UnitImpl* u = getUnitFromBWUnit(bwUnit);
+      if (u)
+      {
+        u->updateInternalData();
+        result.emplace_back(u);
+      }
+    }
+    return result;
+  }
+
   //----------------------------------------------------------------------------------------------------------
   Force GameImpl::getForce(int forceID) const
   {
