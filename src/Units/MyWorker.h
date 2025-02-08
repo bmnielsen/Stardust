@@ -13,6 +13,10 @@ public:
     int lastCarryingResourceChange;     // Frame when the unit last acquired or delivered a resource
     int lastStartedMining;              // Frame when the unit last started mining
 
+    // Where the worker spawned, if it spawned normally
+    // If it appeared because of a trigger (e.g. in a test), it will be Positions::Invalid
+    BWAPI::Position spawnPosition;
+
     int8_t horizontalSpeed8b;    // 8-bit integer representation of the unit's speed on the X axis
     int8_t verticalSpeed8b;      // 8-bit integer representation of the unit's speed on the Y axis
     uint8_t heading8b;           // 8-bit integer representation of the unit's heading

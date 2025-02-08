@@ -768,6 +768,7 @@ namespace Units
         // They are always initialized in this order: depot, leftmost worker to rightmost worker
         // Some maps use tricks to move the starting workers. If we have a map-specific override, we use this to get the expected locations,
         // otherwise we set the order process indices to the same value since we don't know which comes first.
+        // We also set the spawn position on the workers
         if (currentFrame == 0)
         {
             auto expectedWorkerPositions = Map::mapSpecificOverride()->startingWorkerPositions(BWAPI::Broodwar->self()->getStartLocation());
@@ -779,6 +780,9 @@ namespace Units
                     unit->orderProcessIndex = 0;
                 }
                 if (!unit->type.isWorker()) continue;
+
+                auto myWorker = std::static_pointer_cast<MyWorkerImpl>(unit);
+                myWorker->spawnPosition = unit->lastPosition;
 
                 for (int i = 0; i < expectedWorkerPositions.size(); i++)
                 {

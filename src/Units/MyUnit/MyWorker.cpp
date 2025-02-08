@@ -60,6 +60,7 @@ MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
         , carryingResource(unit->isCarryingMinerals() || unit->isCarryingGas())
         , lastCarryingResourceChange(-1)
         , lastStartedMining(-1)
+        , spawnPosition(BWAPI::Positions::Invalid)
         , horizontalSpeed8b(to8bSpeed(unit->getVelocityX()))
         , verticalSpeed8b(to8bSpeed(unit->getVelocityY()))
         , heading8b(to8bHeading(unit->getAngle()))
@@ -73,6 +74,11 @@ MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
 void MyWorkerImpl::update(BWAPI::Unit unit)
 {
     if (!unit || !unit->exists()) return;
+
+    if (!completed && unit->isCompleted())
+    {
+        spawnPosition = unit->getPosition();
+    }
 
     MyUnitImpl::update(unit);
 
