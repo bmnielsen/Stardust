@@ -106,7 +106,7 @@ public:
                 blockTile + BWAPI::TilePosition(11, 4)
         };
 
-        if (placeStartBlock(usedTiles, borderTiles, tileAvailability))
+        if (placeStartBlock(tile, usedTiles, borderTiles, tileAvailability))
         {
             return std::make_shared<StartTopLeftHorizontal>(blockTile, blockTile + BWAPI::TilePosition(5, 4));
         }

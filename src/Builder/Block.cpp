@@ -113,15 +113,16 @@ bool Block::place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvail
     return true;
 }
 
-bool Block::placeStartBlock(std::vector<BWAPI::TilePosition> &usedTiles,
+bool Block::placeStartBlock(BWAPI::TilePosition startPosition,
+                            std::vector<BWAPI::TilePosition> &usedTiles,
                             std::vector<BWAPI::TilePosition> &borderTiles,
                             std::vector<unsigned int> &tileAvailability) const
 {
     // Tiles around the start position are not checked for availability
     std::set<BWAPI::TilePosition> ignoreAvailability;
-    for (int tileX = BWAPI::Broodwar->self()->getStartLocation().x - 2; tileX <= BWAPI::Broodwar->self()->getStartLocation().x + 5; tileX++)
+    for (int tileX = startPosition.x - 2; tileX <= startPosition.x + 5; tileX++)
     {
-        for (int tileY = BWAPI::Broodwar->self()->getStartLocation().y - 2; tileY <= BWAPI::Broodwar->self()->getStartLocation().y + 4; tileY++)
+        for (int tileY = startPosition.y - 2; tileY <= startPosition.y + 4; tileY++)
         {
             if (tileX < 0 || tileY < 0 || tileX >= BWAPI::Broodwar->mapWidth() || tileY >= BWAPI::Broodwar->mapHeight()) continue;
             ignoreAvailability.insert(BWAPI::TilePosition(tileX, tileY));

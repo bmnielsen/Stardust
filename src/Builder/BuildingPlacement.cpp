@@ -66,6 +66,7 @@ namespace BuildingPlacement
         std::vector<unsigned int> tileAvailability;
 
         std::shared_ptr<Block> startBlock;
+        std::map<Base *, std::shared_ptr<Block>> baseToStartBlock;
         std::vector<std::shared_ptr<Block>> blocks;
         std::map<Base *, BaseStaticDefenseLocations> baseStaticDefenses;
         BaseStaticDefenseLocations emptyBaseStaticDefenses = {
@@ -313,7 +314,7 @@ namespace BuildingPlacement
             baseStaticDefenses.emplace(base, BaseStaticDefenseLocations{powerPylon, std::move(workerDefenseCannons), startBlockCannon});
         }
 
-        void findStartBlock(BWAPI::TilePosition startLocation)
+        void findStartBlock(Base *base)
         {
             std::vector<std::shared_ptr<Block>> startBlocks = {
                     std::make_shared<StartNormalLeft>(BWAPI::TilePositions::Invalid, BWAPI::TilePositions::Invalid),
@@ -330,10 +331,11 @@ namespace BuildingPlacement
 
             for (const auto &blockType : startBlocks)
             {
-                auto block = blockType->tryCreate(startLocation, tileAvailability);
+                auto block = blockType->tryCreate(base->getTilePosition(), tileAvailability);
                 if (block)
                 {
-                    if (startLocation == BWAPI::Broodwar->self()->getStartLocation()) startBlock = block;
+                    if (base == Map::getMyMain()) startBlock = block;
+                    baseToStartBlock[base] = block;
                     blocks.push_back(block);
 
                     // Check if this start block has a location for a defensive cannon
@@ -345,12 +347,12 @@ namespace BuildingPlacement
                         break;
                     }
 
-                    addBaseStaticDefense(Map::getMyMain(), block->powerPylon, block->cannons, cannon);
+                    addBaseStaticDefense(base, block->powerPylon, block->cannons, cannon);
                     return;
                 }
             }
 
-            Log::Get() << "WARNING: No start block available for " << startLocation;
+            Log::Get() << "WARNING: No start block available for " << base->getTilePosition();
         }
 
         void findBaseStaticDefenses()
@@ -1105,6 +1107,7 @@ namespace BuildingPlacement
         areaExits.clear();
         tileAvailability.clear();
         startBlock = nullptr;
+        baseToStartBlock.clear();
         blocks.clear();
         baseStaticDefenses.clear();
         chokeCannonBlock = nullptr;
@@ -1119,14 +1122,14 @@ namespace BuildingPlacement
         updateNeighbourhoods();
         if (useStartBlocksForAllStartingLocations)
         {
-            for (const auto &startLocation : BWAPI::Broodwar->getStartLocations())
+            for (auto &base : Map::allStartingLocations())
             {
-                findStartBlock(startLocation);
+                findStartBlock(base);
             }
         }
         else
         {
-            findStartBlock(BWAPI::Broodwar->self()->getStartLocation());
+            findStartBlock(Map::getMyMain());
         }
         findBaseStaticDefenses();
         findBlocks();
@@ -1412,5 +1415,12 @@ namespace BuildingPlacement
     void setUseStartBlocksForAllStartingLocations(bool value)
     {
         useStartBlocksForAllStartingLocations = value;
+    }
+
+    std::shared_ptr<Block> startBlockForBase(Base *base)
+    {
+        auto it = baseToStartBlock.find(base);
+        if (it == baseToStartBlock.end()) return nullptr;
+        return it->second;
     }
 }

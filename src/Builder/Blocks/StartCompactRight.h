@@ -101,7 +101,7 @@ public:
                 blockTile + BWAPI::TilePosition(-1, 4)
         };
 
-        if (placeStartBlock(usedTiles, borderTiles, tileAvailability))
+        if (placeStartBlock(tile, usedTiles, borderTiles, tileAvailability))
         {
             return std::make_shared<StartCompactRight>(blockTile, blockTile + BWAPI::TilePosition(3, 2));
         }

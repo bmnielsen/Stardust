@@ -108,4 +108,6 @@ namespace BuildingPlacement
     ForgeGatewayWall &getForgeGatewayWall();
 
     void setUseStartBlocksForAllStartingLocations(bool value);
+
+    std::shared_ptr<Block> startBlockForBase(Base *base);
 }
