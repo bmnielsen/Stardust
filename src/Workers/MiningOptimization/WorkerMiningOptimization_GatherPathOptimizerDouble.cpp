@@ -645,9 +645,7 @@ namespace WorkerMiningOptimization
         if (!resentPosition)
         {
 #if TAKEOVER_DEBUG
-            CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path; expected " << workerStatus.expectedPath.front()
-                                                    << "; actual " << *currentPosition
-                                                    << "; replanning";
+            CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path; replanning";
 #endif
 
             workerStatus.resendsPlanned = false;
