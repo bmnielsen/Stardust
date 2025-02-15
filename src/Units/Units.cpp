@@ -46,6 +46,10 @@ namespace Units
 {
     namespace
     {
+#if LOGGING_ENABLED
+        bool logUnitsCreatedAndLost = true;
+#endif
+
         std::map<BWAPI::TilePosition, Resource> tileToResource;
 
         std::unordered_set<MyUnit> myUnits;
@@ -221,12 +225,12 @@ namespace Units
 
             if (unit->player == BWAPI::Broodwar->self())
             {
-                Log::Get() << "Unit created: " << *unit;
+                if (logUnitsCreatedAndLost) Log::Get() << "Unit created: " << *unit;
             }
 
             if (unit->player == BWAPI::Broodwar->enemy() && unit->type.isBuilding())
             {
-                Log::Get() << "Enemy discovered: " << *unit;
+                if (logUnitsCreatedAndLost) Log::Get() << "Enemy discovered: " << *unit;
             }
         }
 
@@ -254,7 +258,7 @@ namespace Units
 
         void myUnitDestroyed(const MyUnit &unit)
         {
-            Log::Get() << "Unit lost: " << *unit;
+            if (logUnitsCreatedAndLost) Log::Get() << "Unit lost: " << *unit;
 
             unitDestroyed(unit);
 
@@ -272,7 +276,7 @@ namespace Units
 #if LOGGING_ENABLED
             if (unit->type.isBuilding() && !morphed)
             {
-                Log::Get() << "Enemy destroyed: " << *unit;
+                if (logUnitsCreatedAndLost) Log::Get() << "Enemy destroyed: " << *unit;
             }
 #endif
 
@@ -1484,4 +1488,11 @@ namespace Units
 
         return upgradesInProgress.contains(type.upgradeType);
     }
+
+#if LOGGING_ENABLED
+    void setLogUnitsCreatedAndLost(bool newValue)
+    {
+        logUnitsCreatedAndLost = newValue;
+    }
+#endif
 }

@@ -1176,5 +1176,9 @@ namespace Workers
         baseWorkers[base].insert(worker);
         workerMineralPatch[worker] = resource;
         mineralPatchWorkers[resource].insert(worker);
+
+#if CVIS_LOG_WORKER_ASSIGNMENTS
+        CherryVis::log(worker->id) << "Forced reassignment to " << *resource << " in base @ " << BWAPI::WalkPosition(base->getPosition());
+#endif
     }
 }

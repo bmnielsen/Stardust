@@ -17,7 +17,7 @@ TEST(Steamhammer, RunThirty)
         test.opponentRace = BWAPI::Races::Random;
 //        test.maps = Maps::Get("cog2022");
         test.map = Maps::GetOne("Vermeer");
-        test.randomSeed = 73549;
+//        test.randomSeed = 73549;
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
@@ -74,6 +74,7 @@ TEST(Steamhammer, RunThirty)
 
 TEST(Steamhammer, RunOne)
 {
+    WorkerMiningOptimization::setExploring(false);
     BWTest test;
     test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;

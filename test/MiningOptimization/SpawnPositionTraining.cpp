@@ -82,7 +82,11 @@ namespace
             module->enableFrameLimit = false;
             return module;
         };
+#if INSTRUMENTATION_ENABLED_VERBOSE
+        test.frameLimit = 10000;
+#else
         test.frameLimit = 100000;
+#endif
         test.expectWin = false;
 
         std::ostringstream replayNameBuilder;
@@ -99,6 +103,7 @@ namespace
         test.replayName = replayNameBuilder.str();
 
         WorkerMiningOptimization::setExploring(true);
+        Units::setLogUnitsCreatedAndLost(false);
 
         test.onStartMine = []()
         {
@@ -129,8 +134,6 @@ namespace
             // - If testing with buildings, add them at each base (pylon, then forge or start block including forge, then cannon(s))
             if (BWAPI::Broodwar->getFrameCount() == 0)
             {
-                Log::SetOutputToConsole(false);
-
                 for (auto unit : BWAPI::Broodwar->self()->getUnits())
                 {
                     if (unit->getType().isWorker())
@@ -272,8 +275,6 @@ namespace
             }
             else if (BWAPI::Broodwar->getFrameCount() == 35)
             {
-                Log::SetOutputToConsole(true);
-
                 if (startingWorkers)
                 {
                     for (auto &base : Map::allStartingLocations())
@@ -343,6 +344,7 @@ namespace
                             if (worker->lastPosition == trainingCase.spawnPosition)
                             {
                                 trainingCase.worker = std::static_pointer_cast<MyWorkerImpl>(worker);
+                                trainingCase.worker->spawnPosition = trainingCase.spawnPosition;
                                 Workers::setWorkerMineralPatch(trainingCase.worker, trainingCase.resource, trainingCase.base);
                                 patchesInUse.insert(trainingCase.resource);
                                 basesWithWorkerCreationPending.erase(trainingCase.base);
