@@ -33,19 +33,19 @@ namespace WorkerMiningOptimization
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
     void planGatherResendsSingle(WorkerGatherStatus &workerStatus,
-                                 const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                 std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                  const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
     void validatePlannedGatherPathSingle(WorkerGatherStatus &workerStatus,
-                                         const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                         std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
     void planGatherResendsDouble(WorkerGatherStatus &workerStatus,
-                                 const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                 std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                  const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
     bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
-                                         const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                         std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
     void flushGatherObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses);
@@ -56,7 +56,7 @@ namespace WorkerMiningOptimization
 
     WorkerGatherStatus *gatherStatusFor(const MyWorker &worker);
 
-    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalGatherPositionsFor(const Resource &resource);
+    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &gatherPositionRootNodesFor(const Resource &resource);
 
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource);
 

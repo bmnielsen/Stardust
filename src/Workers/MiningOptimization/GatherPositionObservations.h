@@ -2,35 +2,26 @@
 
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"
+#include "Occurrences.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
-#include "MapUtil.h"
 #include <bitsery/ext/std_map.h>
+#include <bitsery/traits/vector.h>
 #include <map>
 
 namespace WorkerMiningOptimization
 {
-    enum class ResendChangesPath : uint8_t
-    {
-        Unknown,
-        Yes,
-        No
-    };
     struct GatherResendArrivalObservations
     {
-        std::unordered_map<int8_t, uint16_t> arrivalDelayAndOccurrences;
-        uint16_t collisions = 0;
-        uint16_t nonCollisions = 0;
+        std::unordered_map<int8_t, OCCURRENCE_TYPE> arrivalDelayAndOccurrences;
+        COLLISION_TYPE collisions = 0;
+        COLLISION_TYPE nonCollisions = 0;
 
-        void addArrival(int8_t arrivalDelay)
-        {
-            if (MapUtil::atOccurrenceCap(arrivalDelayAndOccurrences)) return;
-            arrivalDelayAndOccurrences[arrivalDelay]++;
-        }
+        bool addArrival(int arrivalDelay);
 
         void addCollision(bool collision)
         {
-            if (collisions + nonCollisions == UINT16_MAX) return;
+            if (collisions + nonCollisions == COLLISION_LIMIT) return;
             (collision ? collisions : nonCollisions)++;
         }
 
@@ -48,34 +39,29 @@ namespace WorkerMiningOptimization
         template <typename S>
         void serialize(S& s)
         {
-            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, int8_t& key, uint16_t& value) {
+            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, OCCURRENCE_TYPE& value) {
                 s.value1b(key);
-                s.value2b(value);
+                SERIALIZE_OCCURRENCE(value);
             });
-            s.value2b(collisions);
-            s.value2b(nonCollisions);
+            SERIALIZE_COLLISION(collisions);
+            SERIALIZE_COLLISION(nonCollisions);
         }
     };
 
     struct SecondResendGatherPositionObservations
     {
-        uint8_t deltaToFirstResend = 0;
-        std::unordered_map<PositionAndVelocity, uint16_t> nextPositionAndOccurrences;
+        PositionAndVelocity pos;
+        OCCURRENCE_TYPE occurrences = 1;
+        std::vector<SecondResendGatherPositionObservations> nextPositions;
         GatherResendArrivalObservations arrivalObservations;
-
-        void addNext(const PositionAndVelocity &next)
-        {
-            if (MapUtil::atOccurrenceCap(nextPositionAndOccurrences)) return;
-            nextPositionAndOccurrences[next]++;
-        }
 
         template <typename S>
         void serialize(S& s)
         {
-            s.value1b(deltaToFirstResend);
-            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint16_t& value) {
-                s.object(key);
-                s.value2b(value);
+            s.object(pos);
+            SERIALIZE_OCCURRENCE(occurrences);
+            s.container(nextPositions, INT_MAX, [](auto &s, SecondResendGatherPositionObservations &value) {
+                s.object(value);
             });
             s.object(arrivalObservations);
         }
@@ -88,35 +74,35 @@ namespace WorkerMiningOptimization
         // The position
         PositionAndVelocity pos;
 
+        // How often this position has occurred in its path
+        // For root nodes, how often it has been observed
+        OCCURRENCE_TYPE occurrences = 1;
+
+        // All next positions seen from this position
+        // Will be empty on leaf nodes
+        std::vector<GatherPositionObservations> nextPositions;
+
         // The offset between this resend position and the apparent optimal position if no resend had been issued
         // For positions with unstable following paths this can differ, so we store all observed values with their occurrences
         // May be empty if we haven't observed a no-resend path with this position yet
-        std::unordered_map<int8_t, uint16_t> deltaToBenchmarkAndOccurrences;
-
-        // All next positions seen from this position, with their count of observations
-        // May be empty for the last position we consider in a path
-        std::unordered_map<PositionAndVelocity, uint16_t> nextPositionAndOccurrences;
+        std::unordered_map<int8_t, OCCURRENCE_TYPE> deltaToBenchmarkAndOccurrences;
 
         // Observations for when we send a resend here without a second resend
         GatherResendArrivalObservations noSecondResendArrivalObservations;
 
-        // Observations for second resends after resending at this position
-        std::unordered_map<PositionAndVelocity, SecondResendGatherPositionObservations> secondResendObservations;
+        // Start of the path after resending here, where we track the path and behaviour of second resends
+        // Empty if a resend never changes the path
+        std::vector<SecondResendGatherPositionObservations> secondResendPositions;
 
         // How many times the worker collides with the patch after mining when no resend is sent along this path
-        uint16_t noResendCollisions = 0;
+        COLLISION_TYPE noResendCollisions = 0;
 
         // How many times the worker does not collide with the patch after mining when no resend is sent along this path
-        uint16_t noResendNonCollisions = 0;
-
-        // Whether a resend at this position changes the path
-        ResendChangesPath resendChangesPath = ResendChangesPath::Unknown;
+        COLLISION_TYPE noResendNonCollisions = 0;
 
         GatherPositionObservations() = default;
 
-        explicit GatherPositionObservations(PositionAndVelocity pos)
-                : pos(pos)
-        {}
+        GatherPositionObservations(PositionAndVelocity pos) : pos(pos) {}
 
         GatherPositionObservations(PositionAndVelocity pos, int deltaToBenchmark) : pos(pos)
         {
@@ -131,8 +117,6 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] bool usableForPathPlanning() const;
 
-        bool addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int arrivalDelta);
-
         void addDeltaToBenchmark(int delta)
         {
             if (delta > INT8_MAX || delta < INT8_MIN)
@@ -141,85 +125,130 @@ namespace WorkerMiningOptimization
                 return;
             }
 
-            if (MapUtil::atOccurrenceCap(deltaToBenchmarkAndOccurrences)) return;
+            if (atOccurrenceCap(deltaToBenchmarkAndOccurrences)) return;
             deltaToBenchmarkAndOccurrences[(int8_t)delta]++;
-        }
-
-        void addNext(const PositionAndVelocity &next)
-        {
-            if (MapUtil::atOccurrenceCap(nextPositionAndOccurrences)) return;
-            nextPositionAndOccurrences[next]++;
         }
 
         void addNoResendCollision(bool collision)
         {
-            if (noResendCollisions + noResendNonCollisions == UINT16_MAX) return;
+            if (noResendCollisions + noResendNonCollisions == COLLISION_LIMIT) return;
             (collision ? noResendCollisions : noResendNonCollisions)++;
         }
 
-        [[nodiscard]] const SecondResendGatherPositionObservations *secondResendObservationsFor(const PositionAndVelocity *secondResendPosition) const
-        {
-            if (!secondResendPosition) return nullptr;
-
-            auto secondResendDataIt = secondResendObservations.find(*secondResendPosition);
-            return (secondResendDataIt == secondResendObservations.end()) ? nullptr : &secondResendDataIt->second;
-        }
-
-        [[nodiscard]] SecondResendGatherPositionObservations *secondResendObservationsFor(const PositionAndVelocity *secondResendPosition)
-        {
-            return const_cast<SecondResendGatherPositionObservations *>(
-                    static_cast<const GatherPositionObservations &>(*this).secondResendObservationsFor(secondResendPosition));
-        }
-
-        template<typename K>
-        requires std::is_same_v<const K, const std::unordered_map<PositionAndVelocity, GatherPositionObservations>>
-        [[nodiscard]] auto followingPositionsIfStable(K &positionsData) const
-        {
-            using elem = std::remove_reference_t<decltype((positionsData.begin()->second))>;
-            std::vector<elem *> result;
-            const GatherPositionObservations *current = this;
-            std::unordered_set<PositionAndVelocity> visited;
-            while (!current->nextPositionAndOccurrences.empty())
-            {
-                if (visited.contains(current->pos) || current->nextPositionAndOccurrences.size() > 1)
-                {
-                    return std::vector<elem *>{};
-                }
-
-                visited.insert(current->pos);
-
-                auto nextIt = positionsData.find(current->nextPositionAndOccurrences.begin()->first);
-                if (nextIt == positionsData.end()) break;
-
-                result.push_back(&nextIt->second);
-
-                current = &nextIt->second;
-            }
-
-            return result;
-        }
+//        template<typename K>
+//        requires std::is_same_v<const K, const std::unordered_map<PositionAndVelocity, GatherPositionObservations>>
+//        [[nodiscard]] auto followingPositionsIfStable(K &positionsData) const
+//        {
+//            using elem = std::remove_reference_t<decltype((positionsData.begin()->second))>;
+//            std::vector<elem *> result;
+//            const GatherPositionObservations *current = this;
+//            std::unordered_set<PositionAndVelocity> visited;
+//            while (!current->nextPositionAndOccurrences.empty())
+//            {
+//                if (visited.contains(current->pos) || current->nextPositionAndOccurrences.size() > 1)
+//                {
+//                    return std::vector<elem *>{};
+//                }
+//
+//                visited.insert(current->pos);
+//
+//                auto nextIt = positionsData.find(current->nextPositionAndOccurrences.begin()->first);
+//                if (nextIt == positionsData.end()) break;
+//
+//                result.push_back(&nextIt->second);
+//
+//                current = &nextIt->second;
+//            }
+//
+//            return result;
+//        }
 
         template <typename S>
         void serialize(S& s) {
-            s.ext(deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, int8_t& key, uint16_t& value) {
+            s.object(pos);
+            SERIALIZE_OCCURRENCE(occurrences);
+            s.ext(deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, OCCURRENCE_TYPE& value) {
                 s.value1b(key);
-                s.value2b(value);
+                SERIALIZE_OCCURRENCE(value);
             });
-            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint16_t& value) {
-                s.object(key);
-                s.value2b(value);
+            s.container(nextPositions, INT_MAX, [](auto &s, GatherPositionObservations &value) {
+                s.object(value);
             });
             s.object(noSecondResendArrivalObservations);
-            s.ext(secondResendObservations,
-                  bitsery::ext::StdMap{INT_MAX},
-                  [](S &s, PositionAndVelocity &key, SecondResendGatherPositionObservations &value)
-                  {
-                      s.object(key);
-                      s.object(value);
-                  });
-            s.value2b(noResendCollisions);
-            s.value2b(noResendNonCollisions);
-            s.value1b(resendChangesPath);
+            s.container(secondResendPositions, INT_MAX, [](auto &s, SecondResendGatherPositionObservations &value) {
+                s.object(value);
+            });
+            SERIALIZE_COLLISION(noResendCollisions);
+            SERIALIZE_COLLISION(noResendNonCollisions);
+        }
+    };
+
+    // Struct we use to track the position history as pointers to observations
+    struct GatherPositionObservationPtr
+    {
+        GatherPositionObservations *pos;
+        SecondResendGatherPositionObservations *secondResendPos;
+
+        explicit GatherPositionObservationPtr(GatherPositionObservations *pos)
+                : pos(pos)
+                , secondResendPos(nullptr)
+        {}
+
+        explicit GatherPositionObservationPtr(SecondResendGatherPositionObservations *secondResendPos)
+                : pos(nullptr)
+                , secondResendPos(secondResendPos)
+        {}
+
+        bool operator==(const GatherPositionObservationPtr &other) const
+        {
+            return (pos && other.pos && pos->pos == other.pos->pos) ||
+                   (secondResendPos && other.secondResendPos && secondResendPos->pos == other.secondResendPos->pos);
+        }
+
+        [[nodiscard]] PositionAndVelocity &position() const
+        {
+            return pos ? pos->pos : secondResendPos->pos;
+        }
+
+        [[nodiscard]] std::vector<SecondResendGatherPositionObservations> &nextSecondResendPositions() const
+        {
+            return (pos ? pos->secondResendPositions : secondResendPos->nextPositions);
+        }
+
+        [[nodiscard]] GatherResendArrivalObservations &resendArrivalObservations() const
+        {
+            return (pos ? pos->noSecondResendArrivalObservations : secondResendPos->arrivalObservations);
+        }
+
+        [[nodiscard]] std::unique_ptr<GatherPositionObservationPtr> nextPositionIfExists(
+                const PositionAndVelocity &nextPos, const std::shared_ptr<const PositionAndVelocity> &resendPos) const
+        {
+            if (pos)
+            {
+                if (resendPos && pos->pos == *resendPos)
+                {
+                    return findInNextPositionsVector(pos->secondResendPositions, nextPos);
+                }
+                return findInNextPositionsVector(pos->nextPositions, nextPos);
+            }
+            return findInNextPositionsVector(secondResendPos->nextPositions, nextPos);
+        }
+
+        friend std::ostream &operator<<(std::ostream &os, const GatherPositionObservationPtr &ptr);
+
+    private:
+        template<typename T>
+        [[nodiscard]] std::unique_ptr<GatherPositionObservationPtr> findInNextPositionsVector(std::vector<T> &nextPositions,
+                                                                                              const PositionAndVelocity &nextPos) const
+        {
+            for (auto &candidate : nextPositions)
+            {
+                if (candidate.pos == nextPos)
+                {
+                    return std::make_unique<GatherPositionObservationPtr>(&candidate);
+                }
+            }
+            return nullptr;
         }
     };
 

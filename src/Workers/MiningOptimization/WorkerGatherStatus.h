@@ -3,6 +3,7 @@
 #include "MyWorker.h"
 #include "Resource.h"
 #include "PositionAndVelocity.h"
+#include "GatherPositionObservations.h"
 
 namespace WorkerMiningOptimization
 {
@@ -23,20 +24,23 @@ namespace WorkerMiningOptimization
         // The positions this worker has visited while on its way to the patch
         std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
 
-        // Whether the path started at the patch
+        // Whether the path started at the depot
         bool pathStartsAtDepot;
 
         // Whether we have planned the resends we want to send on this path
         bool resendsPlanned;
 
         // Planned first resend position
-        std::shared_ptr<const PositionAndVelocity> plannedResendPosition;
+        std::unique_ptr<GatherPositionObservationPtr> plannedResendPosition;
 
         // Planned second resend position
-        std::shared_ptr<const PositionAndVelocity> plannedSecondResendPosition;
+        std::unique_ptr<GatherPositionObservationPtr> plannedSecondResendPosition;
 
-        // The expected path the worker will follow
-        std::deque<PositionAndVelocity> expectedPath;
+        // The expected node path the worker will follow
+        std::deque<GatherPositionObservationPtr> expectedPath;
+
+        // The current node
+        std::unique_ptr<GatherPositionObservationPtr> currentNode;
 
         // The expected frame the worker will arrive at the patch
         int expectedArrivalFrame;
@@ -97,6 +101,7 @@ namespace WorkerMiningOptimization
             plannedResendPosition = nullptr;
             plannedSecondResendPosition = nullptr;
             expectedPath.clear();
+            currentNode = nullptr;
             resentPositions.clear();
             resentFrames.clear();
             takeoverState = 0;

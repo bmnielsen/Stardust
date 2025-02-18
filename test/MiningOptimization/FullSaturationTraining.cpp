@@ -875,6 +875,14 @@ TEST(FullSaturationTraining, EclipseDouble)
               << "Double: " << dbl << std::endl;
 }
 
+TEST(FullSaturationTraining, VermeerTestSuiteSingleNoCannonsFive)
+{
+    for (int i=0; i<5; i++)
+    {
+        testRunWithResults("VermeerSE_2.1", 1, false);
+    }
+}
+
 TEST(FullSaturationTraining, VermeerTestSuiteDoubleContinuous)
 {
     while (true)
@@ -882,10 +890,10 @@ TEST(FullSaturationTraining, VermeerTestSuiteDoubleContinuous)
         BWTest test;
         test.map = Maps::GetOne("VermeerSE_2.1");
         test.randomSeed = 42;
-        auto sgl = runTestSuite(test, 2, 0);
+        auto dbl = runTestSuite(test, 2, 0);
         std::cout << std::fixed << std::showpoint << std::setprecision(4)
                   << "Overall efficiency: " << std::endl
-                  << "Single: " << sgl << std::endl;
+                  << "Double: " << dbl << std::endl;
     }
 }
 

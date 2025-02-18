@@ -4,6 +4,34 @@
 
 namespace WorkerMiningOptimization
 {
+    bool GatherResendArrivalObservations::addArrival(int arrivalDelta)
+    {
+        if (arrivalDelta > INT8_MAX || arrivalDelta < INT8_MIN)
+        {
+            Log::Get() << "ERROR: Arrival delta " << arrivalDelta << " out of bounds";
+            return false;
+        }
+
+        bool result = empty();
+
+        auto addArrival = [&]()
+        {
+            if (atOccurrenceCap(arrivalDelayAndOccurrences)) return;
+            arrivalDelayAndOccurrences[(int8_t)arrivalDelta]++;
+        };
+
+        // If there is only one observation before this one, replace it
+        // This is to handle the situation where we have made a provisional observation in two-worker mining where we know
+        // the worker didn't arrive on time, but not what its exact arrival would have been without resending a command
+        if (arrivalDelayAndOccurrences.size() == 1 && arrivalDelayAndOccurrences.begin()->second == 1)
+        {
+            arrivalDelayAndOccurrences.clear();
+            addArrival();
+        }
+        addArrival();
+        return result;
+    }
+
     int8_t GatherResendArrivalObservations::mostCommonArrivalDelay() const
     {
         if (arrivalDelayAndOccurrences.empty()) return INT8_MAX;
@@ -86,10 +114,10 @@ namespace WorkerMiningOptimization
 
         int accumulator = 0;
         uint16_t total = 0;
-        for (const auto &[delta, occurrences] : deltaToBenchmarkAndOccurrences)
+        for (const auto &[delta, occ] : deltaToBenchmarkAndOccurrences)
         {
-            accumulator += (int)delta * (int)occurrences;
-            total += occurrences;
+            accumulator += (int)delta * (int)occ;
+            total += occ;
         }
 
         if (total == 0) return 100;
@@ -104,12 +132,12 @@ namespace WorkerMiningOptimization
 
         int8_t best = 100;
         uint16_t bestOccurrences = 0;
-        for (const auto &[delta, occurrences] : deltaToBenchmarkAndOccurrences)
+        for (const auto &[delta, occ] : deltaToBenchmarkAndOccurrences)
         {
-            if (occurrences > bestOccurrences)
+            if (occ > bestOccurrences)
             {
                 best = delta;
-                bestOccurrences = occurrences;
+                bestOccurrences = occ;
             }
         }
 
@@ -122,7 +150,7 @@ namespace WorkerMiningOptimization
         if (deltaToBenchmarkAndOccurrences.size() == 1) return deltaToBenchmarkAndOccurrences.begin()->first;
 
         int8_t best = INT8_MIN;
-        for (const auto &[delta, occurrences] : deltaToBenchmarkAndOccurrences)
+        for (const auto &[delta, _] : deltaToBenchmarkAndOccurrences)
         {
             if (delta > best)
             {
@@ -186,27 +214,17 @@ namespace WorkerMiningOptimization
                                  INT_MAX);
     }
 
-    bool GatherPositionObservations::addArrivalObservation(SecondResendGatherPositionObservations *secondResendPositionData, int arrivalDelta)
+    std::ostream &operator<<(std::ostream &os, const GatherPositionObservationPtr &ptr)
     {
-        if (arrivalDelta > INT8_MAX || arrivalDelta < INT8_MIN)
+        if (ptr.pos)
         {
-            Log::Get() << "ERROR: Arrival delta " << arrivalDelta << " out of bounds";
-            return false;
+            os << ptr.pos->pos;
         }
-
-        auto &observations = secondResendPositionData ? secondResendPositionData->arrivalObservations : noSecondResendArrivalObservations;
-        bool result = observations.empty();
-
-        // If there is only one observation before this one, replace it
-        // This is to handle the situation where we have made a provisional observation in two-worker mining where we know
-        // the worker didn't arrive on time, but not what its exact arrival would have been without resending a command
-        if (observations.arrivalDelayAndOccurrences.size() == 1 && observations.arrivalDelayAndOccurrences.begin()->second == 1)
+        else
         {
-            observations.arrivalDelayAndOccurrences.clear();
-            observations.addArrival((int8_t)arrivalDelta);
+            os << ptr.secondResendPos->pos;
         }
-        observations.addArrival((int8_t)arrivalDelta);
-        return result;
+        return os;
     }
 
     std::ostream &operator<<(std::ostream &os, const GatherPositionObservations &optimalGatherPositionMetadata)

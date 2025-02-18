@@ -39,29 +39,31 @@ namespace WorkerMiningOptimization
         {
             bool explored = false;
             double expectedDelta = 100.0;
-            std::deque<PositionAndVelocity> expectedPath;
-            std::shared_ptr<PositionAndVelocity> resendPosition;
+            std::deque<GatherPositionObservationPtr> expectedPath;
+            std::unique_ptr<GatherPositionObservationPtr> resendPosition;
             bool positionToTryOnExpectedPath = false;
             int positionToTryDelta = 0;
 
-            static PositionEvaluation exploring(const PositionAndVelocity &firstResend, const PositionAndVelocity &secondResend, int delta)
+            static PositionEvaluation exploring(GatherPositionObservations &firstResend,
+                                                GatherPositionObservationPtr secondResend,
+                                                int delta)
             {
                 return {false,
                         100,
                         {secondResend},
-                        std::make_shared<PositionAndVelocity>(firstResend),
+                        std::make_unique<GatherPositionObservationPtr>(&firstResend),
                         true,
                         delta};
             }
 
             static PositionEvaluation resends(double delta,
-                                              const PositionAndVelocity &firstResend,
-                                              const PositionAndVelocity &secondResend)
+                                              GatherPositionObservations &firstResend,
+                                              GatherPositionObservationPtr secondResend)
             {
                 return {true,
                         delta,
                         {secondResend},
-                        std::make_shared<PositionAndVelocity>(firstResend)};
+                        std::make_unique<GatherPositionObservationPtr>(&firstResend)};
             }
         };
 
@@ -70,7 +72,7 @@ namespace WorkerMiningOptimization
             if (first.expectedPath.empty() && second.expectedPath.empty()) return first.expectedDelta < second.expectedDelta;
             if (first.expectedPath.empty()) return true;
             if (second.expectedPath.empty()) return false;
-            return first.expectedPath.begin()->getHash() < second.expectedPath.begin()->getHash();
+            return first.expectedPath.begin()->position() < second.expectedPath.begin()->position();
         }
 
         std::optional<double> computeExpectedDelta(int commandFrame,
@@ -85,7 +87,9 @@ namespace WorkerMiningOptimization
             }
 
             // Ignore positions with unstable paths where all deltas are below -2
-            if ((positionMetadata.deltaToBenchmarkAndOccurrences.size() > 1 || positionMetadata.nextPositionAndOccurrences.size() > 1) &&
+            if ((positionMetadata.deltaToBenchmarkAndOccurrences.size() > 1 ||
+                 positionMetadata.nextPositions.size() > 1 ||
+                 positionMetadata.secondResendPositions.size() > 1) &&
                 positionMetadata.largestDeltaToBenchmark() < -2)
             {
                 return std::nullopt;
@@ -97,80 +101,58 @@ namespace WorkerMiningOptimization
         }
 
         PositionEvaluation evaluateSecondResendPositions(int commandFrame, // NOLINT(*-no-recursion)
-                                                         const GatherPositionObservations &positionMetadata,
-                                                         const PositionAndVelocity &here,
-                                                         uint16_t occurrencesHere,
+                                                         GatherPositionObservations &firstResend,
+                                                         GatherPositionObservationPtr here,
                                                          uint8_t deltaToFirstResend,
-                                                         const GatherResendArrivalObservations &observations,
-                                                         const std::unordered_map<PositionAndVelocity, uint16_t> &nextPositions,
-                                                         const Resource &resource,
-                                                         PathTraversalLoopGuard &loopGuard)
+                                                         const Resource &resource)
         {
-            // Ensure we don't process a looping path or recurse too deep
-            if (deltaToFirstResend > 0)
-            {
-                if (loopGuard.push(here)) return {};
-            }
+            // Reference the observations and next positions
+            auto &observations = (here.pos ? here.pos->noSecondResendArrivalObservations : here.secondResendPos->arrivalObservations);
+            auto &nextPositions = here.nextSecondResendPositions();
 
             // Do not resend from positions that are at the patch, unless this is a stable path moving parallel with the patch
             if (Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                        here.pos(),
+                                        here.position().pos(),
                                         BWAPI::UnitTypes::Resource_Mineral_Field,
                                         resource->center) == 0)
             {
                 // Check total next occurrences
                 uint16_t nextOccurrencesTotal = 0;
-                for (const auto &[nextPos, occurrences] : nextPositions)
+                for (const auto &nextPos : nextPositions)
                 {
-                    if (nextPos.pos() == here.pos()) return {};
+                    if (nextPos.pos.pos() == here.position().pos()) return {};
 
-                    nextOccurrencesTotal += occurrences;
+                    nextOccurrencesTotal += nextPos.occurrences;
                 }
-                if ((nextOccurrencesTotal * 3) < (occurrencesHere * 2)) return {};
+                if ((nextOccurrencesTotal * 3) < ((here.pos ? here.pos->occurrences : here.secondResendPos->occurrences) * 2)) return {};
             }
 
             // Start by getting the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
-            if (positionMetadata.resendChangesPath == ResendChangesPath::Yes)
+            double deltaAccumulator = 0.0;
+            uint16_t occurrenceCount = 0;
+            uint16_t bestOccurrences = 0;
+            for (auto &nextPos : nextPositions)
             {
-                double deltaAccumulator = 0.0;
-                uint16_t occurrenceCount = 0;
-                uint16_t bestOccurrences = 0;
-                for (const auto &[nextPosition, occurrences] : nextPositions)
+                auto nextPositionEvaluation = evaluateSecondResendPositions(commandFrame + 1,
+                                                                            firstResend,
+                                                                            GatherPositionObservationPtr(&nextPos),
+                                                                            deltaToFirstResend + 1,
+                                                                            resource);
+                if (nextPositionEvaluation.explored)
                 {
-                    auto nextPositionDataIt = positionMetadata.secondResendObservations.find(nextPosition);
-                    if (nextPositionDataIt == positionMetadata.secondResendObservations.end())
-                    {
-#if LOGGING_ENABLED
-                        Log::Get() << "ERROR: No second resend metadata found for next position " << nextPosition
-                                   << " from " << positionMetadata.pos;
-#endif
-                        continue;
-                    }
-
-                    auto nextPositionEvaluation = evaluateSecondResendPositions(commandFrame + 1,
-                                                                                positionMetadata,
-                                                                                nextPosition,
-                                                                                occurrences,
-                                                                                nextPositionDataIt->second.deltaToFirstResend,
-                                                                                nextPositionDataIt->second.arrivalObservations,
-                                                                                nextPositionDataIt->second.nextPositionAndOccurrences,
-                                                                                resource,
-                                                                                loopGuard);
-                    loopGuard.pop(nextPosition);
-                    if (nextPositionEvaluation.explored)
-                    {
-                        deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
-                        occurrenceCount += occurrences;
-                    }
-                    if (occurrences > bestOccurrences || (occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
-                    {
-                        bestOccurrences = occurrences;
-                        nextPositionsEvaluation = std::move(nextPositionEvaluation);
-                    }
+                    deltaAccumulator += nextPositionEvaluation.expectedDelta * nextPos.occurrences;
+                    occurrenceCount += nextPos.occurrences;
                 }
-                if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelta = (deltaAccumulator / (double)occurrenceCount);
+                if (nextPos.occurrences > bestOccurrences ||
+                        (nextPos.occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
+                {
+                    bestOccurrences = nextPos.occurrences;
+                    nextPositionsEvaluation = std::move(nextPositionEvaluation);
+                }
             }
+            if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelta = (deltaAccumulator / (double)occurrenceCount);
+
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), here);
 
             // We can't send another command at LF after previous command
@@ -180,7 +162,7 @@ namespace WorkerMiningOptimization
             if (OrderProcessTimer::framesToNextReset(commandFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // If we want to try this position and it is better than the current best, return this
-            int probableDeltaToBenchmark = positionMetadata.probableDeltaToBenchmark();
+            int probableDeltaToBenchmark = firstResend.probableDeltaToBenchmark();
             if ((observations.empty() || shouldExploreCollisions(observations.collisions, observations.nonCollisions))
                 && probableDeltaToBenchmark >= -GATHER_EXPLORE_BEFORE
                 && probableDeltaToBenchmark <= GATHER_EXPLORE_AFTER
@@ -189,7 +171,7 @@ namespace WorkerMiningOptimization
                 int positionToTryDelta = std::abs(probableDeltaToBenchmark + deltaToFirstResend);
                 if (!nextPositionsEvaluation.positionToTryOnExpectedPath || positionToTryDelta < nextPositionsEvaluation.positionToTryDelta)
                 {
-                    return PositionEvaluation::exploring(positionMetadata.pos, here, positionToTryDelta);
+                    return PositionEvaluation::exploring(firstResend, here, positionToTryDelta);
                 }
             }
 
@@ -197,27 +179,22 @@ namespace WorkerMiningOptimization
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
 
             // Compute the expected delta for this position
-            auto expectedDelta = computeExpectedDelta(commandFrame, positionMetadata, deltaToFirstResend, observations);
+            auto expectedDelta = computeExpectedDelta(commandFrame, firstResend, deltaToFirstResend, observations);
             if (!expectedDelta.has_value()) return nextPositionsEvaluation;
 
             if (expectedDelta.value() < (nextPositionsEvaluation.expectedDelta - EPSILON))
             {
-                return PositionEvaluation::resends(expectedDelta.value(), positionMetadata.pos, here);
+                return PositionEvaluation::resends(expectedDelta.value(), firstResend, here);
             }
 
             return nextPositionsEvaluation;
         }
 
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
-                                            const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &allPositionData,
-                                            const GatherPositionObservations &positionMetadata,
+                                            GatherPositionObservations &positionMetadata,
                                             const Resource &resource,
-                                            PathTraversalLoopGuard &loopGuard,
                                             uint16_t occurrencesHere = 0)
         {
-            // Ensure we don't process a looping path or recurse too deep
-            if (loopGuard.push(positionMetadata.pos)) return {};
-
             // Jump out of the recursion when we've exceeded the exploration horizon
             if (positionMetadata.deltaToBenchmarkAndOccurrences.size() == 1 &&
                 positionMetadata.deltaToBenchmarkAndOccurrences.begin()->first > GATHER_EXPLORE_AFTER)
@@ -231,38 +208,27 @@ namespace WorkerMiningOptimization
                 double deltaAccumulator = 0.0;
                 uint16_t occurrenceCount = 0;
                 uint16_t bestOccurrences = 0;
-                for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
+                for (auto &nextPositionMetadata : positionMetadata.nextPositions)
                 {
-                    auto nextPositionDataIt = allPositionData.find(nextPosition);
-                    if (nextPositionDataIt == allPositionData.end())
-                    {
-#if LOGGING_ENABLED
-                        Log::Get() << "ERROR: No metadata found for next position " << nextPosition;
-#endif
-                        continue;
-                    }
-
                     auto nextPositionEvaluation = evaluatePosition(commandFrame + 1,
-                                                                   allPositionData,
-                                                                   nextPositionDataIt->second,
+                                                                   nextPositionMetadata,
                                                                    resource,
-                                                                   loopGuard,
-                                                                   occurrences);
-                    loopGuard.pop(nextPosition);
+                                                                   nextPositionMetadata.occurrences);
                     if (nextPositionEvaluation.explored)
                     {
-                        deltaAccumulator += nextPositionEvaluation.expectedDelta * occurrences;
-                        occurrenceCount += occurrences;
+                        deltaAccumulator += nextPositionEvaluation.expectedDelta * nextPositionMetadata.occurrences;
+                        occurrenceCount += nextPositionMetadata.occurrences;
                     }
-                    if (occurrences > bestOccurrences || (occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
+                    if (nextPositionMetadata.occurrences > bestOccurrences ||
+                            (nextPositionMetadata.occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
-                        bestOccurrences = occurrences;
+                        bestOccurrences = nextPositionMetadata.occurrences;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
                     }
                 }
                 if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelta = (deltaAccumulator / (double)occurrenceCount);
             }
-            nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), positionMetadata.pos);
+            nextPositionsEvaluation.expectedPath.emplace(nextPositionsEvaluation.expectedPath.begin(), &positionMetadata);
 
             // We can't send a command LF+1 frames before an order process timer reset
             // Note that this is actually ok in cases where there is a second resend later, but we can't always trust that this will happen
@@ -272,13 +238,9 @@ namespace WorkerMiningOptimization
             // Now evaluate this position using the second resend metadata
             auto evaluationHere = evaluateSecondResendPositions(commandFrame,
                                                                 positionMetadata,
-                                                                positionMetadata.pos,
-                                                                occurrencesHere,
+                                                                GatherPositionObservationPtr(&positionMetadata),
                                                                 0,
-                                                                positionMetadata.noSecondResendArrivalObservations,
-                                                                positionMetadata.nextPositionAndOccurrences,
-                                                                resource,
-                                                                loopGuard);
+                                                                resource);
 
             // If one of the branches wants to explore, return it
             if (evaluationHere.positionToTryOnExpectedPath &&
@@ -305,25 +267,33 @@ namespace WorkerMiningOptimization
     }
 
     void planGatherResendsSingle(WorkerGatherStatus &workerStatus,
-                                 const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                 std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                  const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
-        // Reference this position's metadata
-        auto metadataIt = optimalPositions.find(*currentPosition);
-        if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
-        auto &positionMetadata = metadataIt->second;
-
-        // Skip this position if it is unusable
-        if (!positionMetadata.usableForPathPlanning())
+        // If we don't have a current node yet, check if this position is a root node
+        if (!workerStatus.currentNode)
         {
-            return;
+            auto rootNodeIt = rootNodes.find(*currentPosition);
+            if (rootNodeIt == rootNodes.end()) return;
+
+            workerStatus.currentNode = std::make_unique<GatherPositionObservationPtr>(&rootNodeIt->second);
         }
+        else
+        {
+            // Advance the current node to the appropriate next position
+            workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition, nullptr);
+        }
+
+        auto &positionMetadata = *workerStatus.currentNode->pos;
+
+        // Wait to start planning until we reach a position that is usable
+        if (!positionMetadata.usableForPathPlanning()) return;
 
         // We are now sure that we will plan something, though we may choose not to perform a resend
         workerStatus.resendsPlanned = true;
         workerStatus.hasPathData = true;
 
-        // Check if we need to "explore" the no resend case
+        // Check if we need to "explore" the no resend case, in which case we plan to send no resends
         if (positionMetadata.deltaToBenchmarkAndOccurrences.empty()) return;
         if (shouldExploreCollisions(positionMetadata.noResendCollisions, positionMetadata.noResendNonCollisions)) return;
 
@@ -362,12 +332,11 @@ namespace WorkerMiningOptimization
             return true;
         };
 
-        PathTraversalLoopGuard loopGuard;
-        auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, workerStatus.resource, loopGuard);
+        auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), positionMetadata, workerStatus.resource);
         if (shouldResend(evaluation))
         {
-            workerStatus.plannedResendPosition = evaluation.resendPosition;
-            workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
+            workerStatus.plannedResendPosition = std::move(evaluation.resendPosition);
+            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(*evaluation.expectedPath.rbegin());
             if ((*workerStatus.plannedResendPosition) == (*workerStatus.plannedSecondResendPosition))
             {
                 workerStatus.plannedSecondResendPosition = nullptr;
@@ -416,7 +385,7 @@ namespace WorkerMiningOptimization
                     }
 
                     auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                        pos.pos(),
+                                                        pos.position().pos(),
                                                         BWAPI::UnitTypes::Resource_Mineral_Field,
                                                         workerStatus.resource->center);
                     out << "\n" << frame << ": " << pos << "; " << dist;
@@ -431,11 +400,11 @@ namespace WorkerMiningOptimization
     }
 
     void validatePlannedGatherPathSingle(WorkerGatherStatus &workerStatus,
-                                         const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
+                                         std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
         if (workerStatus.expectedPath.empty()) return; // have no further resends planned
-        if (workerStatus.expectedPath.front() == *currentPosition) return; // path matches expectations
+        if (workerStatus.expectedPath.front().position() == *currentPosition) return; // path matches expectations
 
         // We need to clear second resend and expected path no matter what
         workerStatus.plannedSecondResendPosition = nullptr;
@@ -454,45 +423,54 @@ namespace WorkerMiningOptimization
             return;
         }
 
-        // We have sent the first resend, but hit a different path before reaching the second resend position
-        auto resentPositionDataIt = optimalPositions.find(*resentPosition);
-        if (resentPositionDataIt == optimalPositions.end())
+        // Guard against having sent multiple resends
+        if (workerStatus.resentPositions.size() != 1)
         {
-#if LOGGING_ENABLED
-            Log::Get() << "ERROR: Didn't find resend position metadata: " << *resentPosition
-                       << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+#if OPTIMALPOSITIONS_DEBUG
+            Log::Get() << "ERROR: Worker has more than one resent positions while still tracking path"
+                    << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
             return;
         }
 
-        auto &resentPositionData = resentPositionDataIt->second;
+        // We have sent the first resend, but hit a different path before reaching the second resend position
+        auto &firstResend = *workerStatus.plannedResendPosition->pos;
+        auto current = *workerStatus.expectedPath.begin();
 
         // If we haven't observed this path, leave the worker alone to get data about this new path
-        auto secondGatherPositionIt = resentPositionData.secondResendObservations.find(*currentPosition);
-        if (secondGatherPositionIt == resentPositionData.secondResendObservations.end())
+        SecondResendGatherPositionObservations *next = nullptr;
+        for (auto &nextPos : current.nextSecondResendPositions())
         {
+            if (nextPos.pos == *currentPosition)
+            {
+                next = &nextPos;
+                break;
+            }
+        }
+        if (!next)
+        {
+#if OPTIMALPOSITIONS_DEBUG
+            CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path and unexplored path discovered; aborting second resend";
+#endif
             return;
         }
 
         // We have observed this path, so we can replan the second resend position
-        int firstResendCommandFrame = BWAPI::Broodwar->getFrameCount() - secondGatherPositionIt->second.deltaToFirstResend;
+        // First we need to figure out the delta between the first resend and the current position
+        int deltaFromFirstResend = currentFrame - workerStatus.lastResendFrame();
+        int firstResendCommandFrame = BWAPI::Broodwar->getFrameCount() - deltaFromFirstResend;
 
         // Evaluate second resends
-        PathTraversalLoopGuard loopGuard;
         auto evaluation = evaluateSecondResendPositions(BWAPI::Broodwar->getFrameCount(),
-                                                        resentPositionData,
-                                                        *currentPosition,
-                                                        0,
-                                                        secondGatherPositionIt->second.deltaToFirstResend,
-                                                        secondGatherPositionIt->second.arrivalObservations,
-                                                        secondGatherPositionIt->second.nextPositionAndOccurrences,
-                                                        workerStatus.resource,
-                                                        loopGuard);
+                                                        firstResend,
+                                                        GatherPositionObservationPtr(next),
+                                                        deltaFromFirstResend,
+                                                        workerStatus.resource);
 
         // Use it if we want to explore
         if (evaluation.positionToTryOnExpectedPath)
         {
-            workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
+            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(*evaluation.expectedPath.rbegin());
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
             return;
         }
@@ -503,14 +481,14 @@ namespace WorkerMiningOptimization
 
         // Evaluate no second resend
         auto expectedDelta = computeExpectedDelta(firstResendCommandFrame,
-                                                  resentPositionData,
+                                                  firstResend,
                                                   0,
-                                                  resentPositionData.noSecondResendArrivalObservations);
+                                                  firstResend.noSecondResendArrivalObservations);
 
         // Resend if the result is better than the no resend delta
         if (!expectedDelta.has_value() || evaluation.expectedDelta < (expectedDelta.value() + EPSILON))
         {
-            workerStatus.plannedSecondResendPosition = std::make_shared<PositionAndVelocity>(*evaluation.expectedPath.rbegin());
+            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(*evaluation.expectedPath.rbegin());
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
         }
     }

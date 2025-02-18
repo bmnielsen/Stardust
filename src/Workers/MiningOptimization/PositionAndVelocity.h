@@ -48,6 +48,12 @@ public:
                && previousPositionsHash == other.previousPositionsHash;
     }
 
+    bool operator<(const PositionAndVelocity &other) const
+    {
+        // TODO: Refactor to use components when we remove the hash
+        return previousPositionsHash < other.previousPositionsHash;
+    }
+
     [[nodiscard]] bool isValid() const
     {
         return heading != UINT8_MAX;

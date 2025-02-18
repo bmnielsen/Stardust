@@ -185,7 +185,7 @@ namespace WorkerMiningOptimization
         return &workerStatusIt->second;
     }
 
-    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalGatherPositionsFor(const Resource &resource)
+    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &gatherPositionRootNodesFor(const Resource &resource)
     {
         return resourceToOptimalGatherPositions[TilePosition::fromBWAPI(resource->tile)];
     }
