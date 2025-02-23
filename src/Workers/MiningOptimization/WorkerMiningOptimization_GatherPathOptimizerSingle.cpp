@@ -282,6 +282,14 @@ namespace WorkerMiningOptimization
         {
             // Advance the current node to the appropriate next position
             workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition, nullptr);
+
+            // If there was none, this is a new path, so let us observe it
+            if (!workerStatus.currentNode)
+            {
+                workerStatus.resendsPlanned = true;
+                workerStatus.hasPathData = true;
+                return;
+            }
         }
 
         auto &positionMetadata = *workerStatus.currentNode->pos;

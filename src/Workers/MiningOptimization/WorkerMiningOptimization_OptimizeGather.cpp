@@ -46,7 +46,7 @@ namespace WorkerMiningOptimization
                             const std::shared_ptr<PositionAndVelocity> &currentPosition,
                             BWAPI::Unit resourceBwapiUnit)
         {
-            return true;
+            return false;
 //            auto &resource = workerStatus.resource;
 //            auto &worker = workerStatus.worker;
 //            auto distToPatch = resource->getDistance(worker);
