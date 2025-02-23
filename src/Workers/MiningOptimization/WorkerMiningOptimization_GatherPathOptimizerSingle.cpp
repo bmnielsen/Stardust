@@ -12,11 +12,11 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
-        bool shouldExploreCollisions(uint16_t collisions, uint16_t nonCollisions)
+        bool shouldExploreCollisions(COLLISION_TYPE collisions, COLLISION_TYPE nonCollisions)
         {
             if (!WorkerMiningOptimization::isExploring()) return false;
 
-            uint16_t total = collisions + nonCollisions;
+            COLLISION_TYPE total = collisions + nonCollisions;
 
             // Always explore until 2 observations and stop exploring after 5
             if (total < 2) return true;
@@ -26,9 +26,9 @@ namespace WorkerMiningOptimization
             return collisions != total && nonCollisions != total;
         }
 
-        double expectedPatchCollisionDelay(uint16_t observedCollisions, uint16_t observedNonCollisions)
+        double expectedPatchCollisionDelay(COLLISION_TYPE observedCollisions, COLLISION_TYPE observedNonCollisions)
         {
-            uint16_t total = observedCollisions + observedNonCollisions;
+            COLLISION_TYPE total = observedCollisions + observedNonCollisions;
             if (total == 0) return 0.0;
 
             // A collision adds an extra order process timer cycle of delay
@@ -117,7 +117,7 @@ namespace WorkerMiningOptimization
                                         resource->center) == 0)
             {
                 // Check total next occurrences
-                uint16_t nextOccurrencesTotal = 0;
+                OCCURRENCE_TYPE nextOccurrencesTotal = 0;
                 for (const auto &nextPos : nextPositions)
                 {
                     if (nextPos.pos.pos() == here.position().pos()) return {};
@@ -130,8 +130,8 @@ namespace WorkerMiningOptimization
             // Start by getting the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
             double deltaAccumulator = 0.0;
-            uint16_t occurrenceCount = 0;
-            uint16_t bestOccurrences = 0;
+            OCCURRENCE_TYPE occurrenceCount = 0;
+            OCCURRENCE_TYPE bestOccurrences = 0;
             for (auto &nextPos : nextPositions)
             {
                 auto nextPositionEvaluation = evaluateSecondResendPositions(commandFrame + 1,
@@ -193,7 +193,7 @@ namespace WorkerMiningOptimization
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             GatherPositionObservations &positionMetadata,
                                             const Resource &resource,
-                                            uint16_t occurrencesHere = 0)
+                                            OCCURRENCE_TYPE occurrencesHere = 0)
         {
             // Jump out of the recursion when we've exceeded the exploration horizon
             if (positionMetadata.deltaToBenchmarkAndOccurrences.size() == 1 &&
@@ -206,8 +206,8 @@ namespace WorkerMiningOptimization
             PositionEvaluation nextPositionsEvaluation;
             {
                 double deltaAccumulator = 0.0;
-                uint16_t occurrenceCount = 0;
-                uint16_t bestOccurrences = 0;
+                OCCURRENCE_TYPE occurrenceCount = 0;
+                OCCURRENCE_TYPE bestOccurrences = 0;
                 for (auto &nextPositionMetadata : positionMetadata.nextPositions)
                 {
                     auto nextPositionEvaluation = evaluatePosition(commandFrame + 1,

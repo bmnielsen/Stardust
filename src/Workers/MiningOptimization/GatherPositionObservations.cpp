@@ -38,7 +38,7 @@ namespace WorkerMiningOptimization
         if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
 
         int8_t best = -1;
-        uint16_t bestCount = 0;
+        OCCURRENCE_TYPE bestCount = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             if (occurrences > bestCount)
@@ -113,7 +113,7 @@ namespace WorkerMiningOptimization
         if (deltaToBenchmarkAndOccurrences.size() == 1) return deltaToBenchmarkAndOccurrences.begin()->first;
 
         int accumulator = 0;
-        uint16_t total = 0;
+        OCCURRENCE_TYPE total = 0;
         for (const auto &[delta, occ] : deltaToBenchmarkAndOccurrences)
         {
             accumulator += (int)delta * (int)occ;
@@ -131,7 +131,7 @@ namespace WorkerMiningOptimization
         if (deltaToBenchmarkAndOccurrences.size() == 1) return deltaToBenchmarkAndOccurrences.begin()->first;
 
         int8_t best = 100;
-        uint16_t bestOccurrences = 0;
+        OCCURRENCE_TYPE bestOccurrences = 0;
         for (const auto &[delta, occ] : deltaToBenchmarkAndOccurrences)
         {
             if (occ > bestOccurrences)
@@ -164,7 +164,7 @@ namespace WorkerMiningOptimization
     bool GatherPositionObservations::usableForPathPlanning() const
     {
         auto exceedsThreshold = [](
-                const std::unordered_map<int8_t, uint16_t> &map,
+                const std::unordered_map<int8_t, OCCURRENCE_TYPE> &map,
                 int stableLowerThreshold,
                 int stableUpperThreshold,
                 int unstableLowerThreshold,
