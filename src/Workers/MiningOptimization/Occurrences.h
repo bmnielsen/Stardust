@@ -9,9 +9,9 @@ typedef uint8_t OCCURRENCE_TYPE;
 #define SERIALIZE_OCCURRENCE(X) s.value1b(X)
 
 // Configuration of collision counts
-typedef uint8_t COLLISION_TYPE;
-#define COLLISION_LIMIT UINT8_MAX
-#define SERIALIZE_COLLISION(X) s.value1b(X)
+typedef uint16_t COLLISION_TYPE;
+#define COLLISION_LIMIT UINT16_MAX
+#define SERIALIZE_COLLISION(X) s.value2b(X)
 
 namespace WorkerMiningOptimization
 {

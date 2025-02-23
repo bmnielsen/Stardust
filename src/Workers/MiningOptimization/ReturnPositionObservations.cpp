@@ -12,7 +12,7 @@ namespace WorkerMiningOptimization
         // - High exit speed saves 4 frames
         // - Medium exit speed saves 2 frames
         // - Collisions cost an extra order process timer cycle
-        uint16_t total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
+        COLLISION_TYPE total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
         if (total == 0) return 0.0;
 
         return (double)(((int)collision * 9) - ((int)mediumExitSpeed * 2) - ((int)highExitSpeed * 4)) / (double)total;
@@ -67,7 +67,7 @@ namespace WorkerMiningOptimization
         }
 
         double totalDelay = 0.0;
-        uint16_t totalOccurrences = 0;
+        OCCURRENCE_TYPE totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,
@@ -93,7 +93,7 @@ namespace WorkerMiningOptimization
         }
 
         double totalDelay = 0.0;
-        uint16_t totalOccurrences = 0;
+        OCCURRENCE_TYPE totalOccurrences = 0;
         for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,

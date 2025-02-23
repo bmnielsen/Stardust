@@ -4,7 +4,7 @@
 #include "PositionAndVelocity.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
-#include "MapUtil.h"
+#include "Occurrences.h"
 #include <bitsery/ext/std_map.h>
 #include <map>
 
@@ -21,16 +21,16 @@ namespace WorkerMiningOptimization
         };
 
         // Worker collided with the depot
-        uint16_t collision;
+        COLLISION_TYPE collision;
 
         // Worker left the depot at normal low speed (approx. 30% speed 8 frames after delivery)
-        uint16_t lowExitSpeed;
+        COLLISION_TYPE lowExitSpeed;
 
         // Worker left the depot at medium speed (50-80% speed 8 frames after delivery)
-        uint16_t mediumExitSpeed;
+        COLLISION_TYPE mediumExitSpeed;
 
         // Worker left the depot at high speed (80%+ speed 8 frames after delivery)
-        uint16_t highExitSpeed;
+        COLLISION_TYPE highExitSpeed;
 
         void addObservation(ReturnSpeedObservation observation)
         {
@@ -67,22 +67,22 @@ namespace WorkerMiningOptimization
         template <typename S>
         void serialize(S& s)
         {
-            s.value2b(collision);
-            s.value2b(lowExitSpeed);
-            s.value2b(mediumExitSpeed);
-            s.value2b(highExitSpeed);
+            SERIALIZE_COLLISION(collision);
+            SERIALIZE_COLLISION(lowExitSpeed);
+            SERIALIZE_COLLISION(mediumExitSpeed);
+            SERIALIZE_COLLISION(highExitSpeed);
         }
     };
 
     struct ReturnArrivalObservations
     {
-        std::unordered_map<uint16_t, uint16_t> arrivalDelayAndOccurrences;
+        std::unordered_map<uint16_t, OCCURRENCE_TYPE> arrivalDelayAndOccurrences;
         ReturnSpeedOccurrences deliveryAfterArrivalSpeeds = {0, 0, 0, 0};
         ReturnSpeedOccurrences deliveryAtArrivalSpeeds = {0, 0, 0, 0};
 
         void add(uint16_t arrivalDelay)
         {
-            if (MapUtil::atOccurrenceCap(arrivalDelayAndOccurrences)) return;
+            if (atOccurrenceCap(arrivalDelayAndOccurrences)) return;
             arrivalDelayAndOccurrences[arrivalDelay]++;
         }
 
@@ -124,9 +124,9 @@ namespace WorkerMiningOptimization
         template <typename S>
         void serialize(S& s)
         {
-            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint16_t& key, uint16_t& value) {
+            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint16_t& key, OCCURRENCE_TYPE& value) {
                 s.value2b(key);
-                s.value2b(value);
+                SERIALIZE_OCCURRENCE(value);
             });
             s.object(deliveryAfterArrivalSpeeds);
             s.object(deliveryAtArrivalSpeeds);
@@ -146,7 +146,7 @@ namespace WorkerMiningOptimization
 
         // All next positions seen from this position, with their count of observations
         // May be empty for the last position we consider in a path
-        std::unordered_map<PositionAndVelocity, uint16_t> nextPositionAndOccurrences;
+        std::unordered_map<PositionAndVelocity, OCCURRENCE_TYPE> nextPositionAndOccurrences;
 
         // Observations for when no resend was sent here
         ReturnArrivalObservations noResendArrivalObservations;
@@ -167,7 +167,7 @@ namespace WorkerMiningOptimization
 
         void addNext(const PositionAndVelocity &next)
         {
-            if (MapUtil::atOccurrenceCap(nextPositionAndOccurrences)) return;
+            if (atOccurrenceCap(nextPositionAndOccurrences)) return;
             nextPositionAndOccurrences[next]++;
         }
 
@@ -178,9 +178,9 @@ namespace WorkerMiningOptimization
 
         template <typename S>
         void serialize(S& s) {
-            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, uint16_t& value) {
+            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, OCCURRENCE_TYPE & value) {
                 s.object(key);
-                s.value2b(value);
+                SERIALIZE_OCCURRENCE(value);
             });
             s.object(noResendArrivalObservations);
             s.object(resendArrivalObservations);
