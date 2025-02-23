@@ -342,7 +342,7 @@ namespace BuildingPlacement
                     BWAPI::TilePosition cannon = BWAPI::TilePositions::Invalid;
                     for (auto &location : block->small)
                     {
-                        if (location.tile == startBlock->powerPylon) continue;
+                        if (location.tile == block->powerPylon) continue;
                         cannon = location.tile;
                         break;
                     }
