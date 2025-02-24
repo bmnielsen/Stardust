@@ -6,6 +6,7 @@
 #include "Resource.h"
 #include "Occurrences.h"
 #include <bitsery/ext/std_map.h>
+#include <bitsery/traits/vector.h>
 #include <map>
 
 namespace WorkerMiningOptimization
@@ -144,9 +145,13 @@ namespace WorkerMiningOptimization
         // The position
         PositionAndVelocity pos;
 
-        // All next positions seen from this position, with their count of observations
-        // May be empty for the last position we consider in a path
-        std::unordered_map<PositionAndVelocity, OCCURRENCE_TYPE> nextPositionAndOccurrences;
+        // How often this position has occurred in its path
+        // For root nodes, how often it has been observed
+        OCCURRENCE_TYPE occurrences = 1;
+
+        // All next positions seen from this position
+        // Will be empty on leaf nodes
+        std::vector<ReturnPositionObservations> nextPositions;
 
         // Observations for when no resend was sent here
         ReturnArrivalObservations noResendArrivalObservations;
@@ -165,22 +170,19 @@ namespace WorkerMiningOptimization
                 , noResendArrivalObservations(ReturnArrivalObservations{{{arrival, 1}}})
         {}
 
-        void addNext(const PositionAndVelocity &next)
-        {
-            if (atOccurrenceCap(nextPositionAndOccurrences)) return;
-            nextPositionAndOccurrences[next]++;
-        }
-
         // Checks if any of the observed arrival delays are after our exploration horizon
         [[nodiscard]] bool afterExplorationHorizon() const;
 
         [[nodiscard]] bool suitableForExploration() const;
 
+        ReturnPositionObservations* nextPositionIfExists(const PositionAndVelocity &nextPos);
+
         template <typename S>
         void serialize(S& s) {
-            s.ext(nextPositionAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, PositionAndVelocity& key, OCCURRENCE_TYPE & value) {
-                s.object(key);
-                SERIALIZE_OCCURRENCE(value);
+            s.object(pos);
+            SERIALIZE_OCCURRENCE(occurrences);
+            s.container(nextPositions, INT_MAX, [](auto &s, ReturnPositionObservations &value) {
+                s.object(value);
             });
             s.object(noResendArrivalObservations);
             s.object(resendArrivalObservations);

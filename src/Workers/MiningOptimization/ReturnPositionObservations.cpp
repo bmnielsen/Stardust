@@ -163,11 +163,11 @@ namespace WorkerMiningOptimization
         {
             if (arrivalDelay < (referenceFrame - RETURN_EXPLORE_AFTER))
             {
-                return false;
+                return true;
             }
         }
 
-        return true;
+        return false;
     }
 
     bool ReturnPositionObservations::suitableForExploration() const
@@ -185,6 +185,18 @@ namespace WorkerMiningOptimization
         }
 
         return true;
+    }
+
+    ReturnPositionObservations* ReturnPositionObservations::nextPositionIfExists(const PositionAndVelocity &nextPos)
+    {
+        for (auto &candidate : nextPositions)
+        {
+            if (candidate.pos == nextPos)
+            {
+                return &candidate;
+            }
+        }
+        return nullptr;
     }
 
     std::ostream &operator<<(std::ostream &os, const ReturnPositionObservations &optimalGatherPositionMetadata)

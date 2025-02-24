@@ -15,8 +15,8 @@ namespace WorkerMiningOptimization
         {
             bool explored = false;
             double expectedDelay = 0.0;
-            std::deque<PositionAndVelocity> expectedPath; // up to and including the resend position
-            std::shared_ptr<PositionAndVelocity> resendPosition;
+            std::deque<ReturnPositionObservations*> expectedPath; // up to and including the resend position
+            ReturnPositionObservations* resendPosition;
             bool positionToTry = false;
 
             [[nodiscard]] double expectedDelayAtStartOfPath() const
@@ -24,14 +24,14 @@ namespace WorkerMiningOptimization
                 return expectedDelay + (double)((int)expectedPath.size() - 1);
             }
 
-            static PositionEvaluation exploring(double delta, const PositionAndVelocity &pos)
+            static PositionEvaluation exploring(double delta, ReturnPositionObservations* resendPos)
             {
-                return {false, delta, {pos}, std::make_shared<PositionAndVelocity>(pos), true};
+                return {false, delta, {resendPos}, resendPos, true};
             }
 
-            static PositionEvaluation resend(double delta, const PositionAndVelocity &pos)
+            static PositionEvaluation resend(double delta, ReturnPositionObservations* resendPos)
             {
-                return {true, delta, {pos}, std::make_shared<PositionAndVelocity>(pos), false};
+                return {true, delta, {resendPos}, resendPos, false};
             }
         };
 
@@ -40,43 +40,11 @@ namespace WorkerMiningOptimization
             if (first.expectedPath.empty() && second.expectedPath.empty()) return first.expectedDelay < second.expectedDelay;
             if (first.expectedPath.empty()) return true;
             if (second.expectedPath.empty()) return false;
-            return first.expectedPath.begin()->getHash() < second.expectedPath.begin()->getHash();
+            return (*first.expectedPath.begin())->pos < (*second.expectedPath.begin())->pos;
         }
 
-        PositionEvaluation evaluatePosition(int commandFrame,
-                                            const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
-                                            const ReturnPositionObservations &positionMetadata,
-                                            PathTraversalLoopGuard &loopGuard);
-
-        PositionEvaluation evaluateNextPosition(int commandFrame, // NOLINT(*-no-recursion)
-                                                const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
-                                                const PositionAndVelocity &nextPosition,
-                                                PathTraversalLoopGuard &loopGuard)
+        PositionEvaluation evaluatePosition(int commandFrame, ReturnPositionObservations &positionMetadata) // NOLINT(*-no-recursion)
         {
-            auto nextPositionDataIt = allPositionData.find(nextPosition);
-            if (nextPositionDataIt == allPositionData.end())
-            {
-#if LOGGING_ENABLED
-                Log::Get() << "ERROR: No return metadata found for next position " << nextPosition;
-#endif
-                return {};
-            }
-
-            auto result = evaluatePosition(commandFrame + 1, allPositionData, nextPositionDataIt->second, loopGuard);
-            loopGuard.pop(nextPosition);
-            return result;
-        }
-
-        PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
-                                            const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &allPositionData,
-                                            const ReturnPositionObservations &positionMetadata,
-                                            PathTraversalLoopGuard &loopGuard)
-        {
-            // Ensure we don't process a looping path or recurse too deep
-            if (loopGuard.push(positionMetadata.pos)) return {};
-
-            auto here = std::make_shared<PositionAndVelocity>(positionMetadata.pos);
-
             // If no resend from this position can take effect before reaching the depot, bail out now
             if (positionMetadata.noResendArrivalObservations.largestArrivalDelay() <= BWAPI::Broodwar->getLatencyFrames())
             {
@@ -84,43 +52,40 @@ namespace WorkerMiningOptimization
             }
 
             // Jump out of the recursion when we've exceeded the exploration horizon
-            if (!positionMetadata.afterExplorationHorizon())
+            if (positionMetadata.afterExplorationHorizon())
             {
                 return {};
             }
 
             // Start by getting the data for all of the next positions
             PositionEvaluation nextPositionsEvaluation;
-            if (positionMetadata.nextPositionAndOccurrences.size() == 1)
+            if (positionMetadata.nextPositions.size() == 1)
             {
-                nextPositionsEvaluation = evaluateNextPosition(
-                        commandFrame,
-                        allPositionData,
-                        positionMetadata.nextPositionAndOccurrences.begin()->first,
-                        loopGuard);
+                nextPositionsEvaluation = evaluatePosition(commandFrame + 1, *positionMetadata.nextPositions.begin());
             }
-            else if (positionMetadata.nextPositionAndOccurrences.size() > 1)
+            else if (positionMetadata.nextPositions.size() > 1)
             {
                 double delayAccumulator = 0.0;
                 uint16_t occurrenceCount = 0;
                 uint16_t bestOccurrences = 0;
-                for (const auto &[nextPosition, occurrences] : positionMetadata.nextPositionAndOccurrences)
+                for (auto &nextPositionMetadata : positionMetadata.nextPositions)
                 {
-                    auto nextPositionEvaluation = evaluateNextPosition(commandFrame, allPositionData, nextPosition, loopGuard);
+                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, nextPositionMetadata);
                     if (nextPositionEvaluation.explored)
                     {
-                        delayAccumulator += nextPositionEvaluation.expectedDelay * occurrences;
-                        occurrenceCount += occurrences;
+                        delayAccumulator += nextPositionEvaluation.expectedDelay * nextPositionMetadata.occurrences;
+                        occurrenceCount += nextPositionMetadata.occurrences;
                     }
-                    if (occurrences > bestOccurrences || (occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
+                    if (nextPositionMetadata.occurrences > bestOccurrences ||
+                        (nextPositionMetadata.occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
-                        bestOccurrences = occurrences;
+                        bestOccurrences = nextPositionMetadata.occurrences;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
                     }
                 }
                 if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelay = (delayAccumulator / (double)occurrenceCount);
             }
-            nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), positionMetadata.pos);
+            nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), &positionMetadata);
 
             // Explore positions within our exploration horizon that haven't been tried yet
             if (WorkerMiningOptimization::isExploring() && positionMetadata.suitableForExploration())
@@ -129,7 +94,7 @@ namespace WorkerMiningOptimization
                         std::abs(8 + BWAPI::Broodwar->getLatencyFrames() - positionMetadata.noResendArrivalObservations.mostCommonArrivalDelay());
                 if (!nextPositionsEvaluation.positionToTry || deltaToBenchmark < nextPositionsEvaluation.expectedDelay)
                 {
-                    return PositionEvaluation::exploring(deltaToBenchmark, *here);
+                    return PositionEvaluation::exploring(deltaToBenchmark, &positionMetadata);
                 }
             }
             if (nextPositionsEvaluation.positionToTry) return nextPositionsEvaluation;
@@ -143,25 +108,43 @@ namespace WorkerMiningOptimization
             double expectedDelay = positionMetadata.resendArrivalObservations.expectedDeliveryDelay(commandFrame);
             if (!nextPositionsEvaluation.explored || expectedDelay < (nextPositionsEvaluation.expectedDelayAtStartOfPath() - EPSILON))
             {
-                return PositionEvaluation::resend(expectedDelay, *here);
+                return PositionEvaluation::resend(expectedDelay, &positionMetadata);
             }
 
             return nextPositionsEvaluation;
         }
 
         void planResend(WorkerReturnStatus &workerStatus,
-                        const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &optimalPositions,
+                        std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &rootNodes,
                         const std::shared_ptr<PositionAndVelocity> &currentPosition)
         {
-            // Reference this position's metadata
-            auto metadataIt = optimalPositions.find(*currentPosition);
-            if (metadataIt == optimalPositions.end()) return; // haven't reached an observed position yet
-            auto &positionMetadata = metadataIt->second;
+            // If we don't have a current node yet, check if this position is a root node
+            if (!workerStatus.currentNode)
+            {
+                auto rootNodeIt = rootNodes.find(*currentPosition);
+                if (rootNodeIt == rootNodes.end()) return;
 
-            workerStatus.hasPathData = true;
+                workerStatus.currentNode = &rootNodeIt->second;
+            }
+            else
+            {
+                // Advance the current node to the appropriate next position
+                workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition);
+
+                // If there was none, this is a new path, so let us observe it
+                if (!workerStatus.currentNode)
+                {
+                    workerStatus.resendPlanned = true;
+                    workerStatus.hasPathData = true;
+                    return;
+                }
+            }
+
+            auto &positionMetadata = *workerStatus.currentNode;
 
             // We are now sure that we will plan something, though we may choose not to perform a resend
             workerStatus.resendPlanned = true;
+            workerStatus.hasPathData = true;
 
             // Check if we need to "explore" the no resend case
             if (positionMetadata.noResendArrivalObservations.empty()) return;
@@ -174,8 +157,7 @@ namespace WorkerMiningOptimization
                 return evaluation.explored;
             };
 
-            PathTraversalLoopGuard loopGuard;
-            auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), optimalPositions, positionMetadata, loopGuard);
+            auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), positionMetadata);
             if (shouldResend(evaluation))
             {
                 workerStatus.plannedResendPosition = evaluation.resendPosition;
@@ -211,7 +193,7 @@ namespace WorkerMiningOptimization
         void validatePlannedReturnPath(WorkerReturnStatus &workerStatus, const std::shared_ptr<PositionAndVelocity> &currentPosition)
         {
             if (workerStatus.expectedPath.empty()) return; // have no further resends planned
-            if (workerStatus.expectedPath.front() == *currentPosition) return; // path matches expectations
+            if (workerStatus.expectedPath.front()->pos == *currentPosition) return; // path matches expectations
 
             // We have reached an unexpected position, so reset so we can potentially replan
             workerStatus.resendPlanned = false;
@@ -227,27 +209,13 @@ namespace WorkerMiningOptimization
         {
             if (workerStatus.resentPosition) return false;
             if (!workerStatus.plannedResendPosition) return false;
-            if (*workerStatus.plannedResendPosition != *currentPosition) return false;
+            if (workerStatus.plannedResendPosition->pos != *currentPosition) return false;
 
             if (workerStatus.plannedResendIsForExploration) return true;
 
             // Check if not resending is more efficient
             auto &worker = workerStatus.worker;
-
-            // First look up the metadata for this position
-            auto positionMetadataIt = optimalPositions.find(*currentPosition);
-            if (positionMetadataIt == optimalPositions.end()) // should never happen, since we've planned a resend here
-            {
-#if LOGGING_ENABLED
-                Log::Get() << "ERROR: Metadata not found at planned resend position " << *currentPosition
-                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-#endif
-                // Return false since we don't want observations for resends at positions we haven't observed without a resend yet
-                return false;
-            }
-
-            // Now estimate the delay given that we do not resend
-            auto noResendExpectedDelay = positionMetadataIt->second.noResendArrivalObservations.expectedNoResendDeliveryDelay(worker);
+            auto noResendExpectedDelay = workerStatus.plannedResendPosition->noResendArrivalObservations.expectedNoResendDeliveryDelay(worker);
             if (workerStatus.expectedDelayAfterResend < (noResendExpectedDelay - EPSILON))
             {
                 return true;
@@ -278,7 +246,7 @@ namespace WorkerMiningOptimization
         return;
 #endif
 
-        auto &optimalPositions = optimalReturnPositionsFor(resource);
+        auto &rootNodes = returnPositionRootNodesFor(resource);
 
         if (workerStatus.resendPlanned)
         {
@@ -287,12 +255,12 @@ namespace WorkerMiningOptimization
 
         if (!workerStatus.resendPlanned)
         {
-            planResend(workerStatus, optimalPositions, currentPosition);
+            planResend(workerStatus, rootNodes, currentPosition);
         }
 
         if (workerStatus.resendPlanned)
         {
-            if (shouldPerformScheduledResendHere(workerStatus, optimalPositions, currentPosition))
+            if (shouldPerformScheduledResendHere(workerStatus, rootNodes, currentPosition))
             {
 #if OPTIMALRETURN_DEBUG
                 CherryVis::log(worker->id) << "Resending for " << *workerStatus.plannedResendPosition

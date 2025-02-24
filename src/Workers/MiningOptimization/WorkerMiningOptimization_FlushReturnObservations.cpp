@@ -13,24 +13,35 @@ namespace WorkerMiningOptimization
         struct PositionsInHistory
         {
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator firstMovedPositionIt;
-            std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator resendPositionIt;
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator arrivalPositionIt;
+
+            std::vector<ReturnPositionObservations*> positionHistory;
+            ReturnPositionObservations* resendPosition = nullptr;
+
+            int resendDistanceToArrival = 0;
         };
 
-        bool extractPositionsInHistory(WorkerReturnStatus &workerStatus, PositionsInHistory &positionsInHistory)
+        bool extractPositionsInHistory(PositionsInHistory &positionsInHistory,
+                                       WorkerReturnStatus &workerStatus,
+                                       std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &rootNodes,
+                                       bool createObservations)
         {
             if (workerStatus.positionHistory.empty()) return false;
+            if (workerStatus.positionHistory.size() > 75) return false;
 
             positionsInHistory.firstMovedPositionIt = workerStatus.positionHistory.end();
-            positionsInHistory.resendPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
+            positionsInHistory.positionHistory.clear();
+            positionsInHistory.resendPosition = nullptr;
+
+            auto resendPositionIt = workerStatus.positionHistory.end();
 
             auto firstPos = (*workerStatus.positionHistory.begin())->pos();
             for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != workerStatus.positionHistory.end(); positionIt++)
             {
                 if (workerStatus.resentPosition && (*workerStatus.resentPosition) == **positionIt)
                 {
-                    positionsInHistory.resendPositionIt = positionIt;
+                    resendPositionIt = positionIt;
                 }
 
                 if (positionsInHistory.arrivalPositionIt == workerStatus.positionHistory.end())
@@ -82,13 +93,74 @@ namespace WorkerMiningOptimization
 #endif
                 return false;
             }
-            if (workerStatus.resentPosition && positionsInHistory.resendPositionIt == workerStatus.positionHistory.end())
+            if (workerStatus.resentPosition && resendPositionIt == workerStatus.positionHistory.end())
             {
 #if LOGGING_ENABLED
                 Log::Get() << "ERROR: Couldn't find return resend position in history"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
                 return false;
+            }
+            else if (workerStatus.resentPosition &&
+                     std::distance(resendPositionIt, positionsInHistory.arrivalPositionIt) <= BWAPI::Broodwar->getLatencyFrames())
+            {
+#if LOGGING_ENABLED
+                Log::Get() << "ERROR: Return resend was within LF of arrival"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+#endif
+                return false;
+            }
+
+            positionsInHistory.resendDistanceToArrival = (int)std::distance(resendPositionIt, positionsInHistory.arrivalPositionIt);
+
+            // Reference the observations and potentially create new nodes
+
+            // Start by finding or creating the root node
+            auto rootNodeIt = rootNodes.find(**workerStatus.positionHistory.begin());
+            if (rootNodeIt == rootNodes.end())
+            {
+                if (!createObservations) return false;
+                auto result = rootNodes.emplace(**workerStatus.positionHistory.begin(), **workerStatus.positionHistory.begin());
+                rootNodeIt = result.first;
+            }
+            else if (rootNodeIt->second.occurrences < OCCURRENCE_LIMIT)
+            {
+                rootNodeIt->second.occurrences++;
+            }
+
+            auto current = &(rootNodeIt->second);
+            positionsInHistory.positionHistory.push_back(current);
+
+            // Add positions up to the resend (or arrival position if there was no resend)
+            auto limit = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames();
+            if (resendPositionIt != workerStatus.positionHistory.end())
+            {
+                limit = resendPositionIt + 1;
+            }
+            for (auto positionIt = workerStatus.positionHistory.begin() + 1; positionIt != limit; positionIt++)
+            {
+                // Try to find the next position
+                auto [next, atLimit] = findNextPositionCheckingOccurrences(**positionIt, current->nextPositions);
+
+                // If we have a new path branch that we can't create, bail out now
+                if (!next && (!createObservations || atLimit)) return false;
+
+                // Create a new item if needed, otherwise bump the occurrence count if possible
+                if (!next)
+                {
+                    next = &current->nextPositions.emplace_back(**positionIt);
+                }
+                else if (!atLimit)
+                {
+                    next->occurrences++;
+                }
+
+                current = next;
+                positionsInHistory.positionHistory.push_back(current);
+            }
+            if (resendPositionIt != workerStatus.positionHistory.end())
+            {
+                positionsInHistory.resendPosition = current;
             }
 
             return true;
@@ -101,8 +173,8 @@ namespace WorkerMiningOptimization
             MyUnit depot;
             Resource resource;
             bool deliveredOnArrivalFrame;
-            std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
-            std::shared_ptr<const PositionAndVelocity> resentPosition;
+            std::vector<ReturnPositionObservations*> positionHistory;
+            ReturnPositionObservations* resentPosition;
         };
 
         std::vector<JustReturnedWorker> justReturnedWorkers;
@@ -174,80 +246,17 @@ namespace WorkerMiningOptimization
                  : observations.deliveryAfterArrivalSpeeds).addObservation(observation);
             };
 
-            // Update the stats on the appropriate position metadata
-            auto &optimalReturnPositions = optimalReturnPositionsFor(justReturnedWorker.resource);
-
-            // If no resend occurred, update all positions that have metadata
+            // If no resend occurred, update all positions
             if (!justReturnedWorker.resentPosition)
             {
                 for (const auto &position : justReturnedWorker.positionHistory)
                 {
-                    auto metadataIt = optimalReturnPositions.find(*position);
-                    if (metadataIt != optimalReturnPositions.end())
-                    {
-                        addObservation(metadataIt->second.noResendArrivalObservations);
-                    }
+                    addObservation(position->noResendArrivalObservations);
                 }
                 return;
             }
 
-            auto resendMetadataIt = optimalReturnPositions.find(*justReturnedWorker.resentPosition);
-            if (resendMetadataIt == optimalReturnPositions.end()) // should never happen
-            {
-#if LOGGING_ENABLED
-                Log::Get() << "ERROR: Return metadata not found for " << *justReturnedWorker.resentPosition
-                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-#endif
-                return;
-            }
-
-            addObservation(resendMetadataIt->second.resendArrivalObservations);
-        }
-
-        void updateNextPositions(WorkerReturnStatus &workerStatus,
-                                 PositionsInHistory &positionsInHistory)
-        {
-            auto &optimalReturnPositions = optimalReturnPositionsFor(workerStatus.resource);
-
-            auto ensureBeforeArrival = [&positionsInHistory](auto it)
-            {
-                if (std::distance(it, positionsInHistory.arrivalPositionIt) < 0)
-                {
-                    return positionsInHistory.arrivalPositionIt;
-                }
-                return it;
-            };
-
-            // Include LF positions after the resend since the positions only change after the command kicks in
-            bool passedExistingPosition = false;
-            auto limit = positionsInHistory.arrivalPositionIt;
-            if (workerStatus.resentPosition)
-            {
-                limit = ensureBeforeArrival(positionsInHistory.resendPositionIt + BWAPI::Broodwar->getLatencyFrames() + 1);
-            }
-            for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != limit; positionIt++)
-            {
-                auto metadataIt = optimalReturnPositions.find(**positionIt);
-                if (metadataIt == optimalReturnPositions.end())
-                {
-                    // We create default metadata for anything we create a next link to, but not anything that comes before
-                    if (!passedExistingPosition) continue;
-
-                    metadataIt = optimalReturnPositions.emplace(
-                            **positionIt,
-                            ReturnPositionObservations(**positionIt)
-                    ).first;
-                }
-                else
-                {
-                    passedExistingPosition = true;
-                }
-
-                if ((positionIt + 1) != limit)
-                {
-                    metadataIt->second.addNext(**(positionIt + 1));
-                }
-            }
+            addObservation(justReturnedWorker.resentPosition->resendArrivalObservations);
         }
 
         void updateReturnOptimization(WorkerReturnStatus &workerStatus, const PositionsInHistory &positionsInHistory)
@@ -261,61 +270,41 @@ namespace WorkerMiningOptimization
             }
 #endif
 
-            auto &optimalReturnPositions = optimalReturnPositionsFor(workerStatus.resource);
-
             // If we sent no command, record the path for exploration
             if (!workerStatus.resentPosition)
             {
-                // Create metadata for any missing positions on this path
-                for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
+                // Update the metadata for the positions on this path
+                for (auto positionIt = positionsInHistory.positionHistory.begin();
+                     positionIt != positionsInHistory.positionHistory.end();
+                     positionIt++)
                 {
-                    auto arrival = (uint16_t)std::distance(positionIt, positionsInHistory.arrivalPositionIt);
+                    auto arrival =
+                            (uint16_t)(std::distance(positionIt, positionsInHistory.positionHistory.end()) + BWAPI::Broodwar->getLatencyFrames());
 
-                    auto existingIt = optimalReturnPositions.find(**positionIt);
-                    if (existingIt != optimalReturnPositions.end())
-                    {
 #if OPTIMALRETURN_DEBUG
-                        if (!existingIt->second.noResendArrivalObservations.arrivalDelayAndOccurrences.contains(arrival))
-                        {
-                            CherryVis::log(worker->id) << "New arrival of " << arrival << " came up for " << existingIt->second;
-                        }
-#endif
-
-                        existingIt->second.noResendArrivalObservations.add(arrival);
-                        continue;
-                    }
-
-                    if (arrival > (RETURN_EXPLORE_BEFORE + 8 + BWAPI::Broodwar->getLatencyFrames())) continue;
-
-                    optimalReturnPositions.emplace(
-                            **positionIt,
-                            ReturnPositionObservations(**positionIt, arrival)
-                    );
-
+                    if ((*positionIt)->noResendArrivalObservations.arrivalDelayAndOccurrences.empty())
+                    {
 #if OPTIMALRETURN_DEBUG_VERBOSE
-                    CherryVis::log(worker->id) << "Added metadata for " << **positionIt << " at arrival " << arrival;
+                        CherryVis::log(worker->id) << "Added metadata for " << **positionIt << " at arrival " << arrival;
 #endif
+                    }
+                    else if (!(*positionIt)->noResendArrivalObservations.arrivalDelayAndOccurrences.contains(arrival))
+                    {
+                        CherryVis::log(worker->id) << "New arrival of " << arrival << " came up for " << (*positionIt)->pos;
+                    }
+#endif
+
+                    (*positionIt)->noResendArrivalObservations.add(arrival);
                 }
                 return;
             }
 
-            // Get the data for the resent position
-            auto resentPositionDataIt = optimalReturnPositions.find(*workerStatus.resentPosition);
-            if (resentPositionDataIt == optimalReturnPositions.end()) // should never happen
-            {
-#if LOGGING_ENABLED
-                Log::Get() << "ERROR: Observations not found for return resend position " << *workerStatus.resentPosition
-                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-#endif
-                return;
-            }
-
-            // Record the observation
-            int arrival = (int)std::distance(positionsInHistory.resendPositionIt, positionsInHistory.arrivalPositionIt);
-            resentPositionDataIt->second.resendArrivalObservations.add(arrival);
+            // Record the resend observation
+            positionsInHistory.resendPosition->resendArrivalObservations.add(positionsInHistory.resendDistanceToArrival);
 
 #if OPTIMALRETURN_DEBUG_VERBOSE
-            CherryVis::log(worker->id) << "Added observation of " << *workerStatus.resentPosition << " with arrival " << arrival;
+            CherryVis::log(worker->id) << "Added observation of " << *workerStatus.resentPosition
+                                       << " with arrival " << positionsInHistory.resendDistanceToArrival;
 #endif
         }
     }
@@ -446,8 +435,10 @@ namespace WorkerMiningOptimization
             it->second.appendCurrentPosition();
 
             // We ignore workers that didn't start at the patch or had excessively long paths (indicating distance mining)
+            auto &rootNodes = returnPositionRootNodesFor(it->second.resource);
             PositionsInHistory positionsInHistory;
-            if (!it->second.pathStartsAtPatch || it->second.positionHistory.size() > 75 || !extractPositionsInHistory(it->second, positionsInHistory))
+            if (!it->second.pathStartsAtPatch ||
+                !extractPositionsInHistory(positionsInHistory, it->second, rootNodes, WorkerMiningOptimization::isExploring()))
             {
 #if OPTIMALRETURN_DEBUG
                 CherryVis::log(worker->id) << "Not tracking observations for this return"
@@ -460,16 +451,14 @@ namespace WorkerMiningOptimization
 
             updateReturnOptimization(it->second, positionsInHistory);
 
-            updateNextPositions(it->second, positionsInHistory);
-
             // Move required fields into the MiningWorker struct that we use to track patch collisions
             justReturnedWorkers.emplace_back(JustReturnedWorker{
                     std::move(it->second.worker),
                     std::move(it->second.depot),
                     std::move(it->second.resource),
                     positionsInHistory.arrivalPositionIt == (it->second.positionHistory.end() - 1),
-                    std::move(it->second.positionHistory),
-                    std::move(it->second.resentPosition)});
+                    std::move(positionsInHistory.positionHistory),
+                    positionsInHistory.resendPosition});
 
             // We now no longer need to do anything with this worker status
             it = workerReturnStatuses.erase(it);

@@ -3,6 +3,7 @@
 #include "MyWorker.h"
 #include "Resource.h"
 #include "PositionAndVelocity.h"
+#include "ReturnPositionObservations.h"
 
 namespace WorkerMiningOptimization
 {
@@ -31,10 +32,13 @@ namespace WorkerMiningOptimization
         bool resendPlanned;
 
         // Planned resend position
-        std::shared_ptr<const PositionAndVelocity> plannedResendPosition;
+        ReturnPositionObservations* plannedResendPosition;
 
         // The expected path the worker will follow
-        std::deque<PositionAndVelocity> expectedPath;
+        std::deque<ReturnPositionObservations*> expectedPath;
+
+        // The current position of the worker in the expected path
+        ReturnPositionObservations* currentNode;
 
         // Whether the planned resend position is being tried for exploratory purposes
         bool plannedResendIsForExploration;
@@ -55,6 +59,8 @@ namespace WorkerMiningOptimization
                 , lastProcessedFrame(-2)
                 , pathStartsAtPatch(false)
                 , resendPlanned(false)
+                , plannedResendPosition(nullptr)
+                , currentNode(nullptr)
                 , plannedResendIsForExploration(false)
                 , expectedDelayAfterResend(100.0)
                 , hasPathData(false)
@@ -68,6 +74,7 @@ namespace WorkerMiningOptimization
             resendPlanned = false;
             plannedResendPosition = nullptr;
             expectedPath.clear();
+            currentNode = nullptr;
             plannedResendIsForExploration = false;
             expectedDelayAfterResend = 100.0;
             resentPosition = nullptr;

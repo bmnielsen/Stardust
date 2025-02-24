@@ -21,7 +21,7 @@ namespace WorkerMiningOptimization
             // This helps us detect when the worker reaches the same position via a different path, indicating different subpixel positioning
             currentPosition = std::make_shared<PositionAndVelocity>(
                     worker,
-                    pathStartsAtPatch ? positionHistory.rbegin()->get() : nullptr);
+                    nullptr);
         }
 
         positionHistory.emplace_back(currentPosition);
