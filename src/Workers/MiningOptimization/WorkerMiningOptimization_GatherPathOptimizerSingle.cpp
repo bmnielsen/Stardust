@@ -129,30 +129,40 @@ namespace WorkerMiningOptimization
 
             // Start by getting the data for doing a second resend at all of the next positions
             PositionEvaluation nextPositionsEvaluation;
-            double deltaAccumulator = 0.0;
-            OCCURRENCE_TYPE occurrenceCount = 0;
-            OCCURRENCE_TYPE bestOccurrences = 0;
-            for (auto &nextPos : nextPositions)
+            if (nextPositions.size() == 1)
             {
-                auto nextPositionEvaluation = evaluateSecondResendPositions(commandFrame + 1,
-                                                                            firstResend,
-                                                                            GatherPositionObservationPtr(&nextPos),
-                                                                            deltaToFirstResend + 1,
-                                                                            resource);
-                if (nextPositionEvaluation.explored)
-                {
-                    deltaAccumulator += nextPositionEvaluation.expectedDelta * nextPos.occurrences;
-                    occurrenceCount += nextPos.occurrences;
-                }
-                if (nextPos.occurrences > bestOccurrences ||
-                        (nextPos.occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
-                {
-                    bestOccurrences = nextPos.occurrences;
-                    nextPositionsEvaluation = std::move(nextPositionEvaluation);
-                }
+                nextPositionsEvaluation = evaluateSecondResendPositions(commandFrame + 1,
+                                                                        firstResend,
+                                                                        GatherPositionObservationPtr(&*nextPositions.begin()),
+                                                                        deltaToFirstResend + 1,
+                                                                        resource);
             }
-            if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelta = (deltaAccumulator / (double)occurrenceCount);
-
+            else if (nextPositions.size() > 1)
+            {
+                double deltaAccumulator = 0.0;
+                OCCURRENCE_TYPE occurrenceCount = 0;
+                OCCURRENCE_TYPE bestOccurrences = 0;
+                for (auto &nextPos : nextPositions)
+                {
+                    auto nextPositionEvaluation = evaluateSecondResendPositions(commandFrame + 1,
+                                                                                firstResend,
+                                                                                GatherPositionObservationPtr(&nextPos),
+                                                                                deltaToFirstResend + 1,
+                                                                                resource);
+                    if (nextPositionEvaluation.explored)
+                    {
+                        deltaAccumulator += nextPositionEvaluation.expectedDelta * nextPos.occurrences;
+                        occurrenceCount += nextPos.occurrences;
+                    }
+                    if (nextPos.occurrences > bestOccurrences ||
+                        (nextPos.occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
+                    {
+                        bestOccurrences = nextPos.occurrences;
+                        nextPositionsEvaluation = std::move(nextPositionEvaluation);
+                    }
+                }
+                if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelta = (deltaAccumulator / (double)occurrenceCount);
+            }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), here);
 
             // We can't send another command at LF after previous command
@@ -204,6 +214,14 @@ namespace WorkerMiningOptimization
 
             // Start by getting the data for all of the next positions
             PositionEvaluation nextPositionsEvaluation;
+            if (positionMetadata.nextPositions.size() == 1)
+            {
+                nextPositionsEvaluation = evaluatePosition(commandFrame + 1,
+                                                           *positionMetadata.nextPositions.begin(),
+                                                           resource,
+                                                           positionMetadata.nextPositions.begin()->occurrences);
+            }
+            else if (positionMetadata.nextPositions.size() > 1)
             {
                 double deltaAccumulator = 0.0;
                 OCCURRENCE_TYPE occurrenceCount = 0;

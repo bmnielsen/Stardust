@@ -39,7 +39,7 @@ namespace WorkerMiningOptimization
         // The expected node path the worker will follow
         std::deque<GatherPositionObservationPtr> expectedPath;
 
-        // The current node
+        // The current position of the worker in the expected path
         std::unique_ptr<GatherPositionObservationPtr> currentNode;
 
         // The expected frame the worker will arrive at the patch
