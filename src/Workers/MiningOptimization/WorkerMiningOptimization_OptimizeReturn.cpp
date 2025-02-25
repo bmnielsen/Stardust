@@ -16,7 +16,7 @@ namespace WorkerMiningOptimization
             bool explored = false;
             double expectedDelay = 0.0;
             std::deque<ReturnPositionObservations*> expectedPath; // up to and including the resend position
-            ReturnPositionObservations* resendPosition;
+            ReturnPositionObservations* resendPosition = nullptr;
             bool positionToTry = false;
 
             [[nodiscard]] double expectedDelayAtStartOfPath() const
