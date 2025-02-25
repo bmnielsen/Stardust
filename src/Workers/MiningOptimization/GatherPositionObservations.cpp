@@ -29,22 +29,23 @@ namespace WorkerMiningOptimization
             addArrival();
         }
         addArrival();
+        arrivalDelayAndOccurrenceRate = computeOccurrenceRateMap(arrivalDelayAndOccurrences);
         return result;
     }
 
     int8_t GatherResendArrivalObservations::mostCommonArrivalDelay() const
     {
-        if (arrivalDelayAndOccurrences.empty()) return INT8_MAX;
-        if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
+        if (arrivalDelayAndOccurrenceRate.empty()) return INT8_MAX;
+        if (arrivalDelayAndOccurrenceRate.size() == 1) return arrivalDelayAndOccurrenceRate.begin()->first;
 
         int8_t best = -1;
-        OCCURRENCE_TYPE bestCount = 0;
-        for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
+        uint8_t bestRate = 0;
+        for (const auto &[arrivalDelay, occurrenceRate] : arrivalDelayAndOccurrenceRate)
         {
-            if (occurrences > bestCount)
+            if (occurrenceRate > bestRate)
             {
                 best = arrivalDelay;
-                bestCount = occurrences;
+                bestRate = occurrenceRate;
             }
         }
 
@@ -53,23 +54,21 @@ namespace WorkerMiningOptimization
 
     double GatherResendArrivalObservations::expectedMiningDelay(int commandFrame) const
     {
-        if (arrivalDelayAndOccurrences.empty()) return 100.0;
+        if (arrivalDelayAndOccurrenceRate.empty()) return 100.0;
 
-        if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayToMiningDelay(arrivalDelayAndOccurrences.begin()->first, commandFrame);
+        if (arrivalDelayAndOccurrenceRate.size() == 1) return arrivalDelayToMiningDelay(arrivalDelayAndOccurrenceRate.begin()->first, commandFrame);
 
         // If the most common arrival delay is positive, return it
         auto mostCommon = mostCommonArrivalDelay();
         if (mostCommon > 0) return arrivalDelayToMiningDelay(mostCommon, commandFrame);
 
         double totalMiningDelay = 0.0;
-        uint32_t totalOccurrences = 0;
-        for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
+        for (const auto &[arrivalDelay, occurrenceRate] : arrivalDelayAndOccurrenceRate)
         {
-            totalMiningDelay += (arrivalDelayToMiningDelay(arrivalDelay, commandFrame) * occurrences);
-            totalOccurrences += occurrences;
+            totalMiningDelay += (arrivalDelayToMiningDelay(arrivalDelay, commandFrame) * ((double)occurrenceRate / 255.0));
         }
 
-        return totalMiningDelay / (double)totalOccurrences;
+        return totalMiningDelay;
     }
 
     double GatherResendArrivalObservations::arrivalDelayToMiningDelay(int arrivalDelay, int commandFrame)
@@ -109,35 +108,31 @@ namespace WorkerMiningOptimization
 
     double GatherPositionObservations::averageDeltaToBenchmark() const
     {
-        if (deltaToBenchmarkAndOccurrences.empty()) return 100;
-        if (deltaToBenchmarkAndOccurrences.size() == 1) return deltaToBenchmarkAndOccurrences.begin()->first;
+        if (deltaToBenchmarkAndOccurrenceRate.empty()) return 100;
+        if (deltaToBenchmarkAndOccurrenceRate.size() == 1) return deltaToBenchmarkAndOccurrenceRate.begin()->first;
 
-        int accumulator = 0;
-        OCCURRENCE_TYPE total = 0;
-        for (const auto &[delta, occ] : deltaToBenchmarkAndOccurrences)
+        double accumulator = 0.0;
+        for (const auto &[delta, rate] : deltaToBenchmarkAndOccurrenceRate)
         {
-            accumulator += (int)delta * (int)occ;
-            total += occ;
+            accumulator += (double)delta * ((double)rate / 255.0);
         }
 
-        if (total == 0) return 100;
-
-        return (double)accumulator / (double)total;
+        return accumulator;
     }
 
     int GatherPositionObservations::probableDeltaToBenchmark() const
     {
-        if (deltaToBenchmarkAndOccurrences.empty()) return 100;
-        if (deltaToBenchmarkAndOccurrences.size() == 1) return deltaToBenchmarkAndOccurrences.begin()->first;
+        if (deltaToBenchmarkAndOccurrenceRate.empty()) return 100;
+        if (deltaToBenchmarkAndOccurrenceRate.size() == 1) return deltaToBenchmarkAndOccurrenceRate.begin()->first;
 
         int8_t best = 100;
-        OCCURRENCE_TYPE bestOccurrences = 0;
-        for (const auto &[delta, occ] : deltaToBenchmarkAndOccurrences)
+        uint8_t bestRate = 0;
+        for (const auto &[delta, rate] : deltaToBenchmarkAndOccurrenceRate)
         {
-            if (occ > bestOccurrences)
+            if (rate > bestRate)
             {
                 best = delta;
-                bestOccurrences = occ;
+                bestRate = rate;
             }
         }
 
@@ -146,11 +141,11 @@ namespace WorkerMiningOptimization
 
     int GatherPositionObservations::largestDeltaToBenchmark() const
     {
-        if (deltaToBenchmarkAndOccurrences.empty()) return 100;
-        if (deltaToBenchmarkAndOccurrences.size() == 1) return deltaToBenchmarkAndOccurrences.begin()->first;
+        if (deltaToBenchmarkAndOccurrenceRate.empty()) return 100;
+        if (deltaToBenchmarkAndOccurrenceRate.size() == 1) return deltaToBenchmarkAndOccurrenceRate.begin()->first;
 
         int8_t best = INT8_MIN;
-        for (const auto &[delta, _] : deltaToBenchmarkAndOccurrences)
+        for (const auto &[delta, _] : deltaToBenchmarkAndOccurrenceRate)
         {
             if (delta > best)
             {
@@ -163,8 +158,8 @@ namespace WorkerMiningOptimization
 
     bool GatherPositionObservations::usableForPathPlanning() const
     {
-        auto exceedsThreshold = [](
-                const std::unordered_map<int8_t, OCCURRENCE_TYPE> &map,
+        auto exceedsThreshold = []<typename T>(
+                const std::unordered_map<int8_t, T> &map,
                 int stableLowerThreshold,
                 int stableUpperThreshold,
                 int unstableLowerThreshold,
@@ -192,22 +187,22 @@ namespace WorkerMiningOptimization
         };
 
         // If we haven't observed the "normal" path, try to use resend arrivals
-        if (deltaToBenchmarkAndOccurrences.empty())
+        if (deltaToBenchmarkAndOccurrenceRate.empty())
         {
             // If there are no resend arrivals, we allow the position to be used
-            if (noSecondResendArrivalObservations.arrivalDelayAndOccurrences.empty())
+            if (noSecondResendArrivalObservations.arrivalDelayAndOccurrenceRate.empty())
             {
                 return true;
             }
 
-            return !exceedsThreshold(noSecondResendArrivalObservations.arrivalDelayAndOccurrences,
+            return !exceedsThreshold(noSecondResendArrivalObservations.arrivalDelayAndOccurrenceRate,
                                      0,
                                      BWAPI::Broodwar->getLatencyFrames() + 11 + GATHER_EXPLORE_BEFORE,
                                      0,
                                      BWAPI::Broodwar->getLatencyFrames() + 11 + 5);
         }
 
-        return !exceedsThreshold(deltaToBenchmarkAndOccurrences,
+        return !exceedsThreshold(deltaToBenchmarkAndOccurrenceRate,
                                  -GATHER_EXPLORE_BEFORE,
                                  INT_MAX,
                                  -5,

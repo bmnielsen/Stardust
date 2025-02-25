@@ -13,17 +13,9 @@ namespace WorkerMiningOptimization
         {
             // For the first position, compute whether the path started at the patch
             pathStartsAtPatch = resource && ((resource->getDistance(worker) == 0) && (resource->getDistance(depot) < 256));
-            currentPosition = std::make_shared<PositionAndVelocity>(worker, nullptr);
-        }
-        else
-        {
-            // For subsequent positions, include hashes of the previous positions if the path started at the patch
-            // This helps us detect when the worker reaches the same position via a different path, indicating different subpixel positioning
-            currentPosition = std::make_shared<PositionAndVelocity>(
-                    worker,
-                    nullptr);
         }
 
+        currentPosition = std::make_shared<PositionAndVelocity>(worker);
         positionHistory.emplace_back(currentPosition);
         return currentPosition;
     }

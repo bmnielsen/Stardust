@@ -5,7 +5,7 @@
 #include "DebugFlag_WorkerMiningOptimization.h"
 
 #include "PositionAndVelocity.h"
-#include "Occurrences.h"
+#include "OccurrencesAndCollisions.h"
 #include "GatherPositionObservations.h"
 #include "WorkerGatherStatus.h"
 #include "WorkerMiningInstrumentation.h"
@@ -154,7 +154,7 @@ namespace WorkerMiningOptimization
                 auto result = rootNodes.emplace(**workerStatus.positionHistory.begin(), **workerStatus.positionHistory.begin());
                 rootNodeIt = result.first;
             }
-            else if (rootNodeIt->second.occurrences < OCCURRENCE_LIMIT)
+            else if (rootNodeIt->second.occurrences < UINT32_MAX)
             {
                 rootNodeIt->second.occurrences++;
             }
@@ -185,6 +185,7 @@ namespace WorkerMiningOptimization
                 {
                     next->occurrences++;
                 }
+                updateNextOccurenceRates(current.pos->nextPositions);
 
                 current = GatherPositionObservationPtr(next);
                 positionsInHistory.positionHistory.push_back(current);
@@ -217,6 +218,7 @@ namespace WorkerMiningOptimization
                 {
                     next->occurrences++;
                 }
+                updateNextOccurenceRates(nextPositions);
 
                 current = GatherPositionObservationPtr(next);
                 positionsInHistory.positionHistory.push_back(current);
@@ -372,13 +374,13 @@ namespace WorkerMiningOptimization
                     auto delta = (int)std::distance(optimalPositionDataIt, positionIt);
 
 #if OPTIMALPOSITIONS_DEBUG
-                    if (positionIt->pos->deltaToBenchmarkAndOccurrences.empty())
+                    if (positionIt->pos->deltaToBenchmarkAndOccurrenceRate.empty())
                     {
 #if OPTIMALPOSITIONS_DEBUG_VERBOSE
                         CherryVis::log(worker->id) << "Added metadata for " << *positionIt << " at delta " << delta;
 #endif
                     }
-                    else if (!positionIt->pos->deltaToBenchmarkAndOccurrences.contains((int8_t)delta))
+                    else if (!positionIt->pos->deltaToBenchmarkAndOccurrenceRate.contains((int8_t)delta))
                     {
                         CherryVis::log(worker->id) << "New delta of " << delta << " came up for " << positionIt->pos->pos;
                     }

@@ -123,7 +123,7 @@ namespace WorkerMiningOptimization
                 auto result = rootNodes.emplace(**workerStatus.positionHistory.begin(), **workerStatus.positionHistory.begin());
                 rootNodeIt = result.first;
             }
-            else if (rootNodeIt->second.occurrences < OCCURRENCE_LIMIT)
+            else if (rootNodeIt->second.occurrences < UINT32_MAX)
             {
                 rootNodeIt->second.occurrences++;
             }

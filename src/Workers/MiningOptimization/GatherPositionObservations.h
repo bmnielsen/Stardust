@@ -2,7 +2,7 @@
 
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"
-#include "Occurrences.h"
+#include "OccurrencesAndCollisions.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
 #include <map>
@@ -11,21 +11,25 @@ namespace WorkerMiningOptimization
 {
     struct GatherResendArrivalObservations
     {
-        std::unordered_map<int8_t, OCCURRENCE_TYPE> arrivalDelayAndOccurrences;
-        COLLISION_TYPE collisions = 0;
-        COLLISION_TYPE nonCollisions = 0;
+        std::unordered_map<int8_t, uint32_t> arrivalDelayAndOccurrences;
+        std::unordered_map<int8_t, uint8_t> arrivalDelayAndOccurrenceRate;
+
+        uint32_t collisions = 0;
+        uint32_t nonCollisions = 0;
+        uint8_t collisionRate = 0;
 
         bool addArrival(int arrivalDelay);
 
         void addCollision(bool collision)
         {
-            if (collisions + nonCollisions == COLLISION_LIMIT) return;
+            if (collisions + nonCollisions == UINT32_MAX) return;
             (collision ? collisions : nonCollisions)++;
+            collisionRate = computeCollisionRate(collisions, nonCollisions);
         }
 
         [[nodiscard]] bool empty() const
         {
-            return arrivalDelayAndOccurrences.empty();
+            return arrivalDelayAndOccurrenceRate.empty();
         }
 
         [[nodiscard]] int8_t mostCommonArrivalDelay() const;
@@ -38,7 +42,8 @@ namespace WorkerMiningOptimization
     struct SecondResendGatherPositionObservations
     {
         PositionAndVelocity pos;
-        OCCURRENCE_TYPE occurrences = 1;
+        uint32_t occurrences = 1;
+        uint8_t occurrenceRate = 0;
         std::vector<SecondResendGatherPositionObservations> nextPositions;
         GatherResendArrivalObservations arrivalObservations;
     };
@@ -52,7 +57,10 @@ namespace WorkerMiningOptimization
 
         // How often this position has occurred in its path
         // For root nodes, how often it has been observed
-        OCCURRENCE_TYPE occurrences = 1;
+        uint32_t occurrences = 1;
+
+        // The occurence rate of this position compared to its siblings as a fraction of 255
+        uint8_t occurrenceRate = 0;
 
         // All next positions seen from this position
         // Will be empty on leaf nodes
@@ -61,7 +69,10 @@ namespace WorkerMiningOptimization
         // The offset between this resend position and the apparent optimal position if no resend had been issued
         // For positions with unstable following paths this can differ, so we store all observed values with their occurrences
         // May be empty if we haven't observed a no-resend path with this position yet
-        std::unordered_map<int8_t, OCCURRENCE_TYPE> deltaToBenchmarkAndOccurrences;
+        std::unordered_map<int8_t, uint32_t> deltaToBenchmarkAndOccurrences;
+
+        // Same as above, but as rates (fraction of 255)
+        std::unordered_map<int8_t, uint8_t> deltaToBenchmarkAndOccurrenceRate;
 
         // Observations for when we send a resend here without a second resend
         GatherResendArrivalObservations noSecondResendArrivalObservations;
@@ -71,10 +82,13 @@ namespace WorkerMiningOptimization
         std::vector<SecondResendGatherPositionObservations> secondResendPositions;
 
         // How many times the worker collides with the patch after mining when no resend is sent along this path
-        COLLISION_TYPE noResendCollisions = 0;
+        uint32_t noResendCollisions = 0;
 
         // How many times the worker does not collide with the patch after mining when no resend is sent along this path
-        COLLISION_TYPE noResendNonCollisions = 0;
+        uint32_t noResendNonCollisions = 0;
+
+        // The collision rate as a fraction of 255
+        uint8_t noResendCollisionRate = 0;
 
         GatherPositionObservations() = default;
 
@@ -103,12 +117,14 @@ namespace WorkerMiningOptimization
 
             if (atOccurrenceCap(deltaToBenchmarkAndOccurrences)) return;
             deltaToBenchmarkAndOccurrences[(int8_t)delta]++;
+            deltaToBenchmarkAndOccurrenceRate = computeOccurrenceRateMap(deltaToBenchmarkAndOccurrences);
         }
 
         void addNoResendCollision(bool collision)
         {
-            if (noResendCollisions + noResendNonCollisions == COLLISION_LIMIT) return;
+            if (noResendCollisions + noResendNonCollisions == UINT32_MAX) return;
             (collision ? noResendCollisions : noResendNonCollisions)++;
+            noResendCollisionRate = computeCollisionRate(noResendCollisions, noResendNonCollisions);
         }
 
 //        template<typename K>

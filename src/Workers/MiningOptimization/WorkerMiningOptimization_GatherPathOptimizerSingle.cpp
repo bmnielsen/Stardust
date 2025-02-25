@@ -12,11 +12,11 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
-        bool shouldExploreCollisions(COLLISION_TYPE collisions, COLLISION_TYPE nonCollisions)
+        bool shouldExploreCollisions(uint32_t collisions, uint32_t nonCollisions)
         {
             if (!WorkerMiningOptimization::isExploring()) return false;
 
-            COLLISION_TYPE total = collisions + nonCollisions;
+            uint32_t total = collisions + nonCollisions;
 
             // Always explore until 2 observations and stop exploring after 5
             if (total < 2) return true;
@@ -26,9 +26,9 @@ namespace WorkerMiningOptimization
             return collisions != total && nonCollisions != total;
         }
 
-        double expectedPatchCollisionDelay(COLLISION_TYPE observedCollisions, COLLISION_TYPE observedNonCollisions)
+        double expectedPatchCollisionDelay(uint32_t observedCollisions, uint32_t observedNonCollisions)
         {
-            COLLISION_TYPE total = observedCollisions + observedNonCollisions;
+            uint32_t total = observedCollisions + observedNonCollisions;
             if (total == 0) return 0.0;
 
             // A collision adds an extra order process timer cycle of delay
@@ -81,13 +81,13 @@ namespace WorkerMiningOptimization
                                                    const GatherResendArrivalObservations &observations)
         {
             // If we don't know the normal delta to benchmark, or haven't observed this position, return nothing
-            if (positionMetadata.deltaToBenchmarkAndOccurrences.empty() || observations.arrivalDelayAndOccurrences.empty())
+            if (positionMetadata.deltaToBenchmarkAndOccurrenceRate.empty() || observations.arrivalDelayAndOccurrenceRate.empty())
             {
                 return std::nullopt;
             }
 
             // Ignore positions with unstable paths where all deltas are below -2
-            if ((positionMetadata.deltaToBenchmarkAndOccurrences.size() > 1 ||
+            if ((positionMetadata.deltaToBenchmarkAndOccurrenceRate.size() > 1 ||
                  positionMetadata.nextPositions.size() > 1 ||
                  positionMetadata.secondResendPositions.size() > 1) &&
                 positionMetadata.largestDeltaToBenchmark() < -2)
@@ -116,15 +116,12 @@ namespace WorkerMiningOptimization
                                         BWAPI::UnitTypes::Resource_Mineral_Field,
                                         resource->center) == 0)
             {
-                // Check total next occurrences
-                OCCURRENCE_TYPE nextOccurrencesTotal = 0;
+                // Require there to be at least one next position, and no next positions equal to this one
+                if (nextPositions.empty()) return {};
                 for (const auto &nextPos : nextPositions)
                 {
                     if (nextPos.pos.pos() == here.position().pos()) return {};
-
-                    nextOccurrencesTotal += nextPos.occurrences;
                 }
-                if ((nextOccurrencesTotal * 3) < ((here.pos ? here.pos->occurrences : here.secondResendPos->occurrences) * 2)) return {};
             }
 
             // Start by getting the data for doing a second resend at all of the next positions
@@ -140,8 +137,7 @@ namespace WorkerMiningOptimization
             else if (nextPositions.size() > 1)
             {
                 double deltaAccumulator = 0.0;
-                OCCURRENCE_TYPE occurrenceCount = 0;
-                OCCURRENCE_TYPE bestOccurrences = 0;
+                uint8_t bestOccurrenceRate = 0;
                 for (auto &nextPos : nextPositions)
                 {
                     auto nextPositionEvaluation = evaluateSecondResendPositions(commandFrame + 1,
@@ -151,17 +147,16 @@ namespace WorkerMiningOptimization
                                                                                 resource);
                     if (nextPositionEvaluation.explored)
                     {
-                        deltaAccumulator += nextPositionEvaluation.expectedDelta * nextPos.occurrences;
-                        occurrenceCount += nextPos.occurrences;
+                        deltaAccumulator += nextPositionEvaluation.expectedDelta * ((double)nextPos.occurrenceRate / 255.0);
                     }
-                    if (nextPos.occurrences > bestOccurrences ||
-                        (nextPos.occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
+                    if (nextPos.occurrenceRate > bestOccurrenceRate ||
+                        (nextPos.occurrenceRate == bestOccurrenceRate && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
-                        bestOccurrences = nextPos.occurrences;
+                        bestOccurrenceRate = nextPos.occurrenceRate;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
                     }
                 }
-                if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelta = (deltaAccumulator / (double)occurrenceCount);
+                nextPositionsEvaluation.expectedDelta = deltaAccumulator;
             }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), here);
 
@@ -202,12 +197,11 @@ namespace WorkerMiningOptimization
 
         PositionEvaluation evaluatePosition(int commandFrame, // NOLINT(*-no-recursion)
                                             GatherPositionObservations &positionMetadata,
-                                            const Resource &resource,
-                                            OCCURRENCE_TYPE occurrencesHere = 0)
+                                            const Resource &resource)
         {
             // Jump out of the recursion when we've exceeded the exploration horizon
-            if (positionMetadata.deltaToBenchmarkAndOccurrences.size() == 1 &&
-                positionMetadata.deltaToBenchmarkAndOccurrences.begin()->first > GATHER_EXPLORE_AFTER)
+            if (positionMetadata.deltaToBenchmarkAndOccurrenceRate.size() == 1 &&
+                positionMetadata.deltaToBenchmarkAndOccurrenceRate.begin()->first > GATHER_EXPLORE_AFTER)
             {
                 return {};
             }
@@ -218,33 +212,29 @@ namespace WorkerMiningOptimization
             {
                 nextPositionsEvaluation = evaluatePosition(commandFrame + 1,
                                                            *positionMetadata.nextPositions.begin(),
-                                                           resource,
-                                                           positionMetadata.nextPositions.begin()->occurrences);
+                                                           resource);
             }
             else if (positionMetadata.nextPositions.size() > 1)
             {
                 double deltaAccumulator = 0.0;
-                OCCURRENCE_TYPE occurrenceCount = 0;
-                OCCURRENCE_TYPE bestOccurrences = 0;
+                uint32_t bestOccurrenceRate = 0;
                 for (auto &nextPositionMetadata : positionMetadata.nextPositions)
                 {
                     auto nextPositionEvaluation = evaluatePosition(commandFrame + 1,
                                                                    nextPositionMetadata,
-                                                                   resource,
-                                                                   nextPositionMetadata.occurrences);
+                                                                   resource);
                     if (nextPositionEvaluation.explored)
                     {
-                        deltaAccumulator += nextPositionEvaluation.expectedDelta * nextPositionMetadata.occurrences;
-                        occurrenceCount += nextPositionMetadata.occurrences;
+                        deltaAccumulator += nextPositionEvaluation.expectedDelta * ((double)nextPositionMetadata.occurrenceRate / 255.0);
                     }
-                    if (nextPositionMetadata.occurrences > bestOccurrences ||
-                            (nextPositionMetadata.occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
+                    if (nextPositionMetadata.occurrenceRate > bestOccurrenceRate ||
+                            (nextPositionMetadata.occurrenceRate == bestOccurrenceRate && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
-                        bestOccurrences = nextPositionMetadata.occurrences;
+                        bestOccurrenceRate = nextPositionMetadata.occurrenceRate;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
                     }
                 }
-                if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelta = (deltaAccumulator / (double)occurrenceCount);
+                nextPositionsEvaluation.expectedDelta = deltaAccumulator;
             }
             nextPositionsEvaluation.expectedPath.emplace(nextPositionsEvaluation.expectedPath.begin(), &positionMetadata);
 
@@ -320,7 +310,7 @@ namespace WorkerMiningOptimization
         workerStatus.hasPathData = true;
 
         // Check if we need to "explore" the no resend case, in which case we plan to send no resends
-        if (positionMetadata.deltaToBenchmarkAndOccurrences.empty()) return;
+        if (positionMetadata.deltaToBenchmarkAndOccurrenceRate.empty()) return;
         if (shouldExploreCollisions(positionMetadata.noResendCollisions, positionMetadata.noResendNonCollisions)) return;
 
         auto shouldResend = [&](const PositionEvaluation &evaluation)

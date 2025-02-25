@@ -82,18 +82,24 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
                 gatherResendArrivalObservationsSerializer = [](S &s, GatherResendArrivalObservations &value)
                 {
-                    s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, OCCURRENCE_TYPE& value) {
+                    s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint32_t& v) {
                         s.value1b(key);
-                        SERIALIZE_OCCURRENCE(value);
+                        s.value4b(v);
                     });
-                    SERIALIZE_COLLISION(value.collisions);
-                    SERIALIZE_COLLISION(value.nonCollisions);
+                    s.ext(value.arrivalDelayAndOccurrenceRate, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint8_t& v) {
+                        s.value1b(key);
+                        s.value1b(v);
+                    });
+                    s.value4b(value.collisions);
+                    s.value4b(value.nonCollisions);
+                    s.value1b(value.collisionRate);
                 };
 
                 secondResendGatherPositionObservationsSerializer = [&](S &s, SecondResendGatherPositionObservations &value)
                 {
                     s.object(value.pos);
-                    SERIALIZE_OCCURRENCE(value.occurrences);
+                    s.value4b(value.occurrences);
+                    s.value1b(value.occurrenceRate);
                     s.container(value.nextPositions, INT_MAX, [&](S &s, SecondResendGatherPositionObservations &v) {
                         s.object(v, secondResendGatherPositionObservationsSerializer);
                     });
@@ -103,10 +109,15 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                 gatherPositionObservationsSerializer = [&](S &s, GatherPositionObservations &value)
                 {
                     s.object(value.pos);
-                    SERIALIZE_OCCURRENCE(value.occurrences);
-                    s.ext(value.deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, OCCURRENCE_TYPE& v) {
+                    s.value4b(value.occurrences);
+                    s.value1b(value.occurrenceRate);
+                    s.ext(value.deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint32_t& v) {
                         s.value1b(key);
-                        SERIALIZE_OCCURRENCE(v);
+                        s.value4b(v);
+                    });
+                    s.ext(value.deltaToBenchmarkAndOccurrenceRate, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint8_t& v) {
+                        s.value1b(key);
+                        s.value1b(v);
                     });
                     s.container(value.nextPositions, INT_MAX, [&](S &s, GatherPositionObservations &v) {
                         s.object(v, gatherPositionObservationsSerializer);
@@ -115,8 +126,9 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                     s.container(value.secondResendPositions, INT_MAX, [&](S &s, SecondResendGatherPositionObservations &v) {
                         s.object(v, secondResendGatherPositionObservationsSerializer);
                     });
-                    SERIALIZE_COLLISION(value.noResendCollisions);
-                    SERIALIZE_COLLISION(value.noResendNonCollisions);
+                    s.value4b(value.noResendCollisions);
+                    s.value4b(value.noResendNonCollisions);
+                    s.value1b(value.noResendCollisionRate);
                 };
 
                 ser.ext(resourceToOptimalGatherPositions,
@@ -164,17 +176,17 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
                 returnSpeedOccurrencesSerializer = [](S &s, ReturnSpeedOccurrences &value)
                 {
-                    SERIALIZE_COLLISION(value.collision);
-                    SERIALIZE_COLLISION(value.lowExitSpeed);
-                    SERIALIZE_COLLISION(value.mediumExitSpeed);
-                    SERIALIZE_COLLISION(value.highExitSpeed);
+                    s.value4b(value.collision);
+                    s.value4b(value.lowExitSpeed);
+                    s.value4b(value.mediumExitSpeed);
+                    s.value4b(value.highExitSpeed);
                 };
 
                 returnArrivalObservationsSerializer = [&](S &s, ReturnArrivalObservations &value)
                 {
-                    s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint16_t& key, OCCURRENCE_TYPE& v) {
+                    s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint16_t& key, uint32_t& v) {
                         s.value2b(key);
-                        SERIALIZE_OCCURRENCE(v);
+                        s.value4b(v);
                     });
                     s.object(value.deliveryAfterArrivalSpeeds, returnSpeedOccurrencesSerializer);
                     s.object(value.deliveryAtArrivalSpeeds, returnSpeedOccurrencesSerializer);
@@ -183,7 +195,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                 returnPositionObservationsSerializer = [&](S &s, ReturnPositionObservations &value)
                 {
                     s.object(value.pos);
-                    SERIALIZE_OCCURRENCE(value.occurrences);
+                    s.value4b(value.occurrences);
                     s.container(value.nextPositions, INT_MAX, [&](S &s, ReturnPositionObservations &v) {
                         s.object(v, returnPositionObservationsSerializer);
                     });

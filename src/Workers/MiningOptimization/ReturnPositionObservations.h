@@ -4,7 +4,7 @@
 #include "PositionAndVelocity.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
-#include "Occurrences.h"
+#include "OccurrencesAndCollisions.h"
 #include <map>
 
 namespace WorkerMiningOptimization
@@ -20,16 +20,16 @@ namespace WorkerMiningOptimization
         };
 
         // Worker collided with the depot
-        COLLISION_TYPE collision;
+        uint32_t collision;
 
         // Worker left the depot at normal low speed (approx. 30% speed 8 frames after delivery)
-        COLLISION_TYPE lowExitSpeed;
+        uint32_t lowExitSpeed;
 
         // Worker left the depot at medium speed (50-80% speed 8 frames after delivery)
-        COLLISION_TYPE mediumExitSpeed;
+        uint32_t mediumExitSpeed;
 
         // Worker left the depot at high speed (80%+ speed 8 frames after delivery)
-        COLLISION_TYPE highExitSpeed;
+        uint32_t highExitSpeed;
 
         void addObservation(ReturnSpeedObservation observation)
         {
@@ -66,7 +66,7 @@ namespace WorkerMiningOptimization
 
     struct ReturnArrivalObservations
     {
-        std::unordered_map<uint16_t, OCCURRENCE_TYPE> arrivalDelayAndOccurrences;
+        std::unordered_map<uint16_t, uint32_t> arrivalDelayAndOccurrences;
         ReturnSpeedOccurrences deliveryAfterArrivalSpeeds = {0, 0, 0, 0};
         ReturnSpeedOccurrences deliveryAtArrivalSpeeds = {0, 0, 0, 0};
 
@@ -125,7 +125,7 @@ namespace WorkerMiningOptimization
 
         // How often this position has occurred in its path
         // For root nodes, how often it has been observed
-        OCCURRENCE_TYPE occurrences = 1;
+        uint32_t occurrences = 1;
 
         // All next positions seen from this position
         // Will be empty on leaf nodes
