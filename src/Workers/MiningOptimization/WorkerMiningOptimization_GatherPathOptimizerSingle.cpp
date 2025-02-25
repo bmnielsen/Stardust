@@ -168,10 +168,10 @@ namespace WorkerMiningOptimization
 
             // If we want to try this position and it is better than the current best, return this
             int probableDeltaToBenchmark = firstResend.probableDeltaToBenchmark();
-            if ((observations.empty() || shouldExploreCollisions(observations.collisions, observations.nonCollisions))
+            if (WorkerMiningOptimization::isExploring()
+                && (observations.empty() || shouldExploreCollisions(observations.collisions, observations.nonCollisions))
                 && probableDeltaToBenchmark >= -GATHER_EXPLORE_BEFORE
-                && probableDeltaToBenchmark <= GATHER_EXPLORE_AFTER
-                && (WorkerMiningOptimization::isExploring() || (probableDeltaToBenchmark == 0 && deltaToFirstResend == 0)))
+                && probableDeltaToBenchmark <= GATHER_EXPLORE_AFTER)
             {
                 int positionToTryDelta = std::abs(probableDeltaToBenchmark + deltaToFirstResend);
                 if (!nextPositionsEvaluation.positionToTryOnExpectedPath || positionToTryDelta < nextPositionsEvaluation.positionToTryDelta)
