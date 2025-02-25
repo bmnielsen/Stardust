@@ -154,6 +154,7 @@ namespace WorkerMiningOptimization
                 {
                     next->occurrences++;
                 }
+                updateNextOccurenceRates(current->nextPositions);
 
                 current = next;
                 positionsInHistory.positionHistory.push_back(current);
@@ -279,16 +280,16 @@ namespace WorkerMiningOptimization
                      positionIt++)
                 {
                     auto arrival =
-                            (uint16_t)(std::distance(positionIt, positionsInHistory.positionHistory.end()) + BWAPI::Broodwar->getLatencyFrames());
+                            (unsigned int)(std::distance(positionIt, positionsInHistory.positionHistory.end()) + BWAPI::Broodwar->getLatencyFrames());
 
 #if OPTIMALRETURN_DEBUG
-                    if ((*positionIt)->noResendArrivalObservations.arrivalDelayAndOccurrences.empty())
+                    if ((*positionIt)->noResendArrivalObservations.arrivalDelayAndOccurrenceRate.empty())
                     {
 #if OPTIMALRETURN_DEBUG_VERBOSE
                         CherryVis::log(worker->id) << "Added metadata for " << **positionIt << " at arrival " << arrival;
 #endif
                     }
-                    else if (!(*positionIt)->noResendArrivalObservations.arrivalDelayAndOccurrences.contains(arrival))
+                    else if (!(*positionIt)->noResendArrivalObservations.arrivalDelayAndOccurrenceRate.contains(arrival))
                     {
                         CherryVis::log(worker->id) << "New arrival of " << arrival << " came up for " << (*positionIt)->pos;
                     }
@@ -323,7 +324,7 @@ namespace WorkerMiningOptimization
         {
             auto outputSpeedTotals = [](const ReturnSpeedOccurrences &speedTotals, const std::string &label)
             {
-                uint16_t total = speedTotals.collision + speedTotals.lowExitSpeed + speedTotals.mediumExitSpeed + speedTotals.highExitSpeed;
+                uint32_t total = speedTotals.collision + speedTotals.lowExitSpeed + speedTotals.mediumExitSpeed + speedTotals.highExitSpeed;
                 if (total == 0) return;
 
                 Log::Get() << std::fixed << std::setprecision(1)

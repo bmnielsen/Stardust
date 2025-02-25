@@ -66,24 +66,22 @@ namespace WorkerMiningOptimization
             else if (positionMetadata.nextPositions.size() > 1)
             {
                 double delayAccumulator = 0.0;
-                uint16_t occurrenceCount = 0;
-                uint16_t bestOccurrences = 0;
+                uint8_t bestOccurrenceRate = 0;
                 for (auto &nextPositionMetadata : positionMetadata.nextPositions)
                 {
                     auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, nextPositionMetadata);
                     if (nextPositionEvaluation.explored)
                     {
-                        delayAccumulator += nextPositionEvaluation.expectedDelay * nextPositionMetadata.occurrences;
-                        occurrenceCount += nextPositionMetadata.occurrences;
+                        delayAccumulator += nextPositionEvaluation.expectedDelay * ((double)nextPositionMetadata.occurrenceRate / 255.0);
                     }
-                    if (nextPositionMetadata.occurrences > bestOccurrences ||
-                        (nextPositionMetadata.occurrences == bestOccurrences && less(nextPositionEvaluation, nextPositionsEvaluation)))
+                    if (nextPositionMetadata.occurrenceRate > bestOccurrenceRate ||
+                        (nextPositionMetadata.occurrenceRate == bestOccurrenceRate && less(nextPositionEvaluation, nextPositionsEvaluation)))
                     {
-                        bestOccurrences = nextPositionMetadata.occurrences;
+                        bestOccurrenceRate = nextPositionMetadata.occurrenceRate;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
                     }
                 }
-                if (occurrenceCount > 0) nextPositionsEvaluation.expectedDelay = (delayAccumulator / (double)occurrenceCount);
+                nextPositionsEvaluation.expectedDelay = delayAccumulator;
             }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), &positionMetadata);
 

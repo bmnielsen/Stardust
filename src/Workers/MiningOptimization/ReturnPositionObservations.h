@@ -31,9 +31,12 @@ namespace WorkerMiningOptimization
         // Worker left the depot at high speed (80%+ speed 8 frames after delivery)
         uint32_t highExitSpeed;
 
+        // The above four aggregated into an expected frame delay (which can be from -4 to 9, which we scale to fit into 8 bits)
+        uint8_t frameDelay;
+
         void addObservation(ReturnSpeedObservation observation)
         {
-            if ((collision + lowExitSpeed + mediumExitSpeed + highExitSpeed) == UINT16_MAX) return;
+            if ((collision + lowExitSpeed + mediumExitSpeed + highExitSpeed) == UINT32_MAX) return;
             if (observation == ReturnSpeedObservation::Collision)
             {
                 collision++;
@@ -50,9 +53,23 @@ namespace WorkerMiningOptimization
             {
                 highExitSpeed++;
             }
+
+            // Using the following logic:
+            // - Low exit speed is the norm, so does not affect the result
+            // - High exit speed saves 4 frames
+            // - Medium exit speed saves 2 frames
+            // - Collisions cost an extra order process timer cycle
+            uint32_t total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
+            auto expectedDelay = (double)(((int)collision * 9) - ((int)mediumExitSpeed * 2) - ((int)highExitSpeed * 4)) / (double)total;
+
+            // The range of expectedDelay is -4 to 9, so scale this to fill an 8-bit unsigned integer
+            frameDelay = (uint8_t)std::round((expectedDelay + 4.0) * 19.615);
         }
 
-        [[nodiscard]] double expectedDeltaToNormal() const;
+        [[nodiscard]] double expectedDeltaToNormal() const
+        {
+            return ((double)frameDelay/19.615) - 4.0;
+        }
 
         [[nodiscard]] bool disagreement() const
         {
@@ -66,24 +83,32 @@ namespace WorkerMiningOptimization
 
     struct ReturnArrivalObservations
     {
-        std::unordered_map<uint16_t, uint32_t> arrivalDelayAndOccurrences;
-        ReturnSpeedOccurrences deliveryAfterArrivalSpeeds = {0, 0, 0, 0};
-        ReturnSpeedOccurrences deliveryAtArrivalSpeeds = {0, 0, 0, 0};
+        std::unordered_map<uint8_t, uint32_t> arrivalDelayAndOccurrences;
+        std::unordered_map<uint8_t, uint8_t> arrivalDelayAndOccurrenceRate;
+        ReturnSpeedOccurrences deliveryAfterArrivalSpeeds = {0, 0, 0, 0, 0};
+        ReturnSpeedOccurrences deliveryAtArrivalSpeeds = {0, 0, 0, 0, 0};
 
-        void add(uint16_t arrivalDelay)
+        void add(unsigned int arrivalDelay)
         {
+            if (arrivalDelay > UINT8_MAX)
+            {
+                Log::Get() << "ERROR: arrivalDelay " << arrivalDelay << " outside normal bounds";
+                return;
+            }
+
             if (atOccurrenceCap(arrivalDelayAndOccurrences)) return;
             arrivalDelayAndOccurrences[arrivalDelay]++;
+            arrivalDelayAndOccurrenceRate = computeOccurrenceRateMap(arrivalDelayAndOccurrences);
         }
 
         [[nodiscard]] bool empty() const
         {
-            return arrivalDelayAndOccurrences.empty();
+            return arrivalDelayAndOccurrenceRate.empty();
         }
 
-        [[nodiscard]] uint16_t mostCommonArrivalDelay() const;
+        [[nodiscard]] uint8_t mostCommonArrivalDelay() const;
 
-        [[nodiscard]] uint16_t largestArrivalDelay() const;
+        [[nodiscard]] uint8_t largestArrivalDelay() const;
 
         // Computes the expected number of frames from resending here to delivery
         [[nodiscard]] double expectedDeliveryDelay(int commandFrame) const;
@@ -113,7 +138,7 @@ namespace WorkerMiningOptimization
 
     private:
         [[nodiscard]] double deliveryDelayForArrival(
-                uint16_t arrivalDelay, int arrivalFrame, int knownOrderProcessTimer, int knownOrderProcessTimerFrame) const;
+                uint8_t arrivalDelay, int arrivalFrame, int knownOrderProcessTimer, int knownOrderProcessTimerFrame) const;
     };
 
     // This is the structure we use to track observed positions and our track record using them
@@ -126,6 +151,9 @@ namespace WorkerMiningOptimization
         // How often this position has occurred in its path
         // For root nodes, how often it has been observed
         uint32_t occurrences = 1;
+
+        // The occurence rate of this position compared to its siblings as a fraction of 255
+        uint8_t occurrenceRate = 0;
 
         // All next positions seen from this position
         // Will be empty on leaf nodes
@@ -143,10 +171,11 @@ namespace WorkerMiningOptimization
                 : pos(pos)
         {}
 
-        ReturnPositionObservations(PositionAndVelocity pos, uint16_t arrival)
+        ReturnPositionObservations(PositionAndVelocity pos, unsigned int arrivalDelay)
                 : pos(pos)
-                , noResendArrivalObservations(ReturnArrivalObservations{{{arrival, 1}}})
-        {}
+        {
+            noResendArrivalObservations.add(arrivalDelay);
+        }
 
         // Checks if any of the observed arrival delays are after our exploration horizon
         [[nodiscard]] bool afterExplorationHorizon() const;

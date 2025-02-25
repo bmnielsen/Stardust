@@ -5,45 +5,32 @@
 
 namespace WorkerMiningOptimization
 {
-    double ReturnSpeedOccurrences::expectedDeltaToNormal() const
+    uint8_t ReturnArrivalObservations::mostCommonArrivalDelay() const
     {
-        // Using the following logic:
-        // - Low exit speed is the norm, so does not affect the result
-        // - High exit speed saves 4 frames
-        // - Medium exit speed saves 2 frames
-        // - Collisions cost an extra order process timer cycle
-        uint32_t total = collision + lowExitSpeed + mediumExitSpeed + highExitSpeed;
-        if (total == 0) return 0.0;
+        if (arrivalDelayAndOccurrenceRate.empty()) return UINT8_MAX;
+        if (arrivalDelayAndOccurrenceRate.size() == 1) return arrivalDelayAndOccurrenceRate.begin()->first;
 
-        return (double)(((int)collision * 9) - ((int)mediumExitSpeed * 2) - ((int)highExitSpeed * 4)) / (double)total;
-    }
-
-    uint16_t ReturnArrivalObservations::mostCommonArrivalDelay() const
-    {
-        if (arrivalDelayAndOccurrences.empty()) return UINT16_MAX;
-        if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
-
-        uint16_t best = 0;
-        uint16_t bestCount = 0;
-        for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
+        uint8_t best = 0;
+        uint8_t bestRate = 0;
+        for (const auto &[arrivalDelay, rate] : arrivalDelayAndOccurrenceRate)
         {
-            if (occurrences > bestCount)
+            if (rate > bestRate)
             {
                 best = arrivalDelay;
-                bestCount = occurrences;
+                bestRate = rate;
             }
         }
 
         return best;
     }
 
-    uint16_t ReturnArrivalObservations::largestArrivalDelay() const
+    uint8_t ReturnArrivalObservations::largestArrivalDelay() const
     {
-        if (arrivalDelayAndOccurrences.empty()) return 100;
-        if (arrivalDelayAndOccurrences.size() == 1) return arrivalDelayAndOccurrences.begin()->first;
+        if (arrivalDelayAndOccurrenceRate.empty()) return UINT8_MAX;
+        if (arrivalDelayAndOccurrenceRate.size() == 1) return arrivalDelayAndOccurrenceRate.begin()->first;
 
-        uint16_t best = 0;
-        for (const auto &[delay, _] : arrivalDelayAndOccurrences)
+        uint8_t best = 0;
+        for (const auto &[delay, _] : arrivalDelayAndOccurrenceRate)
         {
             if (delay > best)
             {
@@ -56,57 +43,53 @@ namespace WorkerMiningOptimization
 
     double ReturnArrivalObservations::expectedDeliveryDelay(int commandFrame) const
     {
-        if (arrivalDelayAndOccurrences.empty()) return 100.0;
+        if (arrivalDelayAndOccurrenceRate.empty()) return 100.0;
 
-        if (arrivalDelayAndOccurrences.size() == 1)
+        if (arrivalDelayAndOccurrenceRate.size() == 1)
         {
-            return deliveryDelayForArrival(arrivalDelayAndOccurrences.begin()->first,
-                                           commandFrame + arrivalDelayAndOccurrences.begin()->first,
+            return deliveryDelayForArrival(arrivalDelayAndOccurrenceRate.begin()->first,
+                                           commandFrame + arrivalDelayAndOccurrenceRate.begin()->first,
                                            0,
                                            commandFrame + BWAPI::Broodwar->getLatencyFrames());
         }
 
         double totalDelay = 0.0;
-        uint32_t totalOccurrences = 0;
-        for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
+        for (const auto &[arrivalDelay, rate] : arrivalDelayAndOccurrenceRate)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,
                                                   commandFrame + arrivalDelay,
                                                   0,
-                                                  commandFrame + BWAPI::Broodwar->getLatencyFrames());
-            totalOccurrences += occurrences;
+                                                  commandFrame + BWAPI::Broodwar->getLatencyFrames()) * ((double)rate/255.0);
         }
 
-        return totalDelay / (double)totalOccurrences;
+        return totalDelay;
     }
 
     double ReturnArrivalObservations::expectedNoResendDeliveryDelay(const MyWorker &worker) const
     {
-        if (arrivalDelayAndOccurrences.empty()) return 100.0;
+        if (arrivalDelayAndOccurrenceRate.empty()) return 100.0;
 
-        if (arrivalDelayAndOccurrences.size() == 1)
+        if (arrivalDelayAndOccurrenceRate.size() == 1)
         {
-            return deliveryDelayForArrival(arrivalDelayAndOccurrences.begin()->first,
-                                           BWAPI::Broodwar->getFrameCount() + arrivalDelayAndOccurrences.begin()->first,
+            return deliveryDelayForArrival(arrivalDelayAndOccurrenceRate.begin()->first,
+                                           BWAPI::Broodwar->getFrameCount() + arrivalDelayAndOccurrenceRate.begin()->first,
                                            worker->orderProcessTimer,
                                            BWAPI::Broodwar->getFrameCount());
         }
 
         double totalDelay = 0.0;
-        uint32_t totalOccurrences = 0;
-        for (const auto &[arrivalDelay, occurrences] : arrivalDelayAndOccurrences)
+        for (const auto &[arrivalDelay, rate] : arrivalDelayAndOccurrenceRate)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,
                                                   BWAPI::Broodwar->getFrameCount() + arrivalDelay,
                                                   worker->orderProcessTimer,
-                                                  BWAPI::Broodwar->getFrameCount());
-            totalOccurrences += occurrences;
+                                                  BWAPI::Broodwar->getFrameCount()) * ((double)rate/255.0);
         }
 
-        return totalDelay / (double)totalOccurrences;
+        return totalDelay;
     }
 
-    double ReturnArrivalObservations::deliveryDelayForArrival(uint16_t arrivalDelay,
+    double ReturnArrivalObservations::deliveryDelayForArrival(uint8_t arrivalDelay,
                                                               int arrivalFrame,
                                                               int knownOrderProcessTimer,
                                                               int knownOrderProcessTimerFrame) const
@@ -159,7 +142,7 @@ namespace WorkerMiningOptimization
     bool ReturnPositionObservations::afterExplorationHorizon() const
     {
         int referenceFrame = 8 + BWAPI::Broodwar->getLatencyFrames();
-        for (const auto &[arrivalDelay, _] : noResendArrivalObservations.arrivalDelayAndOccurrences)
+        for (const auto &[arrivalDelay, _] : noResendArrivalObservations.arrivalDelayAndOccurrenceRate)
         {
             if (arrivalDelay < (referenceFrame - RETURN_EXPLORE_AFTER))
             {
@@ -176,7 +159,7 @@ namespace WorkerMiningOptimization
 
         // Don't explore if any of the observed arrival delays are outside our exploration horizon
         int referenceFrame = 8 + BWAPI::Broodwar->getLatencyFrames();
-        for (const auto &[arrivalDelay, _] : noResendArrivalObservations.arrivalDelayAndOccurrences)
+        for (const auto &[arrivalDelay, _] : noResendArrivalObservations.arrivalDelayAndOccurrenceRate)
         {
             if (arrivalDelay > (referenceFrame + RETURN_EXPLORE_BEFORE) || arrivalDelay < (referenceFrame - RETURN_EXPLORE_AFTER))
             {
