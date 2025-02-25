@@ -1,6 +1,7 @@
 #include "ObservationDataFiles.h"
 
 #include <bitsery/adapter/stream.h>
+#include <bitsery/traits/vector.h>
 #include <bitsery/ext/std_set.h>
 #include <bitsery/ext/std_map.h>
 
@@ -69,21 +70,64 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             return filename("returnpositions", preferFull, false, true, writing);
         }
 
-        struct OptimalGatherPositionsSerializer
+        struct FullOptimalGatherPositionsSerializer
         {
             template <typename S>
             void serialize(S& ser,
                            std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &resourceToOptimalGatherPositions)
             {
+                std::function<void(S&, GatherResendArrivalObservations&)> gatherResendArrivalObservationsSerializer;
+                std::function<void(S&, SecondResendGatherPositionObservations&)> secondResendGatherPositionObservationsSerializer;
+                std::function<void(S&, GatherPositionObservations&)> gatherPositionObservationsSerializer;
+
+                gatherResendArrivalObservationsSerializer = [](S &s, GatherResendArrivalObservations &value)
+                {
+                    s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, OCCURRENCE_TYPE& value) {
+                        s.value1b(key);
+                        SERIALIZE_OCCURRENCE(value);
+                    });
+                    SERIALIZE_COLLISION(value.collisions);
+                    SERIALIZE_COLLISION(value.nonCollisions);
+                };
+
+                secondResendGatherPositionObservationsSerializer = [&](S &s, SecondResendGatherPositionObservations &value)
+                {
+                    s.object(value.pos);
+                    SERIALIZE_OCCURRENCE(value.occurrences);
+                    s.container(value.nextPositions, INT_MAX, [&](S &s, SecondResendGatherPositionObservations &v) {
+                        s.object(v, secondResendGatherPositionObservationsSerializer);
+                    });
+                    s.object(value.arrivalObservations, gatherResendArrivalObservationsSerializer);
+                };
+
+                gatherPositionObservationsSerializer = [&](S &s, GatherPositionObservations &value)
+                {
+                    s.object(value.pos);
+                    SERIALIZE_OCCURRENCE(value.occurrences);
+                    s.ext(value.deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, OCCURRENCE_TYPE& v) {
+                        s.value1b(key);
+                        SERIALIZE_OCCURRENCE(v);
+                    });
+                    s.container(value.nextPositions, INT_MAX, [&](S &s, GatherPositionObservations &v) {
+                        s.object(v, gatherPositionObservationsSerializer);
+                    });
+                    s.object(value.noSecondResendArrivalObservations, gatherResendArrivalObservationsSerializer);
+                    s.container(value.secondResendPositions, INT_MAX, [&](S &s, SecondResendGatherPositionObservations &v) {
+                        s.object(v, secondResendGatherPositionObservationsSerializer);
+                    });
+                    SERIALIZE_COLLISION(value.noResendCollisions);
+                    SERIALIZE_COLLISION(value.noResendNonCollisions);
+                };
+
                 ser.ext(resourceToOptimalGatherPositions,
                         bitsery::ext::StdMap{INT_MAX},
-                        [](auto &s, TilePosition &key, std::unordered_map<PositionAndVelocity, GatherPositionObservations> &value)
+                        [&](S &s, TilePosition &key, std::unordered_map<PositionAndVelocity, GatherPositionObservations> &value)
                         {
                             s.object(key);
-                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [](auto &s, PositionAndVelocity &key, GatherPositionObservations &value)
+                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S &s, PositionAndVelocity &key, GatherPositionObservations &v)
                             {
                                 s.object(key);
-                                s.object(value);
+                                s.object(v, gatherPositionObservationsSerializer);
                             });
                         });
             }
@@ -108,21 +152,54 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             }
         };
 
-        struct OptimalReturnPositionsSerializer
+        struct FullOptimalReturnPositionsSerializer
         {
             template <typename S>
             void serialize(S& ser,
                            std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &resourceToOptimalReturnPositions)
             {
+                std::function<void(S&, ReturnSpeedOccurrences&)> returnSpeedOccurrencesSerializer;
+                std::function<void(S&, ReturnArrivalObservations&)> returnArrivalObservationsSerializer;
+                std::function<void(S&, ReturnPositionObservations&)> returnPositionObservationsSerializer;
+
+                returnSpeedOccurrencesSerializer = [](S &s, ReturnSpeedOccurrences &value)
+                {
+                    SERIALIZE_COLLISION(value.collision);
+                    SERIALIZE_COLLISION(value.lowExitSpeed);
+                    SERIALIZE_COLLISION(value.mediumExitSpeed);
+                    SERIALIZE_COLLISION(value.highExitSpeed);
+                };
+
+                returnArrivalObservationsSerializer = [&](S &s, ReturnArrivalObservations &value)
+                {
+                    s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint16_t& key, OCCURRENCE_TYPE& v) {
+                        s.value2b(key);
+                        SERIALIZE_OCCURRENCE(v);
+                    });
+                    s.object(value.deliveryAfterArrivalSpeeds, returnSpeedOccurrencesSerializer);
+                    s.object(value.deliveryAtArrivalSpeeds, returnSpeedOccurrencesSerializer);
+                };
+
+                returnPositionObservationsSerializer = [&](S &s, ReturnPositionObservations &value)
+                {
+                    s.object(value.pos);
+                    SERIALIZE_OCCURRENCE(value.occurrences);
+                    s.container(value.nextPositions, INT_MAX, [&](S &s, ReturnPositionObservations &v) {
+                        s.object(v, returnPositionObservationsSerializer);
+                    });
+                    s.object(value.noResendArrivalObservations, returnArrivalObservationsSerializer);
+                    s.object(value.resendArrivalObservations, returnArrivalObservationsSerializer);
+                };
+
                 ser.ext(resourceToOptimalReturnPositions,
                         bitsery::ext::StdMap{INT_MAX},
-                        [](auto &s, TilePosition &key, std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &value)
+                        [&](S &s, TilePosition &key, std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &value)
                         {
                             s.object(key);
-                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [](auto &s, PositionAndVelocity &key, ReturnPositionObservations &value)
+                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S &s, PositionAndVelocity &key, ReturnPositionObservations &v)
                             {
                                 s.object(key);
-                                s.object(value);
+                                s.object(v, returnPositionObservationsSerializer);
                             });
                         });
             }
@@ -207,7 +284,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
     void readGatherPositionObservations(bool preferFull,
                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
     {
-        readDataFile("gather positions", optimalGatherPositionsFilename(preferFull), OptimalGatherPositionsSerializer{}, data);
+        readDataFile("gather positions", optimalGatherPositionsFilename(preferFull), FullOptimalGatherPositionsSerializer{}, data);
         setPositions(data);
     }
 
@@ -219,7 +296,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
     void readReturnPositionObservations(bool preferFull,
                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
     {
-        readDataFile("return positions", optimalReturnPositionsFilename(preferFull), OptimalReturnPositionsSerializer{}, data);
+        readDataFile("return positions", optimalReturnPositionsFilename(preferFull), FullOptimalReturnPositionsSerializer{}, data);
         setPositions(data);
     }
 
@@ -227,7 +304,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                                          std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data,
                                          bool maxCompresion)
     {
-        writeDataFile("gather positions", optimalGatherPositionsFilename(!minimized, true), OptimalGatherPositionsSerializer{}, data, maxCompresion);
+        writeDataFile("gather positions", optimalGatherPositionsFilename(!minimized, true), FullOptimalGatherPositionsSerializer{}, data, maxCompresion);
     }
 
     void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompresion)
@@ -239,6 +316,6 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                                          std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data,
                                          bool maxCompresion)
     {
-        writeDataFile("return positions", optimalReturnPositionsFilename(!minimized, true), OptimalReturnPositionsSerializer{}, data, maxCompresion);
+        writeDataFile("return positions", optimalReturnPositionsFilename(!minimized, true), FullOptimalReturnPositionsSerializer{}, data, maxCompresion);
     }
 }

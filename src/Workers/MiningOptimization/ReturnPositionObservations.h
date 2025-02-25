@@ -5,8 +5,6 @@
 #include "OrderProcessTimer.h"
 #include "Resource.h"
 #include "Occurrences.h"
-#include <bitsery/ext/std_map.h>
-#include <bitsery/traits/vector.h>
 #include <map>
 
 namespace WorkerMiningOptimization
@@ -64,15 +62,6 @@ namespace WorkerMiningOptimization
 
             return (maxOccurrences * 4) < (total * 3);
         }
-
-        template <typename S>
-        void serialize(S& s)
-        {
-            SERIALIZE_COLLISION(collision);
-            SERIALIZE_COLLISION(lowExitSpeed);
-            SERIALIZE_COLLISION(mediumExitSpeed);
-            SERIALIZE_COLLISION(highExitSpeed);
-        }
     };
 
     struct ReturnArrivalObservations
@@ -122,17 +111,6 @@ namespace WorkerMiningOptimization
             return deliveryAfterArrivalSpeeds.disagreement() || deliveryAtArrivalSpeeds.disagreement();
         }
 
-        template <typename S>
-        void serialize(S& s)
-        {
-            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint16_t& key, OCCURRENCE_TYPE& value) {
-                s.value2b(key);
-                SERIALIZE_OCCURRENCE(value);
-            });
-            s.object(deliveryAfterArrivalSpeeds);
-            s.object(deliveryAtArrivalSpeeds);
-        }
-
     private:
         [[nodiscard]] double deliveryDelayForArrival(
                 uint16_t arrivalDelay, int arrivalFrame, int knownOrderProcessTimer, int knownOrderProcessTimerFrame) const;
@@ -176,17 +154,6 @@ namespace WorkerMiningOptimization
         [[nodiscard]] bool suitableForExploration() const;
 
         ReturnPositionObservations* nextPositionIfExists(const PositionAndVelocity &nextPos);
-
-        template <typename S>
-        void serialize(S& s) {
-            s.object(pos);
-            SERIALIZE_OCCURRENCE(occurrences);
-            s.container(nextPositions, INT_MAX, [](auto &s, ReturnPositionObservations &value) {
-                s.object(value);
-            });
-            s.object(noResendArrivalObservations);
-            s.object(resendArrivalObservations);
-        }
     };
 
     std::ostream &operator<<(std::ostream &os, const ReturnPositionObservations &returnPositionObservations);

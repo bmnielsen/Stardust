@@ -5,8 +5,6 @@
 #include "Occurrences.h"
 #include "OrderProcessTimer.h"
 #include "Resource.h"
-#include <bitsery/ext/std_map.h>
-#include <bitsery/traits/vector.h>
 #include <map>
 
 namespace WorkerMiningOptimization
@@ -35,17 +33,6 @@ namespace WorkerMiningOptimization
         [[nodiscard]] double expectedMiningDelay(int commandFrame) const;
 
         static double arrivalDelayToMiningDelay(int arrivalDelay, int commandFrame);
-
-        template <typename S>
-        void serialize(S& s)
-        {
-            s.ext(arrivalDelayAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, OCCURRENCE_TYPE& value) {
-                s.value1b(key);
-                SERIALIZE_OCCURRENCE(value);
-            });
-            SERIALIZE_COLLISION(collisions);
-            SERIALIZE_COLLISION(nonCollisions);
-        }
     };
 
     struct SecondResendGatherPositionObservations
@@ -54,17 +41,6 @@ namespace WorkerMiningOptimization
         OCCURRENCE_TYPE occurrences = 1;
         std::vector<SecondResendGatherPositionObservations> nextPositions;
         GatherResendArrivalObservations arrivalObservations;
-
-        template <typename S>
-        void serialize(S& s)
-        {
-            s.object(pos);
-            SERIALIZE_OCCURRENCE(occurrences);
-            s.container(nextPositions, INT_MAX, [](auto &s, SecondResendGatherPositionObservations &value) {
-                s.object(value);
-            });
-            s.object(arrivalObservations);
-        }
     };
 
     // This is the structure we use to track observed positions and our track record using them
@@ -162,25 +138,6 @@ namespace WorkerMiningOptimization
 //
 //            return result;
 //        }
-
-        template <typename S>
-        void serialize(S& s) {
-            s.object(pos);
-            SERIALIZE_OCCURRENCE(occurrences);
-            s.ext(deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, OCCURRENCE_TYPE& value) {
-                s.value1b(key);
-                SERIALIZE_OCCURRENCE(value);
-            });
-            s.container(nextPositions, INT_MAX, [](auto &s, GatherPositionObservations &value) {
-                s.object(value);
-            });
-            s.object(noSecondResendArrivalObservations);
-            s.container(secondResendPositions, INT_MAX, [](auto &s, SecondResendGatherPositionObservations &value) {
-                s.object(value);
-            });
-            SERIALIZE_COLLISION(noResendCollisions);
-            SERIALIZE_COLLISION(noResendNonCollisions);
-        }
     };
 
     // Struct we use to track the position history as pointers to observations
