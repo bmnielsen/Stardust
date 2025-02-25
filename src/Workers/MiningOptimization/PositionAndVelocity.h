@@ -13,12 +13,11 @@ public:
     int8_t dx;
     int8_t dy;
     uint8_t heading;
-    uint16_t previousPositionsHash;
 
-    PositionAndVelocity() : x(0), y(0), dx(0), dy(0), heading(UINT8_MAX), previousPositionsHash(0) {}
+    PositionAndVelocity() : x(0), y(0), dx(0), dy(0), heading(UINT8_MAX) {}
 
-    PositionAndVelocity(uint16_t x, uint16_t y, int8_t dx, int8_t dy, uint8_t heading, uint16_t previousPositionsHash)
-        : x(x), y(y), dx(dx), dy(dy), heading(heading), previousPositionsHash(previousPositionsHash) {}
+    PositionAndVelocity(uint16_t x, uint16_t y, int8_t dx, int8_t dy, uint8_t heading)
+        : x(x), y(y), dx(dx), dy(dy), heading(heading) {}
 
     explicit PositionAndVelocity(const BWAPI::Unit &unit)
             : x((uint16_t)unit->getPosition().x)
@@ -26,16 +25,14 @@ public:
             , dx(MyWorkerImpl::to8bSpeed(unit->getVelocityX()))
             , dy(MyWorkerImpl::to8bSpeed(unit->getVelocityY()))
             , heading(MyWorkerImpl::to8bHeading(unit->getAngle()))
-            , previousPositionsHash(0)
     {}
 
-    explicit PositionAndVelocity(const MyWorker &worker, const PositionAndVelocity *previousPosition)
+    explicit PositionAndVelocity(const MyWorker &worker)
             : x((uint16_t)worker->lastPosition.x)
             , y((uint16_t)worker->lastPosition.y)
             , dx(worker->horizontalSpeed8b)
             , dy(worker->verticalSpeed8b)
             , heading(worker->heading8b)
-            , previousPositionsHash(previousPosition ? previousPosition->getHash() : 0)
     {}
 
     bool operator==(const PositionAndVelocity &other) const
@@ -44,14 +41,16 @@ public:
                && y == other.y
                && dx == other.dx
                && dy == other.dy
-               && heading == other.heading
-               && previousPositionsHash == other.previousPositionsHash;
+               && heading == other.heading;
     }
 
     bool operator<(const PositionAndVelocity &other) const
     {
-        // TODO: Refactor to use components when we remove the hash
-        return previousPositionsHash < other.previousPositionsHash;
+        return (x < other.x) ||
+               (x == other.x && y < other.y) ||
+               (x == other.x && y == other.y && dx < other.dx) ||
+               (x == other.x && y == other.y && dx == other.dx && dy < other.dy) ||
+               (x == other.x && y == other.y && dx == other.dx && dy == other.dy && heading < other.heading);
     }
 
     [[nodiscard]] bool isValid() const
@@ -71,15 +70,6 @@ public:
                && y == worker->lastPosition.y;
     }
 
-    [[nodiscard]] bool positionAndVelocityEquals(const PositionAndVelocity &other) const
-    {
-        return x == other.x
-               && y == other.y
-               && dx == other.dx
-               && dy == other.dy
-               && heading == other.heading;
-    }
-
     [[nodiscard]] BWAPI::Position pos() const
     {
         return {x, y};
@@ -89,15 +79,14 @@ public:
     {
         if (hashComputed) return hash;
 
-        uint8_t data[9];
+        uint8_t data[7];
         (uint16_t&)(data[0]) = x;
         (uint16_t&)(data[2]) = y;
         data[4] = dx;
         data[5] = dy;
         data[6] = heading;
-        (uint16_t&)(data[7]) = previousPositionsHash;
 
-        hash = CRC16::CCITT_FALSE::calc(data, 9);
+        hash = CRC16::CCITT_FALSE::calc(data, 7);
 
         hashComputed = true;
         return hash;
@@ -117,7 +106,6 @@ public:
         s.value1b(dx);
         s.value1b(dy);
         s.value1b(heading);
-        s.value2b(previousPositionsHash);
     }
 
 private:

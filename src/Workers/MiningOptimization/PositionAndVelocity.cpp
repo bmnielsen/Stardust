@@ -32,7 +32,7 @@ bool PositionAndVelocity::tryParse(const std::string &str, PositionAndVelocity &
     std::string item;
 
     int i = 0;
-    for (; i < 6 && std::getline(stream, item, ' '); i++)
+    for (; i < 5 && std::getline(stream, item, ' '); i++)
     {
         switch (i)
         {
@@ -51,13 +51,10 @@ bool PositionAndVelocity::tryParse(const std::string &str, PositionAndVelocity &
             case 4:
                 out.heading = (uint8_t)std::stoul(item.substr(2));
                 break;
-            case 5:
-                out.previousPositionsHash = (uint16_t)std::stoul(item.substr(2, item.size() - 3), nullptr, 16);
-                break;
         }
     }
 
-    return i == 6;
+    return i == 5;
 }
 
 std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAndVelocity)
@@ -70,7 +67,6 @@ std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAn
        << " dx=" << (int)positionAndVelocity.dx
        << " dy=" << (int)positionAndVelocity.dy
        << " h=" << (unsigned int)positionAndVelocity.heading
-       << " p=" << std::hex << positionAndVelocity.previousPositionsHash
        << ")";
 
     os.flags(flags);
