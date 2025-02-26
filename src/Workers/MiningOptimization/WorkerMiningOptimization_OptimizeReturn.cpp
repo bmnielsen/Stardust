@@ -162,7 +162,13 @@ namespace WorkerMiningOptimization
                 }
             }
 
+            // Don't plan anything until we have left the patch
+            if (!workerStatus.hasLeftPatch) return;
+
             auto &positionMetadata = *workerStatus.currentNode;
+
+            // Wait to start planning until we reach a position that is usable
+            if (!positionMetadata.usableForPathPlanning()) return;
 
             // We are now sure that we will plan something, though we may choose not to perform a resend
             workerStatus.resendPlanned = true;

@@ -177,6 +177,8 @@ namespace WorkerMiningOptimization
             noResendArrivalObservations.add(arrivalDelay);
         }
 
+        [[nodiscard]] bool usableForPathPlanning() const;
+
         // Checks if any of the observed arrival delays are after our exploration horizon
         [[nodiscard]] bool afterExplorationHorizon() const;
 

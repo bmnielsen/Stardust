@@ -8,19 +8,28 @@ namespace WorkerMiningOptimization
     {
         lastProcessedFrame = currentFrame;
 
-        std::shared_ptr<PositionAndVelocity> currentPosition;
+        auto currentPosition = std::make_shared<PositionAndVelocity>(worker);
+
+        // For the first position, compute whether the path started at the depot
+        // The logic for this is to treat it as starting at the depot if the distance to the depot was 0 or
+        // the start position was the unit's spawn location (which is not quite at distance 0)
+        // We exclude gathers from depots that are a long way away though to avoid tracking distance mining paths
         if (positionHistory.empty())
         {
-            // For the first position, compute whether the path started at the depot
-            // The logic for this is to treat it as starting at the depot if the distance to the depot was 0 or
-            // the start position was the unit's spawn location (which is not quite at distance 0)
-            // We exclude gathers from depots that are a long way away though to avoid tracking distance mining paths
             pathStartsAtDepot = (
                     (resource->getDistance(depot) < 256) && (
                             (depot->getDistance(worker) == 0) || (worker->lastPosition == worker->spawnPosition)));
         }
 
-        currentPosition = std::make_shared<PositionAndVelocity>(worker);
+        // If we haven't observed leaving the depot yet, check if this position fulfills this
+        // We consider the worker to have left the depot if it's previous position is at least 2 pixels from its initial position, and it's
+        // current position is different from its previous position
+        if (!hasLeftDepot && !positionHistory.empty())
+        {
+            hasLeftDepot = (*positionHistory.begin())->pos().getApproxDistance((*positionHistory.rbegin())->pos()) >= 2
+                           && (*positionHistory.rbegin())->pos() != currentPosition->pos();
+        }
+
         positionHistory.emplace_back(currentPosition);
         return currentPosition;
     }

@@ -18,7 +18,6 @@ namespace WorkerMiningOptimization
     {
         struct PositionsInHistory
         {
-            std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator firstMovedPositionIt;
             std::vector<std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator> resendItsBeforeArrival;
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator arrivalPositionIt;
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator tenDistancePositionIt;
@@ -32,6 +31,13 @@ namespace WorkerMiningOptimization
                                        std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                        bool createObservations)
         {
+            if (!workerStatus.hasLeftDepot)
+            {
+                Log::Get() << "ERROR: Worker was not tracked as leaving depot"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+                return false;
+            }
+
             // If the path is too short to possibly optimize, return here
             // This might happen if we have a case where the worker gets reassigned or otherwise doesn't follow a normal mining path
             if (workerStatus.positionHistory.size() < (BWAPI::Broodwar->getLatencyFrames() + 11))
@@ -39,7 +45,6 @@ namespace WorkerMiningOptimization
                 return false;
             }
 
-            positionsInHistory.firstMovedPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.resendItsBeforeArrival.clear();
             positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.tenDistancePositionIt = workerStatus.positionHistory.end();
@@ -48,9 +53,8 @@ namespace WorkerMiningOptimization
             positionsInHistory.resendsWithObservationData.clear();
 
             std::vector<std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator> resendPositionIts;
-
             auto nextResendPositionIt = workerStatus.resentPositions.begin();
-            auto firstPos = (*workerStatus.positionHistory.begin())->pos();
+
             for (auto it = workerStatus.positionHistory.begin(); it != workerStatus.positionHistory.end(); it++)
             {
                 if (nextResendPositionIt != workerStatus.resentPositions.end() && **nextResendPositionIt == **it)
@@ -81,22 +85,6 @@ namespace WorkerMiningOptimization
                 {
                     positionsInHistory.tenDistancePositionIt = it - BWAPI::Broodwar->getLatencyFrames() - 1;
                 }
-
-                if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end() &&
-                    (it + 1) != workerStatus.positionHistory.end())
-                {
-                    // We define the "first moved position" as the first position at least 2 pixels from the initial position
-                    // where the worker is moving
-                    if ((*it)->pos().getApproxDistance(firstPos) >= 2 && (*it)->pos() != (*(it + 1))->pos())
-                    {
-                        positionsInHistory.firstMovedPositionIt = it;
-#if OPTIMALPOSITIONS_DEBUG
-                        CherryVis::log(workerStatus.worker->id)
-                                << "First move position at delta " << std::distance(workerStatus.positionHistory.begin(), it)
-                                << " from first position";
-#endif
-                    }
-                }
             }
 
             // Don't process too short or two long paths
@@ -114,15 +102,6 @@ namespace WorkerMiningOptimization
                 std::distance(workerStatus.positionHistory.begin(), positionsInHistory.tenDistancePositionIt) < 0)
             {
                 positionsInHistory.tenDistancePositionIt = workerStatus.positionHistory.end();
-            }
-
-            if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
-            {
-#if LOGGING_ENABLED
-                Log::Get() << "ERROR: Couldn't find first gather move position in history"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-#endif
-                return false;
             }
 
             // Return false if any of the resend positions couldn't be found

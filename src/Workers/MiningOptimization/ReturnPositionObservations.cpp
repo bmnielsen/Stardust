@@ -139,6 +139,21 @@ namespace WorkerMiningOptimization
         return (double)(arrivalDelay + deliveryFrame - arrivalFrame) + deliveryAfterArrivalSpeeds.expectedDeltaToNormal();
     }
 
+    bool ReturnPositionObservations::usableForPathPlanning() const
+    {
+        // A position is usable if any arrival delays are inside the exploration horizon
+        int referenceFrame = 8 + BWAPI::Broodwar->getLatencyFrames();
+        for (const auto &[arrivalDelay, _] : noResendArrivalObservations.arrivalDelayAndOccurrenceRate)
+        {
+            if (arrivalDelay <= (referenceFrame + RETURN_EXPLORE_BEFORE) && arrivalDelay >= (referenceFrame - RETURN_EXPLORE_AFTER))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool ReturnPositionObservations::afterExplorationHorizon() const
     {
         int referenceFrame = 8 + BWAPI::Broodwar->getLatencyFrames();

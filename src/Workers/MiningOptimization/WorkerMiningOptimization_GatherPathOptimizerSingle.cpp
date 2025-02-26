@@ -300,6 +300,9 @@ namespace WorkerMiningOptimization
             }
         }
 
+        // Don't plan anything until we have left the depot
+        if (!workerStatus.hasLeftDepot) return;
+
         auto &positionMetadata = *workerStatus.currentNode->pos;
 
         // Wait to start planning until we reach a position that is usable

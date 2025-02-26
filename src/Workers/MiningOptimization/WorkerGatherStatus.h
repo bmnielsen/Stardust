@@ -27,6 +27,9 @@ namespace WorkerMiningOptimization
         // Whether the path started at the depot
         bool pathStartsAtDepot;
 
+        // Whether the worker has left the depot
+        bool hasLeftDepot;
+
         // Whether we have planned the resends we want to send on this path
         bool resendsPlanned;
 
@@ -80,6 +83,7 @@ namespace WorkerMiningOptimization
                 , resource(std::move(resource))
                 , lastProcessedFrame(-2)
                 , pathStartsAtDepot(false)
+                , hasLeftDepot(false)
                 , resendsPlanned(false)
                 , expectedArrivalFrame(-1)
                 , takeoverState(0)
@@ -96,6 +100,7 @@ namespace WorkerMiningOptimization
             lastProcessedFrame = -2;
             positionHistory.clear();
             pathStartsAtDepot = false;
+            hasLeftDepot = false;
             resendsPlanned = false;
             expectedArrivalFrame = -1;
             plannedResendPosition = nullptr;

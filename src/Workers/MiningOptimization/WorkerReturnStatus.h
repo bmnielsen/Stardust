@@ -28,6 +28,9 @@ namespace WorkerMiningOptimization
         // Whether the path started at the patch
         bool pathStartsAtPatch;
 
+        // Whether the worker has left the patch
+        bool hasLeftPatch;
+
         // Whether we have planned the resend we want to send on this path
         bool resendPlanned;
 
@@ -58,6 +61,7 @@ namespace WorkerMiningOptimization
                 , resource(std::move(resource))
                 , lastProcessedFrame(-2)
                 , pathStartsAtPatch(false)
+                , hasLeftPatch(false)
                 , resendPlanned(false)
                 , plannedResendPosition(nullptr)
                 , currentNode(nullptr)
@@ -71,6 +75,7 @@ namespace WorkerMiningOptimization
             lastProcessedFrame = -2;
             positionHistory.clear();
             pathStartsAtPatch = false;
+            hasLeftPatch = false;
             resendPlanned = false;
             plannedResendPosition = nullptr;
             expectedPath.clear();
@@ -79,13 +84,6 @@ namespace WorkerMiningOptimization
             expectedDelayAfterResend = 100.0;
             resentPosition = nullptr;
             hasPathData = false;
-        }
-
-        [[nodiscard]] bool validForObservations() const
-        {
-            if (positionHistory.empty()) return false;
-            if (positionHistory.size() > 60) return false; // usually means distance mining
-            return pathStartsAtPatch;
         }
 
         std::shared_ptr<PositionAndVelocity> appendCurrentPosition();

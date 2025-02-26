@@ -12,7 +12,6 @@ namespace WorkerMiningOptimization
     {
         struct PositionsInHistory
         {
-            std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator firstMovedPositionIt;
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator arrivalPositionIt;
 
             std::vector<ReturnPositionObservations*> positionHistory;
@@ -26,17 +25,23 @@ namespace WorkerMiningOptimization
                                        std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &rootNodes,
                                        bool createObservations)
         {
+            if (!workerStatus.hasLeftPatch)
+            {
+                Log::Get() << "ERROR: Worker was not tracked as leaving depot"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+                return false;
+            }
+
             if (workerStatus.positionHistory.empty()) return false;
             if (workerStatus.positionHistory.size() > 75) return false;
+            if (!workerStatus.pathStartsAtPatch) return false;
 
-            positionsInHistory.firstMovedPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
             positionsInHistory.positionHistory.clear();
             positionsInHistory.resendPosition = nullptr;
 
             auto resendPositionIt = workerStatus.positionHistory.end();
 
-            auto firstPos = (*workerStatus.positionHistory.begin())->pos();
             for (auto positionIt = workerStatus.positionHistory.begin(); positionIt != workerStatus.positionHistory.end(); positionIt++)
             {
                 if (workerStatus.resentPosition && (*workerStatus.resentPosition) == **positionIt)
@@ -60,30 +65,6 @@ namespace WorkerMiningOptimization
                         positionsInHistory.arrivalPositionIt = positionIt;
                     }
                 }
-
-                if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end() &&
-                    (positionIt + 1) != workerStatus.positionHistory.end())
-                {
-                    // We define the "first moved position" as the first position at least 2 pixels from the initial position
-                    // where the worker is moving
-                    if ((*positionIt)->pos().getApproxDistance(firstPos) >= 2 && (*positionIt)->pos() != (*(positionIt + 1))->pos())
-                    {
-                        positionsInHistory.firstMovedPositionIt = positionIt;
-#if OPTIMALRETURN_DEBUG
-                        CherryVis::log(workerStatus.worker->id)
-                                << "First move position at delta " << std::distance(workerStatus.positionHistory.begin(), positionIt)
-                                << " from first position";
-#endif
-                    }
-                }
-            }
-            if (positionsInHistory.firstMovedPositionIt == workerStatus.positionHistory.end())
-            {
-#if LOGGING_ENABLED
-                Log::Get() << "ERROR: Couldn't find first return move position in history"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-#endif
-                return false;
             }
             if (positionsInHistory.arrivalPositionIt == workerStatus.positionHistory.end())
             {
@@ -438,8 +419,7 @@ namespace WorkerMiningOptimization
             // We ignore workers that didn't start at the patch or had excessively long paths (indicating distance mining)
             auto &rootNodes = returnPositionRootNodesFor(it->second.resource);
             PositionsInHistory positionsInHistory;
-            if (!it->second.pathStartsAtPatch ||
-                !extractPositionsInHistory(positionsInHistory, it->second, rootNodes, WorkerMiningOptimization::isExploring()))
+            if (!extractPositionsInHistory(positionsInHistory, it->second, rootNodes, WorkerMiningOptimization::isExploring()))
             {
 #if OPTIMALRETURN_DEBUG
                 CherryVis::log(worker->id) << "Not tracking observations for this return"
