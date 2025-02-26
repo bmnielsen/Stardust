@@ -422,6 +422,8 @@ namespace WorkerMiningOptimization
         if (workerStatus.expectedPath.empty()) return; // have no further resends planned
         if (workerStatus.expectedPath.front().position() == *currentPosition) return; // path matches expectations
 
+        auto current = *workerStatus.expectedPath.begin();
+
         // We need to clear second resend and expected path no matter what
         workerStatus.plannedSecondResendPosition = nullptr;
         workerStatus.expectedPath.clear();
@@ -451,7 +453,6 @@ namespace WorkerMiningOptimization
 
         // We have sent the first resend, but hit a different path before reaching the second resend position
         auto &firstResend = *workerStatus.plannedResendPosition->pos;
-        auto current = *workerStatus.expectedPath.begin();
 
         // If we haven't observed this path, leave the worker alone to get data about this new path
         SecondResendGatherPositionObservations *next = nullptr;
