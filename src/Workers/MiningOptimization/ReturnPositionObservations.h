@@ -185,5 +185,6 @@ namespace WorkerMiningOptimization
         ReturnPositionObservations* nextPositionIfExists(const PositionAndVelocity &nextPos);
     };
 
+    std::ostream &operator<<(std::ostream &os, const ReturnArrivalObservations &returnArrivalObservations);
     std::ostream &operator<<(std::ostream &os, const ReturnPositionObservations &returnPositionObservations);
 }

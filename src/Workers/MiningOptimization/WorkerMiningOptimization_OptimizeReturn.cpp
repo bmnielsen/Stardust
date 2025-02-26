@@ -65,22 +65,46 @@ namespace WorkerMiningOptimization
             }
             else if (positionMetadata.nextPositions.size() > 1)
             {
-                double delayAccumulator = 0.0;
+                // Evaluate all of the next positions, finding the most likely position and the weight of the explored position occurrence rates
+                std::vector<PositionEvaluation> nextPositionEvaluations;
+                nextPositionEvaluations.reserve(positionMetadata.nextPositions.size());
+                int mostCommon = -1;
+                uint8_t totalOccurrenceRate = 0;
                 uint8_t bestOccurrenceRate = 0;
-                for (auto &nextPositionMetadata : positionMetadata.nextPositions)
+                for (int i = 0; i < positionMetadata.nextPositions.size(); i++)
                 {
-                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, nextPositionMetadata);
+                    auto nextPositionEvaluation = evaluatePosition(commandFrame + 1, positionMetadata.nextPositions[i]);
+
                     if (nextPositionEvaluation.explored)
                     {
-                        delayAccumulator += nextPositionEvaluation.expectedDelay * ((double)nextPositionMetadata.occurrenceRate / 255.0);
+                        totalOccurrenceRate += positionMetadata.nextPositions[i].occurrenceRate;
                     }
-                    if (nextPositionMetadata.occurrenceRate > bestOccurrenceRate ||
-                        (nextPositionMetadata.occurrenceRate == bestOccurrenceRate && less(nextPositionEvaluation, nextPositionsEvaluation)))
+
+                    if (mostCommon == -1 || positionMetadata.nextPositions[i].occurrenceRate > bestOccurrenceRate ||
+                        (positionMetadata.nextPositions[i].occurrenceRate == bestOccurrenceRate
+                            && less(nextPositionEvaluation, nextPositionEvaluations[mostCommon])))
                     {
-                        bestOccurrenceRate = nextPositionMetadata.occurrenceRate;
-                        nextPositionsEvaluation = std::move(nextPositionEvaluation);
+                        bestOccurrenceRate = positionMetadata.nextPositions[i].occurrenceRate;
+                        mostCommon = i;
                     }
+
+                    nextPositionEvaluations.emplace_back(std::move(nextPositionEvaluation));
                 }
+
+                // Now tally up the scores, adjusting them to the resend frame of the most common occurrence
+                double delayAccumulator = 0.0;
+                for (int i = 0; i < positionMetadata.nextPositions.size(); i++)
+                {
+                    if (!nextPositionEvaluations[i].explored) continue;
+
+                    auto pathDifference = (double)nextPositionEvaluations[mostCommon].expectedPath.size()
+                            - (double)nextPositionEvaluations[i].expectedPath.size();
+
+                    delayAccumulator += (nextPositionEvaluations[i].expectedDelay + pathDifference)
+                                    * ((double)positionMetadata.nextPositions[i].occurrenceRate / (double)totalOccurrenceRate);
+                }
+
+                nextPositionsEvaluation = std::move(nextPositionEvaluations[mostCommon]);
                 nextPositionsEvaluation.expectedDelay = delayAccumulator;
             }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), &positionMetadata);
@@ -181,6 +205,10 @@ namespace WorkerMiningOptimization
                 else
                 {
                     out << " expected delay " << evaluation.expectedDelay;
+                    if (workerStatus.plannedResendPosition)
+                    {
+                        out << "\n" << workerStatus.plannedResendPosition->resendArrivalObservations;
+                    }
                 }
 
                 CherryVis::log(workerStatus.worker->id) << out.str();

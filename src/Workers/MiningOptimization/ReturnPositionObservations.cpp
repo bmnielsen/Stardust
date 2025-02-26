@@ -182,6 +182,27 @@ namespace WorkerMiningOptimization
         return nullptr;
     }
 
+    std::ostream &operator<<(std::ostream &os, const ReturnArrivalObservations &returnArrivalObservations)
+    {
+        std::ostringstream o;
+        o << std::fixed << std::setprecision(1);
+
+        o << "ad=(";
+        std::string sep;
+        for (const auto &[delay, rate] : returnArrivalObservations.arrivalDelayAndOccurrenceRate)
+        {
+            o << sep << (int)delay << ":" << ((double)rate * 100.0 / 255.0);
+            sep = ",";
+        }
+        o << ")";
+
+        o << ",atArr=" << returnArrivalObservations.deliveryAtArrivalSpeeds.expectedDeltaToNormal()
+          << ",afterArr=" << returnArrivalObservations.deliveryAfterArrivalSpeeds.expectedDeltaToNormal();
+
+        os << o.str();
+        return os;
+    }
+
     std::ostream &operator<<(std::ostream &os, const ReturnPositionObservations &optimalGatherPositionMetadata)
     {
         os << optimalGatherPositionMetadata.pos;
