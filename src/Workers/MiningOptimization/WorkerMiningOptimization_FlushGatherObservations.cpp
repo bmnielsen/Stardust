@@ -28,7 +28,6 @@ namespace WorkerMiningOptimization
 
         bool extractPositionsInHistory(PositionsInHistory &positionsInHistory,
                                        WorkerGatherStatus &workerStatus,
-                                       std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                        bool createObservations)
         {
             if (!workerStatus.hasLeftDepot)
@@ -115,7 +114,7 @@ namespace WorkerMiningOptimization
             // Filter out the resends that happened before arrival
             for (auto resendPositionIt : resendPositionIts)
             {
-                if (std::distance(resendPositionIt, positionsInHistory.arrivalPositionIt) < BWAPI::Broodwar->getLatencyFrames())
+                if (std::distance(resendPositionIt, positionsInHistory.arrivalPositionIt) <= BWAPI::Broodwar->getLatencyFrames())
                 {
                     break;
                 }
@@ -126,6 +125,7 @@ namespace WorkerMiningOptimization
             // Reference the observations and potentially create new nodes
 
             // Start by finding or creating the root node
+            auto &rootNodes = gatherPositionRootNodesFor(workerStatus.resource);
             auto rootNodeIt = rootNodes.find(**workerStatus.positionHistory.begin());
             if (rootNodeIt == rootNodes.end())
             {
@@ -216,8 +216,8 @@ namespace WorkerMiningOptimization
         {
             MyWorker worker;
             Resource resource;
-            std::vector<GatherPositionObservationPtr> positionHistory;
-            std::vector<GatherPositionObservationPtr> resendsWithObservationData;
+            std::vector<PositionAndVelocity> positionHistoryWithObservationData;
+            std::vector<PositionAndVelocity> resendsWithObservationData;
             size_t resendsBeforeArrivalCount;
         };
 
@@ -256,19 +256,57 @@ namespace WorkerMiningOptimization
             // If there have been more than two resends, we can't record an observation since the path may have changed in an unexpected way
             if (miningWorker.resendsBeforeArrivalCount > 2) return;
 
-            // If no resend occurred, update all positions
-            if (miningWorker.resendsBeforeArrivalCount == 0)
+            // Guard against invalid data
+            if (miningWorker.positionHistoryWithObservationData.empty()) return;
+            if (miningWorker.resendsWithObservationData.size() != miningWorker.resendsBeforeArrivalCount) return;
+
+            // Find the root node
+            auto &rootNodes = gatherPositionRootNodesFor(miningWorker.resource);
+            auto rootNodeIt = rootNodes.find(miningWorker.positionHistoryWithObservationData.front());
+            if (rootNodeIt == rootNodes.end())
             {
-                for (const auto &position : miningWorker.positionHistory)
-                {
-                    position.pos->addNoResendCollision(collision);
-                }
+#if LOGGING_ENABLED
+                Log::Get() << "ERROR: No root node found when handling gather collisions"
+                           << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
+#endif
                 return;
             }
 
-            if (miningWorker.resendsWithObservationData.size() != miningWorker.resendsBeforeArrivalCount) return;
+            std::shared_ptr<PositionAndVelocity> firstResendPosition;
+            std::shared_ptr<PositionAndVelocity> lastResendPosition;
+            if (!miningWorker.resendsWithObservationData.empty())
+            {
+                firstResendPosition = std::make_shared<PositionAndVelocity>(miningWorker.resendsWithObservationData.front());
+                lastResendPosition = std::make_shared<PositionAndVelocity>(miningWorker.resendsWithObservationData.back());
+            }
 
-            miningWorker.resendsWithObservationData.rbegin()->resendArrivalObservations().addCollision(collision);
+            auto recordObservationsOnNode = [&](GatherPositionObservationPtr &node)
+            {
+                if (lastResendPosition)
+                {
+                    if (node.position() == *lastResendPosition)
+                    {
+                        node.resendArrivalObservations().addCollision(collision);
+                    }
+                    return;
+                }
+
+                node.pos->addNoResendCollision(collision);
+            };
+
+            auto current = GatherPositionObservationPtr(&(rootNodeIt->second));
+            recordObservationsOnNode(current);
+
+            for (auto positionIt = miningWorker.positionHistoryWithObservationData.begin() + 1;
+                 positionIt != miningWorker.positionHistoryWithObservationData.end();
+                 positionIt++)
+            {
+                auto next = current.nextPositionIfExists(*positionIt, firstResendPosition);
+                if (!next) break;
+
+                current = *next;
+                recordObservationsOnNode(current);
+            }
         }
 
         void updateApproachOptimization(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory)
@@ -632,9 +670,8 @@ namespace WorkerMiningOptimization
             }
 
             // We skip processing this worker if it hasn't tracked its positions history correctly
-            auto &rootNodes = gatherPositionRootNodesFor(it->second.resource);
             PositionsInHistory positionsInHistory;
-            if (!extractPositionsInHistory(positionsInHistory, it->second, rootNodes, WorkerMiningOptimization::isExploring())
+            if (!extractPositionsInHistory(positionsInHistory, it->second, WorkerMiningOptimization::isExploring())
                 || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
             {
                 if (it->second.waitForMineralsWhileOtherStillMining)
@@ -684,11 +721,22 @@ namespace WorkerMiningOptimization
             }
 
             // Move required fields into the MiningWorker struct that we use to track patch collisions
+            // As the underlying vectors may change in the meantime, we convert pointers to positions
+            auto convertToPositions = [](const std::vector<GatherPositionObservationPtr> &source)
+            {
+                std::vector<PositionAndVelocity> result;
+                result.reserve(source.size());
+                for (const auto &sourcePos : source)
+                {
+                    result.emplace_back(sourcePos.position());
+                }
+                return result;
+            };
             miningWorkers.emplace_back(MiningWorker{
                     std::move(it->second.worker),
                     std::move(it->second.resource),
-                    std::move(positionsInHistory.positionHistory),
-                    std::move(positionsInHistory.resendsWithObservationData),
+                    convertToPositions(positionsInHistory.positionHistory),
+                    convertToPositions(positionsInHistory.resendsWithObservationData),
                     positionsInHistory.resendItsBeforeArrival.size()});
 
             // We now no longer need to do anything with this worker status
@@ -700,9 +748,8 @@ namespace WorkerMiningOptimization
     {
         if (workerStatus.waitForMineralsWhileOtherStillMining) return;
 
-        auto &rootNodes = gatherPositionRootNodesFor(workerStatus.resource);
         PositionsInHistory positionsInHistory;
-        if (!extractPositionsInHistory(positionsInHistory, workerStatus, rootNodes, WorkerMiningOptimization::isExploring())) return;
+        if (!extractPositionsInHistory(positionsInHistory, workerStatus, WorkerMiningOptimization::isExploring())) return;
 
         updateTenDistancePosition(workerStatus, positionsInHistory, true);
     }

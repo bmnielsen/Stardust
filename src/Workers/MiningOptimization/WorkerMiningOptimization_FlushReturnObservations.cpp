@@ -155,8 +155,8 @@ namespace WorkerMiningOptimization
             MyUnit depot;
             Resource resource;
             bool deliveredOnArrivalFrame;
-            std::vector<ReturnPositionObservations*> positionHistory;
-            ReturnPositionObservations* resentPosition;
+            std::vector<PositionAndVelocity> positionHistoryWithObservationData;
+            std::shared_ptr<PositionAndVelocity> resendPosition = nullptr;
         };
 
         std::vector<JustReturnedWorker> justReturnedWorkers;
@@ -228,17 +228,48 @@ namespace WorkerMiningOptimization
                  : observations.deliveryAfterArrivalSpeeds).addObservation(observation);
             };
 
-            // If no resend occurred, update all positions
-            if (!justReturnedWorker.resentPosition)
+            // Guard against invalid data
+            if (justReturnedWorker.positionHistoryWithObservationData.empty()) return;
+
+            // Find the root node
+            auto &rootNodes = returnPositionRootNodesFor(justReturnedWorker.resource);
+            auto rootNodeIt = rootNodes.find(justReturnedWorker.positionHistoryWithObservationData.front());
+            if (rootNodeIt == rootNodes.end())
             {
-                for (const auto &position : justReturnedWorker.positionHistory)
-                {
-                    addObservation(position->noResendArrivalObservations);
-                }
+#if LOGGING_ENABLED
+                Log::Get() << "ERROR: No root node found when handling return collisions"
+                           << "; worker id " << justReturnedWorker.worker->id << " @ " << justReturnedWorker.worker->getTilePosition();
+#endif
                 return;
             }
 
-            addObservation(justReturnedWorker.resentPosition->resendArrivalObservations);
+            auto recordObservationsOnNode = [&](ReturnPositionObservations* node)
+            {
+                if (justReturnedWorker.resendPosition)
+                {
+                    if (node->pos == *justReturnedWorker.resendPosition)
+                    {
+                        addObservation(node->resendArrivalObservations);
+                    }
+                    return;
+                }
+
+                addObservation(node->noResendArrivalObservations);
+            };
+
+            auto current = &(rootNodeIt->second);
+            recordObservationsOnNode(current);
+
+            for (auto positionIt = justReturnedWorker.positionHistoryWithObservationData.begin() + 1;
+                 positionIt != justReturnedWorker.positionHistoryWithObservationData.end();
+                 positionIt++)
+            {
+                auto next = current->nextPositionIfExists(*positionIt);
+                if (!next) break;
+
+                current = next;
+                recordObservationsOnNode(current);
+            }
         }
 
         void updateReturnOptimization(WorkerReturnStatus &workerStatus, const PositionsInHistory &positionsInHistory)
@@ -432,14 +463,25 @@ namespace WorkerMiningOptimization
 
             updateReturnOptimization(it->second, positionsInHistory);
 
-            // Move required fields into the MiningWorker struct that we use to track patch collisions
+            // Move required fields into the JustReturnedWorker struct that we use to track depot collisions and speeds
+            // As the underlying vectors may change in the meantime, we convert pointers to positions
+            auto convertToPositions = [](const std::vector<ReturnPositionObservations*> &source)
+            {
+                std::vector<PositionAndVelocity> result;
+                result.reserve(source.size());
+                for (const auto &sourcePos : source)
+                {
+                    result.emplace_back(sourcePos->pos);
+                }
+                return result;
+            };
             justReturnedWorkers.emplace_back(JustReturnedWorker{
                     std::move(it->second.worker),
                     std::move(it->second.depot),
                     std::move(it->second.resource),
                     positionsInHistory.arrivalPositionIt == (it->second.positionHistory.end() - 1),
-                    std::move(positionsInHistory.positionHistory),
-                    positionsInHistory.resendPosition});
+                    convertToPositions(positionsInHistory.positionHistory),
+                    positionsInHistory.resendPosition ? std::make_shared<PositionAndVelocity>(positionsInHistory.resendPosition->pos) : nullptr});
 
             // We now no longer need to do anything with this worker status
             it = workerReturnStatuses.erase(it);
