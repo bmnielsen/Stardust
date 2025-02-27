@@ -2,7 +2,6 @@
 // This file contains the logic to find the optimal path from a position for a single worker mining a patch
 
 #include "WorkerMiningOptimization.h"
-#include "PathTraversalLoopGuard.h"
 #include "DebugFlag_WorkerMiningOptimization.h"
 #include "Geo.h"
 
@@ -26,13 +25,10 @@ namespace WorkerMiningOptimization
             return collisions != total && nonCollisions != total;
         }
 
-        double expectedPatchCollisionDelay(uint32_t observedCollisions, uint32_t observedNonCollisions)
+        double expectedPatchCollisionDelay(uint8_t collisionRate)
         {
-            uint32_t total = observedCollisions + observedNonCollisions;
-            if (total == 0) return 0.0;
-
             // A collision adds an extra order process timer cycle of delay
-            return 9.0 * (double)observedCollisions / (double)total;
+            return 9.0 * (double)collisionRate / 255.0;
         }
 
         struct PositionEvaluation
@@ -96,7 +92,7 @@ namespace WorkerMiningOptimization
             }
 
             double expectedMiningDelay = observations.expectedMiningDelay(commandFrame);
-            auto collisionDelay = expectedPatchCollisionDelay(observations.collisions, observations.nonCollisions);
+            auto collisionDelay = expectedPatchCollisionDelay(observations.collisionRate);
             return positionMetadata.averageDeltaToBenchmark() + deltaToFirstResend + expectedMiningDelay + collisionDelay;
         }
 
@@ -217,7 +213,7 @@ namespace WorkerMiningOptimization
             else if (positionMetadata.nextPositions.size() > 1)
             {
                 double deltaAccumulator = 0.0;
-                uint32_t bestOccurrenceRate = 0;
+                uint8_t bestOccurrenceRate = 0;
                 for (auto &nextPositionMetadata : positionMetadata.nextPositions)
                 {
                     auto nextPositionEvaluation = evaluatePosition(commandFrame + 1,
@@ -301,8 +297,7 @@ namespace WorkerMiningOptimization
             if (evaluation.positionToTryOnExpectedPath) return true;
 
             // Ensure the path gets us to the patch better than the worst case of letting the worker be
-            auto normalPathCollisionDelay = expectedPatchCollisionDelay(positionMetadata.noResendCollisions,
-                                                                        positionMetadata.noResendNonCollisions);
+            auto normalPathCollisionDelay = expectedPatchCollisionDelay(positionMetadata.noResendCollisionRate);
             if (evaluation.expectedDelta > (9 + normalPathCollisionDelay)) return false;
 
             // If we can predict the worker's order process timer at normal arrival, check if it is better than the evaluated result
@@ -334,7 +329,7 @@ namespace WorkerMiningOptimization
         if (shouldResend(evaluation))
         {
             workerStatus.plannedResendPosition = std::move(evaluation.resendPosition);
-            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(*evaluation.expectedPath.rbegin());
+            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
             if ((*workerStatus.plannedResendPosition) == (*workerStatus.plannedSecondResendPosition))
             {
                 workerStatus.plannedSecondResendPosition = nullptr;
@@ -456,7 +451,7 @@ namespace WorkerMiningOptimization
         // Use it if we want to explore
         if (evaluation.positionToTryOnExpectedPath)
         {
-            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(*evaluation.expectedPath.rbegin());
+            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
             return;
         }
