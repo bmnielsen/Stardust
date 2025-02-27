@@ -275,30 +275,10 @@ namespace WorkerMiningOptimization
     }
 
     void planGatherResendsSingle(WorkerGatherStatus &workerStatus,
-                                 std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                  const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
-        // If we don't have a current node yet, check if this position is a root node
-        if (!workerStatus.currentNode)
-        {
-            auto rootNodeIt = rootNodes.find(*currentPosition);
-            if (rootNodeIt == rootNodes.end()) return;
-
-            workerStatus.currentNode = std::make_unique<GatherPositionObservationPtr>(&rootNodeIt->second);
-        }
-        else
-        {
-            // Advance the current node to the appropriate next position
-            workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition, nullptr);
-
-            // If there was none, this is a new path, so let us observe it
-            if (!workerStatus.currentNode)
-            {
-                workerStatus.resendsPlanned = true;
-                workerStatus.hasPathData = true;
-                return;
-            }
-        }
+        // Require a path node
+        if (!workerStatus.currentNode) return;
 
         // Don't plan anything until we have left the depot
         if (!workerStatus.hasLeftDepot) return;
@@ -425,15 +405,12 @@ namespace WorkerMiningOptimization
         if (workerStatus.expectedPath.empty()) return; // have no further resends planned
         if (workerStatus.expectedPath.front().position() == *currentPosition) return; // path matches expectations
 
-        auto current = *workerStatus.expectedPath.begin();
-
         // We need to clear second resend and expected path no matter what
         workerStatus.plannedSecondResendPosition = nullptr;
         workerStatus.expectedPath.clear();
 
         // If we haven't passed the first resend position yet, then just clear the planned data so we can replan
-        auto resentPosition = workerStatus.resentPosition();
-        if (!resentPosition)
+        if (!workerStatus.resentPosition())
         {
 #if OPTIMALPOSITIONS_DEBUG
             CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path; replanning";
@@ -458,16 +435,7 @@ namespace WorkerMiningOptimization
         auto &firstResend = *workerStatus.plannedResendPosition->pos;
 
         // If we haven't observed this path, leave the worker alone to get data about this new path
-        SecondResendGatherPositionObservations *next = nullptr;
-        for (auto &nextPos : current.nextSecondResendPositions())
-        {
-            if (nextPos.pos == *currentPosition)
-            {
-                next = &nextPos;
-                break;
-            }
-        }
-        if (!next)
+        if (!workerStatus.currentNode)
         {
 #if OPTIMALPOSITIONS_DEBUG
             CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path and unexplored path discovered; aborting second resend";
@@ -483,7 +451,7 @@ namespace WorkerMiningOptimization
         // Evaluate second resends
         auto evaluation = evaluateSecondResendPositions(BWAPI::Broodwar->getFrameCount(),
                                                         firstResend,
-                                                        GatherPositionObservationPtr(next),
+                                                        *workerStatus.currentNode,
                                                         deltaFromFirstResend,
                                                         workerStatus.resource);
 

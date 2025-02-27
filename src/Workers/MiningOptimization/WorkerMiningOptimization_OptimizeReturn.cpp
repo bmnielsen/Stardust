@@ -137,30 +137,10 @@ namespace WorkerMiningOptimization
         }
 
         void planResend(WorkerReturnStatus &workerStatus,
-                        std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &rootNodes,
                         const std::shared_ptr<PositionAndVelocity> &currentPosition)
         {
-            // If we don't have a current node yet, check if this position is a root node
-            if (!workerStatus.currentNode)
-            {
-                auto rootNodeIt = rootNodes.find(*currentPosition);
-                if (rootNodeIt == rootNodes.end()) return;
-
-                workerStatus.currentNode = &rootNodeIt->second;
-            }
-            else
-            {
-                // Advance the current node to the appropriate next position
-                workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition);
-
-                // If there was none, this is a new path, so let us observe it
-                if (!workerStatus.currentNode)
-                {
-                    workerStatus.resendPlanned = true;
-                    workerStatus.hasPathData = true;
-                    return;
-                }
-            }
+            // Require a path node
+            if (!workerStatus.currentNode) return;
 
             // Don't plan anything until we have left the patch
             if (!workerStatus.hasLeftPatch) return;
@@ -280,6 +260,28 @@ namespace WorkerMiningOptimization
 
         auto &rootNodes = returnPositionRootNodesFor(resource);
 
+        // If we don't have a current node yet, check if this position is a root node
+        if (!workerStatus.currentNode)
+        {
+            if (!workerStatus.resendPlanned)
+            {
+                auto rootNodeIt = rootNodes.find(*currentPosition);
+                if (rootNodeIt != rootNodes.end())
+                {
+                    workerStatus.currentNode = &rootNodeIt->second;
+                }
+            }
+        }
+        else if (workerStatus.resentPosition != nullptr && workerStatus.currentNode->pos == *workerStatus.resentPosition)
+        {
+            workerStatus.currentNode = nullptr;
+        }
+        else
+        {
+            // Advance the current node to the appropriate next position
+            workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition);
+        }
+
         if (workerStatus.resendPlanned)
         {
             validatePlannedReturnPath(workerStatus, currentPosition);
@@ -287,7 +289,7 @@ namespace WorkerMiningOptimization
 
         if (!workerStatus.resendPlanned)
         {
-            planResend(workerStatus, rootNodes, currentPosition);
+            planResend(workerStatus, currentPosition);
         }
 
         if (workerStatus.resendPlanned)

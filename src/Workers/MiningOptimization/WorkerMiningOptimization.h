@@ -33,7 +33,6 @@ namespace WorkerMiningOptimization
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
     void planGatherResendsSingle(WorkerGatherStatus &workerStatus,
-                                 std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                  const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
     void validatePlannedGatherPathSingle(WorkerGatherStatus &workerStatus,

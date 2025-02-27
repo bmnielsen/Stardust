@@ -667,6 +667,7 @@ namespace WorkerMiningOptimization
             }
 
             workerStatus.switchedPatches = true;
+            workerStatus.currentNode = nullptr;
             return;
         }
 
@@ -678,6 +679,24 @@ namespace WorkerMiningOptimization
 #endif
 
         auto &rootNodes = gatherPositionRootNodesFor(resource);
+
+        // If we don't have a current node yet, check if this position is a root node
+        if (!workerStatus.currentNode)
+        {
+            if (!workerStatus.resendsPlanned)
+            {
+                auto rootNodeIt = rootNodes.find(*currentPosition);
+                if (rootNodeIt != rootNodes.end())
+                {
+                    workerStatus.currentNode = std::make_unique<GatherPositionObservationPtr>(&rootNodeIt->second);
+                }
+            }
+        }
+        else
+        {
+            // Advance the current node to the appropriate next position
+            workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition, workerStatus.resentPosition());
+        }
 
         // Handle case where another worker is assigned to the patch
         if (handleTakeover(workerStatus, rootNodes, currentPosition, resourceBwapiUnit)) return;
@@ -691,7 +710,7 @@ namespace WorkerMiningOptimization
         // Plan potential resends
         if (!workerStatus.resendsPlanned)
         {
-            planGatherResendsSingle(workerStatus, rootNodes, currentPosition);
+            planGatherResendsSingle(workerStatus, currentPosition);
         }
 
         // Send a command we have pre-planned

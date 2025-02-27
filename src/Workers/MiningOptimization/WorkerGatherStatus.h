@@ -122,10 +122,10 @@ namespace WorkerMiningOptimization
 
         bool sendGatherCommand(BWAPI::Unit resourceBwapiUnit, const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
-        [[nodiscard]] const PositionAndVelocity *resentPosition() const
+        [[nodiscard]] std::shared_ptr<const PositionAndVelocity> resentPosition() const
         {
             if (resentPositions.empty()) return nullptr;
-            return resentPositions.begin()->get();
+            return *resentPositions.begin();
         }
 
         [[nodiscard]] int plannedResendCount() const

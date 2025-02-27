@@ -1021,6 +1021,14 @@ TEST(FullSaturationTraining, AllAIIDEContinuousNoCannons)
     }
 }
 
+TEST(FullSaturationTraining, AllAIIDEContinuousSingle)
+{
+    while (true)
+    {
+        testRunWithResults("aiide2024", 1, true);
+    }
+}
+
 TEST(FullSaturationTraining, AllAIIDESingleOnlyNoCannons)
 {
     testRunWithResults("aiide2024", 1, false);
