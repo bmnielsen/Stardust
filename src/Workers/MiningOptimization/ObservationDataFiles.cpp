@@ -154,8 +154,8 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                             s.object(key);
                             s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S &s, PositionAndVelocity &key, GatherPositionObservations &v)
                             {
-                                s.object(key);
                                 s.object(v, gatherPositionObservationsSerializer);
+                                key = v.pos;
                             });
                         });
             }
@@ -242,8 +242,8 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                             s.object(key);
                             s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S &s, PositionAndVelocity &key, ReturnPositionObservations &v)
                             {
-                                s.object(key);
                                 s.object(v, returnPositionObservationsSerializer);
+                                key = v.pos;
                             });
                         });
             }
