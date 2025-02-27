@@ -274,8 +274,7 @@ namespace WorkerMiningOptimization
         }
     }
 
-    void planGatherResendsSingle(WorkerGatherStatus &workerStatus,
-                                 const std::shared_ptr<PositionAndVelocity> &currentPosition)
+    void planGatherResendsSingle(WorkerGatherStatus &workerStatus)
     {
         // Require a path node
         if (!workerStatus.currentNode) return;
@@ -399,7 +398,6 @@ namespace WorkerMiningOptimization
     }
 
     void validatePlannedGatherPathSingle(WorkerGatherStatus &workerStatus,
-                                         std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
         if (workerStatus.expectedPath.empty()) return; // have no further resends planned

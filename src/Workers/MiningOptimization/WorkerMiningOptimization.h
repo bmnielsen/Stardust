@@ -32,19 +32,14 @@ namespace WorkerMiningOptimization
     // Optimizes the start of mining
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
-    void planGatherResendsSingle(WorkerGatherStatus &workerStatus,
-                                 const std::shared_ptr<PositionAndVelocity> &currentPosition);
+    void planGatherResendsSingle(WorkerGatherStatus &workerStatus);
 
     void validatePlannedGatherPathSingle(WorkerGatherStatus &workerStatus,
-                                         std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
-    void planGatherResendsDouble(WorkerGatherStatus &workerStatus,
-                                 std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
-                                 const std::shared_ptr<PositionAndVelocity> &currentPosition);
+    void planGatherResendsDouble(WorkerGatherStatus &workerStatus, GatherPositionObservations &positionMetadata);
 
     bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
-                                         std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
     void flushGatherObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses);

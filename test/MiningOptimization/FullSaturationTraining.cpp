@@ -883,6 +883,14 @@ TEST(FullSaturationTraining, VermeerTestSuiteSingleNoCannonsFive)
     }
 }
 
+TEST(FullSaturationTraining, VermeerTestSuiteDoubleNoCannonsFive)
+{
+    for (int i=0; i<5; i++)
+    {
+        testRunWithResults("aiide2024/(4)VermeerSE_2.1", 2, false);
+    }
+}
+
 TEST(FullSaturationTraining, VermeerTestSuiteDoubleContinuous)
 {
     while (true)

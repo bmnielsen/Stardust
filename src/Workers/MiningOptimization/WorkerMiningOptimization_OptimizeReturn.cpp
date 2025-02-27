@@ -216,7 +216,6 @@ namespace WorkerMiningOptimization
         }
 
         bool shouldPerformScheduledResendHere(WorkerReturnStatus &workerStatus,
-                                              const std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &optimalPositions,
                                               const std::shared_ptr<PositionAndVelocity> &currentPosition)
         {
             if (workerStatus.resentPosition) return false;
@@ -258,13 +257,12 @@ namespace WorkerMiningOptimization
         return;
 #endif
 
-        auto &rootNodes = returnPositionRootNodesFor(resource);
-
         // If we don't have a current node yet, check if this position is a root node
         if (!workerStatus.currentNode)
         {
             if (!workerStatus.resendPlanned)
             {
+                auto &rootNodes = returnPositionRootNodesFor(resource);
                 auto rootNodeIt = rootNodes.find(*currentPosition);
                 if (rootNodeIt != rootNodes.end())
                 {
@@ -294,7 +292,7 @@ namespace WorkerMiningOptimization
 
         if (workerStatus.resendPlanned)
         {
-            if (shouldPerformScheduledResendHere(workerStatus, rootNodes, currentPosition))
+            if (shouldPerformScheduledResendHere(workerStatus, currentPosition))
             {
 #if OPTIMALRETURN_DEBUG
                 CherryVis::log(worker->id) << "Resending for " << *workerStatus.plannedResendPosition

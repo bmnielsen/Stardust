@@ -27,15 +27,12 @@
 
 namespace WorkerMiningOptimization
 {
-    void planGatherResendsDouble(WorkerGatherStatus &workerStatus,
-                                 std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
-                                 const std::shared_ptr<PositionAndVelocity> &currentPosition)
+    void planGatherResendsDouble(WorkerGatherStatus &workerStatus, GatherPositionObservations &positionMetadata)
     {
         return;
     }
 
     bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
-                                         std::unordered_map<PositionAndVelocity, GatherPositionObservations> &rootNodes,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
         return true;
@@ -643,7 +640,6 @@ namespace WorkerMiningOptimization
 //    }
 //
 //    bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
-//                                         const std::unordered_map<PositionAndVelocity, GatherPositionObservations> &optimalPositions,
 //                                         const std::shared_ptr<PositionAndVelocity> &currentPosition)
 //    {
 //        if (workerStatus.expectedPath.empty()) return true; // have no further resends planned
