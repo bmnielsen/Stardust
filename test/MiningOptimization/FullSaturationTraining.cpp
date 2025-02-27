@@ -1004,7 +1004,7 @@ TEST(FullSaturationTraining, VermeerContinuousWithResults)
 {
     while (true)
     {
-        testRunWithResults("VermeerSE_2.1", 0, true);
+        testRunWithResults("aiide2024/(4)VermeerSE_2.1", 0, true);
     }
 }
 
