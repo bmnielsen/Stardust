@@ -879,7 +879,7 @@ TEST(FullSaturationTraining, VermeerTestSuiteSingleNoCannonsFive)
 {
     for (int i=0; i<5; i++)
     {
-        testRunWithResults("VermeerSE_2.1", 1, false);
+        testRunWithResults("aiide2024/(4)VermeerSE_2.1", 1, false);
     }
 }
 
@@ -888,6 +888,14 @@ TEST(FullSaturationTraining, VermeerTestSuiteDoubleNoCannonsFive)
     for (int i=0; i<5; i++)
     {
         testRunWithResults("aiide2024/(4)VermeerSE_2.1", 2, false);
+    }
+}
+
+TEST(FullSaturationTraining, VermeerTestSuiteSingleAndDoubleNoCannonsFive)
+{
+    for (int i=0; i<5; i++)
+    {
+        testRunWithResults("aiide2024/(4)VermeerSE_2.1", 1, false);
     }
 }
 
