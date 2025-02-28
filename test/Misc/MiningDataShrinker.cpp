@@ -3,7 +3,7 @@
 #include "MiningOptimization/ObservationDataFiles.h"
 #include "MiningOptimization/GatherPositionObservations.h"
 
-TEST(MiningDataShrinker, VermeerGather)
+TEST(MiningDataShrinker, Vermeer)
 {
     Log::initialize();
     Log::SetOutputToConsole(true);
@@ -14,29 +14,17 @@ TEST(MiningDataShrinker, VermeerGather)
 
     std::map<TilePosition, std::unordered_map<PositionAndVelocity, WorkerMiningOptimization::GatherPositionObservations>>
         resourceToOptimalGatherPositions;
-
     WorkerMiningOptimization::ObservationDataFiles::readGatherPositionObservations(true, resourceToOptimalGatherPositions);
-
     WorkerMiningOptimization::ObservationDataFiles::reduceGatherData(resourceToOptimalGatherPositions);
-
     WorkerMiningOptimization::ObservationDataFiles::writeGatherPositionObservations(true, resourceToOptimalGatherPositions, true);
-}
-
-TEST(MiningDataShrinker, VermeerReturn)
-{
-    Log::initialize();
-    Log::SetOutputToConsole(true);
-
-    WorkerMiningOptimization::ObservationDataFiles::overrideGameParameters(
-            WorkerMiningOptimization::ObservationDataFiles::GameParameters{"0a306408d42d64cdef654b36286903b411246714", 3, 12, 5, 15, 5}
-    );
 
     std::map<TilePosition, std::unordered_map<PositionAndVelocity, WorkerMiningOptimization::ReturnPositionObservations>>
-        resourceToOptimalReturnPositions;
-
+            resourceToOptimalReturnPositions;
     WorkerMiningOptimization::ObservationDataFiles::readReturnPositionObservations(true, resourceToOptimalReturnPositions);
-
     WorkerMiningOptimization::ObservationDataFiles::reduceReturnData(resourceToOptimalReturnPositions);
-
     WorkerMiningOptimization::ObservationDataFiles::writeReturnPositionObservations(true, resourceToOptimalReturnPositions, true);
+
+    std::map<TilePosition, std::unordered_set<PositionAndVelocity>> resourceTo10DistancePositions;
+    WorkerMiningOptimization::ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
+    WorkerMiningOptimization::ObservationDataFiles::write10DistanceObservations(resourceTo10DistancePositions, true);
 }
