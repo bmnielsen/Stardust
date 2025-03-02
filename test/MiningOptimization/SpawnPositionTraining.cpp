@@ -134,6 +134,7 @@ namespace
             // - If testing with buildings, add them at each base (pylon, then forge or start block including forge, then cannon(s))
             if (BWAPI::Broodwar->getFrameCount() == 0)
             {
+                BWAPI::Broodwar->self()->setMinerals((int)(50 * Map::allBases().size()));
                 for (auto unit : BWAPI::Broodwar->self()->getUnits())
                 {
                     if (unit->getType().isWorker())
@@ -218,7 +219,7 @@ namespace
             }
             else if (BWAPI::Broodwar->getFrameCount() == 30 && !startingWorkers)
             {
-                if (filledStartBlock)
+                if (filledStartBlock && cannons == 2)
                 {
                     for (auto base : Map::allStartingLocations())
                     {
@@ -273,23 +274,69 @@ namespace
                     }
                 }
             }
-            else if (BWAPI::Broodwar->getFrameCount() == 35)
+            else if (BWAPI::Broodwar->getFrameCount() == 40 && !startingWorkers)
             {
-                if (startingWorkers)
+                // Create a worker at each base to see where it spawns
+                for (auto &nexus : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Nexus))
                 {
-                    for (auto &base : Map::allStartingLocations())
+                    nexus->train(BWAPI::UnitTypes::Protoss_Probe);
+                }
+            }
+            else if (BWAPI::Broodwar->getFrameCount() == 345 && !startingWorkers)
+            {
+                auto spawnedWorkers = Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe);
+
+                // Create the training cases
+                for (auto &base : Map::allBases())
+                {
+                    // Find the closest worker
+                    int bestDist = INT_MAX;
+                    MyUnit best = nullptr;
+                    for (const auto &worker : spawnedWorkers)
                     {
-                        for (auto &spawnLocation : Map::mapSpecificOverride()->startingWorkerPositions(base->getTilePosition()))
+                        int dist = worker->getDistance(base->getPosition());
+                        if (dist < bestDist && dist < 200)
                         {
-                            for (auto &resource : base->mineralPatches())
-                            {
-                                trainingCases.emplace_back(std::make_shared<TrainingCase>(spawnLocation, resource, base));
-                            }
+                            bestDist = dist;
+                            best = worker;
+                        }
+                    }
+                    if (!best)
+                    {
+                        std::cout << "ERROR: Could not find worker near base @ " << base->getTilePosition() << std::endl;
+                        continue;
+                    }
+
+                    for (auto &resource : base->mineralPatches())
+                    {
+                        trainingCases.emplace_back(std::make_shared<TrainingCase>(best->lastPosition, resource, base));
+                    }
+
+                    BWAPI::Broodwar->killUnit(best->bwapiUnit);
+                    spawnedWorkers.erase(best);
+                }
+
+                for (auto &remainingWorker : spawnedWorkers)
+                {
+                    std::cout << "ERROR: Unpaired worker @ " << remainingWorker->getTilePosition() << std::endl;
+                    BWAPI::Broodwar->killUnit(remainingWorker->bwapiUnit);
+                }
+            }
+            else if (BWAPI::Broodwar->getFrameCount() == 30 && startingWorkers)
+            {
+                for (auto &base : Map::allStartingLocations())
+                {
+                    for (auto &spawnLocation : Map::mapSpecificOverride()->startingWorkerPositions(base->getTilePosition()))
+                    {
+                        for (auto &resource : base->mineralPatches())
+                        {
+                            trainingCases.emplace_back(std::make_shared<TrainingCase>(spawnLocation, resource, base));
                         }
                     }
                 }
             }
-            if (BWAPI::Broodwar->getFrameCount() < 35) return;
+
+            if (trainingCases.empty()) return;
 
             // Run the state machine for each training case
             std::list<std::shared_ptr<TrainingCase>> completedCases;
@@ -410,10 +457,28 @@ TEST(SpawnPositionTraining, Vermeer)
     test.randomSeed = 42;
 
     runSpawnLocationsTest(test, true, 0, false);
-//    runSpawnLocationsTest(test, false, 0, false);
-//    runSpawnLocationsTest(test, false, 1, false);
-//    runSpawnLocationsTest(test, false, 2, false);
-//    runSpawnLocationsTest(test, false, 0, true);
-//    runSpawnLocationsTest(test, false, 1, true);
-//    runSpawnLocationsTest(test, false, 2, true);
+    runSpawnLocationsTest(test, false, 0, false);
+    runSpawnLocationsTest(test, false, 1, false);
+    runSpawnLocationsTest(test, false, 2, false);
+    runSpawnLocationsTest(test, false, 0, true);
+    runSpawnLocationsTest(test, false, 1, true);
+    runSpawnLocationsTest(test, false, 2, true);
+}
+
+TEST(SpawnPositionTraining, VermeerContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("Vermeer");
+        test.randomSeed = 42;
+
+        runSpawnLocationsTest(test, true, 0, false);
+        runSpawnLocationsTest(test, false, 0, false);
+        runSpawnLocationsTest(test, false, 1, false);
+        runSpawnLocationsTest(test, false, 2, false);
+        runSpawnLocationsTest(test, false, 0, true);
+        runSpawnLocationsTest(test, false, 1, true);
+        runSpawnLocationsTest(test, false, 2, true);
+    }
 }

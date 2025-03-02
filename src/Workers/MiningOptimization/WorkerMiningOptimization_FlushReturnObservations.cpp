@@ -27,7 +27,7 @@ namespace WorkerMiningOptimization
         {
             if (!workerStatus.hasLeftPatch)
             {
-                Log::Get() << "ERROR: Worker was not tracked as leaving depot"
+                Log::Get() << "ERROR: Worker was not tracked as leaving patch"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
                 return false;
             }

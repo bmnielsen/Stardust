@@ -1016,6 +1016,14 @@ TEST(FullSaturationTraining, VermeerContinuousWithResults)
     }
 }
 
+TEST(FullSaturationTraining, VermeerFiveWithResults)
+{
+    for (int i=0; i<5; i++)
+    {
+        testRunWithResults("aiide2024/(4)VermeerSE_2.1", 0, true);
+    }
+}
+
 TEST(FullSaturationTraining, AllAIIDEMeasure)
 {
     testRunWithResults("aiide2024", 0, true, true);

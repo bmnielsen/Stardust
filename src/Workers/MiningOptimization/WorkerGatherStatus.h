@@ -27,6 +27,9 @@ namespace WorkerMiningOptimization
         // Whether the path started at the depot
         bool pathStartsAtDepot;
 
+        // Whether the path started at the worker's spawn position
+        bool pathStartsAtSpawnPosition;
+
         // Whether the worker has left the depot
         bool hasLeftDepot;
 
@@ -83,6 +86,7 @@ namespace WorkerMiningOptimization
                 , resource(std::move(resource))
                 , lastProcessedFrame(-2)
                 , pathStartsAtDepot(false)
+                , pathStartsAtSpawnPosition(false)
                 , hasLeftDepot(false)
                 , resendsPlanned(false)
                 , expectedArrivalFrame(-1)
@@ -100,6 +104,7 @@ namespace WorkerMiningOptimization
             lastProcessedFrame = -2;
             positionHistory.clear();
             pathStartsAtDepot = false;
+            pathStartsAtSpawnPosition = false;
             hasLeftDepot = false;
             resendsPlanned = false;
             expectedArrivalFrame = -1;
