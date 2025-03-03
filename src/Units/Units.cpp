@@ -657,6 +657,8 @@ namespace Units
         // We always have vision of our own units, so we don't have to handle units in fog
         for (auto bwapiUnit : BWAPI::Broodwar->self()->getUnits())
         {
+            if (!bwapiUnit || !bwapiUnit->exists()) continue;
+
             trackResearch(bwapiUnit);
 
             if (ignoreUnit(bwapiUnit)) continue;

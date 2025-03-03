@@ -272,8 +272,8 @@ namespace WorkerMiningOptimization
 
     void planGatherResendsSingle(WorkerGatherStatus &workerStatus)
     {
-        // Require a path node
-        if (!workerStatus.currentNode) return;
+        // Require a path node that isn't to a second resend position
+        if (!workerStatus.currentNode || workerStatus.currentNode->secondResendPos) return;
 
         // Don't plan anything until we have left the depot
         if (!workerStatus.hasLeftDepot) return;

@@ -205,7 +205,7 @@ namespace WorkerMiningOptimization
 
                         // Plan a full approach if we have path information
                         if (!workerStatus.resendsPlanned && workerStatus.takeoverState == 1 && !workerStatus.switchedPatches && !takeoverFrameUnknown
-                            && workerStatus.resentFrames.empty() && workerStatus.currentNode)
+                            && workerStatus.resentFrames.empty() && workerStatus.currentNode && workerStatus.currentNode->pos)
                         {
                             auto &positionMetadata = *workerStatus.currentNode->pos;
 

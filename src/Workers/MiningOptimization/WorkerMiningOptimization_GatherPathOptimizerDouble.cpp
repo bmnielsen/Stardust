@@ -554,7 +554,7 @@ namespace WorkerMiningOptimization
 
             workerStatus.resendsPlanned = false;
             workerStatus.plannedResendPosition = nullptr;
-            if (workerStatus.currentNode)
+            if (workerStatus.currentNode && workerStatus.currentNode->pos)
             {
                 planGatherResendsDouble(workerStatus, *workerStatus.currentNode->pos);
             }
