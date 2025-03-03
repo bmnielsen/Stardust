@@ -3,6 +3,7 @@
 #include "BuildingPlacement.h"
 #include "Strategist.h"
 #include "StrategyEngines/PvZ.h"
+#include "WorkerMiningInstrumentation.h"
 #include "MiningOptimization/WorkerMiningOptimization.h"
 
 TEST(Steamhammer, RunThirty)
@@ -138,6 +139,70 @@ TEST(Steamhammer, 4PoolHard)
         return module;
     };
     test.run();
+}
+
+TEST(Steamhammer, MiningMeasurement)
+{
+    double singleRotationAccumulator = 0.0;
+    double doubleRotationAccumulator = 0.0;
+    int fiftiethMineralFrameAccumulator = 0;
+    std::vector<int> thousandMineralFramesAccumulators;
+    unsigned int gameCount = 0;
+    Maps::RunOnEachStartLocation({*Maps::GetOne("Vermeer")}, [&](BWTest test)
+    {
+        test.opponentName = "Steamhammer";
+        test.opponentRace = BWAPI::Races::Zerg;
+        test.opponentModule = []()
+        {
+            auto module = new UAlbertaBot::UAlbertaBotModule();
+            Config::StardustTestStrategyName = "OverpoolTurtle 0";
+            return module;
+        };
+        test.onStartMine = []()
+        {
+            Strategist::setStrategyEngine(std::make_unique<PvZ>(), "EarlyGameDefense");
+        };
+        test.onEndMine = [&](bool)
+        {
+            auto miningEfficiency = WorkerMiningInstrumentation::getEfficiency();
+            singleRotationAccumulator += miningEfficiency.singleWorkerRotationTime;
+            doubleRotationAccumulator += miningEfficiency.doubleWorkerRotationTime;
+            fiftiethMineralFrameAccumulator += WorkerMiningInstrumentation::getFiftiethMineralFrame();
+            auto &thousandFrames = WorkerMiningInstrumentation::getThousandMineralFrames();
+            if (thousandMineralFramesAccumulators.empty())
+            {
+                thousandMineralFramesAccumulators = thousandFrames;
+            }
+            else
+            {
+                if (thousandMineralFramesAccumulators.size() > thousandFrames.size())
+                {
+                    thousandMineralFramesAccumulators.resize(thousandFrames.size());
+                }
+                for (size_t i = 0; i < std::min(thousandMineralFramesAccumulators.size(), thousandFrames.size()); i++)
+                {
+                    thousandMineralFramesAccumulators[i] += thousandFrames[i];
+                }
+            }
+            gameCount++;
+        };
+        test.run();
+    });
+
+    std::cout << "Overall mining results:" << std::endl;
+    std::cout << std::fixed << std::setprecision(1) << "Single rotation: " << (singleRotationAccumulator / (double)gameCount) << std::endl;
+    std::cout << std::fixed << std::setprecision(1) << "Double rotation: " << (doubleRotationAccumulator / (double)gameCount) << std::endl;
+    std::cout << std::fixed << std::setprecision(1) << "50th mineral: " << ((double)fiftiethMineralFrameAccumulator / (double)gameCount) << std::endl;
+
+    std::ostringstream frames;
+    frames << std::fixed << std::setprecision(1);
+    std::string sep;
+    for (auto &frame : thousandMineralFramesAccumulators)
+    {
+        frames << sep << ((double)frame / (double)gameCount);
+        sep = ", ";
+    }
+    std::cout << "Thousand minerals: " << frames.str() << std::endl;
 }
 
 TEST(Steamhammer, 4PoolSoft)
