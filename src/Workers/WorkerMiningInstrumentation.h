@@ -60,4 +60,8 @@ namespace WorkerMiningInstrumentation
     std::map<Resource, Efficiency> getEfficiencyByPatch(int fromFrame = -1, int toFrame = -1);
 
     Efficiency getEfficiency(int fromFrame = -1, int toFrame = -1);
+
+    int getFiftiethMineralFrame();
+
+    std::vector<int> &getThousandMineralFrames();
 }

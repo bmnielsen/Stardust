@@ -43,6 +43,12 @@ namespace WorkerMiningInstrumentation
         // Indirection to the Workers::mineralsAndAssignedWorkers function allowing it to be overridden by tests
         std::function<std::map<Resource, std::set<MyWorker>> &()> getMineralsAndAssignedWorkers = Workers::mineralsAndAssignedWorkers;
 
+        // Frame when we gathered the 50th mineral
+        int fiftiethMineralFrame;
+
+        // Frames when we reached each 1000 of minerals gathered
+        std::vector<int> thousandMineralFrames;
+
         struct PatchData
         {
             unsigned int framesMined = 0;
@@ -156,12 +162,26 @@ namespace WorkerMiningInstrumentation
         {
             getMineralsAndAssignedWorkers = getMineralsAndAssignedWorkersOverride;
         }
+        fiftiethMineralFrame = -1;
+        thousandMineralFrames.clear();
 #endif
     }
 
     void update()
     {
 #if TRACK_MINING_EFFICIENCY
+        if (fiftiethMineralFrame == -1 && BWAPI::Broodwar->self()->gatheredMinerals() >= 100)
+        {
+            fiftiethMineralFrame = currentFrame;
+            Log::Get() << "Gathered 50th mineral";
+        }
+
+        if ((BWAPI::Broodwar->self()->gatheredMinerals() - 50) >= (1000 * (thousandMineralFrames.size() + 1)))
+        {
+            thousandMineralFrames.push_back(currentFrame);
+            Log::Get() << "Gathered " << (1000 * thousandMineralFrames.size()) << "th mineral";
+        }
+
         for (auto &[patch, workers] : getMineralsAndAssignedWorkers())
         {
             if (!patch || workers.empty() || workers.size() > 2 || !(*workers.begin())->exists() || !(*workers.rbegin())->exists()) continue;
@@ -571,5 +591,15 @@ namespace WorkerMiningInstrumentation
 #else
         return Efficiency{0.0,0.0,0.0,0.0};
 #endif
+    }
+
+    int getFiftiethMineralFrame()
+    {
+        return fiftiethMineralFrame;
+    }
+
+    std::vector<int> &getThousandMineralFrames()
+    {
+        return thousandMineralFrames;
     }
 }

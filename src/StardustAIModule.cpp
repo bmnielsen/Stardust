@@ -149,6 +149,15 @@ void StardustAIModule::onEnd(bool isWinner)
     auto miningEfficiency = WorkerMiningInstrumentation::getEfficiency();
     Log::Get() << "Mining efficiency over entire game: " << miningEfficiency;
     CherryVis::log() << "Mining efficiency over entire game: " << miningEfficiency;
+    Log::Get() << "50th mineral frame: " << WorkerMiningInstrumentation::getFiftiethMineralFrame();
+    std::ostringstream frames;
+    std::string sep;
+    for (auto &frame : WorkerMiningInstrumentation::getThousandMineralFrames())
+    {
+        frames << sep << frame;
+        sep = ", ";
+    }
+    Log::Get() << frames.str();
 #endif
 
     Opponent::gameEnd(isWinner);
