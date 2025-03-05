@@ -30,6 +30,9 @@ namespace WorkerMiningOptimization
         // Whether the path started at the worker's spawn position
         bool pathStartsAtSpawnPosition;
 
+        // How many positions should be ignored before optimizing the worker
+        int remainingIgnorePositions;
+
         // Whether the worker has left the depot
         bool hasLeftDepot;
 
@@ -87,6 +90,7 @@ namespace WorkerMiningOptimization
                 , lastProcessedFrame(-2)
                 , pathStartsAtDepot(false)
                 , pathStartsAtSpawnPosition(false)
+                , remainingIgnorePositions(0)
                 , hasLeftDepot(false)
                 , resendsPlanned(false)
                 , expectedArrivalFrame(-1)
@@ -105,6 +109,7 @@ namespace WorkerMiningOptimization
             positionHistory.clear();
             pathStartsAtDepot = false;
             pathStartsAtSpawnPosition = false;
+            remainingIgnorePositions = 0;
             hasLeftDepot = false;
             resendsPlanned = false;
             expectedArrivalFrame = -1;
@@ -121,6 +126,26 @@ namespace WorkerMiningOptimization
             switchedPatches = false;
             waitForMineralsWhileOtherStillMining = false;
             hasPathData = false;
+        }
+
+        bool ignoreThisPosition()
+        {
+            if (!positionHistory.empty()) return false;
+
+            // If the path started at the worker's spawn position, ignore the first 12 positions
+            // The rationale for this is that spawning workers get a random heading, so treating each spawn location separately will result in
+            // an excessive number of root nodes
+            if (!pathStartsAtSpawnPosition)
+            {
+                pathStartsAtSpawnPosition = (worker->lastCarryingResourceChange == -1) && (worker->lastPosition == worker->spawnPosition);
+                if (!pathStartsAtSpawnPosition) return false;
+
+                remainingIgnorePositions = 12;
+            }
+
+            if (remainingIgnorePositions == 0) return false;
+            remainingIgnorePositions--;
+            return true;
         }
 
         std::shared_ptr<PositionAndVelocity> appendCurrentPosition();

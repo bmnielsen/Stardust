@@ -37,16 +37,6 @@ namespace WorkerMiningOptimization
                 return false;
             }
 
-            // If the path started at the worker's spawn position, exclude the first 12 positions
-            // The rationale for this is that spawning workers get a random heading, so treating each spawn location separately will result in
-            // an excessive number of root nodes
-            if (workerStatus.pathStartsAtSpawnPosition)
-            {
-                workerStatus.positionHistory.erase(
-                        workerStatus.positionHistory.begin(),
-                        workerStatus.positionHistory.size() > 12 ? workerStatus.positionHistory.begin() + 12 : workerStatus.positionHistory.end());
-            }
-
             // If the path is too short to possibly optimize, return here
             // This might happen if we have a case where the worker gets reassigned or otherwise doesn't follow a normal mining path
             if (workerStatus.positionHistory.size() < (BWAPI::Broodwar->getLatencyFrames() + 11))
@@ -133,12 +123,8 @@ namespace WorkerMiningOptimization
             if (workerStatus.resentPositions.size() != resendPositionIts.size())
             {
 #if LOGGING_ENABLED
-                // Can happen legitimately if we do a resend for double worker takeover shortly after leaving the spawn position
-                if (!workerStatus.pathStartsAtSpawnPosition)
-                {
-                    Log::Get() << "ERROR: Not all resent positions found in position history"
-                               << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-                }
+                Log::Get() << "ERROR: Not all resent positions found in position history"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
 #endif
                 return false;
             }

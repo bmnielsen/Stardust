@@ -631,6 +631,8 @@ namespace WorkerMiningOptimization
             return;
         }
 
+        if (workerStatus.ignoreThisPosition()) return;
+
         // Our logic ensures mineral locking automatically except in some specific cases:
         // - worker has been released from combat, which can leave it with a gather order to a random patch used for kiting
         // - workers have been avoiding a no-go area and returning to mining as a group, so the timing gets messed up

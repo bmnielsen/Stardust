@@ -10,11 +10,10 @@ namespace WorkerMiningOptimization
 
         auto currentPosition = std::make_shared<PositionAndVelocity>(worker);
 
-        // For the first position, compute whether the path started at the depot and/or at the worker's spawn position
+        // For the first position, compute whether the path started at the depot
         // We exclude gathers from depots that are a long way away though to avoid tracking distance mining paths
         if (positionHistory.empty())
         {
-            pathStartsAtSpawnPosition = (worker->lastCarryingResourceChange == -1) && (worker->lastPosition == worker->spawnPosition);
             pathStartsAtDepot = ((resource->getDistance(depot) < 256) && ((depot->getDistance(worker) == 0) || pathStartsAtSpawnPosition));
         }
 
