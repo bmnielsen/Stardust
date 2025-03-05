@@ -257,27 +257,29 @@ namespace WorkerMiningOptimization
         return;
 #endif
 
-        // If we don't have a current node yet, check if this position is a root node
-        if (!workerStatus.currentNode)
+        // Advance the current node if we have one
+        if (workerStatus.currentNode)
         {
-            if (!workerStatus.resendPlanned)
+            // Reset the current node if we have issued a resend
+            if (workerStatus.resentPosition != nullptr && workerStatus.currentNode->pos == *workerStatus.resentPosition)
             {
-                auto &rootNodes = returnPositionRootNodesFor(resource);
-                auto rootNodeIt = rootNodes.find(*currentPosition);
-                if (rootNodeIt != rootNodes.end())
-                {
-                    workerStatus.currentNode = &rootNodeIt->second;
-                }
+                workerStatus.currentNode = nullptr;
+            }
+            else
+            {
+                workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition);
             }
         }
-        else if (workerStatus.resentPosition != nullptr && workerStatus.currentNode->pos == *workerStatus.resentPosition)
+
+        // If we don't have a current node, check if this position is a root node
+        if (!workerStatus.currentNode && !workerStatus.resendPlanned)
         {
-            workerStatus.currentNode = nullptr;
-        }
-        else
-        {
-            // Advance the current node to the appropriate next position
-            workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition);
+            auto &rootNodes = returnPositionRootNodesFor(resource);
+            auto rootNodeIt = rootNodes.find(*currentPosition);
+            if (rootNodeIt != rootNodes.end())
+            {
+                workerStatus.currentNode = &rootNodeIt->second;
+            }
         }
 
         if (workerStatus.resendPlanned)

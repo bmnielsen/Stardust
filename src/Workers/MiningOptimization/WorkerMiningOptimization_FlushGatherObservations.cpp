@@ -51,6 +51,9 @@ namespace WorkerMiningOptimization
             // This might happen if we have a case where the worker gets reassigned or otherwise doesn't follow a normal mining path
             if (workerStatus.positionHistory.size() < (BWAPI::Broodwar->getLatencyFrames() + 11))
             {
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(workerStatus.worker->id) << "Position history too short to use for path optimization";
+#endif
                 return false;
             }
 
@@ -96,9 +99,16 @@ namespace WorkerMiningOptimization
                 }
             }
 
-            // Don't process too short or two long paths
+            // Don't process too short or too long paths
             auto startToEnd = std::distance(workerStatus.positionHistory.begin(), positionsInHistory.arrivalPositionIt);
-            if (startToEnd < (BWAPI::Broodwar->getLatencyFrames() + 11)) return false;
+            if (startToEnd < (BWAPI::Broodwar->getLatencyFrames() + 11))
+            {
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(workerStatus.worker->id) << "Path length from start to arrival is " << startToEnd
+                                                        << ", too short to use for path optimization";
+#endif
+                return false;
+            }
             if (!workerStatus.pathStartsAtSpawnPosition && startToEnd > 75)
             {
                 Log::Get() << "WARNING: Position history over 75 positions"
@@ -175,7 +185,16 @@ namespace WorkerMiningOptimization
                 auto [next, atLimit] = findNextPositionCheckingOccurrences(**positionIt, current.pos->nextPositions);
 
                 // If we have a new path branch that we can't create, bail out now
-                if (!next && (!createObservations || atLimit)) return false;
+                if (!next && (!createObservations || atLimit))
+                {
+#if OPTIMALPOSITIONS_DEBUG
+                    if (createObservations && atLimit)
+                    {
+                        CherryVis::log(workerStatus.worker->id) << "Found new branch in path, but observation limit has been reached";
+                    }
+#endif
+                    return false;
+                }
 
                 // Create a new item if needed, otherwise bump the occurrence count if possible
                 if (!next)
@@ -208,7 +227,16 @@ namespace WorkerMiningOptimization
                 auto [next, atLimit] = findNextPositionCheckingOccurrences(**positionIt, nextPositions);
 
                 // If we have a new path branch that we can't create, bail out now
-                if (!next && (!createObservations || atLimit)) return false;
+                if (!next && (!createObservations || atLimit))
+                {
+#if OPTIMALPOSITIONS_DEBUG
+                    if (createObservations && atLimit)
+                    {
+                        CherryVis::log(workerStatus.worker->id) << "Found new branch in second resend path, but observation limit has been reached";
+                    }
+#endif
+                    return false;
+                }
 
                 // Create a new item if needed, otherwise bump the occurrence count if possible
                 if (!next)
@@ -682,6 +710,10 @@ namespace WorkerMiningOptimization
             }
             else if (!it->second.pathStartsAtDepot)
             {
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(worker->id) << "Path did not start at depot, so not using it for path optimization";
+#endif
+
                 it = workerGatherStatuses.erase(it);
                 continue;
             }
@@ -696,6 +728,13 @@ namespace WorkerMiningOptimization
             if (!extractPositionsInHistory(positionsInHistory, it->second, WorkerMiningOptimization::isExploring())
                 || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
             {
+#if OPTIMALPOSITIONS_DEBUG
+                if (positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
+                {
+                    CherryVis::log(worker->id) << "Not tracking path optimization data as arrival position could not be determined";
+                }
+#endif
+
                 if (it->second.waitForMineralsWhileOtherStillMining)
                 {
                     it++;

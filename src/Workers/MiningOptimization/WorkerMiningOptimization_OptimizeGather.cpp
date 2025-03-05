@@ -674,23 +674,30 @@ namespace WorkerMiningOptimization
         return;
 #endif
 
-        // If we don't have a current node yet, check if this position is a root node
-        if (!workerStatus.currentNode)
+        // If we are following a path, try to advance the current path node
+        if (workerStatus.currentNode)
         {
-            if (!workerStatus.resendsPlanned)
+            workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition, workerStatus.resentPosition());
+            if (!workerStatus.currentNode)
             {
-                auto &rootNodes = gatherPositionRootNodesFor(resource);
-                auto rootNodeIt = rootNodes.find(*currentPosition);
-                if (rootNodeIt != rootNodes.end())
-                {
-                    workerStatus.currentNode = std::make_unique<GatherPositionObservationPtr>(&rootNodeIt->second);
-                }
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(worker->id) << "Lost path at " << *currentPosition;
+#endif
             }
         }
-        else
+
+        // If we don't have a current node, check if this position is a root node
+        if (!workerStatus.currentNode && !workerStatus.resendsPlanned)
         {
-            // Advance the current node to the appropriate next position
-            workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition, workerStatus.resentPosition());
+            auto &rootNodes = gatherPositionRootNodesFor(resource);
+            auto rootNodeIt = rootNodes.find(*currentPosition);
+            if (rootNodeIt != rootNodes.end())
+            {
+                workerStatus.currentNode = std::make_unique<GatherPositionObservationPtr>(&rootNodeIt->second);
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(worker->id) << "Picked up path at " << *currentPosition;
+#endif
+            }
         }
 
         // Handle case where another worker is assigned to the patch

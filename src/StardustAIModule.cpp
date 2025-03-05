@@ -157,7 +157,7 @@ void StardustAIModule::onEnd(bool isWinner)
         frames << sep << frame;
         sep = ", ";
     }
-    Log::Get() << frames.str();
+    Log::Get() << "Thousand mineral frames: " << frames.str();
 #endif
 
     Opponent::gameEnd(isWinner);

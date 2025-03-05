@@ -27,8 +27,6 @@
 // - Then, once we have collected enough data to know the optimal path to the patch, we explore the next 3 collections
 namespace
 {
-    const std::string dataBasePath = "/Users/bmnielsen/BW/mining-timings/";
-
     struct TrainingCase
     {
         BWAPI::Position spawnPosition;
@@ -83,7 +81,7 @@ namespace
             return module;
         };
 #if INSTRUMENTATION_ENABLED_VERBOSE
-        test.frameLimit = 10000;
+        test.frameLimit = 1000;
 #else
         test.frameLimit = 100000;
 #endif
@@ -480,5 +478,26 @@ TEST(SpawnPositionTraining, VermeerContinuous)
         runSpawnLocationsTest(test, false, 0, true);
         runSpawnLocationsTest(test, false, 1, true);
         runSpawnLocationsTest(test, false, 2, true);
+    }
+}
+
+TEST(SpawnPositionTraining, VermeerStartLocations)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    test.randomSeed = 42;
+
+    runSpawnLocationsTest(test, true, 0, false);
+}
+
+TEST(SpawnPositionTraining, VermeerStartLocationsContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("Vermeer");
+        test.randomSeed = 42;
+
+        runSpawnLocationsTest(test, true, 0, false);
     }
 }
