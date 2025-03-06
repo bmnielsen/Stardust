@@ -5,6 +5,7 @@
 #include "Workers.h"
 #include "Map.h"
 #include "OrderProcessTimer.h"
+#include "MiningOptimization/WorkerMiningOptimization.h"
 
 #define TRACK_MINING_EFFICIENCY true
 
@@ -173,13 +174,19 @@ namespace WorkerMiningInstrumentation
         if (fiftiethMineralFrame == -1 && BWAPI::Broodwar->self()->gatheredMinerals() >= 100)
         {
             fiftiethMineralFrame = currentFrame;
-            Log::Get() << "Gathered 50th mineral";
+            if (!WorkerMiningOptimization::isExploring())
+            {
+                Log::Get() << "Gathered 50th mineral";
+            }
         }
 
         if ((BWAPI::Broodwar->self()->gatheredMinerals() - 50) >= (1000 * (thousandMineralFrames.size() + 1)))
         {
             thousandMineralFrames.push_back(currentFrame);
-            Log::Get() << "Gathered " << (1000 * thousandMineralFrames.size()) << "th mineral";
+            if (!WorkerMiningOptimization::isExploring())
+            {
+                Log::Get() << "Gathered " << (1000 * thousandMineralFrames.size()) << "th mineral";
+            }
         }
 
         for (auto &[patch, workers] : getMineralsAndAssignedWorkers())
