@@ -2,7 +2,7 @@
 
 // The threshold at which to prune branches, as a fraction of 255
 // So for example, if the threshold is set to 20, we will prune any branches that appear less than 10/255 of the time
-#define PRUNE_THRESHOLD 5
+#define PRUNE_THRESHOLD 20
 
 namespace WorkerMiningOptimization::ObservationDataFiles
 {
