@@ -70,6 +70,11 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             return filename("returnpositions", preferFull, false, true, writing);
         }
 
+        std::pair<std::string, bool> resourceObservationsFilename(bool preferFull, bool writing = false)
+        {
+            return filename("resources", preferFull, false, true, writing);
+        }
+
         template<bool full>
         struct OptimalGatherPositionsSerializer
         {
@@ -249,6 +254,43 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             }
         };
 
+        template<bool full>
+        struct ResourceObservationsSerializer
+        {
+            template <typename S>
+            void serialize(S& ser,
+                           std::map<TilePosition, ResourceObservations> &resourceToResourceObservations)
+            {
+                auto resourceObservationSerializer = [](S &s, ResourceObservation &value)
+                {
+                    if constexpr (full)
+                    {
+                        s.value4b(value.observationCount);
+                        s.value8b(value.accumulator);
+                    }
+                    s.value2b(value.average);
+                };
+
+                auto resourceObservationsSerializer = [&](S &s, ResourceObservations &value)
+                {
+                    s.object(value.singleWorkerRotations, resourceObservationSerializer);
+                    s.object(value.doubleWorkerRotations, resourceObservationSerializer);
+                    s.container(value.startingWorkerObservations, 4, [&](S &s, ResourceObservation &v) {
+                        s.object(v, resourceObservationSerializer);
+                    });
+                };
+
+                ser.ext(resourceToResourceObservations,
+                        bitsery::ext::StdMap{INT_MAX},
+                        [&](S &s, TilePosition &key, ResourceObservations &value)
+                        {
+                            s.object(key);
+                            s.object(value, resourceObservationsSerializer);
+                            value.tile = key;
+                        });
+            }
+        };
+
         template <typename S, typename M>
         void readDataFile(const std::string &label, const std::string &filename, S serializer, M &data)
         {
@@ -291,19 +333,6 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
             Log::Get() << "Wrote " << label << " data to " << filename;
         }
-
-        // We don't want to store the position both as part of the data object and the map, so we only store it in the map and copy it after loading
-        template <typename T>
-        void setPositions(std::map<TilePosition, std::unordered_map<PositionAndVelocity, T>> &map)
-        {
-            for (auto &[_, patchData] : map)
-            {
-                for (auto &[pos, metadata] : patchData)
-                {
-                    metadata.pos = pos;
-                }
-            }
-        }
     }
 
     void overrideGameParameters(GameParameters gameParameters)
@@ -325,10 +354,17 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         };
     }
 
-    void readGatherPositionObservations(bool preferFull,
+    void readGatherPositionObservations(bool requireFull,
                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
     {
-        auto [filename, full] = optimalGatherPositionsFilename(preferFull);
+        auto [filename, full] = optimalGatherPositionsFilename(requireFull);
+
+        if (requireFull && !full)
+        {
+            data.clear();
+            return;
+        }
+
         if (full)
         {
             readDataFile("gather positions", filename, OptimalGatherPositionsSerializer<true>{}, data);
@@ -337,7 +373,6 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         {
             readDataFile("gather positions", filename, OptimalGatherPositionsSerializer<false>{}, data);
         }
-        setPositions(data);
     }
 
     void read10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data)
@@ -345,10 +380,17 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         readDataFile("ten-distance positions", tenDistancePositionsFilename(), TenDistancePositionsSerializer{}, data);
     }
 
-    void readReturnPositionObservations(bool preferFull,
+    void readReturnPositionObservations(bool requireFull,
                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
     {
-        auto [filename, full] = optimalReturnPositionsFilename(preferFull);
+        auto [filename, full] = optimalReturnPositionsFilename(requireFull);
+
+        if (requireFull && !full)
+        {
+            data.clear();
+            return;
+        }
+
         if (full)
         {
             readDataFile("return positions", filename, OptimalReturnPositionsSerializer<true>{}, data);
@@ -357,12 +399,32 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         {
             readDataFile("return positions", filename, OptimalReturnPositionsSerializer<false>{}, data);
         }
-        setPositions(data);
+    }
+
+    void readResourceObservations(bool requireFull,
+                                  std::map<TilePosition, ResourceObservations> &data)
+    {
+        auto [filename, full] = resourceObservationsFilename(requireFull);
+
+        if (requireFull && !full)
+        {
+            data.clear();
+            return;
+        }
+
+        if (full)
+        {
+            readDataFile("resource observations", filename, ResourceObservationsSerializer<true>{}, data);
+        }
+        else
+        {
+            readDataFile("resource observations", filename, ResourceObservationsSerializer<false>{}, data);
+        }
     }
 
     void writeGatherPositionObservations(bool minimized,
                                          std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data,
-                                         bool maxCompresion)
+                                         bool maxCompression)
     {
         if (minimized)
         {
@@ -370,7 +432,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                           optimalGatherPositionsFilename(false, true).first,
                           OptimalGatherPositionsSerializer<false>{},
                           data,
-                          maxCompresion);
+                          maxCompression);
         }
         else
         {
@@ -378,18 +440,18 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                           optimalGatherPositionsFilename(true, true).first,
                           OptimalGatherPositionsSerializer<true>{},
                           data,
-                          maxCompresion);
+                          maxCompression);
         }
     }
 
-    void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompresion)
+    void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompression)
     {
-        writeDataFile("ten-distance positions", tenDistancePositionsFilename(true), TenDistancePositionsSerializer{}, data, maxCompresion);
+        writeDataFile("ten-distance positions", tenDistancePositionsFilename(true), TenDistancePositionsSerializer{}, data, maxCompression);
     }
 
     void writeReturnPositionObservations(bool minimized,
                                          std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data,
-                                         bool maxCompresion)
+                                         bool maxCompression)
     {
         if (minimized)
         {
@@ -397,7 +459,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                           optimalReturnPositionsFilename(false, true).first,
                           OptimalReturnPositionsSerializer<false>{},
                           data,
-                          maxCompresion);
+                          maxCompression);
         }
         else
         {
@@ -405,7 +467,29 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                           optimalReturnPositionsFilename(true, true).first,
                           OptimalReturnPositionsSerializer<true>{},
                           data,
-                          maxCompresion);
+                          maxCompression);
+        }
+    }
+
+    void writeResourceObservations(bool minimized,
+                                   std::map<TilePosition, ResourceObservations> &data,
+                                   bool maxCompression)
+    {
+        if (minimized)
+        {
+            writeDataFile("resouce observations",
+                          resourceObservationsFilename(false, true).first,
+                          ResourceObservationsSerializer<false>{},
+                          data,
+                          maxCompression);
+        }
+        else
+        {
+            writeDataFile("resouce observations",
+                          resourceObservationsFilename(true, true).first,
+                          ResourceObservationsSerializer<true>{},
+                          data,
+                          maxCompression);
         }
     }
 }

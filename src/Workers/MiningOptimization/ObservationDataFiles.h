@@ -6,6 +6,7 @@
 #include "PositionAndVelocity.h"
 #include "GatherPositionObservations.h"
 #include "ReturnPositionObservations.h"
+#include "ResourceObservations.h"
 
 namespace WorkerMiningOptimization::ObservationDataFiles
 {
@@ -23,14 +24,18 @@ namespace WorkerMiningOptimization::ObservationDataFiles
     GameParameters getGameParameters();
 
     void readGatherPositionObservations(
-            bool preferFull,
+            bool requireFull,
             std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
 
     void read10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data);
 
     void readReturnPositionObservations(
-            bool preferFull,
+            bool requireFull,
             std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data);
+
+    void readResourceObservations(
+            bool requireFull,
+            std::map<TilePosition, ResourceObservations> &data);
 
     void writeGatherPositionObservations(
             bool minimized,
@@ -42,6 +47,11 @@ namespace WorkerMiningOptimization::ObservationDataFiles
     void writeReturnPositionObservations(
             bool minimized,
             std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data,
+            bool maxCompression = false);
+
+    void writeResourceObservations(
+            bool minimized,
+            std::map<TilePosition, ResourceObservations> &data,
             bool maxCompression = false);
 
     void reduceGatherData(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);

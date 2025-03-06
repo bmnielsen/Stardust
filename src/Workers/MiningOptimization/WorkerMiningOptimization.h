@@ -7,6 +7,7 @@
 #include "WorkerGatherStatus.h"
 #include "ReturnPositionObservations.h"
 #include "WorkerReturnStatus.h"
+#include "ResourceObservations.h"
 
 #define ENABLE_GATHER_OPTIMIZATION true
 #define ENABLE_RETURN_OPTIMIZATION true
@@ -63,7 +64,14 @@ namespace WorkerMiningOptimization
 
     std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &returnPositionRootNodesFor(const Resource &resource);
 
+    // Gets observations related to a specific resource
+    ResourceObservations &resourceObservationsFor(const Resource &resource);
+
     bool isExploring();
 
     void setExploring(bool newExploring);
+
+    bool isUpdatingResourceObservations();
+
+    void setUpdateResourceObservations(bool newUpdateResourceObservations);
 }

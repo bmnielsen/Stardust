@@ -2,6 +2,7 @@
 
 #include "MiningOptimization/ObservationDataFiles.h"
 #include "MiningOptimization/GatherPositionObservations.h"
+#include "MiningOptimization/ResourceObservations.h"
 
 TEST(MiningDataShrinker, Vermeer)
 {
@@ -27,4 +28,8 @@ TEST(MiningDataShrinker, Vermeer)
     std::map<TilePosition, std::unordered_set<PositionAndVelocity>> resourceTo10DistancePositions;
     WorkerMiningOptimization::ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
     WorkerMiningOptimization::ObservationDataFiles::write10DistanceObservations(resourceTo10DistancePositions, true);
+
+    std::map<TilePosition, WorkerMiningOptimization::ResourceObservations> resourceToResourceObservations;
+    WorkerMiningOptimization::ObservationDataFiles::readResourceObservations(true, resourceToResourceObservations);
+    WorkerMiningOptimization::ObservationDataFiles::writeResourceObservations(true, resourceToResourceObservations, true);
 }

@@ -19,6 +19,9 @@ namespace WorkerMiningOptimization
         // Whether we are exploring new positions
         bool exploring = false;
 
+        // Whether we are updating resource observations
+        bool updatingResourceObservations = false;
+
         // Metadata for positions used for optimizing approach to the patch
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToOptimalGatherPositions;
 
@@ -35,6 +38,9 @@ namespace WorkerMiningOptimization
 
         // Worker state for those returning resources
         std::map<MyWorker, WorkerReturnStatus> workerReturnStatuses;
+
+        // Resource observations
+        std::map<TilePosition, ResourceObservations> resourceToResourceObservations;
     }
 
     void initialize()
@@ -45,6 +51,7 @@ namespace WorkerMiningOptimization
         ObservationDataFiles::readGatherPositionObservations(exploring, resourceToOptimalGatherPositions);
         ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
         ObservationDataFiles::readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
+        ObservationDataFiles::readResourceObservations(exploring, resourceToResourceObservations);
     }
 
     void flushObservations()
@@ -61,6 +68,11 @@ namespace WorkerMiningOptimization
             ObservationDataFiles::writeGatherPositionObservations(false, resourceToOptimalGatherPositions);
             ObservationDataFiles::write10DistanceObservations(resourceTo10DistancePositions);
             ObservationDataFiles::writeReturnPositionObservations(false, resourceToOptimalReturnPositions);
+        }
+
+        if (updatingResourceObservations)
+        {
+            ObservationDataFiles::writeResourceObservations(false, resourceToResourceObservations);
         }
 #endif
 
@@ -200,6 +212,17 @@ namespace WorkerMiningOptimization
         return resourceTo10DistancePositions[TilePosition::fromBWAPI(resource->tile)];
     }
 
+    ResourceObservations &resourceObservationsFor(const Resource &resource)
+    {
+        auto tile = TilePosition::fromBWAPI(resource->tile);
+        auto it = resourceToResourceObservations.find(tile);
+        if (it == resourceToResourceObservations.end())
+        {
+            it = resourceToResourceObservations.emplace(tile, tile).first;
+        }
+        return it->second;
+    }
+
     bool isExploring()
     {
         return exploring;
@@ -208,5 +231,15 @@ namespace WorkerMiningOptimization
     void setExploring(bool newExploring)
     {
         exploring = newExploring;
+    }
+
+    bool isUpdatingResourceObservations()
+    {
+        return updatingResourceObservations;
+    }
+
+    void setUpdateResourceObservations(bool newUpdateResourceObservations)
+    {
+        updatingResourceObservations = newUpdateResourceObservations;
     }
 }
