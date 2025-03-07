@@ -22,6 +22,9 @@ namespace WorkerMiningOptimization
         // Whether we are updating resource observations
         bool updatingResourceObservations = false;
 
+        // The map hash of the currently-loaded data
+        std::string mapHashOfCurrentData;
+
         // Metadata for positions used for optimizing approach to the patch
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToOptimalGatherPositions;
 
@@ -48,10 +51,19 @@ namespace WorkerMiningOptimization
         workerGatherStatuses.clear();
         workerReturnStatuses.clear();
 
-        ObservationDataFiles::readGatherPositionObservations(exploring, resourceToOptimalGatherPositions);
-        ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
-        ObservationDataFiles::readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
-        ObservationDataFiles::readResourceObservations(exploring, resourceToResourceObservations);
+        if (BWAPI::Broodwar->mapHash() != mapHashOfCurrentData)
+        {
+            ObservationDataFiles::readGatherPositionObservations(exploring, resourceToOptimalGatherPositions);
+            ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
+            ObservationDataFiles::readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
+            ObservationDataFiles::readResourceObservations(exploring, resourceToResourceObservations);
+
+            mapHashOfCurrentData = BWAPI::Broodwar->mapHash();
+        }
+        else
+        {
+            Log::Get() << "Using already-loaded mining optimization data";
+        }
     }
 
     void flushObservations()

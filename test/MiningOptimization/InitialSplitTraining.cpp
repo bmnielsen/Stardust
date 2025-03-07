@@ -64,6 +64,7 @@ namespace
             if (BWAPI::Broodwar->getFrameCount() == 0)
             {
                 std::set<Resource> availableResources(Map::getMyMain()->mineralPatches().begin(), Map::getMyMain()->mineralPatches().end());
+                uint32_t overallLeastObservations = UINT32_MAX;
                 for (auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
                 {
                     auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
@@ -106,7 +107,9 @@ namespace
                     Workers::setWorkerMineralPatch(worker, best, Map::getMyMain());
                     workerStates.emplace_back(worker, idx, best);
                     availableResources.erase(best);
+                    overallLeastObservations = std::min(overallLeastObservations, leastObservations);
                 }
+                std::cout << "Initialized; least observations is " << overallLeastObservations << std::endl;
             }
 
             bool anyRemaining = false;
@@ -140,9 +143,12 @@ TEST(InitialSplitTraining, Vermeer)
     WorkerMiningOptimization::setExploring(false);
     WorkerMiningOptimization::setUpdateResourceObservations(true);
 
-    Maps::RunOnEachStartLocationPairAndRandomRace(Maps::Get("aiide2024/(4)Vermeer"), [](BWTest test)
+    while (true)
     {
-        runTest(test);
-    });
+        Maps::RunOnEachStartLocationPairAndRandomRace(Maps::Get("aiide2024/(4)Vermeer"), [](BWTest test)
+        {
+            runTest(test);
+        });
+    }
 }
 
