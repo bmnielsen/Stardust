@@ -24,4 +24,18 @@ namespace WorkerMiningOptimization
         }
         average = (uint16_t)avg;
     }
+
+    ResourceObservation &ResourceObservations::startingWorkerObservationsFor(int startingWorkerIndex)
+    {
+        if (startingWorkerObservations.empty())
+        {
+            startingWorkerObservations.reserve(4);
+            for (int i = 0; i < 4; i++)
+            {
+                startingWorkerObservations.emplace_back();
+            }
+        }
+
+        return startingWorkerObservations[startingWorkerIndex];
+    }
 }

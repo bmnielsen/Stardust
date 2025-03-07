@@ -31,5 +31,7 @@ namespace WorkerMiningOptimization
         // The vector will either have 4 entries or be empty (for resources not at a starting position)
         // The workers in the vector are in the same order as in MapSpecificOverride::startingWorkerPositions
         std::vector<ResourceObservation> startingWorkerObservations;
+
+        ResourceObservation &startingWorkerObservationsFor(int startingWorkerIndex);
     };
 }
