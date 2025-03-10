@@ -118,8 +118,143 @@ namespace Workers
             return count;
         }
 
+        bool assignInitialMineralWorkersFromObservations()
+        {
+            auto &mineralPatches = Map::getMyMain()->mineralPatches();
+            std::vector<std::pair<std::array<uint16_t, 4>, uint16_t>> resourceData;
+            for (auto &patch : mineralPatches)
+            {
+                auto &observations = WorkerMiningOptimization::resourceObservationsFor(patch);
+
+                resourceData.emplace_back(std::array<uint16_t, 4>{
+                        observations.startingWorkerObservationsFor(0).average,
+                        observations.startingWorkerObservationsFor(1).average,
+                        observations.startingWorkerObservationsFor(2).average,
+                        observations.startingWorkerObservationsFor(3).average,
+                }, observations.singleWorkerRotations.average);
+
+                if (resourceData.back().first[0] == 0 ||
+                    resourceData.back().first[1] == 0 ||
+                    resourceData.back().first[2] == 0 ||
+                    resourceData.back().first[3] == 0)
+                {
+                    return false;
+                }
+            }
+
+            std::array<int, 4> bestAssignments = {-1, -1, -1, -1};
+            uint16_t bestSeventhCollection = UINT16_MAX;
+            uint32_t bestRotationTime = UINT32_MAX;
+            for (int index1 = 0; index1 < mineralPatches.size(); index1++)
+            {
+                auto collection1 = resourceData[index1].first[0];
+
+                for (int index2 = 0; index2 < mineralPatches.size(); index2++)
+                {
+                    if (index1 == index2) continue;
+
+                    auto collection2 = resourceData[index2].first[1];
+
+                    for (int index3 = 0; index3 < mineralPatches.size(); index3++)
+                    {
+                        if (index1 == index3) continue;
+                        if (index2 == index3) continue;
+
+                        auto collection3 = resourceData[index3].first[2];
+
+                        for (int index4 = 0; index4 < mineralPatches.size(); index4++)
+                        {
+                            if (index1 == index4) continue;
+                            if (index2 == index4) continue;
+                            if (index3 == index4) continue;
+
+                            auto collection4 = resourceData[index4].first[3];
+
+                            // Find the second largest collection frame
+
+                            // Start by initializing them to the correct first two workers
+                            auto largest = collection1;
+                            auto secondLargest = collection2;
+                            if (secondLargest > largest) std::swap(largest, secondLargest);
+
+                            // Now update with the third and fourth workers
+                            auto update = [&largest, &secondLargest](auto collection)
+                            {
+                                if (collection > largest)
+                                {
+                                    secondLargest = largest;
+                                    largest = collection;
+                                }
+                                else if (collection > secondLargest)
+                                {
+                                    secondLargest = collection;
+                                }
+                            };
+                            update(collection3);
+                            update(collection4);
+
+                            if (secondLargest > bestSeventhCollection) continue;
+
+                            uint32_t rotationTime =
+                                    resourceData[index1].second +
+                                    resourceData[index2].second +
+                                    resourceData[index3].second +
+                                    resourceData[index4].second;
+                            if (secondLargest == bestSeventhCollection && rotationTime >= bestRotationTime) continue;
+
+                            bestSeventhCollection = secondLargest;
+                            bestRotationTime = rotationTime;
+                            bestAssignments[0] = index1;
+                            bestAssignments[1] = index2;
+                            bestAssignments[2] = index3;
+                            bestAssignments[3] = index4;
+                        }
+                    }
+                }
+            }
+            if (bestAssignments[0] == -1) return false;
+
+            // Now assign the workers appropriately
+            auto base = Map::getMyMain();
+            auto startingWorkerPositions = Map::mapSpecificOverride()->startingWorkerPositions(BWAPI::Broodwar->self()->getStartLocation());
+            if (startingWorkerPositions.size() != 4) return false;
+            for (int i = 0; i < startingWorkerPositions.size(); i++)
+            {
+                // Find the worker
+                MyWorker worker = nullptr;
+                for (auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+                {
+                    if (unit->lastPosition != startingWorkerPositions[i]) continue;
+                    worker = std::static_pointer_cast<MyWorkerImpl>(unit);
+                    break;
+                }
+                if (!worker)
+                {
+                    Log::Get() << "ERROR: No starting worker found at " << startingWorkerPositions[i];
+                    return false;
+                }
+
+                // Assign it to the patch
+                workerJob[worker] = Job::Minerals;
+#if CVIS_LOG_WORKER_ASSIGNMENTS
+                CherryVis::log(worker->id) << "Assigned to base @ " << BWAPI::WalkPosition(base->getPosition());
+                CherryVis::log(worker->id) << "Assigned to Minerals";
+#endif
+
+                workerBase[worker] = base;
+                baseWorkers[base].insert(worker);
+                workerMineralPatch[worker] = mineralPatches[bestAssignments[i]];
+                mineralPatchWorkers[mineralPatches[bestAssignments[i]]].insert(worker);
+            }
+
+            Log::Get() << "Initial worker split made from observations; expect 7th collection at frame " << bestSeventhCollection;
+            return true;
+        }
+
         void assignInitialMineralWorkers()
         {
+            if (assignInitialMineralWorkersFromObservations()) return;
+
             auto base = Map::getMyMain();
 
             // Sort the mineral patches by proximity to the nexus
