@@ -12,8 +12,6 @@
 #include "MiningOptimization/WorkerMiningOptimization.h"
 #include "Units.h"
 #include "Workers.h"
-#include "BuildingPlacement.h"
-#include "Geo.h"
 
 #include <algorithm>
 #include <random>
