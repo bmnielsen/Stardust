@@ -204,7 +204,12 @@ namespace WorkerMiningInstrumentation
                     closestBaseDist = dist;
                 }
             }
-            if (!closestBase || !closestBase->resourceDepot || !closestBase->resourceDepot->exists()) continue;
+            
+            // If there isn't a completed nexus near the patch, don't track this collection as it's likely distance mining
+            if (!closestBase || !closestBase->resourceDepot || !closestBase->resourceDepot->exists() || !closestBase->resourceDepot->completed)
+            {
+                continue;
+            }
             auto &depot = closestBase->resourceDepot;
 
             auto &miningStatus = resourceToMiningStatus[patch];
