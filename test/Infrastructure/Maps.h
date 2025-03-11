@@ -7,6 +7,8 @@
 #include <functional>
 #include <sstream>
 
+#include <bwapi.h>
+
 struct BWTest;
 
 namespace Maps
@@ -94,9 +96,13 @@ namespace Maps
 
     void RunOnEach(const std::vector<MapMetadata> &maps, const std::function<void(BWTest)> &runner);
 
-    void RunOnEachStartLocation(const std::vector<MapMetadata> &maps, const std::function<void(BWTest)> &runner);
+    void RunOnEachStartLocation(const std::vector<MapMetadata> &maps,
+                                const std::function<void(BWTest)> &runner,
+                                BWAPI::Race enemyRace = BWAPI::Races::Random);
 
-    void RunOnEachStartLocationPair(const std::vector<MapMetadata> &maps, const std::function<void(BWTest)> &runner);
+    void RunOnEachStartLocationPair(const std::vector<MapMetadata> &maps,
+                                    const std::function<void(BWTest)> &runner,
+                                    BWAPI::Race enemyRace = BWAPI::Races::Random);
 
     void RunOnEachStartLocationPairAndRandomRace(const std::vector<MapMetadata> &maps, const std::function<void(BWTest)> &runner);
 }

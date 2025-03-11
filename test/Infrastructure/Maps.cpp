@@ -168,7 +168,9 @@ namespace Maps
         }
     }
 
-    void RunOnEachStartLocation(const std::vector<MapMetadata> &maps, const std::function<void(BWTest)> &runner)
+    void RunOnEachStartLocation(const std::vector<MapMetadata> &maps,
+                                const std::function<void(BWTest)> &runner,
+                                BWAPI::Race enemyRace)
     {
         for (const auto &map : maps)
         {
@@ -179,9 +181,24 @@ namespace Maps
                 {
                     if (i == j) continue;
 
-                    for (auto seed : map.seeds[i][j])
+                    if (enemyRace == BWAPI::Races::Zerg)
                     {
-                        possibleSeeds.emplace_back(seed);
+                        possibleSeeds.emplace_back(map.seeds[i][j][0]);
+                    }
+                    else if (enemyRace == BWAPI::Races::Terran)
+                    {
+                        possibleSeeds.emplace_back(map.seeds[i][j][1]);
+                    }
+                    else if (enemyRace == BWAPI::Races::Protoss)
+                    {
+                        possibleSeeds.emplace_back(map.seeds[i][j][2]);
+                    }
+                    else
+                    {
+                        for (auto seed : map.seeds[i][j])
+                        {
+                            possibleSeeds.emplace_back(seed);
+                        }
                     }
                 }
 
@@ -192,6 +209,7 @@ namespace Maps
                 BWTest test;
                 test.map = std::make_shared<MapMetadata>(map);
                 test.randomSeed = possibleSeeds[0];
+                test.opponentRace = BWAPI::Races::Random;
 
                 std::ostringstream replayName;
                 replayName << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
@@ -206,7 +224,9 @@ namespace Maps
         }
     }
 
-    void RunOnEachStartLocationPair(const std::vector<MapMetadata> &maps, const std::function<void(BWTest)> &runner)
+    void RunOnEachStartLocationPair(const std::vector<MapMetadata> &maps,
+                                    const std::function<void(BWTest)> &runner,
+                                    BWAPI::Race enemyRace)
     {
         for (const auto &map : maps)
         {
@@ -217,18 +237,34 @@ namespace Maps
                     if (i == j) continue;
 
                     std::vector<int> possibleSeeds;
-                    for (auto seed : map.seeds[i][j])
+                    if (enemyRace == BWAPI::Races::Zerg)
                     {
-                        possibleSeeds.emplace_back(seed);
+                        possibleSeeds.emplace_back(map.seeds[i][j][0]);
                     }
+                    else if (enemyRace == BWAPI::Races::Terran)
+                    {
+                        possibleSeeds.emplace_back(map.seeds[i][j][1]);
+                    }
+                    else if (enemyRace == BWAPI::Races::Protoss)
+                    {
+                        possibleSeeds.emplace_back(map.seeds[i][j][2]);
+                    }
+                    else
+                    {
+                        for (auto seed : map.seeds[i][j])
+                        {
+                            possibleSeeds.emplace_back(seed);
+                        }
 
-                    std::random_device rd;
-                    auto rng = std::default_random_engine(rd());
-                    std::shuffle(std::begin(possibleSeeds), std::end(possibleSeeds), rng);
+                        std::random_device rd;
+                        auto rng = std::default_random_engine(rd());
+                        std::shuffle(std::begin(possibleSeeds), std::end(possibleSeeds), rng);
+                    }
 
                     BWTest test;
                     test.map = std::make_shared<MapMetadata>(map);
                     test.randomSeed = possibleSeeds[0];
+                    test.opponentRace = BWAPI::Races::Random;
 
                     std::ostringstream replayName;
                     replayName << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
@@ -260,6 +296,7 @@ namespace Maps
                         BWTest test;
                         test.map = std::make_shared<MapMetadata>(map);
                         test.randomSeed = map.seeds[i][j][k];
+                        test.opponentRace = BWAPI::Races::Random;
 
                         std::ostringstream replayName;
                         replayName << ::testing::UnitTest::GetInstance()->current_test_info()->test_case_name();
