@@ -10,7 +10,11 @@ namespace WorkerMiningOptimization
 
         uint64_t accumulator = 0;
 
+        uint64_t varianceAccumulator = 0;
+
         uint16_t average = 0;
+
+        uint16_t variance = 0;
 
         void addObservation(uint64_t value);
     };

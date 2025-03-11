@@ -13,6 +13,17 @@ namespace WorkerMiningOptimization
         }
         if (observationCount == UINT32_MAX) return;
 
+        if (observationCount >= 10)
+        {
+            auto v = ((int)value - (int)average) * ((int)value - (int)average);
+            if (v > (UINT64_MAX - varianceAccumulator))
+            {
+                Log::Get() << "ERROR: Adding observation would overflow variance accumulator";
+                return;
+            }
+            varianceAccumulator += v;
+        }
+
         observationCount++;
         accumulator += value;
 
@@ -23,6 +34,14 @@ namespace WorkerMiningOptimization
             return;
         }
         average = (uint16_t)avg;
+
+        auto varianceAvg = (uint64_t)std::round((double)varianceAccumulator / (double)(observationCount - 10));
+        if (varianceAvg > UINT16_MAX)
+        {
+            Log::Get() << "ERROR: Variance of " << varianceAvg << " would overflow 16-bit unsigned int";
+            return;
+        }
+        variance = (uint16_t)varianceAvg;
     }
 
     ResourceObservation &ResourceObservations::startingWorkerObservationsFor(int startingWorkerIndex)

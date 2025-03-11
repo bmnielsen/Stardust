@@ -267,8 +267,10 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                     {
                         s.value4b(value.observationCount);
                         s.value8b(value.accumulator);
+                        s.value8b(value.varianceAccumulator);
                     }
                     s.value2b(value.average);
+                    s.value2b(value.variance);
                 };
 
                 auto resourceObservationsSerializer = [&](S &s, ResourceObservations &value)
