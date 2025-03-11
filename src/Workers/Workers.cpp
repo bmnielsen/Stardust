@@ -239,6 +239,10 @@ namespace Workers
 #if CVIS_LOG_WORKER_ASSIGNMENTS
                 CherryVis::log(worker->id) << "Assigned to base @ " << BWAPI::WalkPosition(base->getPosition());
                 CherryVis::log(worker->id) << "Assigned to Minerals";
+                auto &observations =
+                        WorkerMiningOptimization::resourceObservationsFor(mineralPatches[bestAssignments[i]]).startingWorkerObservationsFor(i);
+                CherryVis::log(worker->id) << "Expected second collection at frame " << observations.average
+                                           << " with variance " << observations.variance;
 #endif
 
                 workerBase[worker] = base;
