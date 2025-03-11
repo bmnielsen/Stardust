@@ -108,7 +108,7 @@ namespace
     }
 }
 
-TEST(BuildOrderTests, OneBaseZealots_VermeerOne)
+TEST(BuildOrderTests, OneBaseZealots_Vermeer)
 {
     Maps::RunOnEachStartLocationPairAndRandomRace(Maps::Get("aiide2024/(4)Vermeer"), [](BWTest test)
     {

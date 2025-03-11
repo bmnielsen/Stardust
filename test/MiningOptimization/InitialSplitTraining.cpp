@@ -143,10 +143,9 @@ TEST(InitialSplitTraining, Vermeer)
 
     while (true)
     {
-        Maps::RunOnEachStartLocationPairAndRandomRace(Maps::Get("aiide2024/(4)Vermeer"), [](BWTest test)
+        Maps::RunOnEach(Maps::Get("aiide2024/(4)Vermeer"), [](BWTest test)
         {
             runTest(test);
         });
     }
 }
-

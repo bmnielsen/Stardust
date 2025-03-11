@@ -17,6 +17,11 @@ namespace WorkerMiningOptimization
         uint16_t variance = 0;
 
         void addObservation(uint64_t value);
+
+        unsigned int averageWithVariance() const
+        {
+            return (unsigned int)average + (unsigned int)variance;
+        }
     };
 
     struct ResourceObservations

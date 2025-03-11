@@ -120,17 +120,21 @@ namespace Workers
 
         bool assignInitialMineralWorkersFromObservations()
         {
+            // There can be quite a bit of variance in the timings for each initial worker depending on its initial heading and how its order timer
+            // is reset. We therefore are a bit conservative here by penalizing positions with high variance and optimizing all four workers even
+            // though we only need returns from three to reach the 50 mineral mark
+
             auto &mineralPatches = Map::getMyMain()->mineralPatches();
-            std::vector<std::pair<std::array<uint16_t, 4>, uint16_t>> resourceData;
+            std::vector<std::pair<std::array<unsigned int, 4>, unsigned int>> resourceData;
             for (auto &patch : mineralPatches)
             {
                 auto &observations = WorkerMiningOptimization::resourceObservationsFor(patch);
 
-                resourceData.emplace_back(std::array<uint16_t, 4>{
-                        observations.startingWorkerObservationsFor(0).average,
-                        observations.startingWorkerObservationsFor(1).average,
-                        observations.startingWorkerObservationsFor(2).average,
-                        observations.startingWorkerObservationsFor(3).average,
+                resourceData.emplace_back(std::array<unsigned int, 4>{
+                        observations.startingWorkerObservationsFor(0).averageWithVariance(),
+                        observations.startingWorkerObservationsFor(1).averageWithVariance(),
+                        observations.startingWorkerObservationsFor(2).averageWithVariance(),
+                        observations.startingWorkerObservationsFor(3).averageWithVariance(),
                 }, observations.singleWorkerRotations.average);
 
                 if (resourceData.back().first[0] == 0 ||
@@ -143,8 +147,8 @@ namespace Workers
             }
 
             std::array<int, 4> bestAssignments = {-1, -1, -1, -1};
-            uint16_t bestSeventhCollection = UINT16_MAX;
-            uint32_t bestRotationTime = UINT32_MAX;
+            unsigned int bestCollectionTime = UINT32_MAX;
+            unsigned int bestRotationTime = UINT32_MAX;
             for (int index1 = 0; index1 < mineralPatches.size(); index1++)
             {
                 auto collection1 = resourceData[index1].first[0];
@@ -168,41 +172,17 @@ namespace Workers
                             if (index2 == index4) continue;
                             if (index3 == index4) continue;
 
-                            auto collection4 = resourceData[index4].first[3];
-
-                            // Find the second largest collection frame
-
-                            // Start by initializing them to the correct first two workers
-                            auto largest = collection1;
-                            auto secondLargest = collection2;
-                            if (secondLargest > largest) std::swap(largest, secondLargest);
-
-                            // Now update with the third and fourth workers
-                            auto update = [&largest, &secondLargest](auto collection)
-                            {
-                                if (collection > largest)
-                                {
-                                    secondLargest = largest;
-                                    largest = collection;
-                                }
-                                else if (collection > secondLargest)
-                                {
-                                    secondLargest = collection;
-                                }
-                            };
-                            update(collection3);
-                            update(collection4);
-
-                            if (secondLargest > bestSeventhCollection) continue;
+                            auto largestCollectionTime = std::max({collection1, collection2, collection3, resourceData[index4].first[3]});
+                            if (largestCollectionTime > bestCollectionTime) continue;
 
                             uint32_t rotationTime =
                                     resourceData[index1].second +
                                     resourceData[index2].second +
                                     resourceData[index3].second +
                                     resourceData[index4].second;
-                            if (secondLargest == bestSeventhCollection && rotationTime >= bestRotationTime) continue;
+                            if (largestCollectionTime == bestCollectionTime && rotationTime >= bestRotationTime) continue;
 
-                            bestSeventhCollection = secondLargest;
+                            bestCollectionTime = largestCollectionTime;
                             bestRotationTime = rotationTime;
                             bestAssignments[0] = index1;
                             bestAssignments[1] = index2;
@@ -251,7 +231,7 @@ namespace Workers
                 mineralPatchWorkers[mineralPatches[bestAssignments[i]]].insert(worker);
             }
 
-            Log::Get() << "Initial worker split made from observations; expect 7th collection at frame " << bestSeventhCollection;
+            Log::Get() << "Initial worker split made from observations; expect 7th collection before frame " << bestCollectionTime;
             return true;
         }
 
