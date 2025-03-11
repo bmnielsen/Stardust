@@ -35,13 +35,20 @@ namespace WorkerMiningOptimization
         }
         average = (uint16_t)avg;
 
-        auto varianceAvg = (uint64_t)std::round((double)varianceAccumulator / (double)(observationCount - 10));
-        if (varianceAvg > UINT16_MAX)
+        if (observationCount > 10)
         {
-            Log::Get() << "ERROR: Variance of " << varianceAvg << " would overflow 16-bit unsigned int";
-            return;
+            auto varianceAvg = (uint64_t)std::round(std::sqrt((double)varianceAccumulator / (double)(observationCount - 10)));
+            if (varianceAvg > UINT16_MAX)
+            {
+                Log::Get() << "ERROR: Variance of " << varianceAvg << " would overflow 16-bit unsigned int";
+                return;
+            }
+            variance = (uint16_t)varianceAvg;
         }
-        variance = (uint16_t)varianceAvg;
+        else
+        {
+            variance = 0;
+        }
     }
 
     ResourceObservation &ResourceObservations::startingWorkerObservationsFor(int startingWorkerIndex)
