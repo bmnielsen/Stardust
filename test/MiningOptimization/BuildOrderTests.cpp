@@ -222,3 +222,10 @@ TEST(BuildOrderTests, OneBaseZealots_VermeerFive)
     test.map = Maps::GetOne("aiide2024/(4)Vermeer");
     measure<OneBaseZealotsStrategyEngine>(test, 5);
 }
+
+TEST(BuildOrderTests, OneBaseZealots_VermeerOne)
+{
+    BWTest test;
+    test.map = Maps::GetOne("aiide2024/(4)Vermeer");
+    runTest<OneBaseZealotsStrategyEngine>(test);
+}
