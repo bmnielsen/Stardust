@@ -65,7 +65,8 @@ namespace
                                      bool onlyOneWorker,
                                      bool measureOnly,
                                      unsigned int iterations = 1,
-                                     bool patchResults = false)
+                                     bool patchResults = false,
+                                     bool observationTraining = false)
     {
         BuildingPlacement::setUseStartBlocksForAllStartingLocations(true);
 
@@ -76,6 +77,7 @@ namespace
             << "; measureOnly=" << measureOnly
             << "; iterations=" << iterations
             << "; patchResults=" << patchResults
+            << "; observationTraining=" << observationTraining
             << std::endl;
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
@@ -103,7 +105,16 @@ namespace
         replayNameBuilder << workersPerPatch << "wpp_" << cannons << "cannons";
         test.replayName = replayNameBuilder.str();
 
-        WorkerMiningOptimization::setExploring(!measureOnly);
+        if (observationTraining)
+        {
+            WorkerMiningOptimization::setUpdateResourceObservations(true);
+            WorkerMiningOptimization::setExploring(false);
+        }
+        else
+        {
+            WorkerMiningOptimization::setUpdateResourceObservations(false);
+            WorkerMiningOptimization::setExploring(!measureOnly);
+        }
 
         test.onStartMine = []()
         {
@@ -1021,6 +1032,22 @@ TEST(FullSaturationTraining, VermeerFiveWithResults)
     for (int i=0; i<5; i++)
     {
         testRunWithResults("aiide2024/(4)VermeerSE_2.1", 0, true);
+    }
+}
+
+TEST(FullSaturationTraining, VermeerObservations)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("VermeerSE_2.1");
+        test.randomSeed = 42;
+        runEfficiencyTestImpl(test, 1, 0, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 1, 1, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 1, 2, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 2, 0, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 2, 1, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 2, 2, false, false, 10, false, true);
     }
 }
 
