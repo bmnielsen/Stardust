@@ -33,6 +33,7 @@ namespace WorkerMiningInstrumentation
         // 11 = two workers assigned, one worker is returning cargo, other worker is moving to minerals
         // 12 = two workers assigned, one worker is returning cargo, other worker is waiting to mine, worker returning cargo has orders processed first
         // 13 = same as 12, but where worker returning cargo might not have had its orders processed first
+        // 14 = two workers assigned, both workers are moving to minerals
         std::map<Resource, std::vector<std::tuple<int, int, int>>> resourceToMiningStatus;
 
         // All collision observations for each patch
@@ -72,7 +73,8 @@ namespace WorkerMiningInstrumentation
             int currentPeriodNotMined = 0;
             int currentPeriodStartFrame = 0;
             int lastFrame = -1;
-            for (auto &[status, frame, _] : miningStatus)
+            int lastExtraData = -1;
+            for (auto &[status, frame, extraData] : miningStatus)
             {
                 if (fromFrame != -1 && frame < fromFrame) continue;
                 if (toFrame != -1 && frame >= toFrame) break;
@@ -85,9 +87,13 @@ namespace WorkerMiningInstrumentation
                 }
                 lastFrame = frame;
 
-                if (status == miningState && nonMiningStates.contains(lastStatus))
+                bool extraDataChanged = (extraData != lastExtraData);
+                lastExtraData = extraData;
+
+                if (status == miningState && (nonMiningStates.contains(lastStatus) || extraDataChanged))
                 {
                     // This is the transition from not mining to mining, which we use as our start of a measurement period
+                    // It may also be the transition from one worker mining to a different worker mining, which we treat the same
 
                     // If we were recording a period, flush it now
                     if (recording)
@@ -285,11 +291,15 @@ namespace WorkerMiningInstrumentation
                                            << "; " << workerB->bwapiUnit->getOrder()
                                            << "; " << workerB->bwapiUnit->isCarryingMinerals();
 #endif
-                
-                if (workerA->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
-                    workerB->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                if (workerA->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
                 {
                     status = 10;
+                    extraData = workerA->id;
+                }
+                else if (workerB->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                {
+                    status = 10;
+                    extraData = workerB->id;
                 }
                 else if (workerA->bwapiUnit->isCarryingMinerals() != workerB->bwapiUnit->isCarryingMinerals())
                 {
@@ -317,7 +327,7 @@ namespace WorkerMiningInstrumentation
                 }
                 else
                 {
-                    status = -1;
+                    status = 14;
                 }
             }
 
@@ -575,7 +585,7 @@ namespace WorkerMiningInstrumentation
             unsigned long nonCollisions = 0;
 
             addPatchData(sgl, patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
-            addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
+            addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13, 14}, fromFrame, toFrame);
             addCollisionData(collisions, nonCollisions, patch, fromFrame, toFrame);
 
             result[patch] = computeEfficiency(sgl, dbl, collisions, nonCollisions);
@@ -595,7 +605,7 @@ namespace WorkerMiningInstrumentation
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
             addPatchData(sgl, patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
-            addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13}, fromFrame, toFrame);
+            addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13, 14}, fromFrame, toFrame);
             addCollisionData(collisions, nonCollisions, patch, fromFrame, toFrame);
         }
 
