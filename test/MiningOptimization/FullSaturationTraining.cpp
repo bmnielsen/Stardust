@@ -82,8 +82,9 @@ namespace
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
-            return new ClearOpponentUnitsModule();
+            return new ClearOpponentUnitsModule(true);
         };
+        test.allowOpponentOutput = true;
         test.myModule = []()
         {
             auto module = new StardustAIModule();

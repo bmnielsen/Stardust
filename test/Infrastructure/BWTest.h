@@ -35,6 +35,7 @@ public:
     std::vector<Maps::MapMetadata> maps;
 
     std::string opponentName = "Opponent";
+    bool allowOpponentOutput = false;
 
     int frameLimit = 30000;
     int timeLimit = 600;
