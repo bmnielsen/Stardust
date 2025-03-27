@@ -421,6 +421,7 @@ struct Unit {
   void setResources(int value);
 
   Position getSubpixelPosition() const;
+  int getOrderProcessTimer() const;
 };
 
 struct Bullet {

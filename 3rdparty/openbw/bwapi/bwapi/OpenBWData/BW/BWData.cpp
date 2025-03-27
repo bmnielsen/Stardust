@@ -2320,6 +2320,11 @@ Position Unit::getSubpixelPosition() const
     return {(s16)u->exact_position.x.fractional_part(), (s16)u->exact_position.y.fractional_part()};
 }
 
+int Unit::getOrderProcessTimer() const
+{
+    return u->order_process_timer;
+}
+
 Bullet::operator bool() const
 {
   return b != nullptr;

@@ -251,6 +251,7 @@ namespace BWAPI
       virtual void setResources(int value) override;
 
       virtual Position getSubpixelPosition() const override;
+      virtual int getOrderProcessTimer() const override;
 
       //Internal BWAPI commands:
       UnitImpl(BW::Unit bwunit, u16 index);

@@ -241,4 +241,9 @@ namespace BWAPI
   {
     return bwunit.getSubpixelPosition();
   }
+
+  int UnitImpl::getOrderProcessTimer() const
+  {
+    return bwunit.getOrderProcessTimer();
+  }
 };

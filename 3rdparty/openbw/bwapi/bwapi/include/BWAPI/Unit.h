@@ -2580,6 +2580,7 @@ namespace BWAPI
     virtual void setResources(int value) = 0;
 
     virtual Position getSubpixelPosition() const = 0;
+    virtual int getOrderProcessTimer() const = 0;
 
     ///@}
   };
