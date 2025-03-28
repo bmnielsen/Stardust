@@ -49,7 +49,7 @@ public:
         // Logic for randomizing the order process timer
         if (randomizeOrderProcessTimer)
         {
-            if (BWAPI::Broodwar->getFrameCount() > 0 && bunkerPositions.size() < 2) return;
+            if (BWAPI::Broodwar->getFrameCount() > 0 && bunkerAndMarinePositions.size() < 7) return;
 
             // Generate bunker positions and marine positions at startup
             if (BWAPI::Broodwar->getFrameCount() == 0)
@@ -102,15 +102,31 @@ public:
                         for (auto tileX = base.tpos.x - 10; tileX < base.tpos.x + 14; tileX++)
                         {
                             if (tileX < 0) continue;
-                            if (tileX >= mapHeight) continue;
+                            if (tileX >= mapWidth) continue;
 
                             tileAvailable[tileX + tileY * mapWidth] = false;
                         }
                     }
                 }
 
-                // Find two bunker positions furthest from any base
-                for (int i = 0; i < 2; i++)
+                // Remove anything overlapping neutrals
+                for (auto &unit : BWAPI::Broodwar->neutral()->getUnits())
+                {
+                    auto topLeft = BWAPI::TilePosition(
+                            unit->getPosition() + BWAPI::Position(-unit->getType().dimensionLeft(), -unit->getType().dimensionUp()));
+                    auto bottomRight = BWAPI::TilePosition(
+                            unit->getPosition() + BWAPI::Position(unit->getType().dimensionRight(), unit->getType().dimensionDown()));
+                    for (int tileX = topLeft.x; tileX <= bottomRight.x; tileX++)
+                    {
+                        for (int tileY = topLeft.y; tileY <= bottomRight.y; tileY++)
+                        {
+                            tileAvailable[tileX + tileY * mapWidth] = false;
+                        }
+                    }
+                }
+
+                // Find seven bunker positions furthest from any base
+                for (int i = 0; i < 7; i++)
                 {
                     int bestDist = 0;
                     BWAPI::TilePosition bestTile = BWAPI::TilePositions::Invalid;
@@ -148,11 +164,9 @@ public:
 
                     if (bestTile == BWAPI::TilePositions::Invalid) break;
 
-                    bunkerPositions.emplace_back(bestTile);
-                    for (int j = 0; j < 4; j++)
-                    {
-                        marinePositions.emplace_back(bestTile.x * 32 + 24 * j, (bestTile.y + 2) * 32);
-                    }
+                    bunkerAndMarinePositions.emplace_back(
+                            Geo::CenterOfUnit(BWAPI::Position(bestTile), BWAPI::UnitTypes::Terran_Bunker),
+                            Geo::CenterOfUnit(BWAPI::Position(bestTile) + BWAPI::Position(0, 64), BWAPI::UnitTypes::Terran_Marine));
 
                     for (int dx = 0; dx < 3; dx++)
                     {
@@ -163,38 +177,82 @@ public:
                     }
                 }
 
-                if (bunkerPositions.size() < 2)
+                if (bunkerAndMarinePositions.size() < 7)
                 {
-                    std::cout << "ERROR: Could not find two bunker positions" << std::endl;
+                    std::cout << "ERROR: Could not find seven bunker positions" << std::endl;
                 }
-                std::string sep;
-                std::cout << "Bunker positions: ";
-                for (auto pos : bunkerPositions)
+
+                for (auto &[bunkerPos, _] : bunkerAndMarinePositions)
                 {
-                    std::cout << sep << pos;
-                    sep = ", ";
-                }
-                std::cout << std::endl;
-            }
-            else if (BWAPI::Broodwar->getFrameCount() == 1)
-            {
-                for (auto &bunkerPos : bunkerPositions)
-                {
-                    BWAPI::Position center = BWAPI::Position(bunkerPos) + BWAPI::Position(48, 32);
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, center);
+                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, bunkerPos);
                 }
             }
-            else if (BWAPI::Broodwar->getFrameCount() == 7)
+            else if (BWAPI::Broodwar->getFrameCount() == 20)
             {
-                for (auto &bunkerPos : bunkerPositions)
+                for (auto &[bunkerPos, marinePos] : bunkerAndMarinePositions)
                 {
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                BWAPI::UnitTypes::Terran_Bunker,
-                                                Geo::CenterOfUnit(bunkerPos, BWAPI::UnitTypes::Terran_Bunker));
+                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Bunker, bunkerPos);
+                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Terran_Marine, marinePos);
                 }
                 for (auto &unit : BWAPI::Broodwar->self()->getUnits())
                 {
                     if (unit->getType() == BWAPI::UnitTypes::Protoss_Observer) BWAPI::Broodwar->killUnit(unit);
+                }
+            }
+            else if (BWAPI::Broodwar->getFrameCount() == 30)
+            {
+                std::map<BWAPI::Position, BWAPI::Unit> posToUnit;
+                for (auto &unit : BWAPI::Broodwar->self()->getUnits())
+                {
+                    posToUnit[unit->getPosition()] = unit;
+                }
+
+                for (auto &[bunkerPos, marinePos] : bunkerAndMarinePositions)
+                {
+                    auto bunker = posToUnit[bunkerPos];
+                    if (!bunker)
+                    {
+                        std::cout << "ERROR: Could not find bunker unit @ " << bunkerPos << std::endl;
+                        continue;
+                    }
+
+                    auto marine = posToUnit[marinePos];
+                    if (!marine)
+                    {
+                        std::cout << "ERROR: Marine not found @ " << marinePos << std::endl;
+                        break;
+                    }
+
+                    bunkersAndMarines.emplace_back(bunker, marine);
+                    bunker->load(marine);
+                }
+            }
+            else if (BWAPI::Broodwar->getFrameCount() % 150 == 0)
+            {
+                // Pop out between 0 and 7 marines before each order process timer reset
+                int remainingMarines = nextMarineCount;
+                for (auto &[bunker, marine] : bunkersAndMarines)
+                {
+                    if (remainingMarines == 0) break;
+                    bunker->unload(marine);
+                    remainingMarines--;
+                }
+
+                if (nextMarineCount == 7)
+                {
+                    nextMarineCount = 0;
+                }
+                else
+                {
+                    nextMarineCount++;
+                }
+            }
+            else if (BWAPI::Broodwar->getFrameCount() % 150 == 10)
+            {
+                // Load all of the unloaded marines
+                for (auto &[bunker, marine] : bunkersAndMarines)
+                {
+                    bunker->load(marine);
                 }
             }
         }
@@ -202,7 +260,7 @@ public:
 
 private:
     bool randomizeOrderProcessTimer = false;
-    std::vector<BWAPI::TilePosition> bunkerPositions;
-    std::vector<BWAPI::Position> marinePositions;
-    std::map<BWAPI::Unit, std::vector<BWAPI::Unit>> bunkersAndUnits;
+    std::vector<std::pair<BWAPI::Position, BWAPI::Position>> bunkerAndMarinePositions;
+    std::vector<std::pair<BWAPI::Unit, BWAPI::Unit>> bunkersAndMarines;
+    int nextMarineCount = 0;
 };
