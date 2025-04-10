@@ -73,7 +73,7 @@ namespace WorkerMiningInstrumentation
             int currentPeriodNotMined = 0;
             int currentPeriodStartFrame = 0;
             int lastFrame = -1;
-            int lastExtraData = -1;
+            int lastExtraData = -2;
             for (auto &[status, frame, extraData] : miningStatus)
             {
                 if (fromFrame != -1 && frame < fromFrame) continue;
@@ -87,7 +87,7 @@ namespace WorkerMiningInstrumentation
                 }
                 lastFrame = frame;
 
-                bool extraDataChanged = (extraData != lastExtraData);
+                bool extraDataChanged = (extraData != lastExtraData && lastExtraData != -2);
                 lastExtraData = extraData;
 
                 if (status == miningState && (nonMiningStates.contains(lastStatus) || extraDataChanged))
