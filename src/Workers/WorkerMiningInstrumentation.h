@@ -64,4 +64,6 @@ namespace WorkerMiningInstrumentation
     int getFiftiethMineralFrame();
 
     std::vector<int> &getThousandMineralFrames();
+
+    void addRotationTimesToResourceObservations();
 }

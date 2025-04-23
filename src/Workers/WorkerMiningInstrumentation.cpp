@@ -57,6 +57,7 @@ namespace WorkerMiningInstrumentation
             unsigned int framesNotMined = 0;
             unsigned int totalRotationFrames = 0;
             unsigned int rotationCount = 0;
+            std::vector<unsigned int> allRotationTimes;
         };
 
         void addPatchData(PatchData &patchData,
@@ -65,7 +66,8 @@ namespace WorkerMiningInstrumentation
                           int miningState,
                           const std::set<int> &nonMiningStates,
                           int fromFrame,
-                          int toFrame)
+                          int toFrame,
+                          bool trackAllRotationTimes)
         {
             bool recording = false;
             int lastStatus = -1;
@@ -102,6 +104,10 @@ namespace WorkerMiningInstrumentation
                         patchData.framesNotMined += currentPeriodNotMined;
                         patchData.totalRotationFrames += (frame - currentPeriodStartFrame);
                         patchData.rotationCount++;
+                        if (trackAllRotationTimes)
+                        {
+                            patchData.allRotationTimes.emplace_back(frame - currentPeriodStartFrame);
+                        }
                     }
 
                     // Start recording a new period
@@ -125,6 +131,26 @@ namespace WorkerMiningInstrumentation
                 }
                 lastStatus = status;
             }
+        }
+
+        void addSinglePatchData(PatchData &patchData,
+                                const Resource &patch,
+                                const std::vector<std::tuple<int, int, int>> &miningStatus,
+                                int fromFrame,
+                                int toFrame,
+                                bool trackAllRotationTimes = false)
+        {
+            addPatchData(patchData, patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame, trackAllRotationTimes);
+        }
+
+        void addDoublePatchData(PatchData &patchData,
+                                const Resource &patch,
+                                const std::vector<std::tuple<int, int, int>> &miningStatus,
+                                int fromFrame,
+                                int toFrame,
+                                bool trackAllRotationTimes = false)
+        {
+            addPatchData(patchData, patch, miningStatus, 10, {11, 12, 13, 14}, fromFrame, toFrame, trackAllRotationTimes);
         }
 
         void addCollisionData(unsigned long &collisions, unsigned long &nonCollisions, const Resource &patch, int fromFrame, int toFrame)
@@ -584,8 +610,8 @@ namespace WorkerMiningInstrumentation
             unsigned long collisions = 0;
             unsigned long nonCollisions = 0;
 
-            addPatchData(sgl, patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
-            addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13, 14}, fromFrame, toFrame);
+            addSinglePatchData(sgl, patch, miningStatus, fromFrame, toFrame);
+            addDoublePatchData(dbl, patch, miningStatus, fromFrame, toFrame);
             addCollisionData(collisions, nonCollisions, patch, fromFrame, toFrame);
 
             result[patch] = computeEfficiency(sgl, dbl, collisions, nonCollisions);
@@ -604,8 +630,8 @@ namespace WorkerMiningInstrumentation
 
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
-            addPatchData(sgl, patch, miningStatus, 2, {0, 1, 3, 4, 5}, fromFrame, toFrame);
-            addPatchData(dbl, patch, miningStatus, 10, {11, 12, 13, 14}, fromFrame, toFrame);
+            addSinglePatchData(sgl, patch, miningStatus, fromFrame, toFrame);
+            addDoublePatchData(dbl, patch, miningStatus, fromFrame, toFrame);
             addCollisionData(collisions, nonCollisions, patch, fromFrame, toFrame);
         }
 
@@ -623,5 +649,25 @@ namespace WorkerMiningInstrumentation
     std::vector<int> &getThousandMineralFrames()
     {
         return thousandMineralFrames;
+    }
+
+    void addRotationTimesToResourceObservations()
+    {
+        for (auto &[patch, miningStatus] : resourceToMiningStatus)
+        {
+            PatchData sgl, dbl;
+            addSinglePatchData(sgl, patch, miningStatus, -1, -1, true);
+            addDoublePatchData(dbl, patch, miningStatus, -1, -1, true);
+
+            auto &observations = WorkerMiningOptimization::resourceObservationsFor(patch);
+            for (const auto &rotationTime : sgl.allRotationTimes)
+            {
+                observations.singleWorkerRotations.addObservation(rotationTime);
+            }
+            for (const auto &rotationTime : dbl.allRotationTimes)
+            {
+                observations.doubleWorkerRotations.addObservation(rotationTime);
+            }
+        }
     }
 }

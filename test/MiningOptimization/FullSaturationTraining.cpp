@@ -410,6 +410,11 @@ namespace
                 return TestResult{e.doubleWorkerRotationTime, e.doubleWorkerMiningPercentage, e.collisionRate * 100.0};
             };
 
+            if (observationTraining)
+            {
+                WorkerMiningInstrumentation::addRotationTimesToResourceObservations();
+            }
+
             auto efficiency = WorkerMiningInstrumentation::getEfficiency();
             result = getTestResult(efficiency);
 
