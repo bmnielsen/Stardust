@@ -246,7 +246,7 @@ namespace Workers
             std::sort(mineralPatches.begin(), mineralPatches.end(), [&](const Resource &a, const Resource &b) -> bool
             {
                 return a->getDistance(BWAPI::UnitTypes::Protoss_Nexus, base->getPosition()) <
-                    b->getDistance(BWAPI::UnitTypes::Protoss_Nexus, base->getPosition());
+                       b->getDistance(BWAPI::UnitTypes::Protoss_Nexus, base->getPosition());
             });
 
             // We are only interested in the first four
@@ -353,7 +353,9 @@ namespace Workers
                 }
 
                 if (!base->resourceDepot->completed)
+                {
                     frames = std::max(frames, base->resourceDepot->bwapiUnit->getRemainingBuildTime());
+                }
 
                 if (frames < bestFrames || (hasPreferred && !bestHasPreferredJob) || (hasNonPreferred && !bestHasNonPreferredJob))
                 {
@@ -416,6 +418,39 @@ namespace Workers
         {
             if (!workerBase[unit]) return nullptr;
 
+            // First attempt to choose the patch using our resource observations
+            // If any patch has no observations, we fall back to using the distance to the nexus
+            unsigned long bestRotation = ULONG_MAX;
+            Resource best = nullptr;
+            for (const auto &mineralPatch : workerBase[unit]->mineralPatches())
+            {
+                size_t workers = mineralPatchWorkers[mineralPatch].size();
+                if (workers >= 2) continue;
+
+                auto &observations = WorkerMiningOptimization::resourceObservationsFor(mineralPatch);
+                unsigned long rotationAverage = (workers == 0)
+                        ? observations.singleWorkerRotations.average
+                        : ((unsigned long)observations.doubleWorkerRotations.average * 2UL);
+                if (rotationAverage == 0)
+                {
+                    best = nullptr;
+                    break;
+                }
+
+                if (rotationAverage < bestRotation)
+                {
+                    bestRotation = rotationAverage;
+                    best = mineralPatch;
+                }
+            }
+
+            if (best)
+            {
+                workerMineralPatch[unit] = best;
+                mineralPatchWorkers[best].insert(unit);
+                return best;
+            }
+
             int closestDist = INT_MAX;
             int furthestDist = 0;
             Resource closest = nullptr;
@@ -438,7 +473,7 @@ namespace Workers
                 }
             }
 
-            Resource best = closest ? closest : furthest;
+            best = closest ? closest : furthest;
             if (best)
             {
                 workerMineralPatch[unit] = best;
@@ -1038,7 +1073,7 @@ namespace Workers
             // If the unit is currently mining, penalize it by 3 seconds to encourage selecting other workers
             int score = travelTime;
             if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals ||
-                                                                               worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
+                worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
             {
                 score += 72;
             }
@@ -1176,7 +1211,7 @@ namespace Workers
     int reassignableMineralWorkers()
     {
         // Do an initial scan to find the number of gas slots and available mineral workers there are at each base
-        std::vector<std::tuple<Base*, int, int>> basesAndGasSlotsAndMineralWorkersAvailable;
+        std::vector<std::tuple<Base *, int, int>> basesAndGasSlotsAndMineralWorkersAvailable;
         for (auto &baseAndWorkers : baseWorkers)
         {
             if (!baseAndWorkers.first || baseAndWorkers.first->owner != BWAPI::Broodwar->self()) continue;
