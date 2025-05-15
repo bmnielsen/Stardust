@@ -430,7 +430,7 @@ namespace Workers
                 auto &observations = WorkerMiningOptimization::resourceObservationsFor(mineralPatch);
                 unsigned long rotationAverage = (workers == 0)
                         ? observations.singleWorkerRotations.average
-                        : ((unsigned long)observations.doubleWorkerRotations.average * 2UL);
+                        : ((unsigned long)observations.doubleWorkerRotations.average * 4UL - observations.singleWorkerRotations.average);
                 if (rotationAverage == 0)
                 {
                     best = nullptr;
