@@ -16,6 +16,7 @@
 #endif
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE false
+#define WARN_ON_NO_RESOURCE_DATA true
 #endif
 
 namespace Workers
@@ -142,6 +143,9 @@ namespace Workers
                     resourceData.back().first[2] == 0 ||
                     resourceData.back().first[3] == 0)
                 {
+#if WARN_ON_NO_RESOURCE_DATA
+                    Log::Get() << "WARNING: No resource observation data available for initial split";
+#endif
                     return false;
                 }
             }
@@ -433,6 +437,9 @@ namespace Workers
                         : ((unsigned long)observations.doubleWorkerRotations.average * 4UL - observations.singleWorkerRotations.average);
                 if (rotationAverage == 0)
                 {
+#if WARN_ON_NO_RESOURCE_DATA
+                    Log::Get() << "WARNING: No resource observation data available for choosing patch";
+#endif
                     best = nullptr;
                     break;
                 }
