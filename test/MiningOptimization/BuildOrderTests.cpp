@@ -39,6 +39,28 @@ namespace
         }
     };
 
+    class OneBaseDragoonsStrategyEngine : public BuildOrderTestsStrategyEngine
+    {
+        void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
+                              std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+                              std::vector<std::pair<int, int>> &mineralReservations) override
+        {
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) == 0)
+            {
+                prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                         "test",
+                                                                         BWAPI::UnitTypes::Protoss_Zealot,
+                                                                         1,
+                                                                         1);
+            }
+            prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                     "test",
+                                                                     BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                     -1,
+                                                                     -1);
+        }
+    };
+
     std::string toString(std::vector<int> frames)
     {
         std::ostringstream o;
@@ -229,3 +251,18 @@ TEST(BuildOrderTests, OneBaseZealots_VermeerOne)
     test.map = Maps::GetOne("aiide2024/(4)Vermeer");
     runTest<OneBaseZealotsStrategyEngine>(test);
 }
+
+TEST(BuildOrderTests, OneBaseDragoons_VermeerFive)
+{
+    BWTest test;
+    test.map = Maps::GetOne("aiide2024/(4)Vermeer");
+    measure<OneBaseDragoonsStrategyEngine>(test, 5);
+}
+
+TEST(BuildOrderTests, OneBaseDragoons_VermeerOne)
+{
+    BWTest test;
+    test.map = Maps::GetOne("aiide2024/(4)Vermeer");
+    runTest<OneBaseDragoonsStrategyEngine>(test);
+}
+
