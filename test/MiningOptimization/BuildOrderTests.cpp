@@ -265,4 +265,3 @@ TEST(BuildOrderTests, OneBaseDragoons_VermeerOne)
     test.map = Maps::GetOne("aiide2024/(4)Vermeer");
     runTest<OneBaseDragoonsStrategyEngine>(test);
 }
-

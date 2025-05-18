@@ -1110,3 +1110,11 @@ TEST(FullSaturationTraining, AllAIIDEMeasureSingleAllCannons)
 {
     testRunWithResults("aiide2024", 1, true, true);
 }
+
+TEST(FullSaturationTraining, AllSSCAITContinuous)
+{
+    while (true)
+    {
+        testRunWithResults("sscai", 0, true);
+    }
+}
