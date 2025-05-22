@@ -501,3 +501,20 @@ TEST(SpawnPositionTraining, VermeerStartLocationsContinuous)
         runSpawnLocationsTest(test, true, 0, false);
     }
 }
+
+TEST(SpawnPositionTraining, SSCAIT)
+{
+    while (true)
+    {
+        Maps::RunOnEach(Maps::Get("sscai"), [](BWTest test)
+        {
+            runSpawnLocationsTest(test, true, 0, false);
+            runSpawnLocationsTest(test, false, 0, false);
+            runSpawnLocationsTest(test, false, 1, false);
+            runSpawnLocationsTest(test, false, 2, false);
+            runSpawnLocationsTest(test, false, 0, true);
+            runSpawnLocationsTest(test, false, 1, true);
+            runSpawnLocationsTest(test, false, 2, true);
+        });
+    }
+}

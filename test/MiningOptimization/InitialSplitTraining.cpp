@@ -149,3 +149,17 @@ TEST(InitialSplitTraining, Vermeer)
         });
     }
 }
+
+TEST(InitialSplitTraining, SSCAIT)
+{
+    WorkerMiningOptimization::setExploring(false);
+    WorkerMiningOptimization::setUpdateResourceObservations(true);
+
+    while (true)
+    {
+        Maps::RunOnEach(Maps::Get("sscai"), [](BWTest test)
+        {
+            runTest(test);
+        });
+    }
+}

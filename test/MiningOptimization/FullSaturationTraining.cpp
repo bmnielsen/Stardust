@@ -1118,3 +1118,28 @@ TEST(FullSaturationTraining, AllSSCAITContinuous)
         testRunWithResults("sscai", 0, true);
     }
 }
+
+TEST(FullSaturationTraining, AllSSCAITSingleContinuous)
+{
+    while (true)
+    {
+        testRunWithResults("sscai", 1, true);
+    }
+}
+
+TEST(FullSaturationTraining, AllSSCAITObservations)
+{
+    while (true)
+    {
+        Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+        {
+            test.randomSeed = 42;
+            runEfficiencyTestImpl(test, 1, 0, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 1, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 2, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 0, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 1, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 2, false, false, 10, false, true);
+        });
+    }
+}
