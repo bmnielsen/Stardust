@@ -56,7 +56,7 @@ namespace WorkerMiningOptimization
             ObservationDataFiles::readGatherPositionObservations(exploring, resourceToOptimalGatherPositions);
             ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
             ObservationDataFiles::readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
-            ObservationDataFiles::readResourceObservations(exploring, resourceToResourceObservations);
+            ObservationDataFiles::readResourceObservations(exploring || updatingResourceObservations, resourceToResourceObservations);
 
             mapHashOfCurrentData = BWAPI::Broodwar->mapHash();
         }
