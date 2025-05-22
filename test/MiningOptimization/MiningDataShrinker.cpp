@@ -12,6 +12,7 @@ namespace
             WorkerMiningOptimization::ObservationDataFiles::GameParameters &parameters)
     {
         parameters.mapHash = map.openbwHash;
+        parameters.exportMapHash = map.hash;
 
         Log::initialize();
         Log::SetOutputToConsole(true);
@@ -46,14 +47,14 @@ namespace
 
 TEST(MiningDataShrinker, Vermeer)
 {
-    auto parameters = WorkerMiningOptimization::ObservationDataFiles::GameParameters{"", 3, 12, 5, 15, 5};
+    auto parameters = WorkerMiningOptimization::ObservationDataFiles::GameParameters{"", "", 3, 12, 5, 15, 5};
 
     shrink(*Maps::GetOne("Vermeer"), parameters);
 }
 
 TEST(MiningDataShrinker, SSCAIT)
 {
-    auto parameters = WorkerMiningOptimization::ObservationDataFiles::GameParameters{"", 3, 12, 5, 15, 5};
+    auto parameters = WorkerMiningOptimization::ObservationDataFiles::GameParameters{"", "", 3, 12, 5, 15, 5};
 
     for (const auto &map : Maps::Get("sscai"))
     {

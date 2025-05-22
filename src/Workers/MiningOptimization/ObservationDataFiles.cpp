@@ -15,6 +15,8 @@
 // Higher levels do not compress the files sufficiently better to make up for the increased compression time
 #define DEFAULT_COMPRESSION 4
 
+#define EXPORT_PATH "/Users/bmnielsen/BW/mining-data/dist/"
+
 namespace WorkerMiningOptimization::ObservationDataFiles
 {
     namespace
@@ -55,9 +57,33 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             return std::make_pair(minimal, false);
         }
 
+        std::string exportFilename(const std::string &label, bool postfixWithGatherParameters, bool postfixWithReturnParameters)
+        {
+            auto gameParameters = getGameParameters();
+
+            auto filename = std::ostringstream()
+                    << label << "_" << gameParameters.exportMapHash
+                    << "_lf" << gameParameters.latencyFrames;
+            if (postfixWithGatherParameters)
+            {
+                filename << "_" << gameParameters.gatherExploreBefore << "_" << gameParameters.gatherExploreAfter;
+            }
+            if (postfixWithReturnParameters)
+            {
+                filename << "_" << gameParameters.returnExploreBefore << "_" << gameParameters.returnExploreAfter;
+            }
+
+            return (std::ostringstream() << EXPORT_PATH << filename.str() << ".bin.zstd").str();
+        }
+
         std::pair<std::string, bool> optimalGatherPositionsFilename(bool preferFull, bool writing = false)
         {
             return filename("gatherpositions", preferFull, true, false, writing);
+        }
+
+        std::string optimalGatherPositionsExportFilename()
+        {
+            return exportFilename("gatherpositions", true, false);
         }
 
         std::string tenDistancePositionsFilename(bool writing = false)
@@ -65,14 +91,29 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             return filename("10distance", false, false, false, writing).first;
         }
 
+        std::string tenDistancePositionsExportFilename()
+        {
+            return exportFilename("10distance", false, false);
+        }
+
         std::pair<std::string, bool> optimalReturnPositionsFilename(bool preferFull, bool writing = false)
         {
             return filename("returnpositions", preferFull, false, true, writing);
         }
 
+        std::string optimalReturnPositionsExportFilename()
+        {
+            return exportFilename("returnpositions", false, true);
+        }
+
         std::pair<std::string, bool> resourceObservationsFilename(bool preferFull, bool writing = false)
         {
             return filename("resources", preferFull, false, true, writing);
+        }
+
+        std::string resourceObservationsExportFilename()
+        {
+            return exportFilename("resources", false, true);
         }
 
         template<bool full>
@@ -335,6 +376,11 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
             Log::Get() << "Wrote " << label << " data to " << filename;
         }
+
+        void copyDataFile(const std::string &source, const std::string &target)
+        {
+            std::filesystem::copy(source, target, std::filesystem::copy_options::update_existing);
+        }
     }
 
     void overrideGameParameters(GameParameters gameParameters)
@@ -348,6 +394,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
         return GameParameters {
             BWAPI::Broodwar->mapHash(),
+            "",
             BWAPI::Broodwar->getLatencyFrames(),
             GATHER_EXPLORE_BEFORE,
             GATHER_EXPLORE_AFTER,
@@ -430,11 +477,16 @@ namespace WorkerMiningOptimization::ObservationDataFiles
     {
         if (minimized)
         {
+            auto filename = optimalGatherPositionsFilename(false, true).first;
             writeDataFile("gather positions",
-                          optimalGatherPositionsFilename(false, true).first,
+                          filename,
                           OptimalGatherPositionsSerializer<false>{},
                           data,
                           maxCompression);
+            if (!getGameParameters().exportMapHash.empty())
+            {
+                copyDataFile(filename, optimalGatherPositionsExportFilename());
+            }
         }
         else
         {
@@ -448,7 +500,12 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
     void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompression)
     {
-        writeDataFile("ten-distance positions", tenDistancePositionsFilename(true), TenDistancePositionsSerializer{}, data, maxCompression);
+        auto filename = tenDistancePositionsFilename(true);
+        writeDataFile("ten-distance positions", filename, TenDistancePositionsSerializer{}, data, maxCompression);
+        if (!getGameParameters().exportMapHash.empty())
+        {
+            copyDataFile(filename, tenDistancePositionsExportFilename());
+        }
     }
 
     void writeReturnPositionObservations(bool minimized,
@@ -457,11 +514,16 @@ namespace WorkerMiningOptimization::ObservationDataFiles
     {
         if (minimized)
         {
+            auto filename = optimalReturnPositionsFilename(false, true).first;
             writeDataFile("return positions",
-                          optimalReturnPositionsFilename(false, true).first,
+                          filename,
                           OptimalReturnPositionsSerializer<false>{},
                           data,
                           maxCompression);
+            if (!getGameParameters().exportMapHash.empty())
+            {
+                copyDataFile(filename, optimalReturnPositionsExportFilename());
+            }
         }
         else
         {
@@ -479,15 +541,21 @@ namespace WorkerMiningOptimization::ObservationDataFiles
     {
         if (minimized)
         {
-            writeDataFile("resouce observations",
-                          resourceObservationsFilename(false, true).first,
+            auto filename = resourceObservationsFilename(false, true).first;
+
+            writeDataFile("resource observations",
+                          filename,
                           ResourceObservationsSerializer<false>{},
                           data,
                           maxCompression);
+            if (!getGameParameters().exportMapHash.empty())
+            {
+                copyDataFile(filename, resourceObservationsExportFilename());
+            }
         }
         else
         {
-            writeDataFile("resouce observations",
+            writeDataFile("resource observations",
                           resourceObservationsFilename(true, true).first,
                           ResourceObservationsSerializer<true>{},
                           data,

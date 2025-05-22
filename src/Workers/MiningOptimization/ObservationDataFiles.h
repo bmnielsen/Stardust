@@ -13,6 +13,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
     struct GameParameters
     {
         std::string mapHash;
+        std::string exportMapHash;
         int latencyFrames;
         int gatherExploreBefore;
         int gatherExploreAfter;
