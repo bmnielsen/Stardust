@@ -5,6 +5,8 @@
 #include "DebugFlag_WorkerMiningOptimization.h"
 #include "Geo.h"
 
+#include <optional>
+
 #define EPSILON 0.001
 
 namespace WorkerMiningOptimization

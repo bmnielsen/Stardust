@@ -7,6 +7,8 @@
 
 #include <zstdstream.h>
 
+#include <filesystem>
+
 #include "WorkerMiningOptimization.h"
 #include "FileTools.h"
 

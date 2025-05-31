@@ -5,6 +5,8 @@
 #include "PathTraversalLoopGuard.h"
 #include "DebugFlag_WorkerMiningOptimization.h"
 
+#include <optional>
+
 #include "Geo.h"
 
 #define EPSILON 0.001
