@@ -68,7 +68,7 @@ TEST(SaturatedBase, SinglePatch)
         }
 
         if (BWAPI::Broodwar->getFrameCount() > 20 &&
-            BWAPI::Broodwar->getFrameCount() % 30 == 0)
+            BWAPI::Broodwar->getFrameCount() % 80 == 0)
         {
             for (auto &[worker, patch] : otherWorkersAndPatch)
             {
