@@ -43,16 +43,64 @@ TEST(SaturatedBase, SinglePatch)
 
             BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
                                         BWAPI::UnitTypes::Protoss_Probe,
-                                        BWAPI::Position(240, 296 + 32));
+                                        BWAPI::Position(240 + 24 * 4, 296));
             BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
                                         BWAPI::UnitTypes::Protoss_Probe,
-                                        BWAPI::Position(240 + 24, 296 + 32));
+                                        BWAPI::Position(240 + 24 * 5, 296));
             BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
                                         BWAPI::UnitTypes::Protoss_Probe,
-                                        BWAPI::Position(240 + 48, 296 + 32));
+                                        BWAPI::Position(240 + 24 * 6, 296));
             BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
                                         BWAPI::UnitTypes::Protoss_Probe,
-                                        BWAPI::Position(240 + 72, 296 + 32));
+                                        BWAPI::Position(240 + 24 * 7, 296));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 0, 296 + 32));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 1, 296 + 32));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 2, 296 + 32));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 3, 296 + 32));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 4, 296 + 32));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 5, 296 + 32));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 6, 296 + 32));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 7, 296 + 32));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 0, 296 + 64));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 1, 296 + 64));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 2, 296 + 64));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 3, 296 + 64));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 4, 296 + 64));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 5, 296 + 64));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 6, 296 + 64));
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        BWAPI::Position(240 + 24 * 7, 296 + 64));
         }
 
         if (BWAPI::Broodwar->getFrameCount() == 20)
@@ -64,15 +112,18 @@ TEST(SaturatedBase, SinglePatch)
                 worker->gather(*patchIt);
                 otherWorkersAndPatch.emplace_back(worker, *patchIt);
                 patchIt++;
+                if (patchIt == otherPatches.end()) patchIt = otherPatches.begin();
             }
         }
 
-        if (BWAPI::Broodwar->getFrameCount() > 20 &&
-            BWAPI::Broodwar->getFrameCount() % 80 == 0)
+        if (BWAPI::Broodwar->getFrameCount() > 20)
         {
             for (auto &[worker, patch] : otherWorkersAndPatch)
             {
-                worker->gather(patch);
+                if (!worker->isCarryingMinerals() && worker->getOrderTarget() != patch)
+                {
+                    worker->gather(patch);
+                }
             }
         }
 
