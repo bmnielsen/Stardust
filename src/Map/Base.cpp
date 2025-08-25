@@ -39,6 +39,36 @@ namespace
 
         return result;
     }
+
+    void updateResourcesInSwitchPatchRange(std::vector<Resource> &mineralPatches)
+    {
+        for (auto &thisPatch : mineralPatches)
+        {
+            std::set<Resource> resourcesInSwitchPatchRange;
+
+            auto tenDistancePositions = Geo::TenDistancePositionsAroundPatch(thisPatch->center);
+
+            for (auto &otherPatch : mineralPatches)
+            {
+                if (thisPatch == otherPatch) continue;
+
+                bool inRange = false;
+                for (auto &pos : tenDistancePositions)
+                {
+                    // Game looks for a free patch within 8 tiles, ref: order_MoveToMinerals in bwgame.h
+                    if (Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe, pos, BWAPI::UnitTypes::Resource_Mineral_Field, otherPatch->center)
+                        <= (32 * 8))
+                    {
+                        inRange = true;
+                        break;
+                    }
+                }
+                if (inRange) resourcesInSwitchPatchRange.insert(otherPatch);
+            }
+
+            thisPatch->resourcesInSwitchPatchRange = std::move(resourcesInSwitchPatchRange);
+        }
+    }
 }
 
 Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
@@ -100,6 +130,8 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
             break;
         }
     }
+
+    updateResourcesInSwitchPatchRange(_mineralPatches);
 }
 
 Base::Base(BWAPI::TilePosition tile, const BWEM::Area *bwemArea, std::vector<Resource> mineralPatches, std::vector<Resource> geysers)
@@ -133,6 +165,8 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Area *bwemArea, std::vector<Res
             break;
         }
     }
+
+    updateResourcesInSwitchPatchRange(_mineralPatches);
 }
 
 bool Base::isStartingBase() const

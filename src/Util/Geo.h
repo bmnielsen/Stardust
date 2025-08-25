@@ -48,6 +48,8 @@ namespace Geo
 
     BWAPI::Position PerpendicularVector(BWAPI::Position vector, int length);
 
+    std::vector<BWAPI::Position> TenDistancePositionsAroundPatch(BWAPI::Position patchCenter);
+
     enum Direction { up, down, left, right, upleft, downleft, upright, downright, error };
 
     // Gets the relative direction between a building and a position

@@ -31,6 +31,9 @@ public:
     int minerals;   // Current total count of minerals remaining
     int gas;        // Current total count of gas remaining
 
+    // Probability of all minerals in this base being gathered from for the next GATHER_FORECAST_FRAMES frames, where index 0 is the next frame
+    std::array<double, GATHER_FORECAST_FRAMES> allMineralsBeingGatheredForecast;
+
     Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase);
 
     Base(BWAPI::TilePosition tile, const BWEM::Area *bwemArea, std::vector<Resource> mineralPatches, std::vector<Resource> geysers);

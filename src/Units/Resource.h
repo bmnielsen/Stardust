@@ -23,6 +23,9 @@ public:
     bool destroyed; // For mineral fields, when they are mined out and removed
     Unit refinery;  // For geysers, the refinery unit a player has built on it
 
+    // For mineral fields, the other mineral fields that workers might try to switch to
+    std::set<Resource> resourcesInSwitchPatchRange;
+
     explicit ResourceImpl(BWAPI::Unit unit);
 
     [[nodiscard]] bool hasMyCompletedRefinery() const;
