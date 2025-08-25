@@ -1320,6 +1320,15 @@ namespace Workers
         return mineralPatchWorkers;
     }
 
+    std::set<MyWorker> getWorkersAssignedTo(const Resource &resource)
+    {
+        if (resource->isMinerals)
+        {
+            return mineralPatchWorkers[resource];
+        }
+        return refineryWorkers[resource];
+    }
+
     MyWorker getOtherWorkerMining(const Resource &resource, const MyWorker &worker)
     {
         for (const auto &unit : mineralPatchWorkers[resource])
