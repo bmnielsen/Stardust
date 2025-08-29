@@ -3,6 +3,9 @@
 #include "Geo.h"
 #include "Workers.h"
 #include "OrderProcessTimer.h"
+#include "WorkerMiningInstrumentation.h"
+
+#define DEBUG_SATURATION_DATA true
 
 ResourceImpl::ResourceImpl(BWAPI::Unit unit)
     : id(unit->getID())
@@ -15,9 +18,9 @@ ResourceImpl::ResourceImpl(BWAPI::Unit unit)
     , destroyed(false)
     , bwapiUnit(unit)
     , gatherProbabilityForecast({})
-    , gatherProbabilityForecastUpdated(-1)
+    , gatherProbabilityForecastUpdated(-2)
     , allOtherPatchesGatheredProbabilityForecast({})
-    , allOtherPatchesGatheredProbabilityForecastUpdated(-1)
+    , allOtherPatchesGatheredProbabilityForecastUpdated(-2)
 {}
 
 bool ResourceImpl::hasMyCompletedRefinery() const
@@ -98,7 +101,6 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getAllOtherPatchesGath
     {
         return allOtherPatchesGatheredProbabilityForecast;
     }
-    allOtherPatchesGatheredProbabilityForecastUpdated = currentFrame;
 
     // The probability is found by multiplying all of the other vectors together
     std::fill(allOtherPatchesGatheredProbabilityForecast.begin(), allOtherPatchesGatheredProbabilityForecast.end(), 1.0);
@@ -113,6 +115,19 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getAllOtherPatchesGath
                        std::multiplies<>{});
     }
 
+#if DEBUG_SATURATION_DATA
+    std::ostringstream debug;
+    debug << std::fixed << std::setprecision(2) << "other patches forecast: ";
+    std::string sep;
+    for (int i = 0; i < std::min(10, GATHER_FORECAST_FRAMES); i++)
+    {
+        debug << sep << allOtherPatchesGatheredProbabilityForecast[i];
+        sep = ", ";
+    }
+    CherryVis::log(id) << debug.str();
+#endif
+
+    allOtherPatchesGatheredProbabilityForecastUpdated = currentFrame;
     return allOtherPatchesGatheredProbabilityForecast;
 }
 
@@ -122,7 +137,6 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     {
         return gatherProbabilityForecast;
     }
-    gatherProbabilityForecastUpdated = currentFrame;
 
     // Get the mining worker and the next mining worker, either or both of which may be null
     MyWorker miningWorker;
@@ -165,19 +179,28 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         // Compute the mining end frame if there was no order timer reset
         int miningEndFrame = miningWorker->lastStartedMining + 80;
 
-        // If there was an order timer reset after the start of mining, the worker may end mining between frame 75 and 83
+        // If there was an order timer reset after the start of mining, the worker may end mining between frame 74 and 81
         int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(miningEndFrame);
         if (previousOrderTimerReset >= miningWorker->lastStartedMining)
         {
-            int firstMiningEndFrame = miningWorker->lastStartedMining + 75;
-            if (firstMiningEndFrame > currentFrame)
+            int earliestMiningEndFrame = miningWorker->lastStartedMining + 74;
+
+            // If the reset happens after the mining timer expires, the earliest end frame is advanced to the reset point
+            if (previousOrderTimerReset > earliestMiningEndFrame)
             {
-                std::fill_n(gatherProbabilityForecast.begin(), std::min(firstMiningEndFrame - currentFrame, GATHER_FORECAST_FRAMES), 1.0);
+                earliestMiningEndFrame = previousOrderTimerReset;
             }
 
+            // Fill the array up to the earliest end frame to indicate that the patch is definitely being mined
+            if (earliestMiningEndFrame > currentFrame)
+            {
+                std::fill_n(gatherProbabilityForecast.begin(), std::min(earliestMiningEndFrame - currentFrame - 1, GATHER_FORECAST_FRAMES), 1.0);
+            }
+
+            // Set a decaying probability from here
             for (int i = 0; i < 8; i++)
             {
-                int arrayIdx = firstMiningEndFrame + i - currentFrame;
+                int arrayIdx = earliestMiningEndFrame + i - currentFrame - 1;
                 if (arrayIdx < 0) continue;
                 if (arrayIdx >= GATHER_FORECAST_FRAMES) break;
 
@@ -190,6 +213,19 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         }
     }
 
+#if DEBUG_SATURATION_DATA
+    std::ostringstream debug;
+    debug << std::fixed << std::setprecision(2) << "this patch forecast: ";
+    std::string sep;
+    for (int i = 0; i < std::min(10, GATHER_FORECAST_FRAMES); i++)
+    {
+        debug << sep << gatherProbabilityForecast[i];
+        sep = ", ";
+    }
+    CherryVis::log(id) << debug.str();
+#endif
+
+    gatherProbabilityForecastUpdated = currentFrame;
     return gatherProbabilityForecast;
 }
 
