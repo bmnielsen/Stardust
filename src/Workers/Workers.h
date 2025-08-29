@@ -17,7 +17,7 @@ namespace Workers
     void issueOrders();
 
     // Whether the given worker unit can currently be reassigned to non-gathering duties
-    bool isAvailableForReassignment(const MyWorker &unit, bool allowCarryMinerals);
+    bool isAvailableForReassignment(const MyWorker &unit, bool allowCarryMinerals, bool allowMining);
 
     MyWorker getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime = nullptr);
 

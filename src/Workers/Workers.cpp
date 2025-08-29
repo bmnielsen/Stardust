@@ -534,7 +534,7 @@ namespace Workers
                 if (!unit->type.isWorker()) continue;
 
                 auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
-                if (!isAvailableForReassignment(worker, false)) continue;
+                if (!isAvailableForReassignment(worker, false, false)) continue;
 
                 for (const auto &refinery : myCompletedRefineries)
                 {
@@ -813,7 +813,8 @@ namespace Workers
 
             auto &worker = pair.first;
 
-            if (NoGoAreas::isNoGo(worker->getTilePosition()))
+            // Move to avoid a no-go area unless we are mining minerals
+            if (NoGoAreas::isNoGo(worker->getTilePosition()) && worker->bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals)
             {
 #if DEBUG_UNIT_ORDERS
                 CherryVis::log(worker->id) << "Moving to avoid no-go area";
@@ -1037,7 +1038,7 @@ namespace Workers
         }
     }
 
-    bool isAvailableForReassignment(const MyWorker &unit, bool allowCarryMinerals)
+    bool isAvailableForReassignment(const MyWorker &unit, bool allowCarryMinerals, bool allowMining)
     {
         if (!unit || !unit->exists() || !unit->completed || !unit->type.isWorker()) return false;
 
@@ -1047,6 +1048,12 @@ namespace Workers
         {
             if (unit->bwapiUnit->isCarryingGas()) return false;
             if (!allowCarryMinerals && unit->bwapiUnit->isCarryingMinerals()) return false;
+
+            // We allow a mining worker if it has only been mining for less than 10 frames
+            if (!allowMining && unit->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && (currentFrame - unit->lastStartedMining) > 10)
+            {
+                return false;
+            }
 
             return true;
         }
@@ -1064,7 +1071,7 @@ namespace Workers
             if (!unit->type.isWorker()) continue;
             auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
 
-            if (!isAvailableForReassignment(worker, allowCarryMinerals)) continue;
+            if (!isAvailableForReassignment(worker, allowCarryMinerals, true)) continue;
 
             int travelTime =
                     PathFinding::ExpectedTravelTime(worker->lastPosition,

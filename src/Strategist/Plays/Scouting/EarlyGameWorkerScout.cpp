@@ -76,7 +76,7 @@ namespace
         if (!scout.reserved)
         {
             // Wait for the worker to be available for reassignment
-            if (!Workers::isAvailableForReassignment(scout.unit, false)) return;
+            if (!Workers::isAvailableForReassignment(scout.unit, false, false)) return;
 
             // Reserve the worker
             Workers::reserveWorker(scout.unit);
