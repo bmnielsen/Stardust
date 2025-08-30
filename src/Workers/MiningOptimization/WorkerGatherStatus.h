@@ -83,6 +83,16 @@ namespace WorkerMiningOptimization
         // Whether the worker had path data it could use on this approach
         bool hasPathData;
 
+        // Whether the worker is expected to lock to the patch at this given frame
+        // If the worker is not expected to lock to the patch, this will be -1
+        int expectedPatchLockFrame;
+
+        // The frame this worker is expected to start mining
+        // Not relevant if the worker has an expected patch lock frame, since the mining start frame then depends on the
+        // worker being taken over from
+        // If the expected mining start frame is unknown, this will be -1
+        int expectedMiningStartFrame;
+
         WorkerGatherStatus(MyWorker worker, MyUnit depot, Resource resource)
                 : worker(std::move(worker))
                 , depot(std::move(depot))
@@ -101,6 +111,8 @@ namespace WorkerMiningOptimization
                 , switchedPatches(false)
                 , waitForMineralsWhileOtherStillMining(false)
                 , hasPathData(false)
+                , expectedPatchLockFrame(-1)
+                , expectedMiningStartFrame(-1)
         {}
 
         void reset()
@@ -126,6 +138,8 @@ namespace WorkerMiningOptimization
             switchedPatches = false;
             waitForMineralsWhileOtherStillMining = false;
             hasPathData = false;
+            expectedPatchLockFrame = -1;
+            expectedMiningStartFrame = -1;
         }
 
         bool ignoreThisPosition()

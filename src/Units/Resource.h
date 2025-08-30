@@ -3,6 +3,8 @@
 #include "Common.h"
 #include "Unit.h"
 
+// The forecast horizon for predicting whether a patch is going to be mined from in future frames
+// Note that with our current logic, this must be less than the time one worker takes to mine a patch
 #define GATHER_FORECAST_FRAMES 50
 
 class ResourceImpl;

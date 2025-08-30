@@ -3,7 +3,7 @@
 #include "Geo.h"
 #include "Workers.h"
 #include "OrderProcessTimer.h"
-#include "WorkerMiningInstrumentation.h"
+#include "MiningOptimization/WorkerMiningOptimization.h"
 
 #define DEBUG_SATURATION_DATA true
 
@@ -144,6 +144,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     for (auto &worker : Workers::getWorkersAssignedTo(shared_from_this()))
     {
         // Don't consider workers returning, since we currently don't have the capability to simulate when they will get back to the patch
+        // (and this is probably further into the future than we need to simulate anyway)
         if (worker->carryingResource) continue;
 
         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
@@ -159,28 +160,27 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         }
     }
 
-    // TODO: Track forecast error
+    // Overview of logic:
+    // No workers assigned:
+    // - The patch will not be mined over the entire forecast horizon
+    // A worker is mining:
+    // - The patch is mined until between 75 and 82 frames after starting depending on whether there was an order process timer reset
+    // - If an order process timer reset affects the timing, we generate the decaying probability at end of mining
+    // A worker is approaching:
+    // - The patch will be mined from the worker's expected mining start frame, if we have predicted that with path data in our optimizer
+    // - In the case of patch locking on takeover, the patch will be mined for the entire forecast horizon
 
-    // There are a few possibilities:
-    // Worker is mining and next worker is expected to be patch-locked before it finishes:
-    // - patch is saturated for the entire forecast horizon
-    // Worker is mining and next worker will take over without being locked:
-    // - mining worker will finish between 75 and 83 frames after starting
-    // - take over worker will take over based on its approach optimization
-    // No worker is mining and next worker is approaching:
-    // - mining will start based on the approach optimization
-    // Most of the above may be affected by order timer resets
-
-    // Current logic is only setting it based on when the mining worker will finish
-    // TODO: Implement other cases
+    // Start with zeroes
     std::fill(gatherProbabilityForecast.begin(), gatherProbabilityForecast.end(), 0.0);
+
+    // If there is a mining worker, fill in its data
     if (miningWorker)
     {
         // Compute the mining end frame if there was no order timer reset
-        int miningEndFrame = miningWorker->lastStartedMining + 80;
+        int miningEndFrame = miningWorker->lastStartedMining + 81;
 
         // If there was an order timer reset after the start of mining, the worker may end mining between frame 74 and 81
-        int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(miningEndFrame);
+        int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(miningEndFrame - 1);
         if (previousOrderTimerReset >= miningWorker->lastStartedMining)
         {
             int earliestMiningEndFrame = miningWorker->lastStartedMining + 74;
@@ -209,7 +209,36 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         }
         else
         {
-            std::fill_n(gatherProbabilityForecast.begin(), std::min(miningEndFrame - currentFrame, GATHER_FORECAST_FRAMES), 1.0);
+            std::fill_n(gatherProbabilityForecast.begin(), std::min(miningEndFrame - currentFrame - 1, GATHER_FORECAST_FRAMES), 1.0);
+        }
+    }
+
+    // If there is a next mining worker, fill in its data
+    if (nextMiningWorker)
+    {
+        // We can only predict if we have gather status data
+        auto gatherStatus = WorkerMiningOptimization::gatherStatusFor(nextMiningWorker);
+        if (gatherStatus)
+        {
+            // We will treat the start frame as either the frame the worker is expected to patch lock or the frame the worker will start mining
+            // In the patch lock case, this isn't actually the frame the worker will start mining, but it will take over from the current one
+            // with no delay, so we can just overwrite the current worker's data with 1s
+            int startIndex = GATHER_FORECAST_FRAMES;
+            if (gatherStatus->expectedPatchLockFrame != -1)
+            {
+                // Patch lock might have already happened, so if it was at or before the current frame we just clamp the index to 0
+                startIndex = std::max(gatherStatus->expectedPatchLockFrame - currentFrame - 1, 0);
+            }
+            else if (gatherStatus->expectedMiningStartFrame > currentFrame)
+            {
+                // If the expected mining start frame is at or before the current frame, we guessed wrong and don't write any data
+                startIndex = gatherStatus->expectedMiningStartFrame - currentFrame - 1;
+            }
+
+            if (startIndex < GATHER_FORECAST_FRAMES)
+            {
+                std::fill_n(gatherProbabilityForecast.begin() + startIndex, GATHER_FORECAST_FRAMES - startIndex, 1.0);
+            }
         }
     }
 
