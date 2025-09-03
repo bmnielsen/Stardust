@@ -5,16 +5,26 @@
 #define FIRST_RESET_FRAME 8
 #define RESET_FREQUENCY 150
 
+namespace
+{
+    int botFrameToGameFrame(int botFrame)
+    {
+        // Convert based on the current difference between the engine and bot frames
+        // Note that this might not be correct if a pause happens / happened between the current frame and the frame we are converting
+        return botFrame + (BWAPI::Broodwar->getFrameCount() - currentFrame);
+    }
+}
+
 namespace OrderProcessTimer
 {
     int framesToPreviousReset(int frame)
     {
-        return (frame - FIRST_RESET_FRAME) % RESET_FREQUENCY;
+        return (botFrameToGameFrame(frame) - FIRST_RESET_FRAME) % RESET_FREQUENCY;
     }
 
     int framesToPreviousReset()
     {
-        return framesToPreviousReset(BWAPI::Broodwar->getFrameCount());
+        return framesToPreviousReset(currentFrame);
     }
 
     int framesToNextReset(int frame)
@@ -24,7 +34,7 @@ namespace OrderProcessTimer
 
     int framesToNextReset()
     {
-        return framesToNextReset(BWAPI::Broodwar->getFrameCount());
+        return framesToNextReset(currentFrame);
     }
 
     int nextResetFrame(int frame)
@@ -34,7 +44,7 @@ namespace OrderProcessTimer
 
     int nextResetFrame()
     {
-        return nextResetFrame(BWAPI::Broodwar->getFrameCount());
+        return nextResetFrame(currentFrame);
     }
 
     int previousResetFrame(int frame)
@@ -44,7 +54,7 @@ namespace OrderProcessTimer
 
     int previousResetFrame()
     {
-        return previousResetFrame(BWAPI::Broodwar->getFrameCount());
+        return previousResetFrame(currentFrame);
     }
 
     int isResetFrame(int frame)
@@ -54,7 +64,7 @@ namespace OrderProcessTimer
 
     int isResetFrame()
     {
-        return isResetFrame(BWAPI::Broodwar->getFrameCount());
+        return isResetFrame(currentFrame);
     }
 
     int unitOrderProcessTimerAtDelta(int frame, int unitOrderProcessTimer, int frameDelta)
@@ -80,6 +90,6 @@ namespace OrderProcessTimer
 
     int unitOrderProcessTimerAtDelta(int unitOrderProcessTimer, int frameDelta)
     {
-        return unitOrderProcessTimerAtDelta(BWAPI::Broodwar->getFrameCount(), unitOrderProcessTimer, frameDelta);
+        return unitOrderProcessTimerAtDelta(currentFrame, unitOrderProcessTimer, frameDelta);
     }
 }

@@ -149,7 +149,7 @@ bool MyWorkerImpl::gather(BWAPI::Unit target)
     if (result)
     {
         issuedOrderThisFrame = true;
-        gatherCommandFrames.insert(BWAPI::Broodwar->getFrameCount());
+        gatherCommandFrames.insert(currentFrame);
     }
 
 #if DEBUG_UNIT_ORDERS

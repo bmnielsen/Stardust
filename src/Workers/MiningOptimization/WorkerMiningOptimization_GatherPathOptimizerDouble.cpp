@@ -462,7 +462,7 @@ namespace WorkerMiningOptimization
         };
 
         auto evaluation = evaluatePosition(workerStatus,
-                                           BWAPI::Broodwar->getFrameCount(),
+                                           currentFrame,
                                            workerStatus.worker->orderProcessTimer,
                                            positionMetadata);
         if (shouldResend(evaluation))

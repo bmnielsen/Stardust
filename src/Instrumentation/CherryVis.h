@@ -72,7 +72,7 @@ namespace CherryVis
 
     void drawText(int x, int y, const std::string &text, int unitId = -1);
 
-    void frameEnd(int frame);
+    void frameEnd();
 
     void gameEnd();
 

@@ -46,7 +46,8 @@ public:
 
     void onFrameEnd()
     {
-        CherryVis::frameEnd(currentFrame++);
+        if (BWAPI::Broodwar->getFrameCount() > 0) currentFrame++;
+        CherryVis::frameEnd();
     }
 
     void onFrame() override

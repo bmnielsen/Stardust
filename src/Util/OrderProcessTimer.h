@@ -1,5 +1,7 @@
 #pragma once
 
+extern int currentFrame;
+
 namespace OrderProcessTimer
 {
     // Gets the number of frames to the previous order process timer reset, or 0 if a reset happens on the given frame

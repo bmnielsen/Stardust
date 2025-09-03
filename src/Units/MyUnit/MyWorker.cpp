@@ -101,13 +101,13 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     }
     else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75)
     {
-        lastStartedMining = BWAPI::Broodwar->getFrameCount();
+        lastStartedMining = currentFrame;
         if (!OrderProcessTimer::isResetFrame())
         {
             orderProcessTimer = 8;
         }
     }
-    else if (gatherCommandFrames.contains(BWAPI::Broodwar->getFrameCount() - BWAPI::Broodwar->getLatencyFrames()))
+    else if (gatherCommandFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()))
     {
         // Actually it stays at 0 for a couple of frames while the command gets worked out, but we don't care about that in practice
         orderProcessTimer = 10;

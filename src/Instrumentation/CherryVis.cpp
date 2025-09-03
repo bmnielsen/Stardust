@@ -25,6 +25,15 @@ namespace CherryVis
 
         bool disabled = false;
 
+        int cvisFrame()
+        {
+            // Subtract one from the frame to align it with the engine data seen by the bot
+            // More discussion of why we do this is in the readme for mining optimization
+            int frame = BWAPI::Broodwar->getFrameCount();
+            if (frame == 0) return 0;
+            return frame - 1;
+        }
+
         enum DataFileType {
             Array,
             ArrayPerFrame,
@@ -82,7 +91,7 @@ namespace CherryVis
 
                     if (framesPerPartition > 0)
                     {
-                        int partition = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
+                        int partition = (cvisFrame() / framesPerPartition) * framesPerPartition;
                         if (partition != currentPartition)
                         {
                             close();
@@ -103,18 +112,18 @@ namespace CherryVis
                                 (*stream) << ",";
                                 break;
                             case ArrayPerFrame:
-                                if (lastFrame == BWAPI::Broodwar->getFrameCount())
+                                if (lastFrame == cvisFrame())
                                 {
                                     (*stream) << ",";
                                 }
                                 else
                                 {
-                                    (*stream) << "],\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
-                                    lastFrame = BWAPI::Broodwar->getFrameCount();
+                                    (*stream) << "],\"" << cvisFrame() << "\":[";
+                                    lastFrame = cvisFrame();
                                 }
                                 break;
                             case ObjectPerFrame:
-                                (*stream) << ",\"" << BWAPI::Broodwar->getFrameCount() << "\":";
+                                (*stream) << ",\"" << cvisFrame() << "\":";
                                 break;
                         }
                     }
@@ -200,13 +209,13 @@ namespace CherryVis
             {
                 try
                 {
-                    int startFrame = BWAPI::Broodwar->getFrameCount();
+                    int startFrame = cvisFrame();
                     std::ostringstream filenameBuilder;
                     filenameBuilder << filename;
-                    if (partitionedObjectSize > 0) filenameBuilder << "_" << BWAPI::Broodwar->getFrameCount();
+                    if (partitionedObjectSize > 0) filenameBuilder << "_" << cvisFrame();
                     if (framesPerPartition > 0)
                     {
-                        startFrame = (BWAPI::Broodwar->getFrameCount() / framesPerPartition) * framesPerPartition;
+                        startFrame = (cvisFrame() / framesPerPartition) * framesPerPartition;
                         filenameBuilder << "_" << startFrame;
                     }
                     filenameBuilder << FILE_EXTENSION;
@@ -221,10 +230,10 @@ namespace CherryVis
                             (*stream) << "[";
                             break;
                         case ArrayPerFrame:
-                            (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":[";
+                            (*stream) << "{\"" << cvisFrame() << "\":[";
                             break;
                         case ObjectPerFrame:
-                            (*stream) << "{\"" << BWAPI::Broodwar->getFrameCount() << "\":";
+                            (*stream) << "{\"" << cvisFrame() << "\":";
                             break;
                     }
                 }
@@ -272,7 +281,7 @@ namespace CherryVis
 
             logFileIt->second.writeEntry({
                                                  {"message", str},
-                                                 {"frame",   BWAPI::Broodwar->getFrameCount()}
+                                                 {"frame",   cvisFrame()}
                                          });
         }
 
@@ -412,7 +421,7 @@ namespace CherryVis
 #if CHERRYVIS_ENABLED
         if (disabled) return;
 
-        int frame = BWAPI::Broodwar->getFrameCount();
+        int frame = cvisFrame();
         if (frame == 0) frame = 1;
 
 #if IS_OPENBW
@@ -528,7 +537,7 @@ namespace CherryVis
 #endif
     }
 
-    void frameEnd(int frame)
+    void frameEnd()
     {
 #if CHERRYVIS_ENABLED
         if (disabled) return;
@@ -541,7 +550,7 @@ namespace CherryVis
         }
 
         // Flush data files every 500 frames
-        if (frame % 500 == 0)
+        if (cvisFrame() % 500 == 0)
         {
             for (auto &[heatmapName, heatmapFile] : heatmapNameToDataFile)
             {

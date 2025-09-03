@@ -72,18 +72,18 @@ namespace WorkerMiningOptimization
         if (arrivalDelayAndOccurrenceRate.size() == 1)
         {
             return deliveryDelayForArrival(arrivalDelayAndOccurrenceRate.begin()->first,
-                                           BWAPI::Broodwar->getFrameCount() + arrivalDelayAndOccurrenceRate.begin()->first,
+                                           currentFrame + arrivalDelayAndOccurrenceRate.begin()->first,
                                            worker->orderProcessTimer,
-                                           BWAPI::Broodwar->getFrameCount());
+                                           currentFrame);
         }
 
         double totalDelay = 0.0;
         for (const auto &[arrivalDelay, rate] : arrivalDelayAndOccurrenceRate)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,
-                                                  BWAPI::Broodwar->getFrameCount() + arrivalDelay,
+                                                  currentFrame + arrivalDelay,
                                                   worker->orderProcessTimer,
-                                                  BWAPI::Broodwar->getFrameCount()) * ((double)rate/255.0);
+                                                  currentFrame) * ((double)rate/255.0);
         }
 
         return totalDelay;

@@ -173,7 +173,7 @@ TEST(UpdateNavigationGrid, Pylon)
         if (BWAPI::Broodwar->getFrameCount() == 5) addBuilding(grid, BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(118, 11));
         grid->update();
 
-        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+        CherryVis::frameEnd();
     };
 
     test.run();
@@ -192,7 +192,7 @@ TEST(UpdateNavigationGrid, Gateway)
         if (BWAPI::Broodwar->getFrameCount() == 5) addBuilding(grid, BWAPI::UnitTypes::Protoss_Gateway, BWAPI::TilePosition(112, 13));
         grid->update();
 
-        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+        CherryVis::frameEnd();
     };
 
     test.run();
@@ -253,7 +253,7 @@ TEST(UpdateNavigationGrid, ManyBuildings)
             EXPECT_TRUE(validateGrid(*grid));
         }
 
-        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+        CherryVis::frameEnd();
     };
 
     test.run();
@@ -284,7 +284,7 @@ TEST(UpdateNavigationGrid, EnemyStaticDefense)
             EXPECT_TRUE(validateGrid(*grid));
         }
 
-        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+        CherryVis::frameEnd();
     };
 
     test.run();
@@ -411,7 +411,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
             EXPECT_TRUE(validateGrid(*grid));
         }
 
-        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+        CherryVis::frameEnd();
     };
 
     test.run();
@@ -435,7 +435,7 @@ TEST(UpdateNavigationGrid, PylonEmpireOfTheSun)
             EXPECT_TRUE((*grid)[BWAPI::TilePosition(118, 122)].cost < USHRT_MAX);
         }
 
-        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+        CherryVis::frameEnd();
     };
 
     test.run();
@@ -507,7 +507,7 @@ TEST(UpdateNavigationGrid, HeartbreakRidgeBug)
             EXPECT_TRUE((*grid)[BWAPI::TilePosition(32, 70)].cost < USHRT_MAX);
         }
 
-        CherryVis::frameEnd(BWAPI::Broodwar->getFrameCount());
+        CherryVis::frameEnd();
     };
 
     test.run();

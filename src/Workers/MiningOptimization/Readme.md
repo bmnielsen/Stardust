@@ -120,3 +120,32 @@ However, unlike the gather command, reissuing the return cargo command (or anyth
 Despite the potentially longer path back to the depot, optimizing the order process timer can still give a benefit, especially as in some cases the worker will maintain some of its speed and therefore reach the mineral patch again more quickly.
 
 Since reissuing the return cargo command changes the path, we cannot simply observe normal mining patterns and compute the optimal reissue positions. Instead, a test infrastructure is needed that simulates returns from all possible mining locations and finds the best reissue position for each through trial-and-error.
+
+## A note of caution about frame timing
+
+A frame in BW with BWAPI is executed in this order:
+
+1. BW starts a new frame; BWAPI takes over the process via a DLL hook
+2. BWAPI reads the game memory to update all of its data about units, bullets, etc.
+3. BWAPI allows the AI to do its thing (by signalling a client bot to process the frame or invoking the AIModule event callbacks in a module bot)
+4. BWAPI issues any remaining buffered commands and does some bookkeeping
+5. BWAPI returns from its hook, allowing BW to do its processing of the frame
+6. BW's engine runs and updates the game state
+
+This can cause some confusion when viewing a replay in CherryVis and comparing it to data logged by the bot, since they are seeing the game data at different points in the above cycle: CherryVis will show the state after step 6, while the bot on the same frame saw the engine data from the end of the previous frame.
+
+This makes it very easy to make off-by-one frame timing errors when working on things like mining timings.
+
+Stardust already keeps its own frame timer in an attempt to not get too confused by pauses, so to hopefully simplify things, it is initialized to run one tick behind BWAPI's frame timer. So when looking at a frame in CherryVis, the frame labels from the bot will match the frame with the engine data the bot's behaviour was based on. Frame numbers in the CherryVis data files are likewise decremented. This breaks down if there is pausing, but as this doesn't happen in games with CherryVis instrumentation, this isn't an issue.
+
+## A note of caution about order process timer timing
+
+Similar to the above, the details of how the order process timer cycle works are important to how they should be interpreted when viewing the values in CherryVis.
+
+When a unit is being processed, the first check is whether the order process timer is nonzero. If this is true, the value is decremented and all further unit processing is skipped.
+
+If the order process timer is zero during the above check, the timer is set to 8 and the rest of the unit processing is allowed to happen. Some orders then set the order process timer to different values than 8 (for example, starting an attack will set the order process timer to the same value as the weapon cooldown).
+
+When we are paused on a frame in CherryVis, we see the order process timer values from the end of the frame. So if a worker has had its unit processing occur on that frame, its order process timer value will be 8 (ignoring orders that set another value during processing). An order process timer value of 0 indicates that the unit will have its processing occur on the next frame, unless something interrupts this (like an order process timer reset or a new command kicking in).
+
+When an order process timer reset occurs every 150 frames, it happens before any of the units are updated and go through the above logic. So if you pause in CherryVis on the order process timer reset frame, you will see the value after the original reset value was updated according to the above logic. Since the order process timer resets use the values 0-7, you will therefore see units with values of 0-6 and 8 (ignoring orders that set another value during processing).

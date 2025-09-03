@@ -167,9 +167,10 @@ void StardustAIModule::onEnd(bool isWinner)
 
 void StardustAIModule::onFrame()
 {
-    if (BWAPI::Broodwar->getFrameCount() < frameSkip)
+    if (currentFrame < frameSkip)
     {
-        currentFrame++;
+        // We skip one frame at the start so our frame aligns with the game data, see readme in mining optimization for rationale
+        if (BWAPI::Broodwar->getFrameCount() > 0) currentFrame++;
         return;
     }
     if (gameFinished) return;
@@ -431,12 +432,13 @@ void StardustAIModule::onFrame()
         Map::dumpPowerHeatmap();
     }
 #endif
-    CherryVis::frameEnd(currentFrame);
+    CherryVis::frameEnd();
     Timer::checkpoint("Instrumentation");
 
     Timer::stop();
 
-    currentFrame++;
+    // We skip one frame at the start so our frame aligns with the game data, see readme in mining optimization for rationale
+    if (BWAPI::Broodwar->getFrameCount() > 0) currentFrame++;
 }
 
 void StardustAIModule::onSendText(std::string)

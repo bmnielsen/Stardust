@@ -327,7 +327,7 @@ namespace WorkerMiningOptimization
             return true;
         };
 
-        auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), positionMetadata, workerStatus.resource);
+        auto evaluation = evaluatePosition(currentFrame, positionMetadata, workerStatus.resource);
         if (shouldResend(evaluation))
         {
             workerStatus.plannedResendPosition = std::move(evaluation.resendPosition);
@@ -441,10 +441,10 @@ namespace WorkerMiningOptimization
         // We have observed this path, so we can replan the second resend position
         // First we need to figure out the delta between the first resend and the current position
         int deltaFromFirstResend = currentFrame - workerStatus.lastResendFrame();
-        int firstResendCommandFrame = BWAPI::Broodwar->getFrameCount() - deltaFromFirstResend;
+        int firstResendCommandFrame = currentFrame - deltaFromFirstResend;
 
         // Evaluate second resends
-        auto evaluation = evaluateSecondResendPositions(BWAPI::Broodwar->getFrameCount(),
+        auto evaluation = evaluateSecondResendPositions(currentFrame,
                                                         firstResend,
                                                         *workerStatus.currentNode,
                                                         deltaFromFirstResend,

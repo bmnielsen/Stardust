@@ -165,7 +165,7 @@ namespace WorkerMiningOptimization
                 return evaluation.explored;
             };
 
-            auto evaluation = evaluatePosition(BWAPI::Broodwar->getFrameCount(), positionMetadata);
+            auto evaluation = evaluatePosition(currentFrame, positionMetadata);
             if (shouldResend(evaluation))
             {
                 workerStatus.plannedResendPosition = evaluation.resendPosition;
