@@ -83,14 +83,16 @@ namespace WorkerMiningOptimization
         // Whether the worker had path data it could use on this approach
         bool hasPathData;
 
-        // Whether the worker is expected to lock to the patch at this given frame
+        // The frame at which the worker is expected to lock to the patch
         // If the worker is not expected to lock to the patch, this will be -1
+        // Only applicable when taking over from another worker
         int expectedPatchLockFrame;
 
         // The frame this worker is expected to start mining
         // Not relevant if the worker has an expected patch lock frame, since the mining start frame then depends on the
         // worker being taken over from
         // If the expected mining start frame is unknown, this will be -1
+        // Only applicable when taking over from another worker
         int expectedMiningStartFrame;
 
         WorkerGatherStatus(MyWorker worker, MyUnit depot, Resource resource)

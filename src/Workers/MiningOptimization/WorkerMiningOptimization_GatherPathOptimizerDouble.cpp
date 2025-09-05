@@ -476,6 +476,7 @@ namespace WorkerMiningOptimization
 
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
             workerStatus.expectedArrivalFrame = evaluation.expectedArrivalFrame;
+            workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay);
 
 #if TAKEOVER_DEBUG
             {
@@ -501,7 +502,8 @@ namespace WorkerMiningOptimization
                 {
                     out << " expected delay " << evaluation.expectedDelay
                         << "; expected collision delay " << evaluation.expectedCollisionDelay
-                        << "; expected arrival frame " << evaluation.expectedArrivalFrame;
+                        << "; expected arrival frame " << evaluation.expectedArrivalFrame
+                        << "; expected mining start frame " << workerStatus.expectedMiningStartFrame;
                 }
 
                 CherryVis::log(workerStatus.worker->id) << out.str();
@@ -546,6 +548,8 @@ namespace WorkerMiningOptimization
         workerStatus.plannedSecondResendPosition = nullptr;
         workerStatus.expectedPath.clear();
         workerStatus.expectedArrivalFrame = -1;
+        workerStatus.expectedMiningStartFrame = -1;
+        workerStatus.expectedPatchLockFrame = -1;
 
         // If we haven't passed the first resend position yet, then try to replan
         if (!workerStatus.resentPosition())
@@ -610,6 +614,7 @@ namespace WorkerMiningOptimization
         workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
         workerStatus.expectedPath = std::move(evaluation.expectedPath);
         workerStatus.expectedArrivalFrame = evaluation.expectedArrivalFrame;
+        workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay);
         return true;
     }
 }
