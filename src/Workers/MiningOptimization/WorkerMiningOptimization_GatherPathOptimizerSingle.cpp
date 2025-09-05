@@ -309,7 +309,15 @@ namespace WorkerMiningOptimization
                     OrderProcessTimer::unitOrderProcessTimerAtDelta(workerStatus.worker->orderProcessTimer, framesToNormalPathArrival);
             if (orderProcessTimerAtArrival != -1)
             {
-                orderProcessTimerDelay = (double)orderProcessTimerAtArrival;
+                // The order timer might reset between arrival and mining start, so adjust for this
+                if (OrderProcessTimer::previousResetFrame(currentFrame + framesToNormalPathArrival + 1) > currentFrame)
+                {
+                    orderProcessTimerDelay = (double)(orderProcessTimerAtArrival + 4);
+                }
+                else
+                {
+                    orderProcessTimerDelay = (double)orderProcessTimerAtArrival;
+                }
             }
 
             if ((normalPathCollisionDelay + orderProcessTimerDelay) < evaluation.expectedDelta)
