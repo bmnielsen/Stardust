@@ -7,9 +7,25 @@
 
 #include "DebugFlag_UnitOrders.h"
 
+#define DEBUG_ORDER_PROCESS_INDEX false
+
+namespace
+{
+    // BWAPI's isVisible is really intended for knowing if an enemy unit is in the fog or not
+    // We want to also know if a unit is loaded or harvesting gas, as these remove the unit from the game's visible units list
+    bool isVisible(BWAPI::Unit unit)
+    {
+        if (!unit->getType().isBuilding() && !unit->isCompleted()) return false;
+        if (!unit->isVisible()) return false;
+        if (unit->isLoaded()) return false;
+        if (unit->getOrder() == BWAPI::Orders::HarvestGas && unit->getOrderTimer() > 0) return false;
+        return true;
+    }
+}
+
 MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         : UnitImpl(unit)
-        , orderProcessIndex(unit->isVisible() ? (10 + currentFrame) : -1)
+        , orderProcessIndex(isVisible(unit) ? (10 + currentFrame) : -1)
         , producer(nullptr)
         , energy(unit->getEnergy())
         , lastCastFrame(-1)
@@ -23,11 +39,14 @@ MyUnitImpl::MyUnitImpl(BWAPI::Unit unit)
         , lastMoveFrame(0)
         , unstickUntil(-1)
         , simulatedPositionsUpdated(false)
-        , visible(unit->isVisible())
+        , visible(isVisible(unit))
 {
     recentCommands.resize(BWAPI::Broodwar->getLatencyFrames() + 1, unit->getLastCommand());
     simulatedPositions.resize(BWAPI::Broodwar->getLatencyFrames() + 1, unit->getPosition());
     simulatedHeading.resize(BWAPI::Broodwar->getLatencyFrames() + 1, 0);
+#if DEBUG_ORDER_PROCESS_INDEX
+    CherryVis::log(id) << "Order process index: " << orderProcessIndex;
+#endif
 }
 
 std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit)
@@ -41,17 +60,24 @@ void MyUnitImpl::update(BWAPI::Unit unit)
     if (!unit || !unit->exists()) return;
 
     // Update the order process index if the unit's visibility has changed
-    if (unit->isVisible() != visible)
+    if (isVisible(unit) != visible)
     {
         if (visible)
         {
             visible = false;
             orderProcessIndex = -1;
+#if DEBUG_ORDER_PROCESS_INDEX
+            CherryVis::log(id) << "Order process index reset as unit has become invisible";
+#endif
         }
         else
         {
             visible = true;
             orderProcessIndex = 10 + currentFrame;
+            orderProcessTimer = 0;
+#if DEBUG_ORDER_PROCESS_INDEX
+            CherryVis::log(id) << "Order process index: " << orderProcessIndex;
+#endif
         }
     }
 
