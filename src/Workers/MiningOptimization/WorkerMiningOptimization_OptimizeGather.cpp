@@ -109,8 +109,8 @@ namespace WorkerMiningOptimization
                 workerStatus.takeoverFrame = otherWorker->lastStartedMining + 81 + addedFrame;
 
                 // Compute the frame of the order timer reset prior to the take over frame
-                int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame);
-                if (previousOrderTimerReset == workerStatus.takeoverFrame) previousOrderTimerReset -= 150;
+                int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame - addedFrame);
+                if (previousOrderTimerReset == (workerStatus.takeoverFrame - addedFrame)) previousOrderTimerReset -= 150;
 
                 // If the order timer reset during mining, adjust our take over frame
                 // We always assume the worst-case scenario (needing to wait a full cycle after the mining timer expires)
