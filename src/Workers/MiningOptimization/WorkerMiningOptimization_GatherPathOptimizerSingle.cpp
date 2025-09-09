@@ -13,6 +13,20 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
+        std::vector<std::pair<int, int>> createExpectedArrivalData(
+                const std::unordered_map<int8_t, uint8_t> &referenceData,
+                auto dataConverter)
+        {
+            std::vector<std::pair<int, int>> result;
+            result.reserve(referenceData.size());
+            for (const auto &[dataPoint, occurrenceRate] : referenceData)
+            {
+                result.emplace_back(dataConverter(dataPoint), (int)occurrenceRate);
+            }
+
+            return result;
+        }
+
         bool shouldExploreCollisions(uint32_t collisions, uint32_t nonCollisions)
         {
             if (!WorkerMiningOptimization::isExploring()) return false;
@@ -37,7 +51,7 @@ namespace WorkerMiningOptimization
         {
             bool explored = false;
             double expectedDelta = 100.0;
-            int expectedArrivalFrame = -1;
+            std::vector<std::pair<int, int>> expectedArrivalFrameAndOccurrenceRate;
             std::deque<GatherPositionObservationPtr> expectedPath;
             std::unique_ptr<GatherPositionObservationPtr> resendPosition;
             bool positionToTryOnExpectedPath = false;
@@ -49,7 +63,7 @@ namespace WorkerMiningOptimization
             {
                 return {false,
                         100,
-                        -1,
+                        {},
                         {secondResend},
                         std::make_unique<GatherPositionObservationPtr>(&firstResend),
                         true,
@@ -57,13 +71,13 @@ namespace WorkerMiningOptimization
             }
 
             static PositionEvaluation resends(double delta,
-                                              int expectedArrivalFrame,
+                                              std::vector<std::pair<int, int>> expectedArrivalFrameAndOccurrenceRate,
                                               GatherPositionObservations &firstResend,
                                               GatherPositionObservationPtr secondResend)
             {
                 return {true,
                         delta,
-                        expectedArrivalFrame,
+                        std::move(expectedArrivalFrameAndOccurrenceRate),
                         {secondResend},
                         std::make_unique<GatherPositionObservationPtr>(&firstResend)};
             }
@@ -77,10 +91,10 @@ namespace WorkerMiningOptimization
             return first.expectedPath.begin()->position() < second.expectedPath.begin()->position();
         }
 
-        std::optional<std::pair<double, int>> computeExpectedDelta(int commandFrame,
-                                                                   const GatherPositionObservations &positionMetadata,
-                                                                   int deltaToFirstResend,
-                                                                   const GatherResendArrivalObservations &observations)
+        std::optional<std::pair<double, std::vector<std::pair<int, int>>>> computeExpectedDelta(int commandFrame,
+                                                                                                const GatherPositionObservations &positionMetadata,
+                                                                                                int deltaToFirstResend,
+                                                                                                const GatherResendArrivalObservations &observations)
         {
             // If we don't know the normal delta to benchmark, or haven't observed this position, return nothing
             if (positionMetadata.deltaToBenchmarkAndOccurrenceRate.empty() || observations.arrivalDelayAndOccurrenceRate.empty())
@@ -101,7 +115,9 @@ namespace WorkerMiningOptimization
             auto collisionDelay = expectedPatchCollisionDelay(observations.collisionRate);
             return std::make_pair(
                     positionMetadata.averageDeltaToBenchmark() + deltaToFirstResend + expectedMiningDelay + collisionDelay,
-                    commandFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + observations.mostCommonArrivalDelay());
+                    createExpectedArrivalData(observations.arrivalDelayAndOccurrenceRate, [&commandFrame](auto arrivalDelay) {
+                        return commandFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay;
+                    }));
         }
 
         PositionEvaluation evaluateSecondResendPositions(int commandFrame, // NOLINT(*-no-recursion)
@@ -350,7 +366,7 @@ namespace WorkerMiningOptimization
             {
                 workerStatus.plannedSecondResendPosition = nullptr;
             }
-            workerStatus.expectedArrivalFrame = evaluation.expectedArrivalFrame;
+            workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
 
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
 
@@ -378,9 +394,9 @@ namespace WorkerMiningOptimization
                 {
                     out << " expected delta " << evaluation.expectedDelta;
                 }
-                if (evaluation.expectedArrivalFrame != -1)
+                if (!evaluation.expectedArrivalFrameAndOccurrenceRate.empty())
                 {
-                    out << "; expected arrival frame " << evaluation.expectedArrivalFrame;
+                    out << "; expected arrival frame(s) " << workerStatus.expectedArrivalFramesDebug();
                 }
 
                 CherryVis::log(workerStatus.worker->id) << out.str();
@@ -413,11 +429,13 @@ namespace WorkerMiningOptimization
         }
         else if (!positionMetadata.deltaToBenchmarkAndOccurrenceRate.empty())
         {
-            workerStatus.expectedArrivalFrame =
-                    currentFrame + BWAPI::Broodwar->getLatencyFrames() + 11 - positionMetadata.probableDeltaToBenchmark();
+            workerStatus.expectedArrivalFrameAndOccurrenceRate =
+                    createExpectedArrivalData(positionMetadata.deltaToBenchmarkAndOccurrenceRate, [](auto delta) {
+                        return currentFrame + BWAPI::Broodwar->getLatencyFrames() + 11 - delta;
+                    });
 
 #if OPTIMALPOSITIONS_DEBUG
-            CherryVis::log(workerStatus.worker->id) << "Expected arrival frame: " << workerStatus.expectedArrivalFrame;
+            CherryVis::log(workerStatus.worker->id) << "Expected arrival frame: " << workerStatus.expectedArrivalFramesDebug();
 #endif
         }
     }
@@ -431,7 +449,7 @@ namespace WorkerMiningOptimization
         // We need to clear second resend and expected path no matter what
         workerStatus.plannedSecondResendPosition = nullptr;
         workerStatus.expectedPath.clear();
-        workerStatus.expectedArrivalFrame = -1;
+        workerStatus.expectedArrivalFrameAndOccurrenceRate.clear();
 
         // If we haven't passed the first resend position yet, then just clear the planned data so we can replan
         if (!workerStatus.resentPosition())
@@ -502,21 +520,21 @@ namespace WorkerMiningOptimization
         {
             workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(*evaluation.expectedPath.rbegin());
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
-            workerStatus.expectedArrivalFrame = evaluation.expectedArrivalFrame;
+            workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
 
 #if OPTIMALPOSITIONS_DEBUG
             CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path; replanning with second resend position: "
                                                     << *workerStatus.plannedSecondResendPosition
-                                                    << "; Expected arrival frame: " << workerStatus.expectedArrivalFrame;
+                                                    << "; Expected arrival frame(s): " << workerStatus.expectedArrivalFramesDebug();
 #endif
         }
         else
         {
-            workerStatus.expectedArrivalFrame = expectedDelta.value().second;
+            workerStatus.expectedArrivalFrameAndOccurrenceRate = expectedDelta.value().second;
 
 #if OPTIMALPOSITIONS_DEBUG
             CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path; aborting second resend. "
-                                                    << "Expected arrival frame: " << workerStatus.expectedArrivalFrame;
+                                                    << "Expected arrival frame(s): " << workerStatus.expectedArrivalFramesDebug();
 #endif
         }
     }

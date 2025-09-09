@@ -684,7 +684,7 @@ namespace WorkerMiningOptimization
                 continue;
             }
 
-            // Mark workers that reached WaitForMinerals while another was waiting to mine
+            // Mark workers that reached WaitForMinerals while another was still mining
             if (it->second.lastProcessedFrame == currentFrame)
             {
                 it->second.waitForMineralsWhileOtherStillMining = true;
@@ -740,6 +740,27 @@ namespace WorkerMiningOptimization
             else
             {
                 didNotHavePathData++;
+            }
+
+            // Validate the arrival frame
+            if (!it->second.switchedPatches && !it->second.expectedArrivalFrameAndOccurrenceRate.empty())
+            {
+                int arrivalFrame = currentFrame - (int)std::distance(positionsInHistory.arrivalPositionIt, it->second.positionHistory.end()) + 1;
+                bool found = false;
+                for (const auto &[frame, _] : it->second.expectedArrivalFrameAndOccurrenceRate)
+                {
+                    if (frame == arrivalFrame)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    Log::Get() << "ERROR: Actual arrival frame " << arrivalFrame
+                               << " not found in expected arrival frame(s) " << it->second.expectedArrivalFramesDebug()
+                               << "; worker id " << it->second.worker->id << " @ " << it->second.worker->getTilePosition();
+                }
             }
 #endif
 

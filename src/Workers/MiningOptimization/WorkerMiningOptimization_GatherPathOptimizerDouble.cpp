@@ -84,7 +84,7 @@ namespace WorkerMiningOptimization
         {
             double expectedDelay = 100.0; // Relative to takeover frame
             double expectedCollisionDelay = 0.0;
-            int expectedArrivalFrame = -1;
+            std::vector<std::pair<int, int>> expectedArrivalFrameAndOccurrenceRate;
             int potentialPatchSwitchFrame = INT_MAX;
             bool positionToTryOnExpectedPath = false;
             bool hasUnexploredPositionOnExpectedPath = false;
@@ -94,24 +94,35 @@ namespace WorkerMiningOptimization
 
             static PositionEvaluation patchSwitch(int frame)
             {
-                return {0.0, 0.0, -1, frame};
+                return {0.0, 0.0, {}, frame};
             }
 
             static PositionEvaluation exploring(GatherPositionObservations &firstResend, GatherPositionObservationPtr secondResend)
             {
-                return {0.0, 0.0, -1, INT_MAX, true, false, false, {secondResend}, std::make_unique<GatherPositionObservationPtr>(&firstResend)};
+                return {0.0, 0.0, {}, INT_MAX, true, false, false, {secondResend}, std::make_unique<GatherPositionObservationPtr>(&firstResend)};
             }
 
             static PositionEvaluation resends(double delay,
                                               double collisionDelay,
-                                              int expectedArrivalFrame,
+                                              int simulationFrame,
+                                              const GatherResendArrivalObservations &arrivalObservations,
                                               GatherPositionObservations &firstResend,
                                               GatherPositionObservationPtr secondResend,
                                               bool unexploredPositionOnExpectedPath)
             {
+                // Generate the possible arrival frames with their weighting
+                std::vector<std::pair<int, int>> _expectedArrivalFrameAndOccurrenceRate;
+                _expectedArrivalFrameAndOccurrenceRate.reserve(arrivalObservations.arrivalDelayAndOccurrenceRate.size());
+                for (const auto &[arrivalDelay, occurrenceRate] : arrivalObservations.arrivalDelayAndOccurrenceRate)
+                {
+                    _expectedArrivalFrameAndOccurrenceRate.emplace_back(
+                        simulationFrame + 11 + BWAPI::Broodwar->getLatencyFrames() + arrivalDelay,
+                        (int)occurrenceRate);
+                }
+
                 return {delay,
                         collisionDelay,
-                        expectedArrivalFrame,
+                        std::move(_expectedArrivalFrameAndOccurrenceRate),
                         INT_MAX,
                         false,
                         unexploredPositionOnExpectedPath,
@@ -324,7 +335,8 @@ namespace WorkerMiningOptimization
             {
                 return PositionEvaluation::resends(expectedDelay.value(),
                                                    expectedCollisionDelay,
-                                                   simulationFrame + 11 + BWAPI::Broodwar->getLatencyFrames() + observations.mostCommonArrivalDelay(),
+                                                   simulationFrame,
+                                                   observations,
                                                    firstResend,
                                                    here,
                                                    nextPositionsEvaluation.hasUnexploredPositionOnExpectedPath);
@@ -475,7 +487,7 @@ namespace WorkerMiningOptimization
             }
 
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
-            workerStatus.expectedArrivalFrame = evaluation.expectedArrivalFrame;
+            workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
             workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay);
 
 #if TAKEOVER_DEBUG
@@ -502,7 +514,7 @@ namespace WorkerMiningOptimization
                 {
                     out << " expected delay " << evaluation.expectedDelay
                         << "; expected collision delay " << evaluation.expectedCollisionDelay
-                        << "; expected arrival frame " << evaluation.expectedArrivalFrame
+                        << "; expected arrival frame(s) " << workerStatus.expectedArrivalFramesDebug()
                         << "; expected mining start frame " << workerStatus.expectedMiningStartFrame;
                 }
 
@@ -547,7 +559,7 @@ namespace WorkerMiningOptimization
         // We always need to clear second resend and path expectations
         workerStatus.plannedSecondResendPosition = nullptr;
         workerStatus.expectedPath.clear();
-        workerStatus.expectedArrivalFrame = -1;
+        workerStatus.expectedArrivalFrameAndOccurrenceRate.clear();
         workerStatus.expectedMiningStartFrame = -1;
         workerStatus.expectedPatchLockFrame = -1;
 
@@ -613,7 +625,7 @@ namespace WorkerMiningOptimization
 
         workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
         workerStatus.expectedPath = std::move(evaluation.expectedPath);
-        workerStatus.expectedArrivalFrame = evaluation.expectedArrivalFrame;
+        workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
         workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay);
         return true;
     }

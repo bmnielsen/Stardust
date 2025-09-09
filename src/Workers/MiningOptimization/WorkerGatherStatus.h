@@ -51,8 +51,8 @@ namespace WorkerMiningOptimization
         // The current position of the worker in the expected path
         std::unique_ptr<GatherPositionObservationPtr> currentNode;
 
-        // The expected frame the worker will arrive at the patch
-        int expectedArrivalFrame;
+        // The expected frames the worker could arrive at the patch with their occurrence rates
+        std::vector<std::pair<int, int>> expectedArrivalFrameAndOccurrenceRate;
 
         // Positions at which the gather command was resent
         std::vector<std::shared_ptr<const PositionAndVelocity>> resentPositions;
@@ -105,7 +105,6 @@ namespace WorkerMiningOptimization
                 , remainingIgnorePositions(0)
                 , hasLeftDepot(false)
                 , resendsPlanned(false)
-                , expectedArrivalFrame(-1)
                 , takeoverState(0)
                 , takeoverFrame(-1)
                 , passed10DistancePosition(-1)
@@ -126,7 +125,7 @@ namespace WorkerMiningOptimization
             remainingIgnorePositions = 0;
             hasLeftDepot = false;
             resendsPlanned = false;
-            expectedArrivalFrame = -1;
+            expectedArrivalFrameAndOccurrenceRate.clear();
             plannedResendPosition = nullptr;
             plannedSecondResendPosition = nullptr;
             expectedPath.clear();
@@ -186,6 +185,50 @@ namespace WorkerMiningOptimization
         {
             if (resentFrames.empty()) return -1;
             return *resentFrames.rbegin();
+        }
+
+        [[nodiscard]] int mostProbableArrivalFrame() const
+        {
+            if (expectedArrivalFrameAndOccurrenceRate.empty()) return -1;
+            if (expectedArrivalFrameAndOccurrenceRate.size() == 1) return expectedArrivalFrameAndOccurrenceRate.begin()->first;
+
+            int best = -1;
+            int bestRate = 0;
+            for (const auto &[arrivalFrame, occurrenceRate] : expectedArrivalFrameAndOccurrenceRate)
+            {
+                if (occurrenceRate > bestRate)
+                {
+                    best = arrivalFrame;
+                    bestRate = occurrenceRate;
+                }
+            }
+
+            return best;
+        }
+
+        [[nodiscard]] std::string expectedArrivalFramesDebug() const
+        {
+            if (expectedArrivalFrameAndOccurrenceRate.empty()) return "-1";
+
+            std::ostringstream buf;
+            buf << std::fixed << std::setprecision(0);
+            if (expectedArrivalFrameAndOccurrenceRate.size() == 1)
+            {
+                buf << expectedArrivalFrameAndOccurrenceRate.begin()->first;
+            }
+            else
+            {
+                buf << "[";
+                std::string sep;
+                for (const auto &[frame, occurrenceRate] : expectedArrivalFrameAndOccurrenceRate)
+                {
+                    buf << sep << frame << "/" << std::round((double)occurrenceRate / 255.0);
+                    sep = ", ";
+                }
+                buf << "]";
+            }
+
+            return buf.str();
         }
     };
 }
