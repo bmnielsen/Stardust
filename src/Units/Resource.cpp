@@ -17,9 +17,9 @@ ResourceImpl::ResourceImpl(BWAPI::Unit unit)
     , seenLastFrame(false)
     , destroyed(false)
     , bwapiUnit(unit)
-    , gatherProbabilityForecast({})
+    , gatherProbabilityForecast({0.0})
     , gatherProbabilityForecastUpdated(-2)
-    , allOtherPatchesGatheredProbabilityForecast({})
+    , allOtherPatchesGatheredProbabilityForecast({0.0})
     , allOtherPatchesGatheredProbabilityForecastUpdated(-2)
 {}
 
@@ -183,28 +183,35 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(miningEndFrame - 1);
         if (previousOrderTimerReset >= miningWorker->lastStartedMining)
         {
-            int earliestMiningEndFrame = miningWorker->lastStartedMining + 74;
+            int earliestMiningEndFrame = miningWorker->lastStartedMining + 75;
+            int possibleOrderProcessTimerValues = 9;
 
             // If the reset happens after the mining timer expires, the earliest end frame is advanced to the reset point
             if (previousOrderTimerReset > earliestMiningEndFrame)
             {
-                earliestMiningEndFrame = previousOrderTimerReset;
+                earliestMiningEndFrame = previousOrderTimerReset + 1;
+                possibleOrderProcessTimerValues = 8; // At reset it will get a value of 0-7 inclusive
             }
 
-            // Fill the array up to the earliest end frame to indicate that the patch is definitely being mined
+            // Fill the array up to the earliest end frame to indicate that the patch is definitely being mined until that point
             if (earliestMiningEndFrame > currentFrame)
             {
                 std::fill_n(gatherProbabilityForecast.begin(), std::min(earliestMiningEndFrame - currentFrame - 1, GATHER_FORECAST_FRAMES), 1.0);
             }
+            else
+            {
+                // Mining could have ended by now, but it hasn't, which limits the possible order process timer values
+                possibleOrderProcessTimerValues -= (currentFrame - earliestMiningEndFrame + 1);
+                earliestMiningEndFrame = currentFrame + 1;
+            }
 
             // Set a decaying probability from here
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < possibleOrderProcessTimerValues; i++)
             {
                 int arrayIdx = earliestMiningEndFrame + i - currentFrame - 1;
-                if (arrayIdx < 0) continue;
                 if (arrayIdx >= GATHER_FORECAST_FRAMES) break;
 
-                gatherProbabilityForecast[arrayIdx] = 1.0 - (double)i / 8.0;
+                gatherProbabilityForecast[arrayIdx] = 1.0 - ((double)(i + 1) / (double)possibleOrderProcessTimerValues);
             }
         }
         else
