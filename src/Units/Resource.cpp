@@ -246,27 +246,55 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         }
     }
 
-    // If there is a next mining worker, fill in its data
-    if (nextMiningWorker)
+    // Jump out if there is no next mining worker
+    if (!nextMiningWorker) return returner();
+
+    // We can only predict if we have gather status data
+    auto gatherStatus = WorkerMiningOptimization::gatherStatusFor(nextMiningWorker);
+    if (!gatherStatus) return returner();
+
+    // Two worker takeover case
+    if (gatherStatus && gatherStatus->takeoverFrame != -1)
     {
-        // We can only predict if we have gather status data
-        auto gatherStatus = WorkerMiningOptimization::gatherStatusFor(nextMiningWorker);
-        if (gatherStatus)
+        // Special case when the takeover worker is expected to patch lock on a given frame
+        if (gatherStatus->expectedPatchLockFrame != -1)
         {
-            // We will treat the start frame as either the frame the worker is expected to patch lock or the frame the worker will start mining
-            // In the patch lock case, this isn't actually the frame the worker will start mining, but it will take over from the current one
-            // with no delay, so we can just overwrite the current worker's data with 1s
-            int startIndex = GATHER_FORECAST_FRAMES;
-            if (gatherStatus->expectedPatchLockFrame != -1)
+            // There are three high-level scenarios:
+            // - Patch lock has already happened -> mining will continue with no delay
+            // - Patch lock will happen before the mining worker finishes mining -> mining will continue with no delay
+            // - "Patch lock" may be after previous worker finishes mining -> mining will start as on usual takeover (with one WaitForMinerals frame)
+            // The first two cases are easy, as the patch lock frame already has a 1 from the mining worker (or is before the forecast window), so
+            // we can write 1s from the frame after the patch lock frame, which will overwrite any data already there from the mining worker.
+            // In the last case we can also always write 1s from the frame after the patch lock frame, as we are sure mining will happen by then.
+            // However, it gets more complicated if the mining worker might finish mining on the same frame as the patch lock. If the new worker has
+            // its orders processed first, it may lock before the other worker is processed and therefore continue mining immediately.
+
+            // Start by filling the 1s from the frame after the patch lock frame
+            int frameAfterLockIndex = std::max(gatherStatus->expectedPatchLockFrame - currentFrame, 0);
+            std::fill_n(gatherProbabilityForecast.begin() + frameAfterLockIndex, GATHER_FORECAST_FRAMES - frameAfterLockIndex, 1.0);
+
+            // If we are in the situation where the mining worker might finish on the patch lock frame, and the next worker has its orders processed
+            // first, the probability for that frame becomes the probability that the mining worker was mining on the previous frame
+            if (frameAfterLockIndex > 0 && miningWorker && nextMiningWorker->orderProcessIndex > miningWorker->orderProcessIndex)
             {
-                // Patch lock might have already happened, so if it was at or before the current frame we just clamp the index to 0
-                startIndex = std::max(gatherStatus->expectedPatchLockFrame - currentFrame - 1, 0);
+                gatherProbabilityForecast[frameAfterLockIndex - 1] = (frameAfterLockIndex == 1)
+                                                                     ? 1.0
+                                                                     : gatherProbabilityForecast[frameAfterLockIndex - 2];
             }
-            else if (gatherStatus->expectedMiningStartFrame > currentFrame)
-            {
-                // If the expected mining start frame is at or before the current frame, we guessed wrong and don't write any data
-                startIndex = gatherStatus->expectedMiningStartFrame - currentFrame - 1;
-            }
+            return returner();
+        }
+
+        // We require the expected mining start frame to be in the future, otherwise we guessed wrong and leave the forecast with 0s
+        if (gatherStatus->expectedMiningStartFrame > currentFrame)
+        {
+            // If the expected mining start frame is at or before the current frame, we guessed wrong and don't write any data
+            int miningStartIndex = gatherStatus->expectedMiningStartFrame - currentFrame - 1;
+
+            std::fill_n(gatherProbabilityForecast.begin() + miningStartIndex, GATHER_FORECAST_FRAMES - miningStartIndex, 1.0);
+        }
+
+        return returner();
+    }
 
             if (startIndex < GATHER_FORECAST_FRAMES)
             {
