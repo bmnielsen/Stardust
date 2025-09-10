@@ -15,7 +15,7 @@ TEST(SaturatedBase, SinglePatch)
     {
         return new DoNothingModule();
     };
-    test.frameLimit = 10000;
+    test.frameLimit = 1000;
     test.expectWin = false;
 
     std::vector<BWAPI::Unit> otherPatches;
@@ -23,6 +23,10 @@ TEST(SaturatedBase, SinglePatch)
 
     std::vector<std::pair<BWAPI::Unit, BWAPI::Unit>> otherWorkersAndPatch;
     std::vector<BWAPI::Unit> testWorkers;
+
+    int stopFrame = 283; // Frame when all other patch workers are ordered to stop
+    int resendOnApproachFrame = 261; // Frame when an approaching worker is ordered to gather the target patch again
+    int resendWhileMiningFrame = 220; // Frame when an approaching worker is ordered to gather the target patch again
 
     test.onFrameMine = [&]()
     {
@@ -116,7 +120,7 @@ TEST(SaturatedBase, SinglePatch)
             }
         }
 
-        if (BWAPI::Broodwar->getFrameCount() > 20)
+        if (BWAPI::Broodwar->getFrameCount() > 20 && BWAPI::Broodwar->getFrameCount() < stopFrame)
         {
             for (auto &[worker, patch] : otherWorkersAndPatch)
             {
@@ -145,6 +149,50 @@ TEST(SaturatedBase, SinglePatch)
                 if (worker->getLastCommand().getType() == BWAPI::UnitCommandTypes::Gather) continue;
                 testWorkers.emplace_back(worker);
                 worker->gather(targetPatch);
+            }
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == resendOnApproachFrame)
+        {
+            for (auto &worker : testWorkers)
+            {
+                if (worker->getOrder() != BWAPI::Orders::MoveToMinerals) continue;
+                worker->gather(targetPatch);
+            }
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == resendWhileMiningFrame)
+        {
+            for (auto &worker : testWorkers)
+            {
+                if (worker->getOrder() != BWAPI::Orders::MiningMinerals) continue;
+                worker->gather(targetPatch);
+            }
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() > 60)
+        {
+            for (auto &worker : testWorkers)
+            {
+//                if (BWAPI::Broodwar->getFrameCount() == 277)
+//                {
+//                    std::cout << worker->getOrder() << " at dist " << worker->getDistance(worker->getOrderTarget()) << " timer " << worker->getOrderProcessTimer()
+//                }
+
+                if (worker->getOrder() != BWAPI::Orders::MoveToMinerals) continue;
+                if (worker->getOrderProcessTimer() != 8) continue;
+                if (worker->getDistance(worker->getOrderTarget()) > 10) continue;
+                if (worker->getDistance(worker->getOrderTarget()) == 0) continue;
+
+                std::cout << BWAPI::Broodwar->getFrameCount() << ": Worker " << worker->getID() << " approaching at order timer 0" << std::endl;
+            }
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == stopFrame)
+        {
+            for (auto &[worker, _] : otherWorkersAndPatch)
+            {
+                worker->stop();
             }
         }
     };
