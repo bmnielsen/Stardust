@@ -16,11 +16,13 @@ Starting on frame 8, every 150 frames the order process timer of all units [is r
 
 When ordered to gather, the worker gets the MoveToMinerals order and moves towards the patch.
 
-Whenever the worker's order process timer is 0, the MoveToMinerals order will be processed. If the edge-to-edge distance from the worker to the patch is [10 or less and the patch is being mined by another worker, the worker will switch to a different patch](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L4319-L4330). If the worker has arrived at the patch (edge-to-edge distance is 0) and the patch is free, the worker's order will transition to WaitForMinerals.
+Whenever the worker's order process timer is 0, the MoveToMinerals order will be processed. If the edge-to-edge distance from the worker to the patch is [10 or less and the patch is being mined by another worker, the worker will switch to a different patch, if one is available](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L4319-L4330). If the worker has arrived at the patch (edge-to-edge distance is 0) and the patch is free, the worker's order will transition to WaitForMinerals.
 
-From WaitForMinerals the order transitions to MiningMinerals after one frame.
+From WaitForMinerals the order transitions to MiningMinerals after one frame, at which point the patch is marked as being occupied.
 
-In MiningMinerals, [if the worker is not pointing at the patch](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L4377) (for example if it tried to switch to a different patch while waiting), it will wait, essentially adding a full order process timer cycle of delay.
+An exception to the above is if the worker attempts to switch patches, but is unable to do so because no other patches are available. In this case the worker essentially locks onto the targeted patch: it will not try to find an alternate patch again while in MoveToMinerals and will transition to WaitForMinerals immediately upon reaching order process timer 0 after arrival. It will then remain in the WaitForMinerals state until the other worker finishes mining, at which point it will transition directly to MiningMinerals on the same frame regardless of the order process timer. This is therefore a very desirable behaviour, as it removes all wait times during mining takeover, and the patch remains marked as occupied without any gap.
+
+In MiningMinerals, [if the worker is not pointing at the patch](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L4377) (for example if it tried to switch to a different patch while waiting), it will use a full order process timer cycle to turn towards the patch. The worker will remain in the MiningMinerals order, and the patch will be marked as occupied, but the order timer will not start counting down the actual mining time.
 
 Once the worker has the MiningMinerals order and is pointed at the patch, [the main order timer is set to 75](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L4380) and the worker is now mining. The main order timer is decremented every frame until it reaches 0.
 
@@ -37,6 +39,8 @@ The StarCraft engine processes unit orders [in the order they appear in its visi
 When units are added to the visible units list, they are added [at (or near) the head of the list](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/game_types.h#L41-L45).
 
 This means that units have their orders processed in reverse order to when they last became visible.
+
+Note that BWAPI's `isVisible` does not reflect whether a unit is in the visible units list or not. Rather, it appears to be tied to whether the units position is in the fog of war or not. Two examples are workers harvesting gas and workers loaded in a transport; in both cases they are not in the engine's visible units list, but BWAPI's `isVisible` will return true.
 
 ### Subpixels
 
@@ -79,13 +83,15 @@ Optimizing taking over mining from another worker is somewhat more complicated, 
 
 If there is no order process timer reset during mining, the worker's order process timer will always be 6 on the frame when the main order timer reaches 0. This means the total mining time from when the worker's main order timer is initialized to 75 until the worker finishes mining is 81 frames.
 
-If there is an order process timer reset while the main order timer is still decrementing, the worker's order process timer can have any value between 0-8 inclusive when the main order timer expires. This means the overall mining time can vary between 75-83 frames inclusive.
+If there is an order process timer reset while the main order timer is still decrementing, the worker's order process timer can have any value in 0-8 inclusive when the main order timer expires. This means the overall mining time can vary between 75-83 frames inclusive.
 
 If there is an order process timer reset after the main order timer has finished decrementing, the mining time can be extended even further. In the worst case, the worker's order process timer is reset to 7 on the frame where it otherwise would have finished, extending mining time to 88 frames.
 
 ### Order of unit order processing
 
 The mineral patch is marked as available as part of the mining worker's order processing. This means that on the frame where mining finishes, another worker can start mining the patch immediately only if its orders are processed after the mining worker. Otherwise it needs to wait an extra frame, as it would try to switch patches if timed to take over on the same frame.
+
+An exception to this is if the worker taking over is locked to the patch via trying to switch patches and not finding one available. Once the worker has entered this state, it doesn't actually transition to mining during its own order processing. Instead, the order processing of the worker finishing mining both updates its own state and transitions the other worker to mining. The order of unit processing is therefore irrelevant - the worker taking over will start mining immediately regardless of their relative positions in the visible units list, so long as it was "patch locked" prior to completion of mining by the mining worker.
 
 ### Effect of order process timer resets on the worker taking over
 
