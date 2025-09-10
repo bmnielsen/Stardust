@@ -152,6 +152,14 @@ public:
                             for (auto &base : bases)
                             {
                                 minDist = std::min(minDist, base.pos.getApproxDistance(center));
+                                for (auto &patch : base.minerals)
+                                {
+                                    minDist = std::min(minDist, patch->getDistance(center));
+                                }
+                                for (auto &geyser : base.geysers)
+                                {
+                                    minDist = std::min(minDist, geyser->getDistance(center));
+                                }
                             }
 
                             if (minDist > bestDist)
