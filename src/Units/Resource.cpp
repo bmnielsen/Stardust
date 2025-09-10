@@ -138,6 +138,24 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         return gatherProbabilityForecast;
     }
 
+    auto returner = [&]() -> std::array<double, GATHER_FORECAST_FRAMES>&
+    {
+#if DEBUG_SATURATION_DATA
+        std::ostringstream debug;
+        debug << std::fixed << std::setprecision(2) << "this patch forecast: ";
+        std::string sep;
+        for (int i = 0; i < std::min(10, GATHER_FORECAST_FRAMES); i++)
+        {
+            debug << sep << gatherProbabilityForecast[i];
+            sep = ", ";
+        }
+        CherryVis::log(id) << debug.str();
+#endif
+
+        gatherProbabilityForecastUpdated = currentFrame;
+        return gatherProbabilityForecast;
+    };
+
     // Get the mining worker and the next mining worker, either or both of which may be null
     MyWorker miningWorker;
     MyWorker nextMiningWorker;
@@ -176,6 +194,14 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     // If there is a mining worker, fill in its data
     if (miningWorker)
     {
+        // If the worker has transitioned to the mining order but hasn't actually started decrementing its mining timer yet, just mark
+        // the patch as occupied for the entire forecast horizon and call it a day
+        if (miningWorker->lastStartedMining < miningWorker->lastTransitionedToMiningOrder)
+        {
+            std::fill(gatherProbabilityForecast.begin(), gatherProbabilityForecast.end(), 1.0);
+            return returner();
+        }
+
         // Compute the mining end frame if there was no order timer reset
         int miningEndFrame = miningWorker->lastStartedMining + 81;
 
@@ -249,20 +275,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         }
     }
 
-#if DEBUG_SATURATION_DATA
-    std::ostringstream debug;
-    debug << std::fixed << std::setprecision(2) << "this patch forecast: ";
-    std::string sep;
-    for (int i = 0; i < std::min(10, GATHER_FORECAST_FRAMES); i++)
-    {
-        debug << sep << gatherProbabilityForecast[i];
-        sep = ", ";
-    }
-    CherryVis::log(id) << debug.str();
-#endif
-
-    gatherProbabilityForecastUpdated = currentFrame;
-    return gatherProbabilityForecast;
+    return returner();
 }
 
 std::ostream &operator<<(std::ostream &os, const ResourceImpl &resource)

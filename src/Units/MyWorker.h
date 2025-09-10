@@ -11,7 +11,8 @@ class MyWorkerImpl : public MyUnitImpl
 public:
     bool carryingResource;              // Whether the unit is carrying a resource
     int lastCarryingResourceChange;     // Frame when the unit last acquired or delivered a resource
-    int lastStartedMining;              // Frame when the unit last started mining
+    int lastStartedMining;              // Frame when the unit last started mining with the order timer counting down
+    int lastTransitionedToMiningOrder;  // Frame when the unit last switched to the MiningMinerals order
 
     // Where the worker spawned, if it spawned normally
     // If it appeared because of a trigger (e.g. in a test), it will be Positions::Invalid
@@ -42,6 +43,7 @@ private:
     const BWEM::Area *mineralWalkingTargetArea;
     BWAPI::Position mineralWalkingStartPosition;
     int nextAttackPredictedAt;
+    bool hasMiningOrder;
 
     std::set<int> gatherCommandFrames;
 

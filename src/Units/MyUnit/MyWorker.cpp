@@ -60,6 +60,7 @@ MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
         , carryingResource(unit->isCarryingMinerals() || unit->isCarryingGas())
         , lastCarryingResourceChange(-1)
         , lastStartedMining(-1)
+        , lastTransitionedToMiningOrder(-1)
         , spawnPosition(BWAPI::Positions::Invalid)
         , horizontalSpeed8b(to8bSpeed(unit->getVelocityX()))
         , verticalSpeed8b(to8bSpeed(unit->getVelocityY()))
@@ -68,6 +69,7 @@ MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
         , mineralWalkingTargetArea(nullptr)
         , mineralWalkingStartPosition(BWAPI::Positions::Invalid)
         , nextAttackPredictedAt(-1)
+        , hasMiningOrder(unit->getOrder() == BWAPI::Orders::MiningMinerals)
 {
 }
 
@@ -99,18 +101,39 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
             orderProcessTimer = 0;
         }
     }
-    else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 75)
+    else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
     {
-        lastStartedMining = currentFrame;
-        if (!OrderProcessTimer::isResetFrame())
+        // Record the transition to mining order
+        if (!hasMiningOrder)
         {
-            orderProcessTimer = 8;
+            lastTransitionedToMiningOrder = currentFrame;
+            orderProcessTimer = 0;
+            hasMiningOrder = true;
+        }
+
+        // Record when mining actually starts
+        if (bwapiUnit->getOrderTimer() == 75)
+        {
+            lastStartedMining = currentFrame;
+            if (lastTransitionedToMiningOrder == currentFrame || !OrderProcessTimer::isResetFrame())
+            {
+                if (lastTransitionedToMiningOrder == currentFrame)
+                {
+                    Log::Get() << "HEY! Check if the logic for patch lock takeover on reset frame makes sense! " << id << " @ " << getTilePosition();
+                }
+                orderProcessTimer = 8;
+            }
         }
     }
     else if (gatherCommandFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()))
     {
         // Actually it stays at 0 for a couple of frames while the command gets worked out, but we don't care about that in practice
         orderProcessTimer = 10;
+    }
+
+    if (bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals)
+    {
+        hasMiningOrder = false;
     }
 }
 

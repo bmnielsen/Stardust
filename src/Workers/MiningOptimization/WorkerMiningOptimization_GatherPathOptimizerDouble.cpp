@@ -488,7 +488,7 @@ namespace WorkerMiningOptimization
 
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
             workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
-            workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay);
+            workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay) + 1;
 
 #if TAKEOVER_DEBUG
             {
@@ -626,7 +626,7 @@ namespace WorkerMiningOptimization
         workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
         workerStatus.expectedPath = std::move(evaluation.expectedPath);
         workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
-        workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay);
+        workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay) + 1;
         return true;
     }
 }
