@@ -151,7 +151,7 @@ void Squad::executeArbiters()
     for (auto &arbiter : arbiters)
     {
         // Special case, if we are in a no-go area, move out of it
-        if (NoGoAreas::isNoGo(arbiter->tilePositionX, arbiter->tilePositionY))
+        if (NoGoAreas::isNoGo(arbiter->tilePositionX, arbiter->tilePositionY, NoGoAreas::TypeFilter::OnlyDanger))
         {
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(arbiter->id) << "Moving to avoid no-go area";

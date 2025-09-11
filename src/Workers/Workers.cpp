@@ -813,8 +813,10 @@ namespace Workers
 
             auto &worker = pair.first;
 
-            // Move to avoid a no-go area unless we are mining minerals
-            if (NoGoAreas::isNoGo(worker->getTilePosition()) && worker->bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals)
+            // Move to avoid a no-go area
+            // Move always if there is danger, otherwise only if we aren't mining
+            if (NoGoAreas::isNoGo(worker->getTilePosition(), NoGoAreas::TypeFilter::OnlyDanger) || (
+                NoGoAreas::isNoGo(worker->getTilePosition()) && worker->bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals))
             {
 #if DEBUG_UNIT_ORDERS
                 CherryVis::log(worker->id) << "Moving to avoid no-go area";

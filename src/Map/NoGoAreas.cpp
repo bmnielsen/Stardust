@@ -10,15 +10,21 @@ namespace
 {
     struct NoGoAreaExpiry
     {
+        NoGoAreas::Type type;
         int frame;
         BWAPI::Bullet bullet;
         Unit unit;
 
-        explicit NoGoAreaExpiry(int framesToExpiry) : frame(currentFrame + framesToExpiry), bullet(nullptr), unit(nullptr) {}
+        explicit NoGoAreaExpiry(NoGoAreas::Type type, int framesToExpiry)
+                : type(type)
+                , frame(currentFrame + framesToExpiry)
+                , bullet(nullptr)
+                , unit(nullptr)
+        {}
 
-        explicit NoGoAreaExpiry(BWAPI::Bullet bullet) : frame(-1), bullet(bullet), unit(nullptr) {}
+        explicit NoGoAreaExpiry(NoGoAreas::Type type, BWAPI::Bullet bullet) : type(type), frame(-1), bullet(bullet), unit(nullptr) {}
 
-        explicit NoGoAreaExpiry(Unit unit) : frame(-1), bullet(nullptr), unit(std::move(unit)) {}
+        explicit NoGoAreaExpiry(NoGoAreas::Type type, Unit unit) : type(type), frame(-1), bullet(nullptr), unit(std::move(unit)) {}
 
         [[nodiscard]] bool isExpired() const
         {
@@ -28,7 +34,7 @@ namespace
         }
     };
 
-    std::vector<short> noGoAreaTiles;
+    std::array<std::vector<short>, NO_GO_AREAS_TYPE_COUNT> noGoAreaTiles;
     bool noGoAreaTilesUpdated;
     std::vector<std::pair<std::set<BWAPI::TilePosition>, NoGoAreaExpiry>> noGoAreasWithExpiration;
     std::map<unsigned short, std::set<BWAPI::TilePosition>> tilesInRadiusCache;
@@ -43,7 +49,9 @@ namespace
         {
             for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
             {
-                noGoAreaTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] = noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()];
+                noGoAreaTilesCVis[x + y * BWAPI::Broodwar->mapWidth()] =
+                        noGoAreaTiles[0][x + y * BWAPI::Broodwar->mapWidth()] +
+                        noGoAreaTiles[1][x + y * BWAPI::Broodwar->mapWidth()];
             }
         }
 
@@ -51,21 +59,21 @@ namespace
 #endif
     }
 
-    void add(std::set<BWAPI::TilePosition> &tiles)
+    void add(NoGoAreas::Type type, std::set<BWAPI::TilePosition> &tiles)
     {
         for (const auto &tile : tiles)
         {
-            noGoAreaTiles[tile.x + tile.y * BWAPI::Broodwar->mapWidth()]++;
+            noGoAreaTiles[(int)type][tile.x + tile.y * BWAPI::Broodwar->mapWidth()]++;
         }
 
         noGoAreaTilesUpdated = true;
     }
 
-    void remove(std::set<BWAPI::TilePosition> &tiles)
+    void remove(NoGoAreas::Type type, std::set<BWAPI::TilePosition> &tiles)
     {
         for (const auto &tile : tiles)
         {
-            noGoAreaTiles[tile.x + tile.y * BWAPI::Broodwar->mapWidth()]--;
+            noGoAreaTiles[(int)type][tile.x + tile.y * BWAPI::Broodwar->mapWidth()]--;
         }
 
         noGoAreaTilesUpdated = true;
@@ -143,8 +151,11 @@ namespace NoGoAreas
 {
     void initialize()
     {
-        noGoAreaTiles.clear();
-        noGoAreaTiles.resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+        for (int i = 0; i < NO_GO_AREAS_TYPE_COUNT; i++)
+        {
+            noGoAreaTiles[i].clear();
+            noGoAreaTiles[i].resize(BWAPI::Broodwar->mapWidth() * BWAPI::Broodwar->mapHeight());
+        }
         noGoAreaTilesUpdated = true; // So we get an initial null state
         noGoAreasWithExpiration.clear();
 
@@ -157,7 +168,7 @@ namespace NoGoAreas
         {
             if (it->second.isExpired())
             {
-                remove(it->first);
+                remove(it->second.type, it->first);
                 it = noGoAreasWithExpiration.erase(it);
             }
             else
@@ -170,7 +181,7 @@ namespace NoGoAreas
         {
             if (nukeDot.isValid())
             {
-                addCircle(nukeDot, 256, 1);
+                addCircle(Type::Danger, nukeDot, 256, 1);
             }
         }
     }
@@ -184,7 +195,7 @@ namespace NoGoAreas
         }
     }
 
-    void addBox(BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
+    void addBox(Type type, BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
     {
         auto bottomRight = topLeft + size;
 
@@ -196,14 +207,14 @@ namespace NoGoAreas
             {
                 if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
 
-                noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()]++;
+                noGoAreaTiles[(int)type][x + y * BWAPI::Broodwar->mapWidth()]++;
             }
         }
 
         noGoAreaTilesUpdated = true;
     }
 
-    void removeBox(BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
+    void removeBox(Type type, BWAPI::TilePosition topLeft, BWAPI::TilePosition size)
     {
         auto bottomRight = topLeft + size;
 
@@ -215,56 +226,70 @@ namespace NoGoAreas
             {
                 if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
 
-                noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()]--;
+                noGoAreaTiles[(int)type][x + y * BWAPI::Broodwar->mapWidth()]--;
             }
         }
 
         noGoAreaTilesUpdated = true;
     }
 
-    void addCircle(BWAPI::Position origin, unsigned short radius, int expireFrames)
+    void addCircle(Type type, BWAPI::Position origin, unsigned short radius, int expireFrames)
     {
         auto tiles = generateCircle(origin, radius);
-        add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::move(tiles), expireFrames);
+        add(type, tiles);
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), NoGoAreaExpiry{type, expireFrames});
     }
 
-    void addCircle(BWAPI::Position origin, int radius, const Unit &unit)
+    void addCircle(Type type, BWAPI::Position origin, int radius, const Unit &unit)
     {
         auto tiles = generateCircle(origin, radius);
-        add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::move(tiles), unit);
+        add(type, tiles);
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), NoGoAreaExpiry{type, unit});
     }
 
-    void addCircle(BWAPI::Position origin, int radius, BWAPI::Bullet bullet)
+    void addCircle(Type type, BWAPI::Position origin, int radius, BWAPI::Bullet bullet)
     {
         auto tiles = generateCircle(origin, radius);
-        add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::move(tiles), bullet);
+        add(type, tiles);
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), NoGoAreaExpiry{type, bullet});
     }
 
-    void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width, int expireFrames)
+    void addDirectedBox(Type type, BWAPI::Position origin, BWAPI::Position target, int width, int expireFrames)
     {
         auto tiles = generateDirectedBox(origin, target, width);
-        add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::move(tiles), expireFrames);
+        add(type, tiles);
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), NoGoAreaExpiry{type, expireFrames});
     }
 
-    void addDirectedBox(BWAPI::Position origin, BWAPI::Position target, int width, BWAPI::Bullet bullet)
+    void addDirectedBox(Type type, BWAPI::Position origin, BWAPI::Position target, int width, BWAPI::Bullet bullet)
     {
         auto tiles = generateDirectedBox(origin, target, width);
-        add(tiles);
-        noGoAreasWithExpiration.emplace_back(std::move(tiles), bullet);
+        add(type, tiles);
+        noGoAreasWithExpiration.emplace_back(std::move(tiles), NoGoAreaExpiry{type, bullet});
     }
 
-    bool isNoGo(BWAPI::TilePosition pos)
+    bool isNoGo(BWAPI::TilePosition pos, TypeFilter typeFilter)
     {
-        return noGoAreaTiles[pos.x + pos.y * BWAPI::Broodwar->mapWidth()] > 0;
+        return isNoGo(pos.x, pos.y, typeFilter);
     }
 
-    bool isNoGo(int x, int y)
+    bool isNoGo(int x, int y, TypeFilter typeFilter)
     {
-        return noGoAreaTiles[x + y * BWAPI::Broodwar->mapWidth()] > 0;
+        if (typeFilter == TypeFilter::Any || typeFilter == TypeFilter::OnlyDanger)
+        {
+            if (noGoAreaTiles[(int)Type::Danger][x + y * BWAPI::Broodwar->mapWidth()] > 0)
+            {
+                return true;
+            }
+        }
+        if (typeFilter == TypeFilter::Any || typeFilter == TypeFilter::OnlyGroundNavigational)
+        {
+            if (noGoAreaTiles[(int)Type::GroundNavigational][x + y * BWAPI::Broodwar->mapWidth()] > 0)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     void onUnitCreate(const Unit &unit)
@@ -272,7 +297,7 @@ namespace NoGoAreas
         if (unit->type == BWAPI::UnitTypes::Terran_Nuclear_Missile)
         {
             CherryVis::log() << "Detected nuke targeting " << BWAPI::WalkPosition(unit->lastPosition);
-            addCircle(unit->lastPosition, 288 + 32, unit);
+            addCircle(Type::Danger, unit->lastPosition, 288 + 32, unit);
         }
     }
 
@@ -281,7 +306,7 @@ namespace NoGoAreas
         if (bullet->getType() == BWAPI::BulletTypes::Psionic_Storm)
         {
             CherryVis::log() << "Detected storm targeting " << BWAPI::WalkPosition(bullet->getPosition());
-            addCircle(bullet->getPosition(), 80 + 32, bullet);
+            addCircle(Type::Danger, bullet->getPosition(), 80 + 32, bullet);
         }
 
         if (bullet->getType() == BWAPI::BulletTypes::Subterranean_Spines)
@@ -289,14 +314,14 @@ namespace NoGoAreas
             auto direction = Geo::ScaleVector(BWAPI::Position((int) bullet->getVelocityX(), (int) bullet->getVelocityY()), 192);
             if (direction != BWAPI::Positions::Invalid)
             {
-                addDirectedBox(bullet->getPosition(), bullet->getPosition() + direction, 50, bullet);
+                addDirectedBox(Type::Danger, bullet->getPosition(), bullet->getPosition() + direction, 50, bullet);
             }
         }
 
         if (bullet->getType() == BWAPI::BulletTypes::EMP_Missile)
         {
             CherryVis::log() << "Detected EMP targeting " << BWAPI::WalkPosition(bullet->getTargetPosition());
-            addCircle(bullet->getTargetPosition(), 80 + 32, bullet);
+            addCircle(Type::Danger, bullet->getTargetPosition(), 80 + 32, bullet);
         }
     }
 }

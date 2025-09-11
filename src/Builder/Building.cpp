@@ -72,7 +72,7 @@ void Building::addNoGoAreaWhenNeeded()
     // Add the no-go area when the desired start frame is within 5 seconds of now
     if (expectedFramesUntilStarted() > 120) return;
 
-    NoGoAreas::addBox(tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
+    NoGoAreas::addBox(NoGoAreas::Type::GroundNavigational, tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
     noGoAreaAdded = true;
 }
 
@@ -80,7 +80,7 @@ void Building::removeNoGoArea()
 {
     if (!noGoAreaAdded) return;
 
-    NoGoAreas::removeBox(tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
+    NoGoAreas::removeBox(NoGoAreas::Type::GroundNavigational, tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
     noGoAreaAdded = false;
 }
 
