@@ -61,6 +61,7 @@ MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
         , lastCarryingResourceChange(-1)
         , lastStartedMining(-1)
         , lastTransitionedToMiningOrder(-1)
+        , lastTransitionedToWaitForMineralsOrder(-1)
         , spawnPosition(BWAPI::Positions::Invalid)
         , horizontalSpeed8b(to8bSpeed(unit->getVelocityX()))
         , verticalSpeed8b(to8bSpeed(unit->getVelocityY()))
@@ -69,7 +70,7 @@ MyWorkerImpl::MyWorkerImpl(BWAPI::Unit unit)
         , mineralWalkingTargetArea(nullptr)
         , mineralWalkingStartPosition(BWAPI::Positions::Invalid)
         , nextAttackPredictedAt(-1)
-        , hasMiningOrder(unit->getOrder() == BWAPI::Orders::MiningMinerals)
+        , previousOrder(unit->getOrder())
 {
 }
 
@@ -104,11 +105,13 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
     {
         // Record the transition to mining order
-        if (!hasMiningOrder)
+        if (previousOrder != BWAPI::Orders::MiningMinerals)
         {
             lastTransitionedToMiningOrder = currentFrame;
-            orderProcessTimer = 0;
-            hasMiningOrder = true;
+            if (!OrderProcessTimer::isResetFrame())
+            {
+                orderProcessTimer = 0;
+            }
         }
 
         // Record when mining actually starts
@@ -119,7 +122,7 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
             {
                 if (lastTransitionedToMiningOrder == currentFrame)
                 {
-                    Log::Get() << "HEY! Check if the logic for patch lock takeover on reset frame makes sense! " << id << " @ " << getTilePosition();
+                    Log::Get() << "CHECK if the logic for patch lock takeover on reset frame makes sense! " << id << " @ " << getTilePosition();
                 }
                 orderProcessTimer = 8;
             }
@@ -130,11 +133,16 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
         // Actually it stays at 0 for a couple of frames while the command gets worked out, but we don't care about that in practice
         orderProcessTimer = 10;
     }
-
-    if (bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals)
+    else if (bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals && previousOrder != BWAPI::Orders::WaitForMinerals)
     {
-        hasMiningOrder = false;
+        lastTransitionedToWaitForMineralsOrder = currentFrame;
+        if (!OrderProcessTimer::isResetFrame())
+        {
+            orderProcessTimer = 0;
+        }
     }
+
+    previousOrder = bwapiUnit->getOrder();
 }
 
 int8_t MyWorkerImpl::to8bSpeed(double value)

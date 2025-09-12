@@ -657,57 +657,33 @@ namespace WorkerMiningOptimization
         for (auto it = workerGatherStatuses.begin(); it != workerGatherStatuses.end();)
         {
             auto &worker = it->first;
-            if (!worker->exists())
+
+            // Clean up if the worker is dead or has started mining
+            if (!worker->exists() || worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
             {
                 it = workerGatherStatuses.erase(it);
                 continue;
             }
 
-            // Workers that have already been in the WaitForMinerals state while another was still mining are not run through the logic again
-            if (it->second.waitForMineralsWhileOtherStillMining)
-            {
-                // If the worker is now mining, clean up
-                if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
-                {
-                    it = workerGatherStatuses.erase(it);
-                }
-                else
-                {
-                    it++;
-                }
-                continue;
-            }
-
-            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals)
+            // Wait to process the worker until it is on its first WaitForMinerals frame
+            if (worker->lastTransitionedToWaitForMineralsOrder != currentFrame)
             {
                 it++;
                 continue;
             }
 
-            // Mark workers that reached WaitForMinerals while another was still mining
-            if (it->second.lastProcessedFrame == currentFrame)
-            {
-                it->second.waitForMineralsWhileOtherStillMining = true;
-                if (!WorkerMiningOptimization::isExploring() || !it->second.pathStartsAtDepot)
-                {
-                    it++;
-                    continue;
-                }
-            }
-            else if (!it->second.pathStartsAtDepot)
+            // Skip workers whose paths did not start at the depot
+            if (!it->second.pathStartsAtDepot)
             {
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Path did not start at depot, so not using it for path optimization";
 #endif
-
-                it = workerGatherStatuses.erase(it);
+                it++;
                 continue;
             }
-            else
-            {
-                // Add the final position to the history
-                it->second.appendCurrentPosition();
-            }
+
+            // Add the final position to the history
+            it->second.appendCurrentPosition();
 
             // We skip processing this worker if it hasn't tracked its positions history correctly
             PositionsInHistory positionsInHistory;
@@ -720,15 +696,7 @@ namespace WorkerMiningOptimization
                     CherryVis::log(worker->id) << "Not tracking path optimization data as arrival position could not be determined";
                 }
 #endif
-
-                if (it->second.waitForMineralsWhileOtherStillMining)
-                {
-                    it++;
-                }
-                else
-                {
-                    it = workerGatherStatuses.erase(it);
-                }
+                it++;
                 continue;
             }
 
@@ -773,18 +741,12 @@ namespace WorkerMiningOptimization
                 {
                     updateTenDistancePosition(it->second, positionsInHistory, false);
                 }
-
-                if (it->second.waitForMineralsWhileOtherStillMining)
-                {
-                    it++;
-                    continue;
-                }
             }
 
             // We don't need to do any more if the worker switched patches
             if (it->second.switchedPatches)
             {
-                it = workerGatherStatuses.erase(it);
+                it++;
                 continue;
             }
 
@@ -807,15 +769,12 @@ namespace WorkerMiningOptimization
                     convertToPositions(positionsInHistory.resendsWithObservationData),
                     positionsInHistory.resendItsBeforeArrival.size()});
 
-            // We now no longer need to do anything with this worker status
-            it = workerGatherStatuses.erase(it);
+            it++;
         }
     }
 
     void handleGatherPatchSwitch(WorkerGatherStatus &workerStatus)
     {
-        if (workerStatus.waitForMineralsWhileOtherStillMining) return;
-
         PositionsInHistory positionsInHistory;
         if (!extractPositionsInHistory(positionsInHistory, workerStatus, WorkerMiningOptimization::isExploring())) return;
 

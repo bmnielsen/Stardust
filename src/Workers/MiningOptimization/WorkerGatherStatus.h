@@ -75,11 +75,6 @@ namespace WorkerMiningOptimization
         // Whether the worker switched patches while trying to mine
         bool switchedPatches;
 
-        // Whether the worker reached the WaitForMinerals state while another worker was still mining
-        // This is a similar situation to patch switching, but happens if the worker is already at the patch
-        // We track observations on the first WaitForMinerals frame
-        bool waitForMineralsWhileOtherStillMining;
-
         // Whether the worker had path data it could use on this approach
         bool hasPathData;
 
@@ -110,7 +105,6 @@ namespace WorkerMiningOptimization
                 , passed10DistancePosition(-1)
                 , passedUnregistered10DistancePosition(false)
                 , switchedPatches(false)
-                , waitForMineralsWhileOtherStillMining(false)
                 , hasPathData(false)
                 , expectedPatchLockFrame(-1)
                 , expectedMiningStartFrame(-1)
@@ -137,7 +131,6 @@ namespace WorkerMiningOptimization
             passed10DistancePosition = -1;
             passedUnregistered10DistancePosition = false;
             switchedPatches = false;
-            waitForMineralsWhileOtherStillMining = false;
             hasPathData = false;
             expectedPatchLockFrame = -1;
             expectedMiningStartFrame = -1;
