@@ -7,7 +7,7 @@
 
 #define EPSILON 0.001
 
-#define DEBUG_SATURATION_DATA true
+#define DEBUG_SATURATION_DATA false
 
 ResourceImpl::ResourceImpl(BWAPI::Unit unit)
     : id(unit->getID())
@@ -190,6 +190,14 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     // - The patch will be mined from the worker's expected mining start frame, if we have predicted that with path data in our optimizer
     // - In the case of patch locking on takeover, the patch will be mined for the entire forecast horizon
 
+    // If the next mining worker is actively transitioning to mining, we can just write 1s for the entire forecast horizon
+    if (nextMiningWorker && nextMiningWorker->lastTransitionedToWaitForMineralsOrder == currentFrame
+        && !OrderProcessTimer::isResetFrame())
+    {
+        std::fill(gatherProbabilityForecast.begin(), gatherProbabilityForecast.end(), 1.0);
+        return returner();
+    }
+
     // Start with zeroes
     std::fill(gatherProbabilityForecast.begin(), gatherProbabilityForecast.end(), 0.0);
 
@@ -253,7 +261,16 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
 
     // We can only predict if we have gather status data
     auto gatherStatus = WorkerMiningOptimization::gatherStatusFor(nextMiningWorker);
-    if (!gatherStatus) return returner();
+    if (!gatherStatus)
+    {
+#if DEBUG_SATURATION_DATA
+        CherryVis::log(nextMiningWorker->id) << "No gather status; not using this for mining forecast";
+#endif
+        return returner();
+    }
+
+    // Save the probability for the next frame from the currently mining worker
+    double miningWorkerNextFrameProbability = gatherProbabilityForecast[0];
 
     // Two worker takeover case
     if (gatherStatus && gatherStatus->takeoverFrame != -1)
@@ -302,7 +319,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     if (gatherStatus->expectedArrivalFrameAndOccurrenceRate.empty()) return returner();
 
     // We process each potential arrival frame separately and aggregate to get the final frame probabilities
-    auto processArrivalFrame = [&gatherStatus](
+    auto processArrivalFrame = [&gatherStatus, &nextMiningWorker](
             int arrivalFrame, double probability, std::array<double, GATHER_FORECAST_FRAMES> &forecast)
     {
         // Try to predict the value of the order process timer at the arrival frame in order to compute the mining start frame
@@ -317,9 +334,11 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
             knownOrderProcessTimerValue = 10;
             deltaToArrivalFrame = arrivalFrame - frameWithKnownOrderProcessTimer;
 
-            CherryVis::log(gatherStatus->worker->id) << "On path"
+#if DEBUG_SATURATION_DATA
+            CherryVis::log(nextMiningWorker->id) << "On path"
                                                      << "; frameWithKnownOrderProcessTimer=" << frameWithKnownOrderProcessTimer
                                                      << "; deltaToArrivalFrame=" << deltaToArrivalFrame;
+#endif
         }
         else if (!gatherStatus->resentFrames.empty())
         {
@@ -329,24 +348,31 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
             knownOrderProcessTimerValue = 10;
             deltaToArrivalFrame = arrivalFrame - frameWithKnownOrderProcessTimer;
 
-            CherryVis::log(gatherStatus->worker->id) << "After last resend"
+#if DEBUG_SATURATION_DATA
+            CherryVis::log(nextMiningWorker->id) << "After last resend"
                                                      << "; frameWithKnownOrderProcessTimer=" << frameWithKnownOrderProcessTimer
                                                      << "; deltaToArrivalFrame=" << deltaToArrivalFrame;
+#endif
         }
         else
         {
             // No resends, order process timer is used if known
             frameWithKnownOrderProcessTimer = currentFrame;
-            knownOrderProcessTimerValue = gatherStatus->worker->orderProcessTimer;
+            knownOrderProcessTimerValue = nextMiningWorker->orderProcessTimer;
             deltaToArrivalFrame = arrivalFrame - currentFrame;
-            CherryVis::log(gatherStatus->worker->id) << "No resend";
+#if DEBUG_SATURATION_DATA
+            CherryVis::log(nextMiningWorker->id) << "No resend";
+#endif
         }
 
         auto orderProcessTimerAtArrival = OrderProcessTimer::unitOrderProcessTimerAtDelta(
                 frameWithKnownOrderProcessTimer,
                 knownOrderProcessTimerValue,
                 deltaToArrivalFrame - 1);
-        CherryVis::log(gatherStatus->worker->id) << "Predicted order process timer at arrival: " << orderProcessTimerAtArrival;
+
+#if DEBUG_SATURATION_DATA
+        CherryVis::log(nextMiningWorker->id) << "Predicted order process timer at arrival: " << orderProcessTimerAtArrival;
+#endif
 
         // There are two sets of scenarios that happen here in parallel:
         // - The order process timer at arrival may be known or unknown
@@ -369,8 +395,6 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         }
         else
         {
-            Log::Get() << "Check ascending probability: " << gatherStatus->worker->id << " @ " << gatherStatus->worker->getTilePosition();
-
             // We don't know the order process timer at arrival, so we generate an increasing probability
             int earliestMiningStartFrame = arrivalFrame + 1;
             int possibleOrderProcessTimerValues = 9;
@@ -380,6 +404,13 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
             {
                 possibleOrderProcessTimerValues -= (currentFrame - earliestMiningStartFrame + 1);
                 earliestMiningStartFrame = currentFrame + 1;
+            }
+
+            // If the worker has arrived but is not in WaitForMinerals, we know it won't be mining next frame either
+            if (arrivalFrame <= currentFrame && nextMiningWorker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals)
+            {
+                possibleOrderProcessTimerValues--;
+                earliestMiningStartFrame++;
             }
 
             // Generate the increasing probabilities
@@ -400,32 +431,44 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         }
 
         // Now handle the case where an order process timer reset happens after the worker arrives at the patch but potentially before
-        // it starts mining
-        // This can happen even in the case where we have optimized arrival perfectly, since the reset could happen on the intermediate
-        // WaitForMinerals frame between arrival and mining start
-        int orderTimerResetIndex = OrderProcessTimer::nextResetFrame(arrivalFrame) - currentFrame - 1;
+        // it starts mining.
+        // There are two ways this can take effect:
+        // - The reset happens while the worker is still in the MoveToMinerals order, so it has to transition to WaitForMinerals before mining
+        // - The reset happens on the frame the worker should have transitioned from WaitForMinerals to mining
+        // We consider both cases by looking at the mining probability we have computed beforehand.
+
+        // First compute the index in the forecast array where the reset happens
+        int orderTimerResetIndex = OrderProcessTimer::nextResetFrame(arrivalFrame) - currentFrame;
         if (orderTimerResetIndex >= GATHER_FORECAST_FRAMES) return; // reset is outside of forecast horizon
 
-        // Get the probability that the worker has already started mining before the reset frame
+        // Get the probability that the worker will already have started mining at the reset
+        // This requires the worker to have already transitioned to mining the frame before
         double miningProbabilityAtReset = 0.0;
         if (orderTimerResetIndex > 0) miningProbabilityAtReset = forecast[orderTimerResetIndex - 1] / probability;
 
-        // If we are projecting the worker to definitely be mining already, nothing is needed
+        // If we are projecting the worker to definitely be mining at the reset, nothing further is needed
         if (miningProbabilityAtReset > (1.0 - EPSILON)) return;
 
-        Log::Get() << "CHECK reset after arrival " << gatherStatus->worker->id << " @ " << gatherStatus->worker->getTilePosition();
+        // Get the probability that the worker will be in WaitForMinerals at the reset
+        // This is equivalent to our previously-calculated probability that the worker would be mining on the reset frame, minus the
+        // probability that it was already mining
+        double waitForMineralsProbabilityAtReset = 0.0;
+        if (orderTimerResetIndex >= 0) waitForMineralsProbabilityAtReset = (forecast[orderTimerResetIndex] / probability) - miningProbabilityAtReset;
 
-        // We now know that there is a reset while the worker might not be mining
-        // On the reset frame, the worker can get 8 possible order process timer values from 0-7 inclusive
-        // If the reset frame was in the past, we reduce the number of possible order process timer values remaining
-        // The probability of mining at any given frame is the probability the worker was already mining, plus the increasing probability
-        // generated with the available order process timer values
+        // If it is at or after the reset frame, the worker may already be in WaitForMinerals
+        if (orderTimerResetIndex <= 0 && nextMiningWorker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
+        {
+            waitForMineralsProbabilityAtReset = 1.0;
+        }
 
-        // Start by adjusting the possible order process timer values if the reset frame is in the past
+        // At reset, the worker can get 8 possible order process timer values from 0-7 inclusive
         int possibleOrderProcessTimerValues = 8;
+
+        // If we are after the reset, the number of possible values left decreases, as we would have already transitioned to mining with
+        // some of the values
         if (orderTimerResetIndex < 0)
         {
-            possibleOrderProcessTimerValues -= orderTimerResetIndex;
+            possibleOrderProcessTimerValues += orderTimerResetIndex;
             orderTimerResetIndex = 0;
         }
 
@@ -435,42 +478,65 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
             int arrayIdx = orderTimerResetIndex + i;
             if (arrayIdx >= GATHER_FORECAST_FRAMES) break;
 
-            forecast[arrayIdx] = probability *
+            double baseProbability = probability *
                     (miningProbabilityAtReset + (1.0 - miningProbabilityAtReset) * (double)(i + 1) / (double)possibleOrderProcessTimerValues);
+
+            if (i == 0)
+            {
+                forecast[arrayIdx] = waitForMineralsProbabilityAtReset * baseProbability;
+            }
+            else
+            {
+                forecast[arrayIdx] += waitForMineralsProbabilityAtReset * baseProbability;
+            }
+
+            arrayIdx++;
+            if (arrayIdx >= GATHER_FORECAST_FRAMES) break;
+            forecast[arrayIdx] = (1.0 - waitForMineralsProbabilityAtReset) * baseProbability;
         }
 
-        CherryVis::log(gatherStatus->worker->id) << "Order timer reset after arrival"
+#if DEBUG_SATURATION_DATA
+        CherryVis::log(nextMiningWorker->id) << "Order timer reset after arrival"
                                                  << "; arrivalFrame=" << arrivalFrame
-                                                 << "; resetFrame=" << OrderProcessTimer::framesToNextReset(arrivalFrame)
+                                                 << "; resetFrame=" << OrderProcessTimer::nextResetFrame(arrivalFrame)
                                                  << "; possibleOrderProcessTimerValues=" << possibleOrderProcessTimerValues
-                                                 << "; miningProbabilityAtReset=" << miningProbabilityAtReset;
-
+                                                 << "; miningProbabilityAtReset=" << miningProbabilityAtReset
+                                                 << "; waitForMineralsProbabilityAtReset=" << waitForMineralsProbabilityAtReset;
+#endif
     };
 
     // If there is only one expected arrival frame, we can write directly into the result array
     if (gatherStatus->expectedArrivalFrameAndOccurrenceRate.size() == 1)
     {
         processArrivalFrame(gatherStatus->expectedArrivalFrameAndOccurrenceRate.begin()->first, 1.0, gatherProbabilityForecast);
-        return returner();
     }
-
-    // Otherwise we process each arrival frame into its own array and add it into the overall forecast array
-    for (const auto &[arrivalFrame, occurrenceRate] : gatherStatus->expectedArrivalFrameAndOccurrenceRate)
+    else
     {
-        std::array<double, GATHER_FORECAST_FRAMES> thisForecast = {0.0};
-        processArrivalFrame(arrivalFrame, (double)occurrenceRate / 255.0, thisForecast);
+        // Otherwise we process each arrival frame into its own array and add it into the overall forecast array
+        for (const auto &[arrivalFrame, occurrenceRate] : gatherStatus->expectedArrivalFrameAndOccurrenceRate)
+        {
+            std::array<double, GATHER_FORECAST_FRAMES> thisForecast = {0.0};
+            processArrivalFrame(arrivalFrame, (double)occurrenceRate / 255.0, thisForecast);
+            std::transform(gatherProbabilityForecast.begin(),
+                           gatherProbabilityForecast.end(),
+                           thisForecast.begin(),
+                           gatherProbabilityForecast.begin(),
+                           std::plus<>{});
+        }
+
+        // Clamp the values at 1.0
         std::transform(gatherProbabilityForecast.begin(),
                        gatherProbabilityForecast.end(),
-                       thisForecast.begin(),
                        gatherProbabilityForecast.begin(),
-                       std::plus<>{});
+                       [](double d)
+                       { return std::min(d, 1.0); });
     }
 
-    // Clamp the values at 1.0
-    std::transform(gatherProbabilityForecast.begin(),
-                   gatherProbabilityForecast.end(),
-                   gatherProbabilityForecast.begin(),
-                   [] (double d) { return std::min(d, 1.0); });
+    // We know the next mining worker won't be mining next frame if it isn't in WaitForMinerals
+    if (nextMiningWorker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals)
+    {
+        gatherProbabilityForecast[0] = miningWorkerNextFrameProbability;
+    }
 
     return returner();
 }
