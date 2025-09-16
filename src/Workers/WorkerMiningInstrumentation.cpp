@@ -7,7 +7,10 @@
 #include "OrderProcessTimer.h"
 #include "MiningOptimization/WorkerMiningOptimization.h"
 
+#define EPSILON 0.000001
+
 #define TRACK_MINING_EFFICIENCY true
+#define TRACK_RESOURCE_FORECAST_ACCURACY false
 
 #if INSTRUMENTATION_ENABLED
 #define LOG_WORKER_ORDERS false
@@ -184,6 +187,20 @@ namespace WorkerMiningInstrumentation
             };
         }
     #endif
+
+#if TRACK_RESOURCE_FORECAST_ACCURACY
+    // Stores the previous forecasts for each patch
+    std::map<Resource, std::deque<std::array<double, GATHER_FORECAST_FRAMES>>> resourceToPreviousForecasts;
+
+    // Stores the count of predictions at each number of frames into the future for each patch
+    std::map<Resource, std::array<int, GATHER_FORECAST_FRAMES>> resourceToFramePredictionCounts;
+
+    // Stores the total error for all predictions at each number of frames into the future for each patch
+    std::map<Resource, std::array<double, GATHER_FORECAST_FRAMES>> resourceToTotalFramePredictionError;
+
+    // Stores the count of false positives at each number of frames into the future for each patch
+    std::map<Resource, std::array<int, GATHER_FORECAST_FRAMES>> resourceToCountOfFalsePositives;
+#endif
     }
 
     void initialize(const std::function<std::map<Resource, std::set<MyWorker>> &()> &getMineralsAndAssignedWorkersOverride)
@@ -197,6 +214,13 @@ namespace WorkerMiningInstrumentation
         }
         fiftiethMineralFrame = -1;
         thousandMineralFrames.clear();
+#endif
+
+#if TRACK_RESOURCE_FORECAST_ACCURACY
+        resourceToPreviousForecasts.clear();
+        resourceToFramePredictionCounts.clear();
+        resourceToTotalFramePredictionError.clear();
+        resourceToCountOfFalsePositives.clear();
 #endif
     }
 
@@ -364,6 +388,57 @@ namespace WorkerMiningInstrumentation
             if (status != -1)
             {
                 miningStatus.emplace_back(status, currentFrame, extraData);
+            }
+        }
+#endif
+
+#if TRACK_RESOURCE_FORECAST_ACCURACY
+        for (const auto &base : Map::allBases())
+        {
+            for (auto &patch : base->mineralPatches())
+            {
+                // Zero the arrays the first time a patch is seen
+                if (!resourceToPreviousForecasts.contains(patch))
+                {
+                    resourceToFramePredictionCounts[patch] = {0};
+                    resourceToTotalFramePredictionError[patch] = {0.0};
+                    resourceToCountOfFalsePositives[patch] = {0};
+                }
+
+                auto &previousForecasts = resourceToPreviousForecasts[patch];
+                auto &framePredictionCounts = resourceToFramePredictionCounts[patch];
+                auto &totalFramePredictionError = resourceToTotalFramePredictionError[patch];
+                auto &countOfFalsePositives = resourceToCountOfFalsePositives[patch];
+
+                // Determine if the patch is being mined
+                bool isBeingMined = false;
+                for (const auto &worker : Workers::getWorkersAssignedTo(patch))
+                {
+                    if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                    {
+                        isBeingMined = true;
+                        break;
+                    }
+                }
+                double actualProbability = isBeingMined ? 1.0 : 0.0;
+
+                // Check the accuracy of each of the previous forecasts
+                int frameIdx = -1;
+                for (auto it = previousForecasts.begin(); it != previousForecasts.end(); it++)
+                {
+                    frameIdx++;
+
+                    framePredictionCounts[frameIdx]++;
+                    totalFramePredictionError[frameIdx] += (actualProbability - (*it)[frameIdx]);
+                    if (!isBeingMined && (*it)[frameIdx] > (1.0 - EPSILON))
+                    {
+                        countOfFalsePositives[frameIdx]++;
+                    }
+                }
+
+                // Add the forecast
+                previousForecasts.push_front(patch->getGatherProbabilityForecast());
+                if (previousForecasts.size() > GATHER_FORECAST_FRAMES) previousForecasts.pop_back();
             }
         }
 #endif
@@ -669,5 +744,51 @@ namespace WorkerMiningInstrumentation
                 observations.doubleWorkerRotations.addObservation(rotationTime);
             }
         }
+    }
+
+    void writeGameEndInstrumentation()
+    {
+#if TRACK_MINING_EFFICIENCY
+        {
+            auto miningEfficiency = WorkerMiningInstrumentation::getEfficiency();
+            Log::Get() << "Mining efficiency over entire game: " << miningEfficiency;
+            CherryVis::log() << "Mining efficiency over entire game: " << miningEfficiency;
+            Log::Get() << "50th mineral frame: " << WorkerMiningInstrumentation::getFiftiethMineralFrame();
+            std::ostringstream frames;
+            std::string sep;
+            for (auto &frame : WorkerMiningInstrumentation::getThousandMineralFrames())
+            {
+                frames << sep << frame;
+                sep = ", ";
+            }
+            Log::Get() << "Thousand mineral frames: " << frames.str();
+        }
+#endif
+#if TRACK_RESOURCE_FORECAST_ACCURACY
+        {
+//            std::array<int, GATHER_FORECAST_FRAMES> totalPredictionCounts = {0};
+//            std::array<double, GATHER_FORECAST_FRAMES> totalTotalFramePredictionError = {0.0};
+//            std::array<int, GATHER_FORECAST_FRAMES> totalCountOfFalsePositives = {0};
+            for (auto &[patch, _] : resourceToFramePredictionCounts)
+            {
+                auto &framePredictionCounts = resourceToFramePredictionCounts[patch];
+                auto &totalFramePredictionError = resourceToTotalFramePredictionError[patch];
+                auto &countOfFalsePositives = resourceToCountOfFalsePositives[patch];
+
+                std::ostringstream errors, falsePositives;
+                errors << std::fixed << std::setprecision(2) << patch->tile << " total error: [";
+                falsePositives << std::fixed << std::setprecision(3) << patch->tile << " false positive rate: [";
+                std::string sep;
+                for (int i = 0; i < GATHER_FORECAST_FRAMES; i++)
+                {
+                    errors << sep << totalFramePredictionError[i];
+                    falsePositives << sep << ((double)countOfFalsePositives[i] * 100.0 / (double)framePredictionCounts[i]);
+                    sep = ", ";
+                }
+                Log::Get() << errors.str() << "]";
+                Log::Get() << falsePositives.str() << "]";
+            }
+        }
+#endif
     }
 }

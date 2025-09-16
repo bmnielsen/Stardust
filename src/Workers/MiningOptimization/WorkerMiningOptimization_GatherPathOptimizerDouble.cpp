@@ -9,7 +9,7 @@
 
 #include "Geo.h"
 
-#define EPSILON 0.001
+#define EPSILON 0.000001
 
 /*
  * The algorithm implemented here is similar to the one for a single worker, but with the following differences:

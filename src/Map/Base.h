@@ -48,7 +48,7 @@ public:
 
     [[nodiscard]] size_t geyserCount() const { return _geysersOrRefineries.size(); }
 
-    [[nodiscard]] const std::vector<Resource> &mineralPatches() const { return _mineralPatches; }
+    [[nodiscard]] std::vector<Resource> &mineralPatches() { return _mineralPatches; }
 
     [[nodiscard]] const std::vector<Resource> &geysersOrRefineries() const { return _geysersOrRefineries; }
 

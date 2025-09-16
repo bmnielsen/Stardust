@@ -7,7 +7,7 @@
 
 #include <optional>
 
-#define EPSILON 0.001
+#define EPSILON 0.000001
 
 namespace WorkerMiningOptimization
 {

@@ -46,6 +46,8 @@ public:
 
     [[nodiscard]] std::array<double, GATHER_FORECAST_FRAMES> &getAllOtherPatchesGatheredProbabilityForecast();
 
+    [[nodiscard]] std::array<double, GATHER_FORECAST_FRAMES> &getGatherProbabilityForecast();
+
     void update();
 
 private:
@@ -62,8 +64,6 @@ private:
 
     // Frame when gatherProbabilityForecast was last updated
     int allOtherPatchesGatheredProbabilityForecastUpdated;
-
-    [[nodiscard]] std::array<double, GATHER_FORECAST_FRAMES> &getGatherProbabilityForecast();
 };
 
 std::ostream &operator<<(std::ostream &os, const ResourceImpl &resource);

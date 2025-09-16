@@ -5,7 +5,7 @@
 #include "OrderProcessTimer.h"
 #include "MiningOptimization/WorkerMiningOptimization.h"
 
-#define EPSILON 0.001
+#define EPSILON 0.000001
 
 #define DEBUG_SATURATION_DATA false
 
