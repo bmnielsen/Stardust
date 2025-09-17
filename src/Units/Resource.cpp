@@ -104,7 +104,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getAllOtherPatchesGath
         return allOtherPatchesGatheredProbabilityForecast;
     }
 
-    // The probability is found by multiplying all of the other vectors together
+    // The probability of all other patches being mined at the start of a given frame is found by multiplying all of the other vectors together
     std::fill(allOtherPatchesGatheredProbabilityForecast.begin(), allOtherPatchesGatheredProbabilityForecast.end(), 1.0);
     for (auto &patch : resourcesInSwitchPatchRange)
     {
@@ -115,6 +115,19 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getAllOtherPatchesGath
                        patch->getGatherProbabilityForecast().begin(),
                        allOtherPatchesGatheredProbabilityForecast.begin(),
                        std::multiplies<>{});
+    }
+
+    // The above only gives us the probability at the start of the frame, but if we want to be sure all other patches are mined when a worker's
+    // orders are processed, we need to consider the fact that other workers' orders are likely to have been processed before it.
+    // The simplest way to fix this is to include the probability of the other patches also being mined on the next frame. This takes into account
+    // any patches that are forecasted to stop being mined on the frame when our worker's orders are processed.
+    // A more accurate solution to this would actually consider the order process index, but this would require tracking a lot of additional data
+    // and would likely make very little difference in practice.
+    // The last frame in the forecast can not be multiplied by the next, so we leave it as-is, with the expectation that our logic will re-check
+    // as the worker approaches anyway.
+    for (int i = 0; i < (GATHER_FORECAST_FRAMES - 1); i++)
+    {
+        allOtherPatchesGatheredProbabilityForecast[i] *= allOtherPatchesGatheredProbabilityForecast[i + 1];
     }
 
 #if DEBUG_SATURATION_DATA
