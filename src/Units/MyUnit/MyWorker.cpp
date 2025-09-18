@@ -120,10 +120,6 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
             lastStartedMining = currentFrame;
             if (lastTransitionedToMiningOrder == currentFrame || !OrderProcessTimer::isResetFrame())
             {
-                if (lastTransitionedToMiningOrder == currentFrame)
-                {
-                    Log::Get() << "CHECK if the logic for patch lock takeover on reset frame makes sense! " << id << " @ " << getTilePosition();
-                }
                 orderProcessTimer = 8;
             }
         }
