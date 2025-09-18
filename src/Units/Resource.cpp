@@ -289,7 +289,9 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     if (gatherStatus && gatherStatus->takeoverFrame != -1)
     {
         // Special case when the takeover worker is expected to patch lock on a given frame
-        if (gatherStatus->expectedPatchLockFrame != -1)
+        int patchLockFrame = gatherStatus->actualPatchLockFrame;
+        if (patchLockFrame == -1) patchLockFrame = gatherStatus->expectedPatchLockFrame;
+        if (patchLockFrame != -1)
         {
             // There are three high-level scenarios:
             // - Patch lock has already happened -> mining will continue with no delay
@@ -302,7 +304,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
             // its orders processed first, it may lock before the other worker is processed and therefore continue mining immediately.
 
             // Start by filling the 1s from the frame after the patch lock frame
-            int frameAfterLockIndex = std::max(gatherStatus->expectedPatchLockFrame - currentFrame, 0);
+            int frameAfterLockIndex = std::max(patchLockFrame - currentFrame, 0);
             std::fill_n(gatherProbabilityForecast.begin() + frameAfterLockIndex, GATHER_FORECAST_FRAMES - frameAfterLockIndex, 1.0);
 
             // If we are in the situation where the mining worker might finish on the patch lock frame, and the next worker has its orders processed

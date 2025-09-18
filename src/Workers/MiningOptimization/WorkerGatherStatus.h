@@ -83,6 +83,9 @@ namespace WorkerMiningOptimization
         // Only applicable when taking over from another worker
         int expectedPatchLockFrame;
 
+        // Same as the above, but the actual frame after patch lock has occurred
+        int actualPatchLockFrame;
+
         // The frame this worker is expected to start mining
         // Not relevant if the worker has an expected patch lock frame, since the mining start frame then depends on the
         // worker being taken over from
@@ -107,6 +110,7 @@ namespace WorkerMiningOptimization
                 , switchedPatches(false)
                 , hasPathData(false)
                 , expectedPatchLockFrame(-1)
+                , actualPatchLockFrame(-1)
                 , expectedMiningStartFrame(-1)
         {}
 
@@ -133,6 +137,7 @@ namespace WorkerMiningOptimization
             switchedPatches = false;
             hasPathData = false;
             expectedPatchLockFrame = -1;
+            actualPatchLockFrame = -1;
             expectedMiningStartFrame = -1;
         }
 

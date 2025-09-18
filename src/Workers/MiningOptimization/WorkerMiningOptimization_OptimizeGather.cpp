@@ -607,15 +607,9 @@ namespace WorkerMiningOptimization
         // Don't touch the worker if it is transitioning to mine
         if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
         {
-            // Exception is if another worker is currently mining the patch - here we still want to run our takeover optimization
+            // Exception is if another worker is currently mining the patch; we will mark as patch locked later if the resource still matches
             auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
-            if (otherWorker && otherWorker->exists() && otherWorker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
-            {
-#if TAKEOVER_DEBUG
-                CherryVis::log(worker->id) << "Running optimization while in WaitForMinerals as another worker is still mining the resource";
-#endif
-            }
-            else
+            if (!otherWorker || !otherWorker->exists() || otherWorker->bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals)
             {
                 return;
             }
@@ -666,6 +660,21 @@ namespace WorkerMiningOptimization
 
             workerStatus.switchedPatches = true;
             workerStatus.currentNode = nullptr;
+            return;
+        }
+
+        // No need to do anything more if we are patch locked
+        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
+        {
+            workerStatus.lastProcessedFrame = currentFrame;
+            if (workerStatus.actualPatchLockFrame == -1)
+            {
+                workerStatus.actualPatchLockFrame = currentFrame;
+#if TAKEOVER_DEBUG
+                Log::Get() << "Patch lock; " << worker->id << " @ " << worker->getTilePosition();
+                CherryVis::log(worker->id) << "Patch locked";
+#endif
+            }
             return;
         }
 
