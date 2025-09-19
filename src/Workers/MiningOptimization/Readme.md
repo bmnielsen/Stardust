@@ -10,7 +10,7 @@ Execution of most unit orders in StarCraft, including most of the orders related
 
 When a command is sent to a unit, this will generally reset the unit's order process timer. This allows us to manipulate its value and, with some constraints, ensure it cycles to 0 when we want an order to be processed.
 
-Starting on frame 8, every 150 frames the order process timer of all units [is reset to a value between 0-7 inclusive](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L12870-L12879). While this resetting does not involve RNG, it depends on information not known to the bot, so units get an unpredictable value.
+Starting on frame 8, every 150 frames the order process timer of all units [is reset to a value between 0-7 inclusive](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L12870-L12879). While this resetting does not involve RNG, it depends on information not usually known to the bot, so units get an unpredictable value.
 
 ### Mining order transitions and timings
 
@@ -22,7 +22,7 @@ From WaitForMinerals the order transitions to MiningMinerals after one frame, at
 
 An exception to the above is if the worker attempts to switch patches, but is unable to do so because no other patches are available. In this case the worker essentially locks onto the targeted patch: it will not try to find an alternate patch again while in MoveToMinerals and will transition to WaitForMinerals immediately upon reaching order process timer 0 after arrival. It will then remain in the WaitForMinerals state until the other worker finishes mining, at which point it will transition directly to MiningMinerals on the same frame regardless of the order process timer. This is therefore a very desirable behaviour, as it removes all wait times during mining takeover, and the patch remains marked as occupied without any gap.
 
-In MiningMinerals, [if the worker is not pointing at the patch](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L4377) (for example if it tried to switch to a different patch while waiting), it will use a full order process timer cycle to turn towards the patch. The worker will remain in the MiningMinerals order, and the patch will be marked as occupied, but the order timer will not start counting down the actual mining time.
+In MiningMinerals, [if the worker is not pointing at the patch](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L4377) (for example if it tried to switch to a different patch while waiting), it will use a full order process timer cycle to turn towards the patch. The worker will remain in the MiningMinerals order, and the patch will be marked as occupied, but the main order timer (not to be confused with the order process timer) will not start counting down the actual mining time.
 
 Once the worker has the MiningMinerals order and is pointed at the patch, [the main order timer is set to 75](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/bwgame.h#L4380) and the worker is now mining. The main order timer is decremented every frame until it reaches 0.
 
@@ -38,7 +38,7 @@ The StarCraft engine processes unit orders [in the order they appear in its visi
 
 When units are added to the visible units list, they are added [at (or near) the head of the list](https://github.com/OpenBW/openbw/blob/d5fe2306ecb08efdea877a7f4117b178292137cb/game_types.h#L41-L45).
 
-This means that units have their orders processed in reverse order to when they last became visible.
+This means that units have their orders processed in reverse order to when they last became visible: the most recent units to become visible have their orders processed first.
 
 Note that BWAPI's `isVisible` does not reflect whether a unit is in the visible units list or not. Rather, it appears to be tied to whether the units position is in the fog of war or not. Two examples are workers harvesting gas and workers loaded in a transport; in both cases they are not in the engine's visible units list, but BWAPI's `isVisible` will return true.
 
@@ -69,7 +69,7 @@ Issuing a new gather command to a worker targeting the same patch *usually* does
 
 When executing the command, the game engine does treat this as a new move target for the unit, however. The exact behaviour of the unit therefore depends on how the game engine chooses to recalculate the path. If it changes the next move waypoint for the unit, this may result in it arriving at the patch earlier or later than it would otherwise.
 
-To make somewhat intelligent decisions about which gather positions to use, we track the observed results and compare this to the expected result if we do not resend the command at all. 
+To make somewhat intelligent decisions about which gather positions to use, we track the observed results and compare this to the expected result if we do not resend the command at all. An alternative would be to try to calculate the worker's new path by replicating the game's internal movement logic, but this is likely very difficult given that BWAPI doesn't reveal the subpixel positioning of units.
 
 If an order process timer reset is to occur between the optimal resend position and reaching the patch, we cannot achieve optimal timing. What we do in this situation depends on the timing of the reset and what possibilies we have for reaching the patch faster. If the reset happens just after the optimal command would have kicked in, we can often send the gather command to take effect at the reset frame, which on average is a benefit. Otherwise we allow the worker to gather without resending the command and accept that it may take longer to begin mining.
 
@@ -92,6 +92,8 @@ If there is an order process timer reset after the main order timer has finished
 The mineral patch is marked as available as part of the mining worker's order processing. This means that on the frame where mining finishes, another worker can start mining the patch immediately only if its orders are processed after the mining worker. Otherwise it needs to wait an extra frame, as it would try to switch patches if timed to take over on the same frame.
 
 An exception to this is if the worker taking over is locked to the patch via trying to switch patches and not finding one available. Once the worker has entered this state, it doesn't actually transition to mining during its own order processing. Instead, the order processing of the worker finishing mining both updates its own state and transitions the other worker to mining. The order of unit processing is therefore irrelevant - the worker taking over will start mining immediately regardless of their relative positions in the visible units list, so long as it was "patch locked" prior to completion of mining by the mining worker.
+
+If the patch lock itself occurs on the same frame as the other worker finishes mining, the order of processing does matter, but can only delay mining by one frame. If the worker finishing mining has its order processed first, the patch is freed and the worker taking over will transition to mining via the usual single-frame WaitForMinerals. If the worker taking over has its orders processed first, it will lock to the patch, then be transitioned directly to mining when the other worker processes its orders.
 
 ### Effect of order process timer resets on the worker taking over
 
@@ -117,15 +119,34 @@ However, it can be difficult to identify whether the worker will arrive at the m
 
 To work around this, we rely as much as possible on the observations we make in the single-worker case, as the paths taken by the workers should be the same. Besides this, we make note of positions that have had suboptimal results in order to know when we need to change behaviour.
 
+### Optimizing for patch locking
+
+All of the issues with timing takeover are avoided completely if the worker taking over is able to lock to the patch before the mining worker is finished. If this happens before the mining worker has been mining for 75 frames, we know the taking over worker will continue mining with no delay regardless of order process timer resets.
+
+Patch locking occurs when:
+
+- The worker's order process timer reaches 0 when it is at most 10 pixels from the patch.
+- The patch switching logic is unable to find another free patch within 8 build tiles of the worker.
+
+We can quite easily predict the possible order process timer values for a worker (and manipulate it by resending orders), so the critical piece of information needed to optimize patch locking is whether another patch close to the worker is free.
+
+We therefore produce a forecast for each mineral patch with the probability it will be mined at each frame a certain number of frames into the future, computed by looking at the status of each worker assigned to the patch. For workers mining, their mining completion frame is forecast based on the start frame and whether an order process timer reset occurs before mining completion. For workers approaching the patch, their mining start frame is estimated based on the results of their approach optimization.
+
+These individual "is the patch going to be mined" forecasts are then combined into a "are all nearby patches going to be mined" forecast by multiplying the probabilities of each nearby patch.
+
+When doing approach optimization for the takeover case, we query this forecast and try to optimize for the earliest frame where the worker is likely to patch lock. If this succeeds, we can ignore all other takeover logic completely.
+
+**Note:** patch locking can also occur if two workers transition to WaitForMinerals on the same frame. However, as this should only come up in a game when workers are returning to mining after being needed for combat, there is no optimization potential there.
+
 ## Return of minerals
 
 Similar to when approaching a free mineral patch, the optimal timing for returning minerals is to reach the depot at the same frame when the order process timer reaches 0.
 
 However, unlike the gather command, reissuing the return cargo command (or anything equivalent, like right-clicking the depot) always affects the worker's movement: the worker stops moving completely for three frames and may take a different path back to the depot (which may be shorter).
 
-Despite the potentially longer path back to the depot, optimizing the order process timer can still give a benefit, especially as in some cases the worker will maintain some of its speed and therefore reach the mineral patch again more quickly.
-
 Since reissuing the return cargo command changes the path, we cannot simply observe normal mining patterns and compute the optimal reissue positions. Instead, a test infrastructure is needed that simulates returns from all possible mining locations and finds the best reissue position for each through trial-and-error.
+
+A worker will stop completely while waiting at the depot to return its cargo. However, if the timing works out that the worker delivers its cargo at the exact frame it arrives, it will maintain some of its speed. In some cases, this is an advantage, as the worker reaches its maximum speed back towards the patch more quickly. However, subpixel collisions are also more likely to happen when the worker has higher speed, so for some paths it is a net benefit to optimize to return resources the frame after arriving at the depot.
 
 ## A note of caution about frame timing
 
