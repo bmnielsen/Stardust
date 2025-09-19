@@ -92,6 +92,26 @@ namespace WorkerMiningOptimization
             std::deque<GatherPositionObservationPtr> expectedPath;
             std::unique_ptr<GatherPositionObservationPtr> resendPosition;
 
+            // Combines the logic we use to determine whether one evaluation is better than another
+            // Note that this is not intended to be reversible - rather it is intended to be called on one position's evaluation with the next
+            // positions provided as an argument
+            bool isBetterThan(const PositionEvaluation &other) const
+            {
+                // Use this if the other is unusable for whatever reason
+                if (other.potentialPatchSwitchFrame != INT_MAX) return true;
+                if (!other.explored) return true;
+
+                // Compare the delays
+                // Since we have started doing patch lock optimization, we are now including the collision delay here to optimize for fewer collisions
+                // The reason for this is that it is now much more important to get back to the patch quickly, to give the largest window of
+                // opportunity for patch locking
+                auto thisDelay = expectedDelay + expectedCollisionDelay;
+                auto otherDelay = other.expectedDelay + other.expectedCollisionDelay;
+
+                if (thisDelay < (otherDelay - EPSILON)) return true;
+                return false;
+            }
+
             static PositionEvaluation patchSwitch(int frame)
             {
                 return {0.0, 0.0, {}, frame};
@@ -327,19 +347,17 @@ namespace WorkerMiningOptimization
 
             auto expectedCollisionDelay = expectedPatchCollisionDelay(observations.collisionRate);
 
-            // Use this position if the next ones have a potential patch switch or this one has a better delay
-            if (nextPositionsEvaluation.potentialPatchSwitchFrame != INT_MAX
-                || expectedDelay.value() < (nextPositionsEvaluation.expectedDelay - EPSILON)
-                || (expectedDelay.value() < (nextPositionsEvaluation.expectedDelay + EPSILON)
-                    && expectedCollisionDelay < (nextPositionsEvaluation.expectedCollisionDelay - EPSILON)))
+            auto evaluationHere = PositionEvaluation::resends(expectedDelay.value(),
+                                                              expectedCollisionDelay,
+                                                              simulationFrame,
+                                                              observations,
+                                                              firstResend,
+                                                              here,
+                                                              nextPositionsEvaluation.hasUnexploredPositionOnExpectedPath);
+
+            if (evaluationHere.isBetterThan(nextPositionsEvaluation))
             {
-                return PositionEvaluation::resends(expectedDelay.value(),
-                                                   expectedCollisionDelay,
-                                                   simulationFrame,
-                                                   observations,
-                                                   firstResend,
-                                                   here,
-                                                   nextPositionsEvaluation.hasUnexploredPositionOnExpectedPath);
+                return evaluationHere;
             }
 
             return nextPositionsEvaluation;
@@ -420,17 +438,7 @@ namespace WorkerMiningOptimization
             // If exploring, return now
             if (evaluationHere.positionToTryOnExpectedPath) return evaluationHere;
 
-            // If the next positions have a potential patch switch, use this evaluation
-            if (nextPositionsEvaluation.potentialPatchSwitchFrame != INT_MAX)
-            {
-                return evaluationHere;
-            }
-
-            // Return the best branch
-            if (!nextPositionsEvaluation.explored
-                || evaluationHere.expectedDelay < (nextPositionsEvaluation.expectedDelay - EPSILON)
-                || (evaluationHere.expectedDelay < (nextPositionsEvaluation.expectedDelay + EPSILON)
-                    && evaluationHere.expectedCollisionDelay < (nextPositionsEvaluation.expectedCollisionDelay - EPSILON)))
+            if (evaluationHere.isBetterThan(nextPositionsEvaluation))
             {
                 return evaluationHere;
             }
