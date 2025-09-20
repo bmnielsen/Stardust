@@ -12,21 +12,27 @@
 #define EPSILON 0.000001
 
 /*
- * The algorithm implemented here is similar to the one for a single worker, but with the following differences:
-
- * - Our optimization goal is to be able to start mining as early as possible after the other worker is finished mining. In most cases, we will get
- *   to the patch earlier than this without much effort, so the optimization becomes trying to make sure we are in a position that avoids collisions.
+ * The algorithm implemented here is similar to the one for a single worker, but with the added constraint that it needs to consider patch locking
+ * and switching.
  *
- * - The worker is not allowed to have its order process timer reach 0 within 10 pixels of the patch while the other worker is still mining. This
- *   would cause the worker to try to switch patches, likely incurring a large delay. We consider order process timer resets in this logic.
+ * When patch locking is not possible, we optimize for being able to start mining as early as possible after the other worker is finished, in a
+ * position that minimizes collision delays. While approaching and waiting at the patch, we ensure that patch switching does not occur, taking into
+ * account any order process timer resets during this phase.
  *
- * - We still try to avoid collisions with the patch after mining completion, but these cannot be penalized the same as for single workers.
- *   In the single-worker case, every frame spent resolving the collision is a loss of efficiency. But in the two-worker case, collisions only
- *   matter when they prevent the worker from getting back to the patch in time to take over from the other worker. We therefore cannot easily
- *   know how much a collision should be penalized in our algorithm. Instead, we are only using collision rates to break ties - if we have two
- *   paths that allow the worker to take over at the same delay, we will prefer the one with the lowest collision rate.
+ * Patch locking uses a forecast of how likely we think all other patches will be mined at any given frame. This forecast has been built in such a
+ * way that we minimize false positives (flagging that all other patches will be mined when they in fact will not be), but as a result it does have
+ * a higher rate of false negatives, especially as one looks further into the future, where the workers mining other patches may have not planned
+ * their approach paths yet.
+ *
+ * In many cases, the algorithm will be able to find a patch locking path already at the initial path planning phase. But if it doesn't, we will
+ * check during the approach if the forecast has become more favourable around the time the worker is expected to arrive at the patch. If the
+ * forecast improves, we will check if replanning finds a better solution. Similarly, if we have planned a patch locking path and the forecast now
+ * looks worse than before, we will replan for a normal approach.
+ *
+ * The logic for handling mineral locking while waiting at the patch also understands patch locking, so it is possible the worker will still be able
+ * to patch lock after reaching the patch, if it has a lot of waiting time.
+ *
  */
-
 namespace WorkerMiningOptimization
 {
     namespace
@@ -61,17 +67,27 @@ namespace WorkerMiningOptimization
         }
 
         bool isPatchSwitchPossible(const WorkerGatherStatus &workerStatus,
+                                   const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                    int simulationFrame,
                                    int orderProcessTimer,
                                    const PositionAndVelocity &pos)
         {
             if (simulationFrame >= workerStatus.takeoverFrame) return false;
+            if (orderProcessTimer > 0) return false;
 
             auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
                                                 pos.pos(),
                                                 BWAPI::UnitTypes::Resource_Mineral_Field,
                                                 workerStatus.resource->center);
-            return dist <= 10 && orderProcessTimer <= 0;
+            if (dist > 10) return false;
+
+            int frameIdx = simulationFrame - currentFrame - 1;
+            if (frameIdx < 0 || frameIdx >= GATHER_FORECAST_FRAMES || otherPatchesForecast[frameIdx] < PATCH_LOCK_THRESHOLD)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         double expectedPatchCollisionDelay(uint8_t collisionRate)
@@ -210,6 +226,7 @@ namespace WorkerMiningOptimization
         }
 
         PositionEvaluation evaluateSecondResendPositions(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
+                                                         const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                                          int firstResendFrame,
                                                          int simulationFrame,
                                                          int workerOrderProcessTimer,
@@ -249,12 +266,17 @@ namespace WorkerMiningOptimization
             PositionEvaluation nextPositionsEvaluation;
             auto evaluateNextPosition = [&](SecondResendGatherPositionObservations &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
             {
-                if (isPatchSwitchPossible(workerStatus, simulationFrame, workerOrderProcessTimer, nextPosition.pos))
+                if (isPatchSwitchPossible(workerStatus,
+                                          otherPatchesForecast,
+                                          simulationFrame,
+                                          workerOrderProcessTimer,
+                                          nextPosition.pos))
                 {
                     return PositionEvaluation::patchSwitch(simulationFrame + 1);
                 }
 
                 return evaluateSecondResendPositions(workerStatus,
+                                                     otherPatchesForecast,
                                                      firstResendFrame,
                                                      simulationFrame + 1,
                                                      nextWorkerOrderProcessTimer,
@@ -364,6 +386,7 @@ namespace WorkerMiningOptimization
         }
 
         PositionEvaluation evaluatePosition(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
+                                            const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                             int simulationFrame,
                                             int workerOrderProcessTimer,
                                             GatherPositionObservations &positionMetadata)
@@ -375,12 +398,17 @@ namespace WorkerMiningOptimization
             PositionEvaluation nextPositionsEvaluation;
             auto evaluateNextPosition = [&](GatherPositionObservations &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
             {
-                if (isPatchSwitchPossible(workerStatus, simulationFrame, workerOrderProcessTimer, nextPosition.pos))
+                if (isPatchSwitchPossible(workerStatus,
+                                          otherPatchesForecast,
+                                          simulationFrame,
+                                          workerOrderProcessTimer,
+                                          nextPosition.pos))
                 {
                     return PositionEvaluation::patchSwitch(simulationFrame + 1);
                 }
 
                 return evaluatePosition(workerStatus,
+                                        otherPatchesForecast,
                                         simulationFrame + 1,
                                         nextWorkerOrderProcessTimer,
                                         nextPosition);
@@ -428,6 +456,7 @@ namespace WorkerMiningOptimization
 
             // Now evaluate this position using the second resend metadata
             auto evaluationHere = evaluateSecondResendPositions(workerStatus,
+                                                                otherPatchesForecast,
                                                                 simulationFrame,
                                                                 simulationFrame,
                                                                 workerOrderProcessTimer,
@@ -482,6 +511,7 @@ namespace WorkerMiningOptimization
         };
 
         auto evaluation = evaluatePosition(workerStatus,
+                                           workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
                                            currentFrame,
                                            workerStatus.worker->orderProcessTimer,
                                            positionMetadata);
@@ -615,6 +645,7 @@ namespace WorkerMiningOptimization
 
         // Evaluate second resends
         auto evaluation = evaluateSecondResendPositions(workerStatus,
+                                                        workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
                                                         currentFrame,
                                                         currentFrame,
                                                         workerStatus.worker->orderProcessTimer,
