@@ -160,7 +160,8 @@ namespace WorkerMiningOptimization
             // State 11: issued last command after 2 or more prior resends
             // State 12: issued last command after 1 prior resend
             // State 13: issued last command after no prior resends
-            // State 14: issued last command through path optimization
+            // State 14: issued last command through path optimization achieving mining at or after takeover frame
+            // State 15: issued last command through path optimization achieving patch locking
             // State 20: worker was already at patch after takeover frame, so nothing further was required
             while (true)
             {
@@ -556,6 +557,13 @@ namespace WorkerMiningOptimization
                         // Logic for when all planned resends have been sent
                         if (workerStatus.resentPositions.size() == workerStatus.plannedResendCount())
                         {
+                            // If the last resend gets us patch locking, transition to a final state
+                            if (workerStatus.expectedPatchLockFrame != -1)
+                            {
+                                workerStatus.takeoverState = 15;
+                                return true;
+                            }
+
                             // If the last resend gets us to the takeover frame (or beyond), transition to a final state
                             if (workerStatus.lastResendFrame() >= (workerStatus.takeoverFrame - 11 - BWAPI::Broodwar->getLatencyFrames()))
                             {
@@ -671,7 +679,8 @@ namespace WorkerMiningOptimization
             {
                 workerStatus.actualPatchLockFrame = currentFrame;
 #if TAKEOVER_DEBUG
-                Log::Get() << "Patch lock; " << worker->id << " @ " << worker->getTilePosition();
+                // TODO: Log specific patch lock situations we want to test, like patch lock at reset frame, takeover frame, etc.
+//                Log::Get() << "Patch lock; " << worker->id << " @ " << worker->getTilePosition();
                 CherryVis::log(worker->id) << "Patch locked";
 #endif
             }
