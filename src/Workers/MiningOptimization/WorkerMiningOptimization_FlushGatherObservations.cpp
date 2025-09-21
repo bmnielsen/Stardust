@@ -763,8 +763,8 @@ namespace WorkerMiningOptimization
                 return result;
             };
             miningWorkers.emplace_back(MiningWorker{
-                    std::move(it->second.worker),
-                    std::move(it->second.resource),
+                    it->second.worker,
+                    it->second.resource,
                     convertToPositions(positionsInHistory.positionHistory),
                     convertToPositions(positionsInHistory.resendsWithObservationData),
                     positionsInHistory.resendItsBeforeArrival.size()});
