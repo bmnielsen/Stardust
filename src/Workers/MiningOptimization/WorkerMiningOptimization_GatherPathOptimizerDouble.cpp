@@ -105,7 +105,7 @@ namespace WorkerMiningOptimization
 
         struct PositionEvaluation
         {
-            int patchLockFrameDelta = INT_MAX; // Relative to takeover frame, higher means further before
+            int patchLockFrameDelta = -1; // Relative to takeover frame, higher means further before
             double expectedDelay = 100.0; // Relative to takeover frame
             double expectedCollisionDelay = 0.0;
             std::vector<std::pair<int, int>> expectedArrivalFrameAndOccurrenceRate;
@@ -126,11 +126,11 @@ namespace WorkerMiningOptimization
                 if (!other.explored) return true;
 
                 // Possibility of patch lock is most important
-                if (other.patchLockFrameDelta != INT_MAX && patchLockFrameDelta == INT_MAX) return false;
-                if (patchLockFrameDelta != INT_MAX && other.patchLockFrameDelta == INT_MAX) return true;
+                if (other.patchLockFrameDelta >= 0 && patchLockFrameDelta < 0) return false;
+                if (patchLockFrameDelta >= 0 && other.patchLockFrameDelta < 0) return true;
 
                 // If both have a possible patch lock, consider collision delay in the weighting
-                if (other.patchLockFrameDelta != INT_MAX && patchLockFrameDelta != INT_MAX)
+                if (other.patchLockFrameDelta >= 0 && patchLockFrameDelta >= 0)
                 {
                     // We subtract the collision delay from each frame delta to balance locking early with avoiding collisions
                     double otherPatchLockScore = (double)other.patchLockFrameDelta - other.expectedCollisionDelay;
@@ -151,12 +151,12 @@ namespace WorkerMiningOptimization
 
             static PositionEvaluation patchSwitch(int frame)
             {
-                return {INT_MAX, 0.0, 0.0, {}, frame};
+                return {-1, 0.0, 0.0, {}, frame};
             }
 
             static PositionEvaluation exploring(GatherPositionObservations &firstResend, GatherPositionObservationPtr secondResend)
             {
-                return {INT_MAX, 0.0, 0.0, {}, INT_MAX, true, false, false, {secondResend}, std::make_unique<GatherPositionObservationPtr>(&firstResend)};
+                return {-1, 0.0, 0.0, {}, INT_MAX, true, false, false, {secondResend}, std::make_unique<GatherPositionObservationPtr>(&firstResend)};
             }
 
             static PositionEvaluation resends(int patchLockFrameDelta,
@@ -459,7 +459,7 @@ namespace WorkerMiningOptimization
                         bestOccurrenceRate = nextPos.occurrenceRate;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
                     }
-                    if (nextPositionEvaluation.patchLockFrameDelta < INT_MAX)
+                    if (nextPositionEvaluation.patchLockFrameDelta >= 0)
                     {
                         patchLockAccumulator += nextPos.occurrenceRate;
                     }
@@ -467,9 +467,9 @@ namespace WorkerMiningOptimization
                 nextPositionsEvaluation.expectedDelay = delayAccumulator;
 
                 // If patch locking is not guaranteed at high enough probability, clear it
-                if (nextPositionsEvaluation.patchLockFrameDelta != INT_MAX && (patchLockAccumulator / 255.0) < PATCH_LOCK_THRESHOLD)
+                if (nextPositionsEvaluation.patchLockFrameDelta >= 0 && (patchLockAccumulator / 255.0) < PATCH_LOCK_THRESHOLD)
                 {
-                    nextPositionsEvaluation.patchLockFrameDelta = INT_MAX;
+                    nextPositionsEvaluation.patchLockFrameDelta = -1;
                 }
             }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), here);
@@ -505,18 +505,17 @@ namespace WorkerMiningOptimization
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
 
             // Compute whether we expect a patch lock from resending in this position
-            int patchLockFrameDelta = INT_MAX;
+            int patchLockFrameDelta = -1;
             auto patchLock = checkForPatchLock(workerStatus, otherPatchesForecast, simulationFrame, observations);
             if (patchLock.has_value())
             {
                 patchLockFrameDelta = workerStatus.takeoverFrame - patchLock.value();
-                if (patchLockFrameDelta < 0) patchLockFrameDelta = INT_MAX;
             }
 
             // If there is an order process timer reset before the takeover frame, we can't use this position
             // Exception is if the order process timer reset happens on the frame the command kicks in or we expect to patch lock
             // TODO: It is presumably also ok if we reach the patch before the reset, but we would have to consider Unit_Busy timings
-            if (patchLockFrameDelta == INT_MAX)
+            if (patchLockFrameDelta < 0)
             {
                 int nextResetFrame = OrderProcessTimer::nextResetFrame(simulationFrame);
                 if (nextResetFrame < workerStatus.takeoverFrame && nextResetFrame != (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
@@ -610,7 +609,7 @@ namespace WorkerMiningOptimization
                         bestOccurrenceRate = nextPositionMetadata.occurrenceRate;
                         nextPositionsEvaluation = std::move(nextPositionEvaluation);
                     }
-                    if (nextPositionEvaluation.patchLockFrameDelta < INT_MAX)
+                    if (nextPositionEvaluation.patchLockFrameDelta >= 0)
                     {
                         patchLockAccumulator += nextPositionMetadata.occurrenceRate;
                     }
@@ -618,9 +617,9 @@ namespace WorkerMiningOptimization
                 nextPositionsEvaluation.expectedDelay = delayAccumulator;
 
                 // If patch locking is not guaranteed at high enough probability, clear it
-                if (nextPositionsEvaluation.patchLockFrameDelta != INT_MAX && (patchLockAccumulator / 255.0) < PATCH_LOCK_THRESHOLD)
+                if (nextPositionsEvaluation.patchLockFrameDelta >= 0 && (patchLockAccumulator / 255.0) < PATCH_LOCK_THRESHOLD)
                 {
-                    nextPositionsEvaluation.patchLockFrameDelta = INT_MAX;
+                    nextPositionsEvaluation.patchLockFrameDelta = -1;
                 }
             }
             nextPositionsEvaluation.expectedPath.emplace(nextPositionsEvaluation.expectedPath.begin(), &positionMetadata);
@@ -684,7 +683,7 @@ namespace WorkerMiningOptimization
             if (evaluation.positionToTryOnExpectedPath) return true;
 
             // Always use a patch lock solution
-            if (evaluation.patchLockFrameDelta != INT_MAX) return true;
+            if (evaluation.patchLockFrameDelta >= 0) return true;
 
             // If the evaluation has unexplored positions on it, only accept perfect solutions
             if (evaluation.hasUnexploredPositionOnExpectedPath && evaluation.expectedDelay > 0.5)
@@ -714,7 +713,7 @@ namespace WorkerMiningOptimization
 
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
             workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
-            if (evaluation.patchLockFrameDelta != INT_MAX)
+            if (evaluation.patchLockFrameDelta >= 0)
             {
                 workerStatus.expectedPatchLockFrame = workerStatus.takeoverFrame - evaluation.patchLockFrameDelta;
                 workerStatus.expectedMiningStartFrame = -1;
@@ -789,87 +788,117 @@ namespace WorkerMiningOptimization
     bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
-        // If we have planned to patch lock, check if we are still forecasting this to be possible at the patch lock frame
-        if (workerStatus.expectedPatchLockFrame != -1)
+        // Performs replanning from the current state
+        auto replan = [&]()
         {
-            // TODO (also updating below logic)
-        }
+            // We always need to clear second resend and path expectations
+            workerStatus.plannedSecondResendPosition = nullptr;
+            workerStatus.expectedPath.clear();
+            workerStatus.expectedArrivalFrameAndOccurrenceRate.clear();
+            workerStatus.expectedMiningStartFrame = -1;
+            workerStatus.expectedPatchLockFrame = -1;
 
-        if (workerStatus.expectedPath.empty()) return true; // have no further resends planned
-        if (workerStatus.expectedPath.front().position() == *currentPosition) return true; // path matches expectations
+            // If we haven't passed the first resend position yet, then replan from scratch
+            if (!workerStatus.resentPosition())
+            {
+                workerStatus.resendsPlanned = false;
+                workerStatus.plannedResendPosition = nullptr;
+                if (workerStatus.currentNode && workerStatus.currentNode->pos)
+                {
+                    planGatherResendsDouble(workerStatus, *workerStatus.currentNode->pos);
+                }
+                return workerStatus.resendsPlanned;
+            }
 
-        // We always need to clear second resend and path expectations
-        workerStatus.plannedSecondResendPosition = nullptr;
-        workerStatus.expectedPath.clear();
-        workerStatus.expectedArrivalFrameAndOccurrenceRate.clear();
-        workerStatus.expectedMiningStartFrame = -1;
-        workerStatus.expectedPatchLockFrame = -1;
+            // Guard against having sent multiple resends
+            if (workerStatus.resentPositions.size() != 1)
+            {
+#if OPTIMALPOSITIONS_DEBUG
+                Log::Get() << "ERROR: Worker has more than one resent positions while still tracking path"
+                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+#endif
+                return false;
+            }
 
-        // If we haven't passed the first resend position yet, then try to replan
-        if (!workerStatus.resentPosition())
+            // We have sent the first resend, but hit a different path before reaching the second resend position
+            auto &firstResend = *workerStatus.plannedResendPosition->pos;
+
+            // If we haven't observed this path, abandon the plan
+            if (!workerStatus.currentNode)
+            {
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path and unexplored path discovered; aborting second resend";
+#endif
+                return false;
+            }
+
+            // We have observed this path, so we can replan the second resend position
+            // First we need to figure out the delta between the first resend and the current position
+            int deltaFromFirstResend = currentFrame - workerStatus.lastResendFrame();
+
+            // Evaluate second resends
+            auto evaluation = evaluateSecondResendPositions(workerStatus,
+                                                            workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
+                                                            currentFrame,
+                                                            currentFrame,
+                                                            workerStatus.worker->orderProcessTimer,
+                                                            firstResend,
+                                                            *workerStatus.currentNode,
+                                                            deltaFromFirstResend);
+
+            // Don't use the position if we aren't exploring and:
+            // - It hasn't been explored
+            // - It doesn't patch lock
+            // - It has unexplored positions and is imperfect
+            if (!evaluation.positionToTryOnExpectedPath
+                && evaluation.patchLockFrameDelta < 0
+                && (!evaluation.explored || (evaluation.hasUnexploredPositionOnExpectedPath && evaluation.expectedDelay > 0.5)))
+            {
+                return false;
+            }
+
+            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
+            workerStatus.expectedPath = std::move(evaluation.expectedPath);
+            workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
+            if (evaluation.patchLockFrameDelta >= 0)
+            {
+                workerStatus.expectedPatchLockFrame = workerStatus.takeoverFrame - evaluation.patchLockFrameDelta;
+            }
+            else
+            {
+                workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay) + 1;
+            }
+            return true;
+        };
+
+        // If we have no further resends planned, return
+        if (workerStatus.expectedPath.empty()) return true;
+
+        // If path does not match expectations, replan
+        if (workerStatus.expectedPath.front().position() != *currentPosition)
         {
 #if TAKEOVER_DEBUG
             CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path; replanning";
 #endif
 
-            workerStatus.resendsPlanned = false;
-            workerStatus.plannedResendPosition = nullptr;
-            if (workerStatus.currentNode && workerStatus.currentNode->pos)
-            {
-                planGatherResendsDouble(workerStatus, *workerStatus.currentNode->pos);
-            }
-            return workerStatus.resendsPlanned;
+            return replan();
         }
 
-        // Guard against having sent multiple resends
-        if (workerStatus.resentPositions.size() != 1)
+        // Re-evaluate patch locking
+        // If we are now evaluating something different, replan
+        auto patchLock = checkForPatchLock(workerStatus,
+                                           workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
+                                           workerStatus.lastResendFrameIncludingPlanned(),
+                                           workerStatus.expectedArrivalFrameAndOccurrenceRate);
+        if ((workerStatus.expectedPatchLockFrame != -1 && (!patchLock.has_value() || patchLock.value() > workerStatus.takeoverFrame)) ||
+            (workerStatus.expectedPatchLockFrame == -1 && patchLock.has_value() && patchLock.value() <= workerStatus.takeoverFrame))
         {
-#if OPTIMALPOSITIONS_DEBUG
-            Log::Get() << "ERROR: Worker has more than one resent positions while still tracking path"
-                       << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+#if TAKEOVER_DEBUG
+            CherryVis::log(workerStatus.worker->id) << "Changed potential for patch locking; replanning";
 #endif
-            return false;
+            return replan();
         }
 
-        // We have sent the first resend, but hit a different path before reaching the second resend position
-        auto &firstResend = *workerStatus.plannedResendPosition->pos;
-
-        // If we haven't observed this path, abandon the plan
-        if (!workerStatus.currentNode)
-        {
-#if OPTIMALPOSITIONS_DEBUG
-            CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path and unexplored path discovered; aborting second resend";
-#endif
-            return false;
-        }
-
-        // We have observed this path, so we can replan the second resend position
-        // First we need to figure out the delta between the first resend and the current position
-        int deltaFromFirstResend = currentFrame - workerStatus.lastResendFrame();
-
-        // Evaluate second resends
-        auto evaluation = evaluateSecondResendPositions(workerStatus,
-                                                        workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
-                                                        currentFrame,
-                                                        currentFrame,
-                                                        workerStatus.worker->orderProcessTimer,
-                                                        firstResend,
-                                                        *workerStatus.currentNode,
-                                                        deltaFromFirstResend);
-
-        // Don't use the position if we aren't exploring and:
-        // - It hasn't been explored
-        // - It has unexplored positions and is imperfect
-        if (!evaluation.positionToTryOnExpectedPath
-            && (!evaluation.explored || (evaluation.hasUnexploredPositionOnExpectedPath && evaluation.expectedDelay > 0.5)))
-        {
-            return false;
-        }
-
-        workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
-        workerStatus.expectedPath = std::move(evaluation.expectedPath);
-        workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
-        workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay) + 1;
         return true;
     }
 }
