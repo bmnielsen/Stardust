@@ -247,65 +247,98 @@ namespace WorkerMiningOptimization
             return totalMiningDelay;
         }
 
+        std::optional<std::pair<int, double>> evaluatePatchLock(const MyWorker &worker,
+                                                                const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
+                                                                int lastResendFrame,
+                                                                int arrivalFrame)
+        {
+            // Compute the worker's order process timer at the start of the arrival frame
+            int orderProcessTimerAtArrival;
+            if (lastResendFrame == -1)
+            {
+                // Not sure if we will ever evaluate a no-resend approach, but including this in case we want to at some point
+                orderProcessTimerAtArrival =
+                        OrderProcessTimer::unitOrderProcessTimerAtDelta(worker->orderProcessTimer, arrivalFrame - currentFrame - 1);
+            }
+            else
+            {
+                int commandFrame = lastResendFrame + BWAPI::Broodwar->getLatencyFrames();
+                orderProcessTimerAtArrival =
+                        OrderProcessTimer::unitOrderProcessTimerAtDelta(commandFrame, 10, arrivalFrame - commandFrame - 1);
+            }
+
+            // There are four possibilities we need to consider:
+            // - We know the order process timer at arrival, and there is no reset before it reaches 0
+            //   - Here we only need to consider the frame where it reaches 0
+            // - We know the order process timer at arrival, but there is a reset before it reaches 0
+            //   - Here the order process timer can reach 0 from the reset frame and 7 frames ahead
+            // - We don't know the order process timer at arrival, and there is no reset in the following 8 frames
+            //   - Here there is an equal probability of the order process timer reaching 0 the next 8 frames ahead
+            // - We don't know the order process timer at arrival, and there is a reset in the following 8 frames
+            //   - Here there is a chance the order process timer reaches 0 before the reset, then an equal probability of it reaching
+            //     0 during the following 7 frames
+
+            // To make things as simple as possible, we start by building a list of frames with the probability of the order process
+            // timer reaching 0 at each
+            std::vector<std::pair<int, double>> possibleFramesAndProbabilities;
+            if (orderProcessTimerAtArrival != -1)
+            {
+                if (OrderProcessTimer::unitOrderProcessTimerAtDelta(arrivalFrame - 1, orderProcessTimerAtArrival, orderProcessTimerAtArrival) == 0)
+                {
+                    possibleFramesAndProbabilities.emplace_back(arrivalFrame + orderProcessTimerAtArrival, 1.0);
+                }
+                else
+                {
+                    int resetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame);
+                    for (int frame = resetFrame; frame <= (resetFrame + 7); frame++)
+                    {
+                        possibleFramesAndProbabilities.emplace_back(frame, 1.0 / 8.0);
+                    }
+                }
+            }
+            else
+            {
+                int resetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame);
+                for (int frame = arrivalFrame; frame <= (arrivalFrame + 8); frame++)
+                {
+                    if (frame == resetFrame)
+                    {
+                        double probabilityOfReachingHere = 1.0 - (double)(frame - arrivalFrame) / 9.0;
+                        for (int frameAfterReset = resetFrame; frameAfterReset <= (resetFrame + 7); frameAfterReset++)
+                        {
+                            possibleFramesAndProbabilities.emplace_back(frameAfterReset, probabilityOfReachingHere / 8.0);
+                        }
+                        break;
+                    }
+                    possibleFramesAndProbabilities.emplace_back(frame, 1.0 / 9.0);
+                }
+            }
+
+            // Now evaluate whether we expect to patch lock
+            double probabilityAccumulator = 0.0;
+            for (const auto &[frame, probability] : possibleFramesAndProbabilities)
+            {
+                probabilityAccumulator += probability * otherPatchesForecastAtFrame(otherPatchesForecast, frame);
+            }
+            if (probabilityAccumulator < PATCH_LOCK_THRESHOLD)
+            {
+                return std::nullopt;
+            }
+            return std::make_pair(possibleFramesAndProbabilities.rbegin()->first, probabilityAccumulator);
+        }
+
         std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus,
                                              const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                              int simulationFrame,
                                              const GatherResendArrivalObservations &observations)
         {
-            // Given an arrival delay, figures out whether there is a patch lock frame
-            // Return value is either null (no patch lock possible), or a pair of the latest patch lock frame and the probability of patch locking
-            auto arrivalDelayToPatchLockFrame = [&](int arrivalDelay)->std::optional<std::pair<int, double>>
-            {
-                // If the worker does not arrive on time, there cannot be a patch lock
-                if (arrivalDelay > 0) return std::nullopt;
-
-                int commandFrame = simulationFrame + BWAPI::Broodwar->getLatencyFrames();
-                int noResetPatchLockFrame = commandFrame + 11;
-                int arrivalFrame = noResetPatchLockFrame + arrivalDelay;
-
-                // Check if the projected order process timer is 0 at the no reset patch lock frame - this indicates there is no reset in play
-                if (OrderProcessTimer::unitOrderProcessTimerAtDelta(commandFrame, 10, noResetPatchLockFrame - commandFrame - 1) == 0)
-                {
-                    auto patchLockProbability = otherPatchesForecastAtFrame(otherPatchesForecast, noResetPatchLockFrame);
-                    if (patchLockProbability < PATCH_LOCK_THRESHOLD)
-                    {
-                        return std::nullopt;
-                    }
-                    return std::make_pair(noResetPatchLockFrame, patchLockProbability);
-                }
-
-                // There is a reset at play, so check all of the possible frames where it might take effect
-                int earliestLockFrame;
-                int possibleOrderProcessTimerValues;
-                int resetFrame = OrderProcessTimer::previousResetFrame(noResetPatchLockFrame);
-                if (resetFrame < arrivalFrame)
-                {
-                    earliestLockFrame = arrivalFrame;
-                    possibleOrderProcessTimerValues = 9;
-                }
-                else
-                {
-                    earliestLockFrame = resetFrame;
-                    possibleOrderProcessTimerValues = 8;
-                }
-
-                double probabilityAccumulator = 0.0;
-                for (int frame = earliestLockFrame; frame < (earliestLockFrame + possibleOrderProcessTimerValues); frame++)
-                {
-                    probabilityAccumulator +=
-                            otherPatchesForecastAtFrame(otherPatchesForecast, frame) * (1.0 / (double)possibleOrderProcessTimerValues);
-                }
-
-                if (probabilityAccumulator < PATCH_LOCK_THRESHOLD)
-                {
-                    return std::nullopt;
-                }
-                return std::make_pair((earliestLockFrame + possibleOrderProcessTimerValues - 1), probabilityAccumulator);
-            };
-
             if (observations.arrivalDelayAndOccurrenceRate.size() == 1)
             {
-                auto result = arrivalDelayToPatchLockFrame(observations.arrivalDelayAndOccurrenceRate.begin()->first);
+                auto result = evaluatePatchLock(
+                        workerStatus.worker,
+                        otherPatchesForecast,
+                        simulationFrame,
+                        simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + observations.arrivalDelayAndOccurrenceRate.begin()->first);
                 if (result.has_value())
                 {
                     return result.value().first;
@@ -318,7 +351,11 @@ namespace WorkerMiningOptimization
             int mostCommonLockFrame = 0;
             for (const auto &[arrivalDelay, occurrenceRate] : observations.arrivalDelayAndOccurrenceRate)
             {
-                auto result = arrivalDelayToPatchLockFrame(arrivalDelay);
+                auto result = evaluatePatchLock(
+                        workerStatus.worker,
+                        otherPatchesForecast,
+                        simulationFrame,
+                        simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay);
                 if (!result.has_value()) return std::nullopt;
 
                 probabilityAccumulator += (result.value().second) * ((double)occurrenceRate / 255.0);
