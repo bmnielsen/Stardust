@@ -185,6 +185,16 @@ namespace WorkerMiningOptimization
             return *resentFrames.rbegin();
         }
 
+        [[nodiscard]] int lastResendFrameIncludingPlanned() const
+        {
+            if (!expectedPath.empty())
+            {
+                return currentFrame + ((int)expectedPath.size() - 1);
+            }
+            if (resentFrames.empty()) return -1;
+            return *resentFrames.rbegin();
+        }
+
         [[nodiscard]] int mostProbableArrivalFrame() const
         {
             if (expectedArrivalFrameAndOccurrenceRate.empty()) return -1;

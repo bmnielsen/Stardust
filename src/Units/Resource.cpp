@@ -341,32 +341,26 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         int frameWithKnownOrderProcessTimer;
         int knownOrderProcessTimerValue;
         int deltaToArrivalFrame;
-        if (!gatherStatus->expectedPath.empty())
+        int lastResendFrame = gatherStatus->lastResendFrameIncludingPlanned();
+        if (lastResendFrame != -1)
         {
-            // Last resend is at last path point, then order process timer goes to 0 after LF
-            frameWithKnownOrderProcessTimer =
-                    currentFrame + ((int)gatherStatus->expectedPath.size() - 1) + BWAPI::Broodwar->getLatencyFrames();
+            frameWithKnownOrderProcessTimer = lastResendFrame + BWAPI::Broodwar->getLatencyFrames();
             knownOrderProcessTimerValue = 10;
             deltaToArrivalFrame = arrivalFrame - frameWithKnownOrderProcessTimer;
 
 #if DEBUG_SATURATION_DATA
-            CherryVis::log(nextMiningWorker->id) << "On path"
+            if (gatherStatus->expectedPath.empty())
+            {
+                CherryVis::log(nextMiningWorker->id) << "After last resend"
                                                      << "; frameWithKnownOrderProcessTimer=" << frameWithKnownOrderProcessTimer
                                                      << "; deltaToArrivalFrame=" << deltaToArrivalFrame;
-#endif
-        }
-        else if (!gatherStatus->resentFrames.empty())
-        {
-            // Last resend has been sent
-            frameWithKnownOrderProcessTimer =
-                    *gatherStatus->resentFrames.rbegin() + BWAPI::Broodwar->getLatencyFrames();
-            knownOrderProcessTimerValue = 10;
-            deltaToArrivalFrame = arrivalFrame - frameWithKnownOrderProcessTimer;
-
-#if DEBUG_SATURATION_DATA
-            CherryVis::log(nextMiningWorker->id) << "After last resend"
+            }
+            else
+            {
+                CherryVis::log(nextMiningWorker->id) << "On path"
                                                      << "; frameWithKnownOrderProcessTimer=" << frameWithKnownOrderProcessTimer
                                                      << "; deltaToArrivalFrame=" << deltaToArrivalFrame;
+            }
 #endif
         }
         else
