@@ -6,6 +6,7 @@
 #include "DebugFlag_WorkerMiningOptimization.h"
 
 #include <optional>
+#include <ranges>
 
 #include "Geo.h"
 
@@ -118,7 +119,7 @@ namespace WorkerMiningOptimization
             // Combines the logic we use to determine whether one evaluation is better than another
             // Note that this is not intended to be reversible - rather it is intended to be called on one position's evaluation with the next
             // positions provided as an argument
-            bool isBetterThan(const PositionEvaluation &other) const
+            [[nodiscard]] bool isBetterThan(const PositionEvaluation &other) const
             {
                 // Use this if the other is unusable for whatever reason
                 if (other.potentialPatchSwitchFrame != INT_MAX) return true;
@@ -327,35 +328,23 @@ namespace WorkerMiningOptimization
             return std::make_pair(possibleFramesAndProbabilities.rbegin()->first, probabilityAccumulator);
         }
 
+        // Checks whether the worker is expected to patch lock, returning the last frame if it will
+        template<typename T>
         std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus,
                                              const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
-                                             int simulationFrame,
-                                             const GatherResendArrivalObservations &observations)
+                                             int resendFrame,
+                                             const T &arrivalFramesAndOccurrenceRates)
         {
-            if (observations.arrivalDelayAndOccurrenceRate.size() == 1)
-            {
-                auto result = evaluatePatchLock(
-                        workerStatus.worker,
-                        otherPatchesForecast,
-                        simulationFrame,
-                        simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + observations.arrivalDelayAndOccurrenceRate.begin()->first);
-                if (result.has_value())
-                {
-                    return result.value().first;
-                }
-                return std::nullopt;
-            }
-
             double probabilityAccumulator = 0.0;
             int bestOccurrenceRate = 0;
             int mostCommonLockFrame = 0;
-            for (const auto &[arrivalDelay, occurrenceRate] : observations.arrivalDelayAndOccurrenceRate)
+            for (const auto &[arrivalFrame, occurrenceRate] : arrivalFramesAndOccurrenceRates)
             {
                 auto result = evaluatePatchLock(
                         workerStatus.worker,
                         otherPatchesForecast,
-                        simulationFrame,
-                        simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay);
+                        resendFrame,
+                        arrivalFrame);
                 if (!result.has_value()) return std::nullopt;
 
                 probabilityAccumulator += (result.value().second) * ((double)occurrenceRate / 255.0);
@@ -371,6 +360,21 @@ namespace WorkerMiningOptimization
                 return std::nullopt;
             }
             return mostCommonLockFrame;
+        }
+
+        std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus,
+                                             const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
+                                             int simulationFrame,
+                                             const GatherResendArrivalObservations &observations)
+        {
+            // Transforms the arrival delays into arrival frames
+            auto arrivalFrames = std::ranges::views::transform(observations.arrivalDelayAndOccurrenceRate, [&](auto a)
+            {
+                return std::make_pair(
+                        simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + a.first,
+                        (int)a.second);
+            });
+            return checkForPatchLock(workerStatus, otherPatchesForecast, simulationFrame, arrivalFrames);
         }
 
         PositionEvaluation evaluateSecondResendPositions(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
