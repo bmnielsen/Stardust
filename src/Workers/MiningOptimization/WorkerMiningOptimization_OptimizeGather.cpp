@@ -7,6 +7,7 @@
 #include "OrderProcessTimer.h"
 #include "PositionAndVelocity.h"
 #include "Workers.h"
+#include "Units.h"
 
 namespace WorkerMiningOptimization
 {
@@ -648,12 +649,32 @@ namespace WorkerMiningOptimization
             // This runs before we append the position we are at now, since it may be changed by the patch switch
             if (!workerStatus.switchedPatches) handleGatherPatchSwitch(workerStatus);
 
+#if LOGGING_ENABLED
             CherryVis::log(worker->id) << "targeting different patch; resending order";
             if (workerStatus.passed10DistancePosition != -1 && !workerStatus.passedUnregistered10DistancePosition)
             {
-                Log::Get() << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition() << " switched patch"
-                           << "; passed10DistancePosition: " << workerStatus.passed10DistancePosition;
+                std::ostringstream dbg;
+                dbg << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition()
+                    << " patch switch";
+
+                auto otherPatch = Units::resourceAt(worker->bwapiUnit->getOrderTarget()->getTilePosition());
+                if (otherPatch)
+                {
+                    dbg << "; new patch @ " << otherPatch->tile;
+                    if (resource->resourcesInSwitchPatchRange.contains(otherPatch))
+                    {
+                        dbg << "; in switch patch range";
+                    }
+                    else
+                    {
+                        dbg << "; OUTSIDE SWITCH PATCH RANGE";
+                    }
+                }
+
+                dbg << "; passed10DistancePosition: " << workerStatus.passed10DistancePosition;
+                Log::Get() << dbg.str();
             }
+#endif
 
             auto currentPosition = workerStatus.appendCurrentPosition();
 
