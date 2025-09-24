@@ -117,17 +117,17 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getAllOtherPatchesGath
                        std::multiplies<>{});
     }
 
-    // The above only gives us the probability at the start of the frame, but if we want to be sure all other patches are mined when a worker's
+    // The above only gives us the probability at the end of the frame, but if we want to be sure all other patches are mined when a worker's
     // orders are processed, we need to consider the fact that other workers' orders are likely to have been processed before it.
-    // The simplest way to fix this is to include the probability of the other patches also being mined on the next frame. This takes into account
-    // any patches that are forecasted to stop being mined on the frame when our worker's orders are processed.
+    // The simplest way to fix this is to include the probability of the other patches also being mined on the previous frame. This takes into account
+    // any patches that are forecasted to start being mined on the frame when our worker's orders are processed.
     // A more accurate solution to this would actually consider the order process index, but this would require tracking a lot of additional data
     // and would likely make very little difference in practice.
-    // The last frame in the forecast can not be multiplied by the next, so we leave it as-is, with the expectation that our logic will re-check
-    // as the worker approaches anyway.
-    for (int i = 0; i < (GATHER_FORECAST_FRAMES - 1); i++)
+    // The first frame in the forecast can not be multiplied by the next, so we leave it as-is, but as a frame that early would never be usable
+    // for planning (because of latency), this shouldn't be an issue.
+    for (int i = 1; i < GATHER_FORECAST_FRAMES; i++)
     {
-        allOtherPatchesGatheredProbabilityForecast[i] *= allOtherPatchesGatheredProbabilityForecast[i + 1];
+        allOtherPatchesGatheredProbabilityForecast[i] *= allOtherPatchesGatheredProbabilityForecast[i - 1];
     }
 
 #if DEBUG_SATURATION_DATA
