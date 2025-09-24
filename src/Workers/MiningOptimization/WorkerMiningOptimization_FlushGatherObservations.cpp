@@ -9,13 +9,27 @@
 #include "GatherPositionObservations.h"
 #include "WorkerGatherStatus.h"
 #include "WorkerMiningInstrumentation.h"
+#include "Units.h"
+#include "Map.h"
+#include "Workers.h"
 
 #include "Geo.h"
+
+#define PATCHLOCKING_DEBUG true
 
 namespace WorkerMiningOptimization
 {
     namespace
     {
+#if PATCHLOCKING_DEBUG
+        std::deque<std::set<Resource>> actualOtherPatchesGatheredHistory;
+        std::deque<std::set<Resource>> predictedOtherPatchesGatheredHistory;
+        int patchLockingTotalCollections;
+        int patchLockingPotentialPatchLocks;
+        int patchLockingPredictedPatchLocksAtCommandFrame;
+        int patchLockingSuccessfulPatchLocks;
+#endif
+
         struct PositionsInHistory
         {
             std::vector<std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator> resendItsBeforeArrival;
@@ -584,6 +598,83 @@ namespace WorkerMiningOptimization
     {
         if (currentFrame == 0) miningWorkers.clear();
 
+#if PATCHLOCKING_DEBUG
+        if (currentFrame == 0)
+        {
+            actualOtherPatchesGatheredHistory.clear();
+            predictedOtherPatchesGatheredHistory.clear();
+            patchLockingTotalCollections = 0;
+            patchLockingPotentialPatchLocks = 0;
+            patchLockingPredictedPatchLocksAtCommandFrame = 0;
+            patchLockingSuccessfulPatchLocks = 0;
+        }
+
+        // Update the actual resources being mined data
+
+        // Start by making a set of all the resources that are being mined
+        std::set<Resource> resourcesBeingMined;
+        for (const auto &worker : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+        {
+            if (!worker->exists()) continue;
+            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals) continue;
+            if (!worker->bwapiUnit->getOrderTarget()) continue;
+            auto resource = Units::resourceAt(worker->bwapiUnit->getOrderTarget()->getTilePosition());
+            if (resource) resourcesBeingMined.insert(resource);
+        }
+
+        // Now go through all of the mineral patches and find those where all other patches are being mined
+        std::set<Resource> resourcesWithAllOtherBeingMined;
+        for (const auto &base : Map::allBases())
+        {
+            for (const auto &resource : base->mineralPatches())
+            {
+                bool allMined = true;
+                for (const auto &otherResource : resource->resourcesInSwitchPatchRange)
+                {
+                    if (otherResource->destroyed) continue;
+                    if (!resourcesBeingMined.contains(otherResource))
+                    {
+                        allMined = false;
+                        break;
+                    }
+                }
+                if (allMined) resourcesWithAllOtherBeingMined.insert(resource);
+            }
+        }
+        actualOtherPatchesGatheredHistory.push_front(std::move(resourcesWithAllOtherBeingMined));
+        if (actualOtherPatchesGatheredHistory.size() > 20) actualOtherPatchesGatheredHistory.pop_back();
+
+        // Do the same with the predicted forecast values
+        std::set<Resource> resourcesWithAllOtherPredictedToBeMined;
+        for (const auto &base : Map::allBases())
+        {
+            for (const auto &resource : base->mineralPatches())
+            {
+                auto &forecast = resource->getAllOtherPatchesGatheredProbabilityForecast();
+                if (forecast[BWAPI::Broodwar->getLatencyFrames() + 10] > PATCH_LOCK_THRESHOLD)
+                {
+                    resourcesWithAllOtherPredictedToBeMined.insert(resource);
+                }
+            }
+        }
+        predictedOtherPatchesGatheredHistory.push_front(std::move(resourcesWithAllOtherPredictedToBeMined));
+        if (predictedOtherPatchesGatheredHistory.size() > (20 + BWAPI::Broodwar->getLatencyFrames() + 10))
+        {
+            predictedOtherPatchesGatheredHistory.pop_back();
+        }
+
+        // Output debug data every 1000 frames
+        if (currentFrame > 0 && currentFrame % 1000 == 0 && patchLockingPotentialPatchLocks > 0 && patchLockingTotalCollections > 0)
+        {
+            Log::Get() << std::fixed << std::setprecision(1)
+                       << "Patch locking effectiveness: " << (100.0 * patchLockingSuccessfulPatchLocks) / (double)(patchLockingPotentialPatchLocks)
+                       << "% successful patch locks, "
+                       << (100.0 * patchLockingPredictedPatchLocksAtCommandFrame) / (double)(patchLockingTotalCollections)
+                       << "% collections were predicted lockable, "
+                       << (100.0 * patchLockingPotentialPatchLocks) / (double)(patchLockingTotalCollections)
+                       << "% collections were actually lockable";
+        }
+#endif
 #if OPTIMALPOSITIONS_DEBUG
         if (currentFrame == 0)
         {
@@ -749,6 +840,56 @@ namespace WorkerMiningOptimization
                 it++;
                 continue;
             }
+
+#if PATCHLOCKING_DEBUG
+            // Mark this collection's patch locking status
+            // We don't count early frames since those give free locking in our test infrastructure
+            if (!isExploring() && currentFrame > 300)
+            {
+                patchLockingTotalCollections++;
+
+                // We patch locked if:
+                // - we can see the other worker is still mining
+                // - we started transitioning to mining before the takeover frame (in this case, the other could have still been mining, so
+                //   though we technically didn't patch lock, we have still saved some frames)
+                auto otherWorkerMining = Workers::getOtherWorkerMining(it->second.resource, worker);
+                if ((otherWorkerMining && otherWorkerMining->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                    || currentFrame < it->second.takeoverFrame)
+                {
+                    patchLockingSuccessfulPatchLocks++;
+                    patchLockingPredictedPatchLocksAtCommandFrame++;
+                    patchLockingPotentialPatchLocks++;
+                }
+                else
+                {
+                    // There wasn't a patch lock, so let's determine if one could have been done
+                    int arrivalFrame = currentFrame - (int)std::distance(positionsInHistory.arrivalPositionIt, it->second.positionHistory.end()) + 1;
+                    bool patchLockPossible = false;
+                    for (int frame = arrivalFrame;
+                        frame < std::min(it->second.takeoverFrame, currentFrame);
+                        frame++)
+                    {
+                        // Check the actuals
+                        int idx = currentFrame - frame;
+                        if (idx < 19 && actualOtherPatchesGatheredHistory[idx].contains(it->second.resource) &&
+                            actualOtherPatchesGatheredHistory[idx + 1].contains(it->second.resource))
+                        {
+                            if (!patchLockPossible)
+                            {
+                                patchLockingPotentialPatchLocks++;
+                                patchLockPossible = true;
+                            }
+
+                            if (predictedOtherPatchesGatheredHistory[idx].contains(it->second.resource))
+                            {
+                                patchLockingPredictedPatchLocksAtCommandFrame++;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+#endif
 
             // Move required fields into the MiningWorker struct that we use to track patch collisions
             // As the underlying vectors may change in the meantime, we convert pointers to positions
