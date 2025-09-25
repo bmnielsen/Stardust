@@ -381,7 +381,8 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
         void copyDataFile(const std::string &source, const std::string &target)
         {
-            std::filesystem::copy(source, target, std::filesystem::copy_options::update_existing);
+            std::filesystem::copy(source, target, std::filesystem::copy_options::overwrite_existing);
+            Log::Get() << "Copied " << source << " to " << target;
         }
     }
 
