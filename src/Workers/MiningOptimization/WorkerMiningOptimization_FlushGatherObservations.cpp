@@ -15,7 +15,9 @@
 
 #include "Geo.h"
 
+#if INSTRUMENTATION_ENABLED_VERBOSE
 #define PATCHLOCKING_DEBUG true
+#endif
 
 namespace WorkerMiningOptimization
 {

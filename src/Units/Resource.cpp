@@ -7,7 +7,9 @@
 
 #define EPSILON 0.000001
 
+#if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_SATURATION_DATA false
+#endif
 
 ResourceImpl::ResourceImpl(BWAPI::Unit unit)
     : id(unit->getID())
