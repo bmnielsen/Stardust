@@ -169,7 +169,7 @@ void UpgradeTracker::update(Grid &grid)
 
     for (auto &upgradeAndLevel : _upgradeLevel)
     {
-        bool current = player->getUpgradeLevel(upgradeAndLevel.first);
+        int current = player->getUpgradeLevel(upgradeAndLevel.first);
         if (current && current > upgradeAndLevel.second)
         {
             upgradeAndLevel.second = current;
