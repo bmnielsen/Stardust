@@ -27,6 +27,7 @@ namespace WorkerMiningOptimization
 
         // Metadata for positions used for optimizing approach to the patch
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToFullGatherPositionObservations;
+        std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> resourceToGatherPositionObservations;
 
         // Metadata for positions LF+1 frames before reaching 10 or less distance from the patch
         // Workers can try to switch to another patch if their chosen patch is being mined once they reach this distance, so we use these
@@ -53,7 +54,11 @@ namespace WorkerMiningOptimization
 
         if (BWAPI::Broodwar->mapHash() != mapHashOfCurrentData)
         {
-            ObservationDataFiles::readGatherPositionObservations(exploring, resourceToFullGatherPositionObservations);
+            ObservationDataFiles::readGatherPositionObservations(resourceToFullGatherPositionObservations);
+            if (resourceToFullGatherPositionObservations.empty())
+            {
+                ObservationDataFiles::readGatherPositionObservations(resourceToGatherPositionObservations);
+            }
             ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
             ObservationDataFiles::readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
             ObservationDataFiles::readResourceObservations(exploring || updatingResourceObservations, resourceToResourceObservations);
@@ -77,7 +82,7 @@ namespace WorkerMiningOptimization
 #if WRITE_DATA_FILES
         if (exploring)
         {
-            ObservationDataFiles::writeGatherPositionObservations(false, resourceToFullGatherPositionObservations);
+            ObservationDataFiles::writeFullGatherPositionObservations(resourceToFullGatherPositionObservations);
             ObservationDataFiles::write10DistanceObservations(resourceTo10DistancePositions);
             ObservationDataFiles::writeReturnPositionObservations(false, resourceToOptimalReturnPositions);
         }
@@ -225,8 +230,14 @@ namespace WorkerMiningOptimization
             return &(result.first->second);
         }
 
-        // TODO: Implement for sparse data
-        return nullptr;
+        // Check if we have a data buffer for this position
+        auto &positions = resourceToGatherPositionObservations[TilePosition::fromBWAPI(resource->tile)];
+        auto it = positions.find(pos);
+        if (it == positions.end()) return nullptr;
+
+        // We have a data buffer, so deserialize and store in the unique storage pointer
+        *storage = ObservationDataFiles::deserializeGatherPositionObservations(it->second);
+        return storage->get();
     }
 
     std::unordered_map<PositionAndVelocity, GatherPositionObservations> &gatherPositionRootNodesFor(const Resource &resource)

@@ -24,9 +24,11 @@ namespace WorkerMiningOptimization::ObservationDataFiles
     void overrideGameParameters(GameParameters gameParameters);
     GameParameters getGameParameters();
 
-    void readGatherPositionObservations(
-            bool requireFull,
-            std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
+    void readGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
+
+    void readGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> &data);
+
+    std::unique_ptr<GatherPositionObservations> deserializeGatherPositionObservations(const std::vector<uint8_t> &buffer);
 
     void read10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data);
 
@@ -38,10 +40,9 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             bool requireFull,
             std::map<TilePosition, ResourceObservations> &data);
 
-    void writeGatherPositionObservations(
-            bool minimized,
-            std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data,
-            bool maxCompression = false);
+    void writeFullGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
+
+    void writeGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> &data);
 
     void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompression = false);
 

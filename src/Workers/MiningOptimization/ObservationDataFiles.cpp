@@ -1,5 +1,6 @@
 #include "ObservationDataFiles.h"
 
+#include <bitsery/adapter/buffer.h>
 #include <bitsery/adapter/stream.h>
 #include <bitsery/traits/vector.h>
 #include <bitsery/ext/std_set.h>
@@ -83,10 +84,10 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             return filename("gatherpositions", preferFull, true, false, writing);
         }
 
-        std::string optimalGatherPositionsExportFilename()
-        {
-            return exportFilename("gatherpositions", true, false);
-        }
+//        std::string optimalGatherPositionsExportFilename()
+//        {
+//            return exportFilename("gatherpositions", true, false);
+//        }
 
         std::string tenDistancePositionsFilename(bool writing = false)
         {
@@ -121,6 +122,82 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         template<bool full>
         struct OptimalGatherPositionsSerializer
         {
+            template <typename S>
+            void serialize(S& ser, GatherPositionObservations &gatherPositionObservations)
+            {
+                std::function<void(S&, GatherResendArrivalObservations&)> gatherResendArrivalObservationsSerializer;
+                std::function<void(S&, SecondResendGatherPositionObservations&)> secondResendGatherPositionObservationsSerializer;
+                std::function<void(S&, GatherPositionObservations&)> gatherPositionObservationsSerializer;
+
+                gatherResendArrivalObservationsSerializer = [](S &s, GatherResendArrivalObservations &value)
+                {
+                    if constexpr (full)
+                    {
+                        s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint32_t& v) {
+                            s.value1b(key);
+                            s.value4b(v);
+                        });
+                    }
+                    s.ext(value.arrivalDelayAndOccurrenceRate, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint8_t& v) {
+                        s.value1b(key);
+                        s.value1b(v);
+                    });
+                    if constexpr (full)
+                    {
+                        s.value4b(value.collisions);
+                        s.value4b(value.nonCollisions);
+                    }
+                    s.value1b(value.collisionRate);
+                };
+
+                secondResendGatherPositionObservationsSerializer = [&](S &s, SecondResendGatherPositionObservations &value)
+                {
+                    s.object(value.pos);
+                    if constexpr (full)
+                    {
+                        s.value4b(value.occurrences);
+                    }
+                    s.value1b(value.occurrenceRate);
+                    s.container(value.nextPositions, INT_MAX, [&](S &s, SecondResendGatherPositionObservations &v) {
+                        s.object(v, secondResendGatherPositionObservationsSerializer);
+                    });
+                    s.object(value.arrivalObservations, gatherResendArrivalObservationsSerializer);
+                };
+
+                gatherPositionObservationsSerializer = [&](S &s, GatherPositionObservations &value)
+                {
+                    s.object(value.pos);
+                    if constexpr (full)
+                    {
+                        s.value4b(value.occurrences);
+                    }
+                    s.value1b(value.occurrenceRate);
+                    s.ext(value.deltaToBenchmarkAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint32_t& v) {
+                        s.value1b(key);
+                        s.value4b(v);
+                    });
+                    s.ext(value.deltaToBenchmarkAndOccurrenceRate, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint8_t& v) {
+                        s.value1b(key);
+                        s.value1b(v);
+                    });
+                    s.container(value.nextPositions, INT_MAX, [&](S &s, GatherPositionObservations &v) {
+                        s.object(v, gatherPositionObservationsSerializer);
+                    });
+                    s.object(value.noSecondResendArrivalObservations, gatherResendArrivalObservationsSerializer);
+                    s.container(value.secondResendPositions, INT_MAX, [&](S &s, SecondResendGatherPositionObservations &v) {
+                        s.object(v, secondResendGatherPositionObservationsSerializer);
+                    });
+                    if constexpr (full)
+                    {
+                        s.value4b(value.noResendCollisions);
+                        s.value4b(value.noResendNonCollisions);
+                    }
+                    s.value1b(value.noResendCollisionRate);
+                };
+
+                gatherPositionObservationsSerializer(ser, gatherPositionObservations);
+            }
+
             template <typename S>
             void serialize(S& ser,
                            std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &resourceToOptimalGatherPositions)
@@ -204,6 +281,24 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                             {
                                 s.object(v, gatherPositionObservationsSerializer);
                                 key = v.pos;
+                            });
+                        });
+            }
+
+            template <typename S>
+            void serialize(S& ser,
+                           std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> &resourceToOptimalGatherPositions)
+            {
+                ser.ext(resourceToOptimalGatherPositions,
+                        bitsery::ext::StdMap{INT_MAX},
+                        [&](S &s, TilePosition &key, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>> &value)
+                        {
+                            s.object(key);
+                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S &s, PositionAndVelocity &key, std::vector<uint8_t> &v)
+                            {
+                                s.container(v, INT_MAX, [&](S &s, uint8_t &v) {
+                                    s.value1b(v);
+                                });
                             });
                         });
             }
@@ -406,25 +501,39 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         };
     }
 
-    void readGatherPositionObservations(bool requireFull,
-                                        std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
+    void readGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
     {
-        auto [filename, full] = optimalGatherPositionsFilename(requireFull);
-
-        if (requireFull && !full)
+        auto [filename, full] = optimalGatherPositionsFilename(true);
+        if (!full)
         {
             data.clear();
             return;
         }
 
+        readDataFile("gather positions", filename, OptimalGatherPositionsSerializer<true>{}, data);
+    }
+
+    void readGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> &data)
+    {
+        auto [filename, full] = optimalGatherPositionsFilename(false);
         if (full)
         {
-            readDataFile("gather positions", filename, OptimalGatherPositionsSerializer<true>{}, data);
+            data.clear();
+            return;
         }
-        else
-        {
-            readDataFile("gather positions", filename, OptimalGatherPositionsSerializer<false>{}, data);
-        }
+
+        readDataFile("gather positions", filename, OptimalGatherPositionsSerializer<false>{}, data);
+    }
+
+    std::unique_ptr<GatherPositionObservations> deserializeGatherPositionObservations(const std::vector<uint8_t> &buffer)
+    {
+        auto result = std::make_unique<GatherPositionObservations>();
+
+        auto serializer = OptimalGatherPositionsSerializer<false>{};
+        bitsery::Deserializer<bitsery::InputBufferAdapter<std::vector<uint8_t>>> ser{buffer.begin(), buffer.size()};
+        serializer.serialize(ser, *result);
+
+        return result;
     }
 
     void read10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data)
@@ -474,31 +583,13 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         }
     }
 
-    void writeGatherPositionObservations(bool minimized,
-                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data,
-                                         bool maxCompression)
+    void writeFullGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
     {
-        if (minimized)
-        {
-            auto filename = optimalGatherPositionsFilename(false, true).first;
-            writeDataFile("gather positions",
-                          filename,
-                          OptimalGatherPositionsSerializer<false>{},
-                          data,
-                          maxCompression);
-            if (!getGameParameters().exportMapHash.empty())
-            {
-                copyDataFile(filename, optimalGatherPositionsExportFilename());
-            }
-        }
-        else
-        {
-            writeDataFile("gather positions",
-                          optimalGatherPositionsFilename(true, true).first,
-                          OptimalGatherPositionsSerializer<true>{},
-                          data,
-                          maxCompression);
-        }
+        writeDataFile("gather positions",
+                      optimalGatherPositionsFilename(true, true).first,
+                      OptimalGatherPositionsSerializer<true>{},
+                      data,
+                      false);
     }
 
     void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompression)

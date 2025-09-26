@@ -23,9 +23,9 @@ namespace
 
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, WorkerMiningOptimization::GatherPositionObservations>>
                 resourceToOptimalGatherPositions;
-        WorkerMiningOptimization::ObservationDataFiles::readGatherPositionObservations(true, resourceToOptimalGatherPositions);
+        WorkerMiningOptimization::ObservationDataFiles::readGatherPositionObservations(resourceToOptimalGatherPositions);
         WorkerMiningOptimization::ObservationDataFiles::reduceGatherData(resourceToOptimalGatherPositions);
-        WorkerMiningOptimization::ObservationDataFiles::writeGatherPositionObservations(true, resourceToOptimalGatherPositions, true);
+//        WorkerMiningOptimization::ObservationDataFiles::writeGatherPositionObservations(true, resourceToOptimalGatherPositions, true);
 
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, WorkerMiningOptimization::ReturnPositionObservations>>
                 resourceToOptimalReturnPositions;
