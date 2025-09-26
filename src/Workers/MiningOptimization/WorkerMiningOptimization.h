@@ -54,7 +54,10 @@ namespace WorkerMiningOptimization
 
     WorkerGatherStatus *gatherStatusFor(const MyWorker &worker);
 
-    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &gatherPositionRootNodesFor(const Resource &resource);
+    GatherPositionObservations *findGatherPositionObservations(const Resource &resource,
+                                                               const PositionAndVelocity &pos,
+                                                               bool createIfNotFound,
+                                                               std::unique_ptr<GatherPositionObservations> *storage = nullptr);
 
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource);
 

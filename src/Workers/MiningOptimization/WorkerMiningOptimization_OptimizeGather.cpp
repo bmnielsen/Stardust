@@ -730,11 +730,10 @@ namespace WorkerMiningOptimization
         // If we don't have a current node, check if this position is a root node
         if (!workerStatus.currentNode && !workerStatus.resendsPlanned)
         {
-            auto &rootNodes = gatherPositionRootNodesFor(resource);
-            auto rootNodeIt = rootNodes.find(*currentPosition);
-            if (rootNodeIt != rootNodes.end())
+            auto rootNode = findGatherPositionObservations(resource, *currentPosition, false, &workerStatus.rootNode);
+            if (rootNode)
             {
-                workerStatus.currentNode = std::make_unique<GatherPositionObservationPtr>(&rootNodeIt->second);
+                workerStatus.currentNode = std::make_unique<GatherPositionObservationPtr>(rootNode);
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(worker->id) << "Picked up path at " << *currentPosition;
 #endif

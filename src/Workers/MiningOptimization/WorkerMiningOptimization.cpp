@@ -26,7 +26,7 @@ namespace WorkerMiningOptimization
         std::string mapHashOfCurrentData;
 
         // Metadata for positions used for optimizing approach to the patch
-        std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToOptimalGatherPositions;
+        std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToFullGatherPositionObservations;
 
         // Metadata for positions LF+1 frames before reaching 10 or less distance from the patch
         // Workers can try to switch to another patch if their chosen patch is being mined once they reach this distance, so we use these
@@ -53,7 +53,7 @@ namespace WorkerMiningOptimization
 
         if (BWAPI::Broodwar->mapHash() != mapHashOfCurrentData)
         {
-            ObservationDataFiles::readGatherPositionObservations(exploring, resourceToOptimalGatherPositions);
+            ObservationDataFiles::readGatherPositionObservations(exploring, resourceToFullGatherPositionObservations);
             ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
             ObservationDataFiles::readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
             ObservationDataFiles::readResourceObservations(exploring || updatingResourceObservations, resourceToResourceObservations);
@@ -77,7 +77,7 @@ namespace WorkerMiningOptimization
 #if WRITE_DATA_FILES
         if (exploring)
         {
-            ObservationDataFiles::writeGatherPositionObservations(false, resourceToOptimalGatherPositions);
+            ObservationDataFiles::writeGatherPositionObservations(false, resourceToFullGatherPositionObservations);
             ObservationDataFiles::write10DistanceObservations(resourceTo10DistancePositions);
             ObservationDataFiles::writeReturnPositionObservations(false, resourceToOptimalReturnPositions);
         }
@@ -100,7 +100,7 @@ namespace WorkerMiningOptimization
                 if (observations.arrivalDelayAndOccurrences.size() > 1) return true;
                 return observations.arrivalDelayAndOccurrences.begin()->second > 1;
             };
-            for (const auto &[resource, optimalPositions] : resourceToOptimalGatherPositions)
+            for (const auto &[resource, optimalPositions] : resourceToFullGatherPositionObservations)
             {
                 for (const auto &[_, optimalPosition] : optimalPositions)
                 {
@@ -209,9 +209,29 @@ namespace WorkerMiningOptimization
         return &workerStatusIt->second;
     }
 
+    GatherPositionObservations *findGatherPositionObservations(const Resource &resource, 
+                                                               const PositionAndVelocity &pos,
+                                                               bool createIfNotFound,
+                                                               std::unique_ptr<GatherPositionObservations> *storage)
+    {
+        // If we have full observations, return a pointer without requiring any additional storage
+        if (!resourceToFullGatherPositionObservations.empty())
+        {
+            auto &positions = resourceToFullGatherPositionObservations[TilePosition::fromBWAPI(resource->tile)];
+            auto it = positions.find(pos);
+            if (it != positions.end()) return &(it->second);
+            if (!createIfNotFound) return nullptr;
+            auto result = positions.emplace(pos, pos);
+            return &(result.first->second);
+        }
+
+        // TODO: Implement for sparse data
+        return nullptr;
+    }
+
     std::unordered_map<PositionAndVelocity, GatherPositionObservations> &gatherPositionRootNodesFor(const Resource &resource)
     {
-        return resourceToOptimalGatherPositions[TilePosition::fromBWAPI(resource->tile)];
+        return resourceToFullGatherPositionObservations[TilePosition::fromBWAPI(resource->tile)];
     }
 
     std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &returnPositionRootNodesFor(const Resource &resource)

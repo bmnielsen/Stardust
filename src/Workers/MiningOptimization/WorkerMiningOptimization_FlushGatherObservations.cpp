@@ -159,20 +159,11 @@ namespace WorkerMiningOptimization
             // Reference the observations and potentially create new nodes
 
             // Start by finding or creating the root node
-            auto &rootNodes = gatherPositionRootNodesFor(workerStatus.resource);
-            auto rootNodeIt = rootNodes.find(**workerStatus.positionHistory.begin());
-            if (rootNodeIt == rootNodes.end())
-            {
-                if (!createObservations) return false;
-                auto result = rootNodes.emplace(**workerStatus.positionHistory.begin(), **workerStatus.positionHistory.begin());
-                rootNodeIt = result.first;
-            }
-            else if (rootNodeIt->second.occurrences < UINT32_MAX)
-            {
-                rootNodeIt->second.occurrences++;
-            }
+            auto rootNode = findGatherPositionObservations(workerStatus.resource, **workerStatus.positionHistory.begin(), createObservations);
+            if (!rootNode) return false;
+            if (rootNode->occurrences < UINT32_MAX) rootNode->occurrences++;
 
-            auto current = GatherPositionObservationPtr(&(rootNodeIt->second));
+            auto current = GatherPositionObservationPtr(rootNode);
             positionsInHistory.positionHistory.push_back(current);
 
             // Add main line positions up to the first resend (or arrival position if there was no resend)
@@ -313,9 +304,10 @@ namespace WorkerMiningOptimization
             if (miningWorker.resendsWithObservationData.size() != miningWorker.resendsBeforeArrivalCount) return;
 
             // Find the root node
-            auto &rootNodes = gatherPositionRootNodesFor(miningWorker.resource);
-            auto rootNodeIt = rootNodes.find(miningWorker.positionHistoryWithObservationData.front());
-            if (rootNodeIt == rootNodes.end())
+            auto rootNode = findGatherPositionObservations(miningWorker.resource,
+                                                           miningWorker.positionHistoryWithObservationData.front(),
+                                                           false);
+            if (!rootNode)
             {
 #if LOGGING_ENABLED
                 Log::Get() << "ERROR: No root node found when handling gather collisions"
@@ -346,7 +338,7 @@ namespace WorkerMiningOptimization
                 node.pos->addNoResendCollision(collision);
             };
 
-            auto current = GatherPositionObservationPtr(&(rootNodeIt->second));
+            auto current = GatherPositionObservationPtr(rootNode);
             recordObservationsOnNode(current);
 
             for (auto positionIt = miningWorker.positionHistoryWithObservationData.begin() + 1;
