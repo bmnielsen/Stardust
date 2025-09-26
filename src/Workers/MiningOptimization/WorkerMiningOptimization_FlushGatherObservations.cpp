@@ -156,7 +156,8 @@ namespace WorkerMiningOptimization
                 positionsInHistory.resendItsBeforeArrival.push_back(resendPositionIt);
             }
 
-            // Reference the observations and potentially create new nodes
+            // If exploring, reference the observations and potentially create new nodes
+            if (!isExploring()) return true;
 
             // Start by finding or creating the root node
             auto rootNode = findGatherPositionObservations(workerStatus.resource, **workerStatus.positionHistory.begin(), createObservations);

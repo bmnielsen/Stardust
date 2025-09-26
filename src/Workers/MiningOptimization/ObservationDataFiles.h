@@ -42,7 +42,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
     void writeFullGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
 
-    void writeGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> &data);
+    void writeGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data);
 
     void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompression = false);
 

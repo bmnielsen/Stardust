@@ -236,7 +236,8 @@ namespace WorkerMiningOptimization
         if (it == positions.end()) return nullptr;
 
         // We have a data buffer, so deserialize and store in the unique storage pointer
-        *storage = ObservationDataFiles::deserializeGatherPositionObservations(it->second);
+        auto result = ObservationDataFiles::deserializeGatherPositionObservations(it->second);
+        *storage = std::move(result);
         return storage->get();
     }
 

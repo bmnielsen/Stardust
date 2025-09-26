@@ -84,10 +84,10 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             return filename("gatherpositions", preferFull, true, false, writing);
         }
 
-//        std::string optimalGatherPositionsExportFilename()
-//        {
-//            return exportFilename("gatherpositions", true, false);
-//        }
+        std::string optimalGatherPositionsExportFilename()
+        {
+            return exportFilename("gatherpositions", true, false);
+        }
 
         std::string tenDistancePositionsFilename(bool writing = false)
         {
@@ -296,6 +296,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                             s.object(key);
                             s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S &s, PositionAndVelocity &key, std::vector<uint8_t> &v)
                             {
+                                s.object(key);
                                 s.container(v, INT_MAX, [&](S &s, uint8_t &v) {
                                     s.value1b(v);
                                 });
@@ -590,6 +591,33 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                       OptimalGatherPositionsSerializer<true>{},
                       data,
                       false);
+    }
+
+    void writeGatherPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> &data)
+    {
+        auto serializer = OptimalGatherPositionsSerializer<false>{};
+
+        std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> processedData;
+        for (auto &[patchTile, posToObservations] : data)
+        {
+            auto &processedPosToObservations = processedData[patchTile];
+            for (auto &[pos, observations] : posToObservations)
+            {
+                bitsery::Serializer<bitsery::OutputBufferAdapter<std::vector<uint8_t>>> ser{processedPosToObservations[pos]};
+                serializer.serialize(ser, observations);
+            }
+        }
+
+        writeDataFile("gather positions",
+                      optimalGatherPositionsFilename(false, true).first,
+                      OptimalGatherPositionsSerializer<false>{},
+                      processedData,
+                      true);
+
+        if (!getGameParameters().exportMapHash.empty())
+        {
+            copyDataFile(optimalGatherPositionsFilename(false, true).first, optimalGatherPositionsExportFilename());
+        }
     }
 
     void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompression)
