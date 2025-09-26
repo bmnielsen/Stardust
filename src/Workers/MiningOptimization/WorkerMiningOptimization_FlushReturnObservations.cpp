@@ -22,7 +22,6 @@ namespace WorkerMiningOptimization
 
         bool extractPositionsInHistory(PositionsInHistory &positionsInHistory,
                                        WorkerReturnStatus &workerStatus,
-                                       std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &rootNodes,
                                        bool createObservations)
         {
             if (!workerStatus.hasLeftPatch)
@@ -97,19 +96,11 @@ namespace WorkerMiningOptimization
             // Reference the observations and potentially create new nodes
 
             // Start by finding or creating the root node
-            auto rootNodeIt = rootNodes.find(**workerStatus.positionHistory.begin());
-            if (rootNodeIt == rootNodes.end())
-            {
-                if (!createObservations) return false;
-                auto result = rootNodes.emplace(**workerStatus.positionHistory.begin(), **workerStatus.positionHistory.begin());
-                rootNodeIt = result.first;
-            }
-            else if (rootNodeIt->second.occurrences < UINT32_MAX)
-            {
-                rootNodeIt->second.occurrences++;
-            }
+            auto rootNode = findReturnPositionObservations(workerStatus.resource, **workerStatus.positionHistory.begin(), createObservations);
+            if (!rootNode) return false;
+            if (rootNode->occurrences < UINT32_MAX) rootNode->occurrences++;
 
-            auto current = &(rootNodeIt->second);
+            auto current = rootNode;
             positionsInHistory.positionHistory.push_back(current);
 
             // Add positions up to the resend (or arrival position if there was no resend)
@@ -221,6 +212,8 @@ namespace WorkerMiningOptimization
             (justReturnedWorker.deliveredOnArrivalFrame ? deliveryAtArrivalSpeedTotals : deliveryAfterArrivalSpeedTotals).addObservation(observation);
 #endif
 
+            if (!isExploring()) return;
+
             auto addObservation = [&](ReturnArrivalObservations &observations)
             {
                 (justReturnedWorker.deliveredOnArrivalFrame
@@ -232,9 +225,10 @@ namespace WorkerMiningOptimization
             if (justReturnedWorker.positionHistoryWithObservationData.empty()) return;
 
             // Find the root node
-            auto &rootNodes = returnPositionRootNodesFor(justReturnedWorker.resource);
-            auto rootNodeIt = rootNodes.find(justReturnedWorker.positionHistoryWithObservationData.front());
-            if (rootNodeIt == rootNodes.end())
+            auto rootNode = findReturnPositionObservations(justReturnedWorker.resource,
+                                                           justReturnedWorker.positionHistoryWithObservationData.front(),
+                                                           false);
+            if (!rootNode)
             {
 #if LOGGING_ENABLED
                 Log::Get() << "ERROR: No root node found when handling return collisions"
@@ -257,7 +251,7 @@ namespace WorkerMiningOptimization
                 addObservation(node->noResendArrivalObservations);
             };
 
-            auto current = &(rootNodeIt->second);
+            auto current = rootNode;
             recordObservationsOnNode(current);
 
             for (auto positionIt = justReturnedWorker.positionHistoryWithObservationData.begin() + 1;
@@ -448,9 +442,8 @@ namespace WorkerMiningOptimization
             it->second.appendCurrentPosition();
 
             // We ignore workers that didn't start at the patch or had excessively long paths (indicating distance mining)
-            auto &rootNodes = returnPositionRootNodesFor(it->second.resource);
             PositionsInHistory positionsInHistory;
-            if (!extractPositionsInHistory(positionsInHistory, it->second, rootNodes, WorkerMiningOptimization::isExploring()))
+            if (!extractPositionsInHistory(positionsInHistory, it->second, WorkerMiningOptimization::isExploring()))
             {
 #if OPTIMALRETURN_DEBUG
                 CherryVis::log(worker->id) << "Not tracking observations for this return"

@@ -40,6 +40,10 @@ namespace WorkerMiningOptimization
         // The expected path the worker will follow
         std::deque<ReturnPositionObservations*> expectedPath;
 
+        // The root node of the path being followed
+        // This is stored here to ensure the entire path is kept in memory until the gather status is destroyed
+        std::unique_ptr<ReturnPositionObservations> rootNode;
+
         // The current position of the worker in the expected path
         ReturnPositionObservations* currentNode;
 
@@ -79,6 +83,7 @@ namespace WorkerMiningOptimization
             resendPlanned = false;
             plannedResendPosition = nullptr;
             expectedPath.clear();
+            rootNode = nullptr;
             currentNode = nullptr;
             plannedResendIsForExploration = false;
             expectedDelayAfterResend = 100.0;

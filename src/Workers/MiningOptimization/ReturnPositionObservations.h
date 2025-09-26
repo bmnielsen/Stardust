@@ -150,7 +150,7 @@ namespace WorkerMiningOptimization
 
         // How often this position has occurred in its path
         // For root nodes, how often it has been observed
-        uint32_t occurrences = 1;
+        uint32_t occurrences = 0;
 
         // The occurence rate of this position compared to its siblings as a fraction of 255
         uint8_t occurrenceRate = 0;

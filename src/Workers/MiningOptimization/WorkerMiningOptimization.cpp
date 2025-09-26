@@ -38,7 +38,8 @@ namespace WorkerMiningOptimization
         std::map<MyWorker, WorkerGatherStatus> workerGatherStatuses;
 
         // Metadata for positions used for optimizing return of resources
-        std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> resourceToOptimalReturnPositions;
+        std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> resourceToFullReturnPositionObservations;
+        std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> resourceToReturnPositionObservations;
 
         // Worker state for those returning resources
         std::map<MyWorker, WorkerReturnStatus> workerReturnStatuses;
@@ -54,13 +55,17 @@ namespace WorkerMiningOptimization
 
         if (BWAPI::Broodwar->mapHash() != mapHashOfCurrentData)
         {
-            ObservationDataFiles::readGatherPositionObservations(resourceToFullGatherPositionObservations);
+//            ObservationDataFiles::readGatherPositionObservations(resourceToFullGatherPositionObservations);
             if (resourceToFullGatherPositionObservations.empty())
             {
                 ObservationDataFiles::readGatherPositionObservations(resourceToGatherPositionObservations);
             }
             ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
-            ObservationDataFiles::readReturnPositionObservations(exploring, resourceToOptimalReturnPositions);
+//            ObservationDataFiles::readReturnPositionObservations(resourceToFullReturnPositionObservations);
+            if (resourceToFullReturnPositionObservations.empty())
+            {
+                ObservationDataFiles::readReturnPositionObservations(resourceToReturnPositionObservations);
+            }
             ObservationDataFiles::readResourceObservations(exploring || updatingResourceObservations, resourceToResourceObservations);
 
             mapHashOfCurrentData = BWAPI::Broodwar->mapHash();
@@ -84,7 +89,7 @@ namespace WorkerMiningOptimization
         {
             ObservationDataFiles::writeFullGatherPositionObservations(resourceToFullGatherPositionObservations);
             ObservationDataFiles::write10DistanceObservations(resourceTo10DistancePositions);
-            ObservationDataFiles::writeReturnPositionObservations(false, resourceToOptimalReturnPositions);
+            ObservationDataFiles::writeReturnPositionObservations(resourceToFullReturnPositionObservations);
         }
 
         if (updatingResourceObservations)
@@ -241,14 +246,32 @@ namespace WorkerMiningOptimization
         return storage->get();
     }
 
-    std::unordered_map<PositionAndVelocity, GatherPositionObservations> &gatherPositionRootNodesFor(const Resource &resource)
-    {
-        return resourceToFullGatherPositionObservations[TilePosition::fromBWAPI(resource->tile)];
-    }
 
-    std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &returnPositionRootNodesFor(const Resource &resource)
+    ReturnPositionObservations *findReturnPositionObservations(const Resource &resource,
+                                                               const PositionAndVelocity &pos,
+                                                               bool createIfNotFound,
+                                                               std::unique_ptr<ReturnPositionObservations> *storage)
     {
-        return resourceToOptimalReturnPositions[TilePosition::fromBWAPI(resource->tile)];
+        // If we have full observations, return a pointer without requiring any additional storage
+        if (!resourceToFullReturnPositionObservations.empty())
+        {
+            auto &positions = resourceToFullReturnPositionObservations[TilePosition::fromBWAPI(resource->tile)];
+            auto it = positions.find(pos);
+            if (it != positions.end()) return &(it->second);
+            if (!createIfNotFound) return nullptr;
+            auto result = positions.emplace(pos, pos);
+            return &(result.first->second);
+        }
+
+        // Check if we have a data buffer for this position
+        auto &positions = resourceToReturnPositionObservations[TilePosition::fromBWAPI(resource->tile)];
+        auto it = positions.find(pos);
+        if (it == positions.end()) return nullptr;
+
+        // We have a data buffer, so deserialize and store in the unique storage pointer
+        auto result = ObservationDataFiles::deserializeReturnPositionObservations(it->second);
+        *storage = std::move(result);
+        return storage->get();
     }
 
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource)

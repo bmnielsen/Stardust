@@ -328,6 +328,60 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         struct OptimalReturnPositionsSerializer
         {
             template <typename S>
+            void serialize(S& ser, ReturnPositionObservations &value)
+            {
+                std::function<void(S&, ReturnSpeedOccurrences&)> returnSpeedOccurrencesSerializer;
+                std::function<void(S&, ReturnArrivalObservations&)> returnArrivalObservationsSerializer;
+                std::function<void(S&, ReturnPositionObservations&)> returnPositionObservationsSerializer;
+
+                returnSpeedOccurrencesSerializer = [](S &s, ReturnSpeedOccurrences &value)
+                {
+                    if constexpr (full)
+                    {
+                        s.value4b(value.collision);
+                        s.value4b(value.lowExitSpeed);
+                        s.value4b(value.mediumExitSpeed);
+                        s.value4b(value.highExitSpeed);
+                    }
+                    s.value1b(value.frameDelay);
+                };
+
+                returnArrivalObservationsSerializer = [&](S &s, ReturnArrivalObservations &value)
+                {
+                    if constexpr (full)
+                    {
+                        s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint8_t& key, uint32_t& v) {
+                            s.value1b(key);
+                            s.value4b(v);
+                        });
+                    }
+                    s.ext(value.arrivalDelayAndOccurrenceRate, bitsery::ext::StdMap{ INT_MAX }, [](S& s, uint8_t& key, uint8_t& v) {
+                        s.value1b(key);
+                        s.value1b(v);
+                    });
+                    s.object(value.deliveryAfterArrivalSpeeds, returnSpeedOccurrencesSerializer);
+                    s.object(value.deliveryAtArrivalSpeeds, returnSpeedOccurrencesSerializer);
+                };
+
+                returnPositionObservationsSerializer = [&](S &s, ReturnPositionObservations &value)
+                {
+                    s.object(value.pos);
+                    if constexpr (full)
+                    {
+                        s.value4b(value.occurrences);
+                    }
+                    s.value1b(value.occurrenceRate);
+                    s.container(value.nextPositions, INT_MAX, [&](S &s, ReturnPositionObservations &v) {
+                        s.object(v, returnPositionObservationsSerializer);
+                    });
+                    s.object(value.noResendArrivalObservations, returnArrivalObservationsSerializer);
+                    s.object(value.resendArrivalObservations, returnArrivalObservationsSerializer);
+                };
+
+                returnPositionObservationsSerializer(ser, value);
+            }
+
+            template <typename S>
             void serialize(S& ser,
                            std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &resourceToOptimalReturnPositions)
             {
@@ -388,6 +442,25 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                             {
                                 s.object(v, returnPositionObservationsSerializer);
                                 key = v.pos;
+                            });
+                        });
+            }
+
+            template <typename S>
+            void serialize(S& ser,
+                           std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> &resourceToOptimalReturnPositions)
+            {
+                ser.ext(resourceToOptimalReturnPositions,
+                        bitsery::ext::StdMap{INT_MAX},
+                        [&](S &s, TilePosition &key, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>> &value)
+                        {
+                            s.object(key);
+                            s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S &s, PositionAndVelocity &key, std::vector<uint8_t> &v)
+                            {
+                                s.object(key);
+                                s.container(v, INT_MAX, [&](S &s, uint8_t &v) {
+                                    s.value1b(v);
+                                });
                             });
                         });
             }
@@ -542,25 +615,39 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         readDataFile("ten-distance positions", tenDistancePositionsFilename(), TenDistancePositionsSerializer{}, data);
     }
 
-    void readReturnPositionObservations(bool requireFull,
-                                        std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
+    void readReturnPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
     {
-        auto [filename, full] = optimalReturnPositionsFilename(requireFull);
-
-        if (requireFull && !full)
+        auto [filename, full] = optimalReturnPositionsFilename(true);
+        if (!full)
         {
             data.clear();
             return;
         }
 
+        readDataFile("return positions", filename, OptimalReturnPositionsSerializer<true>{}, data);
+    }
+
+    void readReturnPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> &data)
+    {
+        auto [filename, full] = optimalReturnPositionsFilename(false);
         if (full)
         {
-            readDataFile("return positions", filename, OptimalReturnPositionsSerializer<true>{}, data);
+            data.clear();
+            return;
         }
-        else
-        {
-            readDataFile("return positions", filename, OptimalReturnPositionsSerializer<false>{}, data);
-        }
+
+        readDataFile("return positions", filename, OptimalReturnPositionsSerializer<false>{}, data);
+    }
+
+    std::unique_ptr<ReturnPositionObservations> deserializeReturnPositionObservations(const std::vector<uint8_t> &buffer)
+    {
+        auto result = std::make_unique<ReturnPositionObservations>();
+
+        auto serializer = OptimalReturnPositionsSerializer<false>{};
+        bitsery::Deserializer<bitsery::InputBufferAdapter<std::vector<uint8_t>>> ser{buffer.begin(), buffer.size()};
+        serializer.serialize(ser, *result);
+
+        return result;
     }
 
     void readResourceObservations(bool requireFull,
@@ -610,7 +697,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
         writeDataFile("gather positions",
                       optimalGatherPositionsFilename(false, true).first,
-                      OptimalGatherPositionsSerializer<false>{},
+                      serializer,
                       processedData,
                       true);
 
@@ -630,33 +717,42 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         }
     }
 
-    void writeReturnPositionObservations(bool minimized,
-                                         std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data,
-                                         bool maxCompression)
+    void writeFullReturnPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
     {
-        if (minimized)
-        {
-            auto filename = optimalReturnPositionsFilename(false, true).first;
-            writeDataFile("return positions",
-                          filename,
-                          OptimalReturnPositionsSerializer<false>{},
-                          data,
-                          maxCompression);
-            if (!getGameParameters().exportMapHash.empty())
-            {
-                copyDataFile(filename, optimalReturnPositionsExportFilename());
-            }
-        }
-        else
-        {
-            writeDataFile("return positions",
-                          optimalReturnPositionsFilename(true, true).first,
-                          OptimalReturnPositionsSerializer<true>{},
-                          data,
-                          maxCompression);
-        }
+        writeDataFile("return positions",
+                      optimalReturnPositionsFilename(true, true).first,
+                      OptimalReturnPositionsSerializer<true>{},
+                      data,
+                      false);
     }
 
+    void writeReturnPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data)
+    {
+        auto serializer = OptimalReturnPositionsSerializer<false>{};
+
+        std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> processedData;
+        for (auto &[patchTile, posToObservations] : data)
+        {
+            auto &processedPosToObservations = processedData[patchTile];
+            for (auto &[pos, observations] : posToObservations)
+            {
+                bitsery::Serializer<bitsery::OutputBufferAdapter<std::vector<uint8_t>>> ser{processedPosToObservations[pos]};
+                serializer.serialize(ser, observations);
+            }
+        }
+
+        writeDataFile("return positions",
+                      optimalReturnPositionsFilename(false, true).first,
+                      serializer,
+                      processedData,
+                      true);
+
+        if (!getGameParameters().exportMapHash.empty())
+        {
+            copyDataFile(optimalReturnPositionsFilename(false, true).first, optimalReturnPositionsExportFilename());
+        }
+    }
+    
     void writeResourceObservations(bool minimized,
                                    std::map<TilePosition, ResourceObservations> &data,
                                    bool maxCompression)

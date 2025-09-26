@@ -68,7 +68,10 @@ namespace WorkerMiningOptimization
 
     WorkerReturnStatus &returnStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
-    std::unordered_map<PositionAndVelocity, ReturnPositionObservations> &returnPositionRootNodesFor(const Resource &resource);
+    ReturnPositionObservations *findReturnPositionObservations(const Resource &resource,
+                                                               const PositionAndVelocity &pos,
+                                                               bool createIfNotFound,
+                                                               std::unique_ptr<ReturnPositionObservations> *storage = nullptr);
 
     // Gets observations related to a specific resource
     ResourceObservations &resourceObservationsFor(const Resource &resource);

@@ -274,11 +274,10 @@ namespace WorkerMiningOptimization
         // If we don't have a current node, check if this position is a root node
         if (!workerStatus.currentNode && !workerStatus.resendPlanned)
         {
-            auto &rootNodes = returnPositionRootNodesFor(resource);
-            auto rootNodeIt = rootNodes.find(*currentPosition);
-            if (rootNodeIt != rootNodes.end())
+            auto rootNode = findReturnPositionObservations(resource, *currentPosition, false, &workerStatus.rootNode);
+            if (rootNode)
             {
-                workerStatus.currentNode = &rootNodeIt->second;
+                workerStatus.currentNode = rootNode;
             }
         }
 

@@ -32,9 +32,11 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
     void read10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data);
 
-    void readReturnPositionObservations(
-            bool requireFull,
-            std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data);
+    void readReturnPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data);
+
+    void readReturnPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> &data);
+
+    std::unique_ptr<ReturnPositionObservations> deserializeReturnPositionObservations(const std::vector<uint8_t> &buffer);
 
     void readResourceObservations(
             bool requireFull,
@@ -46,10 +48,9 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
     void write10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data, bool maxCompression = false);
 
-    void writeReturnPositionObservations(
-            bool minimized,
-            std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data,
-            bool maxCompression = false);
+    void writeFullReturnPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data);
+
+    void writeReturnPositionObservations(std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> &data);
 
     void writeResourceObservations(
             bool minimized,
