@@ -276,7 +276,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
 
     // We can only predict if we have gather status data
     auto gatherStatus = WorkerMiningOptimization::gatherStatusFor(nextMiningWorker);
-    if (!gatherStatus)
+    if (!gatherStatus || gatherStatus->resource.get() != this)
     {
 #if DEBUG_SATURATION_DATA
         CherryVis::log(nextMiningWorker->id) << "No gather status; not using this for mining forecast";
@@ -288,7 +288,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     double miningWorkerNextFrameProbability = gatherProbabilityForecast[0];
 
     // Two worker takeover case
-    if (gatherStatus && gatherStatus->takeoverFrame != -1)
+    if (gatherStatus->takeoverFrame != -1)
     {
         // Special case when the takeover worker is expected to patch lock on a given frame
         int patchLockFrame = gatherStatus->actualPatchLockFrame;
@@ -415,6 +415,12 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
             {
                 possibleOrderProcessTimerValues -= (currentFrame - earliestMiningStartFrame + 1);
                 earliestMiningStartFrame = currentFrame + 1;
+                if (possibleOrderProcessTimerValues < 0)
+                {
+                    Log::Get() << "ERROR: earliest mining start frame is way before current frame, something is wrong here"
+                               << "; worker " << nextMiningWorker->id << " @ " << nextMiningWorker->getTilePosition();
+                    return;
+                }
             }
 
             // If the worker has arrived but is not in WaitForMinerals, we know it won't be mining next frame either

@@ -216,6 +216,8 @@ namespace WorkerMiningOptimization
         auto workerStatusIt = workerGatherStatuses.find(worker);
         if (workerStatusIt == workerGatherStatuses.end()) return nullptr;
 
+        if (workerStatusIt->second.lastProcessedFrame < (currentFrame - 1)) return nullptr;
+
         return &workerStatusIt->second;
     }
 
