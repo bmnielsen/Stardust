@@ -901,4 +901,11 @@ namespace WorkerMiningOptimization
 
         return true;
     }
+
+    std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus, int resendFrame)
+    {
+        std::vector<std::pair<int, int>> arrivalData;
+        arrivalData.emplace_back(resendFrame + BWAPI::Broodwar->getLatencyFrames() + 10, 255);
+        return checkForPatchLock(workerStatus, workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(), resendFrame, arrivalData);
+    }
 }

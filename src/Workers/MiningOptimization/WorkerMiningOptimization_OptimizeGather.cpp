@@ -242,6 +242,11 @@ namespace WorkerMiningOptimization
 #endif
                         }
 
+                        // We get here in the following conditions:
+                        // - We never captured a known path
+                        // - We followed a path, but lost it again before completing all resends
+                        // - We have finished following a path, but will reach it early enough that we need to avoid patch switching
+
                         // Compute the frame of the order timer reset prior to the take over frame
                         int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(takeoverFrame);
                         if (previousOrderTimerReset == takeoverFrame) previousOrderTimerReset -= 150;
@@ -281,6 +286,22 @@ namespace WorkerMiningOptimization
                         // Logic for when the next command is in the future
                         if (framesToNextCommand > 0)
                         {
+                            // Calculate if we think we can patch lock
+                            // TODO: Use a shared logic with the later part that determines if we are likely to arrive at the patch on time
+                            //       by resending here
+                            if ((!workerStatus.resentFrames.empty() || workerStatus.passed10DistancePosition != -1) &&
+                                !workerStatus.resentFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+                            {
+                                auto patchLock = checkForPatchLock(workerStatus, currentFrame);
+                                if (patchLock.has_value())
+                                {
+                                    workerStatus.expectedPatchLockFrame = patchLock.value();
+                                    workerStatus.takeoverState = 15;
+                                    workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition);
+                                    return true;
+                                }
+                            }
+
                             // We need to resend gather commands once we get close to the patch to avoid the worker switching patches
 
                             // No need to do anything if the worker isn't close yet

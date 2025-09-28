@@ -46,6 +46,9 @@ namespace WorkerMiningOptimization
     bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
+    // Checks for patch lock assuming the worker will have arrived at the patch when the resend takes effect
+    std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus, int resendFrame);
+
     void flushGatherObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses);
 
     void handleGatherPatchSwitch(WorkerGatherStatus &workerStatus);
