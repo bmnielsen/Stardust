@@ -52,6 +52,10 @@ At a subpixel level, at least on the first frame when leaving a patch or depot, 
 
 The resulting collision reconciliation state takes a full order process timer cycle to resolve, so unlucky subpixel placement of the worker can seriously impact mining efficiency.
 
+### `Unit_Busy`
+
+If a bot tries to send a mining command exactly latency frames after the previous command, BWAPI will fail to send the command with the error `Unit_Busy`. I'm not sure if this is an actual engine limitation or a quirk of BWAPI, but this needs to be taken into consideration when doing any optimizations.
+
 ## Start of gathering - no worker currently mining patch
 
 When the patch is free, we ideally want the approaching worker's order process timer to reach 0 on the exact frame it arrives at the patch, while of course ensuring the worker arrives at the patch as early as possible.
