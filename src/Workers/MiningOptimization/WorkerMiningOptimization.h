@@ -9,6 +9,8 @@
 #include "WorkerReturnStatus.h"
 #include "ResourceObservations.h"
 
+#include <optional>
+
 #define ENABLE_GATHER_OPTIMIZATION true
 #define ENABLE_RETURN_OPTIMIZATION true
 #define ENABLE_PATH_BASED_TAKEOVER true
