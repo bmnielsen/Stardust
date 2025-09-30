@@ -170,11 +170,13 @@ namespace WorkerMiningOptimization
             {
                 // Generate the possible arrival frames with their weighting
                 std::vector<std::pair<int, int>> _expectedArrivalFrameAndOccurrenceRate;
-                _expectedArrivalFrameAndOccurrenceRate.reserve(arrivalObservations.arrivalDelayAndOccurrenceRate.size());
-                for (const auto &[arrivalDelay, occurrenceRate] : arrivalObservations.arrivalDelayAndOccurrenceRate)
+                _expectedArrivalFrameAndOccurrenceRate.reserve(arrivalObservations.packedArrivalDelayAndFacingPatchToOccurrenceRate.size());
+                for (const auto &[packedArrivalDelayAndFacingPatch, occurrenceRate]
+                    : arrivalObservations.packedArrivalDelayAndFacingPatchToOccurrenceRate)
                 {
                     _expectedArrivalFrameAndOccurrenceRate.emplace_back(
-                        simulationFrame + 11 + BWAPI::Broodwar->getLatencyFrames() + arrivalDelay,
+                        simulationFrame + 11 + BWAPI::Broodwar->getLatencyFrames()
+                            + GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch),
                         (int)occurrenceRate);
                 }
 
@@ -205,8 +207,10 @@ namespace WorkerMiningOptimization
         {
             // Given an arrival delay, figures out how long after the takeover frame mining will start
             // Returns nullopt if this arrival delay is unusable
-            auto arrivalDelayToMiningDelay = [&](int arrivalDelay)->std::optional<double>
+            auto packedArrivalDelayAndFacingPatchToMiningDelay =
+                    [&](int8_t packedArrivalDelayAndFacingPatch)->std::optional<double>
             {
+                int arrivalDelay = GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch);
                 int miningStartFrame = simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11;
                 int arrivalFrame = miningStartFrame + arrivalDelay;
 
@@ -225,21 +229,24 @@ namespace WorkerMiningOptimization
                 // and there are no order process timer resets prior to takeover
 
                 // Get the delay with respect to the mining start frame
-                double miningDelay = GatherResendArrivalObservations::arrivalDelayToMiningDelay(arrivalDelay, simulationFrame);
+                double miningDelay =
+                        GatherResendArrivalObservations::packedArrivalDelayAndFacingPatchToMiningDelay(
+                                packedArrivalDelayAndFacingPatch, simulationFrame);
 
                 // Adjust it to be relative to the takeover frame
                 return miningDelay + (miningStartFrame - workerStatus.takeoverFrame);
             };
 
-            if (observations.arrivalDelayAndOccurrenceRate.size() == 1)
+            if (observations.packedArrivalDelayAndFacingPatchToOccurrenceRate.size() == 1)
             {
-                return arrivalDelayToMiningDelay(observations.arrivalDelayAndOccurrenceRate.begin()->first);
+                return packedArrivalDelayAndFacingPatchToMiningDelay(observations.packedArrivalDelayAndFacingPatchToOccurrenceRate.begin()->first);
             }
 
             double totalMiningDelay = 0.0;
-            for (const auto &[arrivalDelay, occurrenceRate] : observations.arrivalDelayAndOccurrenceRate)
+            for (const auto &[packedArrivalDelayAndFacingPatch, occurrenceRate]
+                : observations.packedArrivalDelayAndFacingPatchToOccurrenceRate)
             {
-                auto miningDelay = arrivalDelayToMiningDelay(arrivalDelay);
+                auto miningDelay = packedArrivalDelayAndFacingPatchToMiningDelay(packedArrivalDelayAndFacingPatch);
                 if (!miningDelay.has_value()) return std::nullopt;
 
                 totalMiningDelay += (miningDelay.value() * ((double)occurrenceRate / 255.0));
@@ -368,10 +375,11 @@ namespace WorkerMiningOptimization
                                              const GatherResendArrivalObservations &observations)
         {
             // Transforms the arrival delays into arrival frames
-            auto arrivalFrames = std::ranges::views::transform(observations.arrivalDelayAndOccurrenceRate, [&](auto a)
+            auto arrivalFrames =
+                    std::ranges::views::transform(observations.packedArrivalDelayAndFacingPatchToOccurrenceRate, [&](auto a)
             {
                 return std::make_pair(
-                        simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + a.first,
+                        simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + GatherResendArrivalObservations::unpackArrivalDelay(a.first),
                         (int)a.second);
             });
             return checkForPatchLock(workerStatus, otherPatchesForecast, simulationFrame, arrivalFrames);

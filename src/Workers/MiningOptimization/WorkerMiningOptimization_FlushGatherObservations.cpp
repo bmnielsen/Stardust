@@ -41,9 +41,9 @@ namespace WorkerMiningOptimization
             std::vector<GatherPositionObservationPtr> positionHistory;
             std::vector<GatherPositionObservationPtr> resendsWithObservationData;
 
-            // If the worker is not pointing at the patch after arrival, it will have to turn before it starts mining, which takes an extra
-            // order process timer cycle. This is added here when detected.
-            int headingPenalty = 0;
+            // Whether the worker is facing the patch closely enough to be able to begin mining without incurring an extra order process timer
+            // cycle to make a turn.
+            bool facingPatch = true;
         };
 
         bool extractPositionsInHistory(PositionsInHistory &positionsInHistory,
@@ -170,9 +170,9 @@ namespace WorkerMiningOptimization
             auto angleDiff = Geo::BWAngleDiff(workerStatus.worker->BWHeading(), Geo::BWDirection(vectorToPatch));
             if (angleDiff > 2 * workerStatus.worker->type.turnRadius())
             {
-                positionsInHistory.headingPenalty = 9;
+                positionsInHistory.facingPatch = false;
 #if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "Worker's heading is " << angleDiff << " from patch, so adding turn time penalty";
+                CherryVis::log(workerStatus.worker->id) << "Not facing patch, angle diff is " << angleDiff;
 #endif
             }
 
@@ -427,8 +427,8 @@ namespace WorkerMiningOptimization
 
                     // Make the observation
                     observations.addArrival(
-                            (int)std::distance(positionsInHistory.resendItsBeforeArrival[resendIndex], optimalPositionIt)
-                            + positionsInHistory.headingPenalty);
+                            (int)std::distance(positionsInHistory.resendItsBeforeArrival[resendIndex], optimalPositionIt),
+                            positionsInHistory.facingPatch);
 
 #if OPTIMALPOSITIONS_DEBUG
                     if (resendIndex == 1)
@@ -481,7 +481,7 @@ namespace WorkerMiningOptimization
 
 #if OPTIMALPOSITIONS_DEBUG
             bool exploring = positionsInHistory.resendsWithObservationData.rbegin()->resendArrivalObservations().addArrival(
-                    (int)std::distance(lastResendPositionIt, optimalPositionIt) + positionsInHistory.headingPenalty);
+                    (int)std::distance(lastResendPositionIt, optimalPositionIt), positionsInHistory.facingPatch);
 
 #if OPTIMALPOSITIONS_DEBUG_VERBOSE
             if (positionsInHistory.resendItsBeforeArrival.size() > 1)
@@ -502,7 +502,7 @@ namespace WorkerMiningOptimization
 #else
             // Track the observation
             positionsInHistory.resendsWithObservationData.rbegin()->resendArrivalObservations().addArrival(
-                    (int)std::distance(lastResendPositionIt, optimalPositionIt) + positionsInHistory.headingPenalty);
+                    (int)std::distance(lastResendPositionIt, optimalPositionIt), positionsInHistory.facingPatch);
 #endif
 
 //            // Consider exploration of second resend positions

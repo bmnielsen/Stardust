@@ -11,14 +11,26 @@ namespace WorkerMiningOptimization
 {
     struct GatherResendArrivalObservations
     {
-        std::unordered_map<int8_t, uint32_t> arrivalDelayAndOccurrences;
-        std::unordered_map<int8_t, uint8_t> arrivalDelayAndOccurrenceRate;
+        std::unordered_map<int8_t, uint32_t> packedArrivalDelayAndFacingPatchToOccurrences;
+        std::unordered_map<int8_t, uint8_t> packedArrivalDelayAndFacingPatchToOccurrenceRate;
 
         uint32_t collisions = 0;
         uint32_t nonCollisions = 0;
         uint8_t collisionRate = 0;
 
-        bool addArrival(int arrivalDelay);
+        // Gets the arrival delay from a packed arrival delay and facing patch
+        static int unpackArrivalDelay(int8_t packedArrivalDelayAndFacingPatch)
+        {
+            return packedArrivalDelayAndFacingPatch >> 1;
+        }
+
+        // Gets the facing patch from a packed arrival delay and facing patch
+        static bool unpackFacingPatch(int8_t packedArrivalDelayAndFacingPatch)
+        {
+            return !(packedArrivalDelayAndFacingPatch & 1);
+        }
+
+        bool addArrival(int arrivalDelay, bool facingPatch);
 
         void addCollision(bool collision)
         {
@@ -29,14 +41,15 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] bool empty() const
         {
-            return arrivalDelayAndOccurrenceRate.empty();
+            return packedArrivalDelayAndFacingPatchToOccurrenceRate.empty();
         }
-
-        [[nodiscard]] int8_t mostCommonArrivalDelay() const;
 
         [[nodiscard]] double expectedMiningDelay(int commandFrame) const;
 
-        static double arrivalDelayToMiningDelay(int arrivalDelay, int commandFrame);
+        static double packedArrivalDelayAndFacingPatchToMiningDelay(int8_t packedArrivalDelayAndFacingPatch, int commandFrame);
+
+    private:
+        [[nodiscard]] int8_t mostCommonPackedArrivalDelayAndFacingPatch() const;
     };
 
     struct SecondResendGatherPositionObservations

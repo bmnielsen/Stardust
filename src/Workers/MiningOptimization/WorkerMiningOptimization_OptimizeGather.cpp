@@ -513,9 +513,13 @@ namespace WorkerMiningOptimization
                             // Count success rate
                             // We use this position if it succeeds two-thirds of the time (170/255)
                             unsigned int successRate = 0;
-                            for (const auto &[delay, occurrenceRate] : observations->arrivalDelayAndOccurrenceRate)
+                            for (const auto &[packedArrivalDelayAndFacingPatch, occurrenceRate]
+                                : observations->packedArrivalDelayAndFacingPatchToOccurrenceRate)
                             {
-                                if (delay <= 0) successRate += occurrenceRate;
+                                if (GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch) <= 0)
+                                {
+                                    successRate += occurrenceRate;
+                                }
                             }
 
                             // If exploring, ensure we try until we have three failures
@@ -523,9 +527,10 @@ namespace WorkerMiningOptimization
                             if (successRate < 170 && WorkerMiningOptimization::isExploring())
                             {
                                 unsigned int failures = 0;
-                                for (const auto &[delay, occurrences] : observations->arrivalDelayAndOccurrences)
+                                for (const auto &[packedDelayAndFacingPatch, occurrences]
+                                        : observations->packedArrivalDelayAndFacingPatchToOccurrences)
                                 {
-                                    if (delay > 0) failures += occurrences;
+                                    if (GatherResendArrivalObservations::unpackArrivalDelay(packedDelayAndFacingPatch) > 0) failures += occurrences;
                                 }
                                 explore = (failures < 3);
                             }

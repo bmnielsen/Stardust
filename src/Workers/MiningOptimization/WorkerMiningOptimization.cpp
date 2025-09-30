@@ -107,8 +107,8 @@ namespace WorkerMiningOptimization
             auto hasBeenUsed = [](const GatherResendArrivalObservations &observations)
             {
                 if (observations.empty()) return false;
-                if (observations.arrivalDelayAndOccurrences.size() > 1) return true;
-                return observations.arrivalDelayAndOccurrences.begin()->second > 1;
+                if (observations.packedArrivalDelayAndFacingPatchToOccurrences.size() > 1) return true;
+                return observations.packedArrivalDelayAndFacingPatchToOccurrences.begin()->second > 1;
             };
             for (const auto &[resource, optimalPositions] : resourceToFullGatherPositionObservations)
             {

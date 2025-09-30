@@ -97,7 +97,7 @@ namespace WorkerMiningOptimization
                                                                                                 const GatherResendArrivalObservations &observations)
         {
             // If we don't know the normal delta to benchmark, or haven't observed this position, return nothing
-            if (positionMetadata.deltaToBenchmarkAndOccurrenceRate.empty() || observations.arrivalDelayAndOccurrenceRate.empty())
+            if (positionMetadata.deltaToBenchmarkAndOccurrenceRate.empty() || observations.packedArrivalDelayAndFacingPatchToOccurrenceRate.empty())
             {
                 return std::nullopt;
             }
@@ -115,9 +115,14 @@ namespace WorkerMiningOptimization
             auto collisionDelay = expectedPatchCollisionDelay(observations.collisionRate);
             return std::make_pair(
                     positionMetadata.averageDeltaToBenchmark() + deltaToFirstResend + expectedMiningDelay + collisionDelay,
-                    createExpectedArrivalData(observations.arrivalDelayAndOccurrenceRate, [&commandFrame](auto arrivalDelay) {
-                        return commandFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + arrivalDelay;
-                    }));
+                    createExpectedArrivalData(
+                            observations.packedArrivalDelayAndFacingPatchToOccurrenceRate,
+                            [&commandFrame](auto packedArrivalDelayAndFacingPatch) {
+                                return commandFrame
+                                    + BWAPI::Broodwar->getLatencyFrames()
+                                    + 11
+                                    + GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch);
+                            }));
         }
 
         PositionEvaluation evaluateSecondResendPositions(int commandFrame, // NOLINT(*-no-recursion)

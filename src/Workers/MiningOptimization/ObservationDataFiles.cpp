@@ -133,12 +133,12 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                 {
                     if constexpr (full)
                     {
-                        s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint32_t& v) {
+                        s.ext(value.packedArrivalDelayAndFacingPatchToOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint32_t& v) {
                             s.value1b(key);
                             s.value4b(v);
                         });
                     }
-                    s.ext(value.arrivalDelayAndOccurrenceRate, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint8_t& v) {
+                    s.ext(value.packedArrivalDelayAndFacingPatchToOccurrenceRate, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint8_t& v) {
                         s.value1b(key);
                         s.value1b(v);
                     });
@@ -210,12 +210,12 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                 {
                     if constexpr (full)
                     {
-                        s.ext(value.arrivalDelayAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint32_t& v) {
+                        s.ext(value.packedArrivalDelayAndFacingPatchToOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint32_t& v) {
                             s.value1b(key);
                             s.value4b(v);
                         });
                     }
-                    s.ext(value.arrivalDelayAndOccurrenceRate, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint8_t& v) {
+                    s.ext(value.packedArrivalDelayAndFacingPatchToOccurrenceRate, bitsery::ext::StdMap{INT_MAX}, [](S& s, int8_t& key, uint8_t& v) {
                         s.value1b(key);
                         s.value1b(v);
                     });
