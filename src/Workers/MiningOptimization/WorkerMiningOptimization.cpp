@@ -227,7 +227,7 @@ namespace WorkerMiningOptimization
                                                                std::unique_ptr<GatherPositionObservations> *storage)
     {
         // If we have full observations, return a pointer without requiring any additional storage
-        if (!resourceToFullGatherPositionObservations.empty())
+        if (!resourceToFullGatherPositionObservations.empty() || isExploring())
         {
             auto &positions = resourceToFullGatherPositionObservations[TilePosition::fromBWAPI(resource->tile)];
             auto it = positions.find(pos);
@@ -255,7 +255,7 @@ namespace WorkerMiningOptimization
                                                                std::unique_ptr<ReturnPositionObservations> *storage)
     {
         // If we have full observations, return a pointer without requiring any additional storage
-        if (!resourceToFullReturnPositionObservations.empty())
+        if (!resourceToFullReturnPositionObservations.empty() || isExploring())
         {
             auto &positions = resourceToFullReturnPositionObservations[TilePosition::fromBWAPI(resource->tile)];
             auto it = positions.find(pos);
