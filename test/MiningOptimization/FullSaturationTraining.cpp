@@ -487,7 +487,7 @@ namespace
 
     TestResult runTestSuite(BWTest &test, unsigned int workersPerPatch, int cannons, bool measureOnly = false)
     {
-        if (!measureOnly) runEfficiencyTestImpl(test, workersPerPatch, cannons, false, false, 10);
+        if (!measureOnly) runEfficiencyTestImpl(test, workersPerPatch, cannons, false, false, 25);
         return runEfficiencyTest(test, workersPerPatch, cannons, false, true);
     }
 
@@ -1042,6 +1042,14 @@ TEST(FullSaturationTraining, VermeerContinuousWithResults)
     while (true)
     {
         testRunWithResults("aiide2024/(4)VermeerSE_2.1", 0, true);
+    }
+}
+
+TEST(FullSaturationTraining, VermeerContinuousNoCannonsWithResults)
+{
+    while (true)
+    {
+        testRunWithResults("aiide2024/(4)VermeerSE_2.1", 0, false);
     }
 }
 
