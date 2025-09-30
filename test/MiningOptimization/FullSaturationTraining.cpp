@@ -1086,7 +1086,7 @@ TEST(FullSaturationTraining, AllAIIDEContinuous)
 {
     while (true)
     {
-        testRunWithResults("aiide2024", 0, true);
+        testRunWithResults("aiide2023", 0, true);
     }
 }
 
