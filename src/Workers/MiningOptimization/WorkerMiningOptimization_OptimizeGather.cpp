@@ -516,7 +516,8 @@ namespace WorkerMiningOptimization
                             for (const auto &[packedArrivalDelayAndFacingPatch, occurrenceRate]
                                 : observations->packedArrivalDelayAndFacingPatchToOccurrenceRate)
                             {
-                                if (GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch) <= 0)
+                                if (GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch) <= 0 &&
+                                    GatherResendArrivalObservations::unpackFacingPatch(packedArrivalDelayAndFacingPatch))
                                 {
                                     successRate += occurrenceRate;
                                 }

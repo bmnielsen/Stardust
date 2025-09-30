@@ -211,6 +211,12 @@ namespace WorkerMiningOptimization
                     [&](int8_t packedArrivalDelayAndFacingPatch)->std::optional<double>
             {
                 int arrivalDelay = GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch);
+
+                // If the worker is not facing the patch, add a penalty to the expected mining start time
+                // This will usually be a full order process timer cycle. Technically it could be shortened by an order process timer reset, but generally
+                // we just want to avoid these paths anyway.
+                int facePatchPenalty = GatherResendArrivalObservations::unpackFacingPatch(packedArrivalDelayAndFacingPatch) ? 0 : 9;
+
                 int miningStartFrame = simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11;
                 int arrivalFrame = miningStartFrame + arrivalDelay;
 
@@ -219,7 +225,7 @@ namespace WorkerMiningOptimization
                 if (arrivalFrame <= (workerStatus.takeoverFrame - 11))
                 {
                     if (arrivalDelay > 0) return std::nullopt;
-                    return 0.0;
+                    return 0.0 + facePatchPenalty;
                 }
 
                 // If our mining start time is before the takeover frame, we can't use this position
@@ -234,7 +240,7 @@ namespace WorkerMiningOptimization
                                 packedArrivalDelayAndFacingPatch, simulationFrame);
 
                 // Adjust it to be relative to the takeover frame
-                return miningDelay + (miningStartFrame - workerStatus.takeoverFrame);
+                return miningDelay + (miningStartFrame - workerStatus.takeoverFrame) + facePatchPenalty;
             };
 
             if (observations.packedArrivalDelayAndFacingPatchToOccurrenceRate.size() == 1)

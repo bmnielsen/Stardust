@@ -80,9 +80,9 @@ namespace WorkerMiningOptimization
             return packedArrivalDelayAndFacingPatchToMiningDelay(packedArrivalDelayAndFacingPatchToOccurrenceRate.begin()->first, commandFrame);
         }
 
-        // If the most common arrival delay is positive, return it
+        // If the most common arrival delay is positive, or most common does not face patch, return it
         auto mostCommon = mostCommonPackedArrivalDelayAndFacingPatch();
-        if (unpackArrivalDelay(mostCommon) > 0)
+        if (unpackArrivalDelay(mostCommon) > 0 || !unpackFacingPatch(mostCommon))
         {
             return packedArrivalDelayAndFacingPatchToMiningDelay(mostCommon, commandFrame);
         }
@@ -102,6 +102,11 @@ namespace WorkerMiningOptimization
     double GatherResendArrivalObservations::packedArrivalDelayAndFacingPatchToMiningDelay(int8_t packedArrivalDelayAndFacingPatch, int commandFrame)
     {
         int arrivalDelay = unpackArrivalDelay(packedArrivalDelayAndFacingPatch);
+
+        // If the worker is not facing the patch, add a penalty to the expected mining start time
+        // This will usually be a full order process timer cycle. Technically it could be shortened by an order process timer reset, but generally
+        // we just want to avoid these paths anyway.
+        int facePatchPenalty = unpackFacingPatch(packedArrivalDelayAndFacingPatch) ? 0 : 9;
 
         // Compute the delay between the gather command kicking in and mining starting
         // If the worker arrives at the patch on time, the delay is 0
@@ -123,17 +128,17 @@ namespace WorkerMiningOptimization
         {
             // A reset will happen before the worker arrives at the patch
             // On average we will need to wait 4 frames after arrival before mining
-            return arrivalDelay + 4.0;
+            return arrivalDelay + 4.0 + facePatchPenalty;
         }
         if (framesToNextReset < (11 + miningDelay))
         {
             // A reset will happen after the worker arrives at the patch, but before it can start mining
             // On average we will need to wait 3.5 frames after the reset
-            return framesToNextReset - 11 + 3.5;
+            return framesToNextReset - 11 + 3.5 + facePatchPenalty;
         }
 
         // No reset, return the computed mining delay
-        return (double)miningDelay;
+        return (double)miningDelay + facePatchPenalty;
     }
 
     double GatherPositionObservations::averageDeltaToBenchmark() const
