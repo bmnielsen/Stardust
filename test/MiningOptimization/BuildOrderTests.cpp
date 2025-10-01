@@ -124,6 +124,14 @@ namespace
             }
 
             // Add timing data for anything not yet tracked
+            int supplyAtStartOfFrame = BWAPI::Broodwar->self()->supplyUsed();
+            for (const auto &[type, count] : unitCounts)
+            {
+                for (auto i = result.unitCreationFrames[type].size(); i < count; i++)
+                {
+                    supplyAtStartOfFrame -= type.supplyRequired();
+                }
+            }
             for (const auto &[type, count] : unitCounts)
             {
                 for (auto i = result.unitCreationFrames[type].size(); i < count; i++)
@@ -131,7 +139,7 @@ namespace
                     result.unitCreationFrames[type].emplace_back(currentFrame);
                     if (type != BWAPI::UnitTypes::Protoss_Probe)
                     {
-                        buildOrder.emplace_back(type, BWAPI::Broodwar->self()->supplyUsed() / 2);
+                        buildOrder.emplace_back(type, supplyAtStartOfFrame / 2);
                     }
                 }
             }
