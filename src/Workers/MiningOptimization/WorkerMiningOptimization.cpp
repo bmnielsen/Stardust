@@ -89,7 +89,7 @@ namespace WorkerMiningOptimization
         {
             ObservationDataFiles::writeFullGatherPositionObservations(resourceToFullGatherPositionObservations);
             ObservationDataFiles::write10DistanceObservations(resourceTo10DistancePositions);
-            ObservationDataFiles::writeReturnPositionObservations(resourceToFullReturnPositionObservations);
+            ObservationDataFiles::writeFullReturnPositionObservations(resourceToFullReturnPositionObservations);
         }
 
         if (updatingResourceObservations)
