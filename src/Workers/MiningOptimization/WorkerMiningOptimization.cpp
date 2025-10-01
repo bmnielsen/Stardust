@@ -55,13 +55,13 @@ namespace WorkerMiningOptimization
 
         if (BWAPI::Broodwar->mapHash() != mapHashOfCurrentData)
         {
-//            ObservationDataFiles::readGatherPositionObservations(resourceToFullGatherPositionObservations);
+            ObservationDataFiles::readGatherPositionObservations(resourceToFullGatherPositionObservations);
             if (resourceToFullGatherPositionObservations.empty())
             {
                 ObservationDataFiles::readGatherPositionObservations(resourceToGatherPositionObservations);
             }
             ObservationDataFiles::read10DistanceObservations(resourceTo10DistancePositions);
-//            ObservationDataFiles::readReturnPositionObservations(resourceToFullReturnPositionObservations);
+            ObservationDataFiles::readReturnPositionObservations(resourceToFullReturnPositionObservations);
             if (resourceToFullReturnPositionObservations.empty())
             {
                 ObservationDataFiles::readReturnPositionObservations(resourceToReturnPositionObservations);
