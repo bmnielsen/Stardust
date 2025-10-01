@@ -119,15 +119,15 @@ namespace WorkerMiningOptimization
 #endif
                 return false;
             }
-            if (!workerStatus.pathStartsAtSpawnPosition && startToEnd > 75)
+            if (!workerStatus.pathStartsAtSpawnPosition && startToEnd > 100)
             {
-                Log::Get() << "WARNING: Position history over 75 positions"
+                Log::Get() << "WARNING: Position history over 100 positions (" << startToEnd << ")"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
                 return false;
             }
-            if (workerStatus.pathStartsAtSpawnPosition && startToEnd > 100)
+            if (workerStatus.pathStartsAtSpawnPosition && startToEnd > 125)
             {
-                Log::Get() << "WARNING: Position history over 100 positions"
+                Log::Get() << "WARNING: Position history over 125 positions (" << startToEnd << ")"
                            << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
                 return false;
             }
