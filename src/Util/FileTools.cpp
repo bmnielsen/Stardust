@@ -2,6 +2,8 @@
 
 #include <filesystem>
 
+#define DEBUG_FAILED_PATHS false
+
 namespace FileTools
 {
     namespace
@@ -21,7 +23,7 @@ namespace FileTools
             return (std::ostringstream() << dataWritePath << label << "." << fileType).str();
         }
 
-#if LOGGING_ENABLED
+#if DEBUG_FAILED_PATHS
         std::vector<std::string> triedPaths;
 #endif
         for (auto &path : dataLoadPaths)
@@ -31,12 +33,12 @@ namespace FileTools
             {
                 return filename;
             }
-#if LOGGING_ENABLED
+#if DEBUG_FAILED_PATHS
             triedPaths.push_back(filename);
 #endif
         }
 
-#if LOGGING_ENABLED
+#if DEBUG_FAILED_PATHS
         std::ostringstream dbg;
         dbg << "Failed to find file for " << label << "; tried ";
         std::string sep;

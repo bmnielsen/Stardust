@@ -383,15 +383,18 @@ namespace WorkerMiningOptimization
             auto optimalPositionIt = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames() - 11;
 
 #if LOGGING_ENABLED
-            if (workerStatus.plannedResendPosition && workerStatus.resentPositions.empty())
+            if (!isExploring())
             {
-                Log::Get() << "ERROR: Worker didn't resend at planned position " << *workerStatus.plannedResendPosition
-                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-            }
-            else if (workerStatus.plannedSecondResendPosition && workerStatus.resentPositions.size() < 2)
-            {
-                Log::Get() << "ERROR: Worker didn't resend at second planned position " << *workerStatus.plannedSecondResendPosition
-                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                if (workerStatus.plannedResendPosition && workerStatus.resentPositions.empty())
+                {
+                    Log::Get() << "WARNING: Worker didn't resend at planned position " << *workerStatus.plannedResendPosition
+                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                }
+                else if (workerStatus.plannedSecondResendPosition && workerStatus.resentPositions.size() < 2)
+                {
+                    Log::Get() << "WARNING: Worker didn't resend at second planned position " << *workerStatus.plannedSecondResendPosition
+                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                }
             }
 #endif
 
@@ -818,7 +821,7 @@ namespace WorkerMiningOptimization
             }
 
             // Validate the arrival frame
-            if (!it->second.switchedPatches && !it->second.expectedArrivalFrameAndOccurrenceRate.empty())
+            if (!it->second.switchedPatches && !it->second.expectedArrivalFrameAndOccurrenceRate.empty() && !isExploring())
             {
                 int arrivalFrame = currentFrame - (int)std::distance(positionsInHistory.arrivalPositionIt, it->second.positionHistory.end()) + 1;
                 bool found = false;
@@ -832,7 +835,7 @@ namespace WorkerMiningOptimization
                 }
                 if (!found)
                 {
-                    Log::Get() << "ERROR: Actual arrival frame " << arrivalFrame
+                    Log::Get() << "WARNING: Actual arrival frame " << arrivalFrame
                                << " not found in expected arrival frame(s) " << it->second.expectedArrivalFramesDebug()
                                << "; worker id " << it->second.worker->id << " @ " << it->second.worker->getTilePosition();
                 }

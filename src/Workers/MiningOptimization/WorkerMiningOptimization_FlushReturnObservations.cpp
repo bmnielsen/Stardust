@@ -269,11 +269,14 @@ namespace WorkerMiningOptimization
         void updateReturnOptimization(WorkerReturnStatus &workerStatus, const PositionsInHistory &positionsInHistory)
         {
 #if LOGGING_ENABLED
-            auto &worker = workerStatus.worker;
-            if (workerStatus.plannedResendPosition && !workerStatus.resentPosition)
+            if (!isExploring())
             {
-                Log::Get() << "ERROR: Worker didn't resend at planned return position " << *workerStatus.plannedResendPosition
-                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                auto &worker = workerStatus.worker;
+                if (workerStatus.plannedResendPosition && !workerStatus.resentPosition)
+                {
+                    Log::Get() << "WARNING: Worker didn't resend at planned return position " << *workerStatus.plannedResendPosition
+                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                }
             }
 #endif
 

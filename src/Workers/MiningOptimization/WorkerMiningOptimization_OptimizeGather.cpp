@@ -672,10 +672,10 @@ namespace WorkerMiningOptimization
 
 #if LOGGING_ENABLED
             CherryVis::log(worker->id) << "targeting different patch; resending order";
-            if (workerStatus.passed10DistancePosition != -1 && !workerStatus.passedUnregistered10DistancePosition)
+            if (workerStatus.passed10DistancePosition != -1 && !workerStatus.passedUnregistered10DistancePosition && !isExploring())
             {
                 std::ostringstream dbg;
-                dbg << "ERROR: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition()
+                dbg << "WARNING: patch @ " << resource->tile << "; worker " << worker->id << " @ " << worker->getTilePosition()
                     << " patch switch";
 
                 auto otherPatch = Units::resourceAt(worker->bwapiUnit->getOrderTarget()->getTilePosition());
