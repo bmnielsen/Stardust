@@ -19,8 +19,8 @@
 // This file is used to train the initial worker split
 // As the timings vary slightly based on the random heading of the initial workers, we run lots of tests of mining from each patch
 // from each start position and keep track of the average results.
-// The order process timer reset of the workers is affected by the enemy start location, so we run the tests with each combination
-// of player start locations.
+// The order process timer reset of the workers is affected by the enemy start location and race, so we use a random opponent and run lots of
+// iterations. We can't use known seeds that give each combination since that would also fix the heading of the starting workers.
 // Spawn position training must be done prior to running this training.
 namespace
 {
