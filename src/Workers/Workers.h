@@ -53,8 +53,10 @@ namespace Workers
 
     std::map<Resource, std::set<MyWorker>> &mineralsAndAssignedWorkers();
 
+    // Gets all workers assigned to the resource. Does not check if any have died since their status was last updated.
     std::set<MyWorker> getWorkersAssignedTo(const Resource &resource);
 
+    // Given a patch and a worker, returns the other worker assigned to it, if it exists.
     MyWorker getOtherWorkerMining(const Resource &resource, const MyWorker &worker);
 
     void setWorkerMineralPatch(const MyWorker &worker, const Resource &resource, Base *base);

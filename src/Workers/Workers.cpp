@@ -1070,6 +1070,7 @@ namespace Workers
         MyWorker bestWorker = nullptr;
         for (auto &unit : Units::allMine())
         {
+            if (!unit->exists()) continue;
             if (!unit->type.isWorker()) continue;
             auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
 
@@ -1342,7 +1343,7 @@ namespace Workers
     {
         for (const auto &unit : mineralPatchWorkers[resource])
         {
-            if (unit != worker) return unit;
+            if (unit != worker && unit->exists()) return unit;
         }
         return nullptr;
     }

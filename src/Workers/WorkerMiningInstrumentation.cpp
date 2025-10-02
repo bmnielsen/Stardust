@@ -424,6 +424,7 @@ namespace WorkerMiningInstrumentation
                 bool isBeingMined = false;
                 for (const auto &worker : Workers::getWorkersAssignedTo(patch))
                 {
+                    if (!worker->exists()) continue;
                     if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
                     {
                         isBeingMined = true;

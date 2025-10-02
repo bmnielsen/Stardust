@@ -140,7 +140,7 @@ namespace WorkerOrderTimer
         // If another worker is currently mining this patch, resend the gather command when we expect the other worker to be finished mining in
         // 11+LF frames
         auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
-        if (otherWorker && otherWorker->exists() && otherWorker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals &&
+        if (otherWorker && otherWorker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals &&
             (otherWorker->bwapiUnit->getOrderTimer() + 7) == (11 + BWAPI::Broodwar->getLatencyFrames()))
         {
             // Exception: If we are not at the patch yet, and our last command was sent a long time ago,

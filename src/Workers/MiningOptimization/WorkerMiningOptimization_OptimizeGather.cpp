@@ -75,7 +75,7 @@ namespace WorkerMiningOptimization
 
             // Try to find another worker assigned to the patch
             auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
-            if (!otherWorker || !otherWorker->exists())
+            if (!otherWorker)
             {
                 if (workerStatus.takeoverState != 0)
                 {
@@ -647,7 +647,7 @@ namespace WorkerMiningOptimization
         {
             // Exception is if another worker is currently mining the patch; we will mark as patch locked later if the resource still matches
             auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
-            if (!otherWorker || !otherWorker->exists() || otherWorker->bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals)
+            if (!otherWorker || otherWorker->bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals)
             {
                 return;
             }

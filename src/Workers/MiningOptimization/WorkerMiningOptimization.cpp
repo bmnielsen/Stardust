@@ -213,10 +213,15 @@ namespace WorkerMiningOptimization
 
     WorkerGatherStatus *gatherStatusFor(const MyWorker &worker)
     {
+        if (!worker->exists()) return nullptr;
+
         auto workerStatusIt = workerGatherStatuses.find(worker);
         if (workerStatusIt == workerGatherStatuses.end()) return nullptr;
 
         if (workerStatusIt->second.lastProcessedFrame < (currentFrame - 1)) return nullptr;
+
+        if (!workerStatusIt->second.depot->exists()) return nullptr;
+        if (workerStatusIt->second.resource->destroyed) return nullptr;
 
         return &workerStatusIt->second;
     }

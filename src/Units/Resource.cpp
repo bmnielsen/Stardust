@@ -178,6 +178,8 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     MyWorker nextMiningWorker;
     for (auto &worker : Workers::getWorkersAssignedTo(shared_from_this()))
     {
+        if (!worker->exists()) continue;
+
         // Don't consider workers returning, since we currently don't have the capability to simulate when they will get back to the patch
         // (and this is probably further into the future than we need to simulate anyway)
         if (worker->carryingResource) continue;
