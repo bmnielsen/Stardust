@@ -287,9 +287,10 @@ namespace WorkerMiningOptimization
                         if (framesToNextCommand > 0)
                         {
                             // Calculate if we think we can patch lock
+                            // We don't do this if we are exploring
                             // TODO: Use a shared logic with the later part that determines if we are likely to arrive at the patch on time
                             //       by resending here
-                            if ((!workerStatus.resentFrames.empty() || workerStatus.passed10DistancePosition != -1) &&
+                            if (!isExploring() && (!workerStatus.resentFrames.empty() || workerStatus.passed10DistancePosition != -1) &&
                                 !workerStatus.resentFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()))
                             {
                                 auto patchLock = checkForPatchLock(workerStatus, currentFrame);
