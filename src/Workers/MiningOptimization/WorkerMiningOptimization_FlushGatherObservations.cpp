@@ -67,68 +67,76 @@ namespace WorkerMiningOptimization
                 return false;
             }
 
-            positionsInHistory.resendItsBeforeArrival.clear();
-            positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
-            positionsInHistory.tenDistancePositionIt = workerStatus.positionHistory.end();
-
-            positionsInHistory.positionHistory.clear();
-            positionsInHistory.resendsWithObservationData.clear();
-
             std::vector<std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator> resendPositionIts;
-            auto nextResendPositionIt = workerStatus.resentPositions.begin();
-
-            for (auto it = workerStatus.positionHistory.begin(); it != workerStatus.positionHistory.end(); it++)
+            auto extractPositions = [&]()
             {
-                if (nextResendPositionIt != workerStatus.resentPositions.end() && **nextResendPositionIt == **it)
-                {
-                    // We filter out resend positions after arrival later
-                    resendPositionIts.push_back(it);
-                    nextResendPositionIt++;
-                }
+                positionsInHistory.resendItsBeforeArrival.clear();
+                positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
+                positionsInHistory.tenDistancePositionIt = workerStatus.positionHistory.end();
 
-                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                    (*it)->pos(),
-                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                    workerStatus.resource->center);
+                positionsInHistory.positionHistory.clear();
+                positionsInHistory.resendsWithObservationData.clear();
 
-                // Arrival position is defined as the position where:
-                // - distance to the patch is 0
-                // - position is the same as the position at mining start
-                // - heading is stable
-                if (positionsInHistory.arrivalPositionIt == workerStatus.positionHistory.end()
-                    && dist == 0
-                    && workerStatus.worker->lastPosition == (*it)->pos()
-                    && PositionAndVelocity::isStableArrivalPosition(workerStatus.positionHistory, it))
-                {
-                    positionsInHistory.arrivalPositionIt = it;
-                }
+                resendPositionIts.clear();
+                auto nextResendPositionIt = workerStatus.resentPositions.begin();
 
-                if (positionsInHistory.tenDistancePositionIt == workerStatus.positionHistory.end() && dist <= 10)
+                for (auto it = workerStatus.positionHistory.begin(); it != workerStatus.positionHistory.end(); it++)
                 {
-                    positionsInHistory.tenDistancePositionIt = it - BWAPI::Broodwar->getLatencyFrames() - 1;
+                    if (nextResendPositionIt != workerStatus.resentPositions.end() && **nextResendPositionIt == **it)
+                    {
+                        // We filter out resend positions after arrival later
+                        resendPositionIts.push_back(it);
+                        nextResendPositionIt++;
+                    }
+
+                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                        (*it)->pos(),
+                                                        BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                        workerStatus.resource->center);
+
+                    // Arrival position is defined as the position where:
+                    // - distance to the patch is 0
+                    // - position is the same as the position at mining start
+                    // - heading is stable
+                    if (positionsInHistory.arrivalPositionIt == workerStatus.positionHistory.end()
+                        && dist == 0
+                        && workerStatus.worker->lastPosition == (*it)->pos()
+                        && PositionAndVelocity::isStableArrivalPosition(workerStatus.positionHistory, it))
+                    {
+                        positionsInHistory.arrivalPositionIt = it;
+                    }
+
+                    if (positionsInHistory.tenDistancePositionIt == workerStatus.positionHistory.end() && dist <= 10)
+                    {
+                        positionsInHistory.tenDistancePositionIt = it - BWAPI::Broodwar->getLatencyFrames() - 1;
+                    }
                 }
+            };
+            extractPositions();
+
+            // Shorten too long paths
+            auto startToEnd = std::distance(workerStatus.positionHistory.begin(), positionsInHistory.arrivalPositionIt);
+            int pathLengthLimit = workerStatus.pathStartsAtSpawnPosition ? 125 : 100;
+            if (startToEnd > pathLengthLimit)
+            {
+#if OPTIMALPOSITIONS_DEBUG
+                CherryVis::log(workerStatus.worker->id) << "Path length from start to arrival is " << startToEnd
+                                                        << "; trimming to " << pathLengthLimit;
+#endif
+
+                workerStatus.positionHistory.erase(workerStatus.positionHistory.begin(),
+                                                   workerStatus.positionHistory.begin() + (startToEnd - pathLengthLimit));
+                extractPositions();
+                startToEnd = std::distance(workerStatus.positionHistory.begin(), positionsInHistory.arrivalPositionIt);
             }
 
-            // Don't process too short or too long paths
-            auto startToEnd = std::distance(workerStatus.positionHistory.begin(), positionsInHistory.arrivalPositionIt);
+            // Don't process too short paths
             if (startToEnd < (BWAPI::Broodwar->getLatencyFrames() + 11))
             {
 #if OPTIMALPOSITIONS_DEBUG
                 CherryVis::log(workerStatus.worker->id) << "Path length from start to arrival is " << startToEnd
                                                         << ", too short to use for path optimization";
 #endif
-                return false;
-            }
-            if (!workerStatus.pathStartsAtSpawnPosition && startToEnd > 100)
-            {
-                Log::Get() << "WARNING: Position history over 100 positions (" << startToEnd << ")"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
-                return false;
-            }
-            if (workerStatus.pathStartsAtSpawnPosition && startToEnd > 125)
-            {
-                Log::Get() << "WARNING: Position history over 125 positions (" << startToEnd << ")"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
                 return false;
             }
 
