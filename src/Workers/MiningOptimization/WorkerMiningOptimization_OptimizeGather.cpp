@@ -410,10 +410,8 @@ namespace WorkerMiningOptimization
                         if (framesToNextCommand > 0)
                         {
                             // Calculate if we think we can patch lock
-                            // We don't do this if we are exploring
-                            // TODO: Use a shared logic with the later part that determines if we are likely to arrive at the patch on time
-                            //       by resending here
-                            if (!isExploring() &&
+                            // We don't do this if we have planned an exploratory path
+                            if (!workerStatus.exploring &&
                                 !workerStatus.resentFrames.contains(currentFrame) &&
                                 !workerStatus.resentFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()) &&
                                 willResendHereArriveOnTime().first)

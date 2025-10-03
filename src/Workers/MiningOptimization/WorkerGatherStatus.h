@@ -39,6 +39,9 @@ namespace WorkerMiningOptimization
         // Whether we have planned the resends we want to send on this path
         bool resendsPlanned;
 
+        // Whether we have planned a resend to explore an unobserved path
+        bool exploring;
+
         // Planned first resend position
         std::unique_ptr<GatherPositionObservationPtr> plannedResendPosition;
 
@@ -107,6 +110,7 @@ namespace WorkerMiningOptimization
                 , remainingIgnorePositions(0)
                 , hasLeftDepot(false)
                 , resendsPlanned(false)
+                , exploring(false)
                 , takeoverState(0)
                 , takeoverFrame(-1)
                 , passed10DistancePosition(-1)
@@ -127,6 +131,7 @@ namespace WorkerMiningOptimization
             remainingIgnorePositions = 0;
             hasLeftDepot = false;
             resendsPlanned = false;
+            exploring = false;
             expectedArrivalFrameAndOccurrenceRate.clear();
             plannedResendPosition = nullptr;
             plannedSecondResendPosition = nullptr;

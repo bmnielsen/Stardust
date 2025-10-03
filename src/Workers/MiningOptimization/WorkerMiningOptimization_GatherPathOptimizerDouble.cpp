@@ -718,6 +718,7 @@ namespace WorkerMiningOptimization
                                            positionMetadata);
         if (shouldResend(evaluation))
         {
+            workerStatus.exploring = evaluation.positionToTryOnExpectedPath;
             workerStatus.plannedResendPosition = std::move(evaluation.resendPosition);
             workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
             if ((*workerStatus.plannedResendPosition) == (*workerStatus.plannedSecondResendPosition))
@@ -806,6 +807,7 @@ namespace WorkerMiningOptimization
         auto replan = [&]()
         {
             // We always need to clear second resend and path expectations
+            workerStatus.exploring = false;
             workerStatus.plannedSecondResendPosition = nullptr;
             workerStatus.expectedPath.clear();
             workerStatus.expectedArrivalFrameAndOccurrenceRate.clear();
@@ -871,6 +873,7 @@ namespace WorkerMiningOptimization
                 return false;
             }
 
+            workerStatus.exploring = evaluation.positionToTryOnExpectedPath;
             workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
             workerStatus.expectedPath = std::move(evaluation.expectedPath);
             workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
