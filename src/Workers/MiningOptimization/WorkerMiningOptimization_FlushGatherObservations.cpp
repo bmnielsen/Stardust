@@ -17,6 +17,7 @@
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define PATCHLOCKING_DEBUG true
+#define PATCHLOCKING_DEBUG_VERBOSE false
 #endif
 
 namespace WorkerMiningOptimization
@@ -665,7 +666,13 @@ namespace WorkerMiningOptimization
                         break;
                     }
                 }
-                if (allMined) resourcesWithAllOtherBeingMined.insert(resource);
+                if (allMined)
+                {
+                    resourcesWithAllOtherBeingMined.insert(resource);
+#if PATCHLOCKING_DEBUG_VERBOSE
+                    CherryVis::log(resource->id) << "Patch lock possible on this frame";
+#endif
+                }
             }
         }
         actualOtherPatchesGatheredHistory.push_front(std::move(resourcesWithAllOtherBeingMined));
@@ -678,9 +685,12 @@ namespace WorkerMiningOptimization
             for (const auto &resource : base->mineralPatches())
             {
                 auto &forecast = resource->getAllOtherPatchesGatheredProbabilityForecast();
-                if (forecast[BWAPI::Broodwar->getLatencyFrames() + 10] > PATCH_LOCK_THRESHOLD)
+                if (forecast[BWAPI::Broodwar->getLatencyFrames() + 10] >= PATCH_LOCK_THRESHOLD)
                 {
                     resourcesWithAllOtherPredictedToBeMined.insert(resource);
+#if PATCHLOCKING_DEBUG_VERBOSE
+                    CherryVis::log(resource->id) << "Patch lock predicted possible in 13 frames";
+#endif
                 }
             }
         }
@@ -907,9 +917,12 @@ namespace WorkerMiningOptimization
                                 patchLockPossible = true;
                             }
 
-                            if (predictedOtherPatchesGatheredHistory[idx].contains(it->second.resource))
+                            if (predictedOtherPatchesGatheredHistory[idx + BWAPI::Broodwar->getLatencyFrames() + 11].contains(it->second.resource))
                             {
                                 patchLockingPredictedPatchLocksAtCommandFrame++;
+                                Log::Get() << "WARNING: Worker could have patch locked on frame " << frame
+                                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+
                                 break;
                             }
                         }

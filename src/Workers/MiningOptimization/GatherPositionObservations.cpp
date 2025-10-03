@@ -191,6 +191,23 @@ namespace WorkerMiningOptimization
         return best;
     }
 
+    int GatherPositionObservations::smallestDeltaToBenchmark() const
+    {
+        if (deltaToBenchmarkAndOccurrenceRate.empty()) return 100;
+        if (deltaToBenchmarkAndOccurrenceRate.size() == 1) return deltaToBenchmarkAndOccurrenceRate.begin()->first;
+
+        int8_t best = INT8_MAX;
+        for (const auto &[delta, _] : deltaToBenchmarkAndOccurrenceRate)
+        {
+            if (delta < best)
+            {
+                best = delta;
+            }
+        }
+
+        return best;
+    }
+
     bool GatherPositionObservations::usableForPathPlanning() const
     {
         auto exceedsThreshold = []<typename T>(

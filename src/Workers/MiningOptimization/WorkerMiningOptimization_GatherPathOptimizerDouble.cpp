@@ -902,18 +902,61 @@ namespace WorkerMiningOptimization
         }
 
         // Re-evaluate patch locking
-        // If we are now evaluating something different, replan
-        auto patchLock = checkForPatchLock(workerStatus,
-                                           workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
-                                           workerStatus.lastResendFrameIncludingPlanned(),
-                                           workerStatus.expectedArrivalFrameAndOccurrenceRate);
-        if ((workerStatus.expectedPatchLockFrame != -1 && (!patchLock.has_value() || patchLock.value() > workerStatus.takeoverFrame)) ||
-            (workerStatus.expectedPatchLockFrame == -1 && patchLock.has_value() && patchLock.value() <= workerStatus.takeoverFrame))
+
+        // First validate patch locking in the case where we have already planned to patch lock
+        if (workerStatus.expectedPatchLockFrame != -1)
         {
+            auto patchLock = checkForPatchLock(workerStatus,
+                                               workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
+                                               workerStatus.lastResendFrameIncludingPlanned(),
+                                               workerStatus.expectedArrivalFrameAndOccurrenceRate);
+            if (!patchLock.has_value() || patchLock.value() > workerStatus.takeoverFrame)
+            {
 #if TAKEOVER_DEBUG
-            CherryVis::log(workerStatus.worker->id) << "Changed potential for patch locking; replanning";
+                CherryVis::log(workerStatus.worker->id) << "No longer believe patch locking will occur; replanning";
 #endif
-            return replan();
+                return replan();
+            }
+            return true;
+        }
+
+        // We haven't planned for a patch lock, so try to figure out if one might now be forecasted to be possible
+        // We don't want to just blindly run the entire replanning every frame though
+        // Instead, we try to find a conservative estimate of an earliest arrival frame based on the current path data, then search if there
+        // are any frames between that frame and the takeover frame where we currently predict possible patch locking. If one is found,
+        // we replan to give the optimizer a chance to find a solution that uses it.
+        // If we run into performance issues because of running the optimizer too often, we could tighten this up a bit (by for example running
+        // a similar, but lighter-weight optimization only considering patch locking, since we already have a solution for non-patch-locking).
+
+        // Need path data
+        if (!workerStatus.currentNode) return true;
+
+        // Default to the arrival frame we are currently planning for
+        int earliestArrivalFrame = INT_MAX;
+        for (const auto &[arrivalFrame, _] : workerStatus.expectedArrivalFrameAndOccurrenceRate)
+        {
+            earliestArrivalFrame = std::min(earliestArrivalFrame, arrivalFrame);
+        }
+
+        // If we know the no-resend arrival from here, consider it
+        if (workerStatus.currentNode->pos && !workerStatus.currentNode->pos->deltaToBenchmarkAndOccurrenceRate.empty())
+        {
+            earliestArrivalFrame = std::min(
+                    earliestArrivalFrame,
+                    currentFrame + BWAPI::Broodwar->getLatencyFrames() + 11 - workerStatus.currentNode->pos->smallestDeltaToBenchmark());
+        }
+
+        // Check if we forecast possible patch locking at any of the frames between arrival and takeover
+        auto &forecast = workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast();
+        for (int frame = earliestArrivalFrame; frame < workerStatus.takeoverFrame; frame++)
+        {
+            if (otherPatchesForecastAtFrame(forecast, frame) >= PATCH_LOCK_THRESHOLD)
+            {
+#if TAKEOVER_DEBUG
+                CherryVis::log(workerStatus.worker->id) << "Patch locking could be possible at frame " << frame << "; replanning";
+#endif
+                return replan();
+            }
         }
 
         return true;

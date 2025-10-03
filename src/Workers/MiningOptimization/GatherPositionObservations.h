@@ -118,6 +118,8 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] int largestDeltaToBenchmark() const;
 
+        [[nodiscard]] int smallestDeltaToBenchmark() const;
+
         [[nodiscard]] bool usableForPathPlanning() const;
 
         void addDeltaToBenchmark(int delta)
