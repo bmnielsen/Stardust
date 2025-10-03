@@ -46,7 +46,7 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         auto ffePlay = getPlay<ForgeFastExpand>(plays);
         if (ffePlay)
         {
-            ourStrategy = OurStrategy::SairSpeedlot;
+            ourStrategy = OurStrategy::FFEDragoons;
         }
     }
     else
@@ -61,14 +61,24 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         {
             opening = Opponent::selectOpeningUCB1(
                     {
+                            OurStrategyNames[OurStrategy::FFEDragoons],
                             OurStrategyNames[OurStrategy::SairSpeedlot],
                             OurStrategyNames[OurStrategy::EarlyGameDefense]
                     });
         }
-        if (opening == OurStrategyNames[OurStrategy::SairSpeedlot] && BuildingPlacement::hasForgeGatewayWall())
+        if ((opening == OurStrategyNames[OurStrategy::SairSpeedlot]
+             || opening == OurStrategyNames[OurStrategy::FFEDragoons])
+            && BuildingPlacement::hasForgeGatewayWall())
         {
             plays.emplace_back(std::make_shared<ForgeFastExpand>());
-            ourStrategy = OurStrategy::SairSpeedlot;
+            if (opening == OurStrategyNames[OurStrategy::SairSpeedlot])
+            {
+                ourStrategy = OurStrategy::SairSpeedlot;
+            }
+            else
+            {
+                ourStrategy = OurStrategy::FFEDragoons;
+            }
         }
         else
         {
@@ -182,6 +192,18 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 if ((BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) > 0 &&
                      BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) > 0)
                     || (Units::countCompleted(BWAPI::UnitTypes::Protoss_Corsair) > 5 && canTransitionToAttack(5, false)))
+                {
+                    defendOurMain = false;
+                }
+
+                break;
+            }
+            case OurStrategy::FFEDragoons:
+            {
+                // Attack when we have 5 units in our army and range
+                defendOurMain = true;
+                if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) > 0
+                    && canTransitionToAttack(5, true))
                 {
                     defendOurMain = false;
                 }
@@ -509,6 +531,35 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             break;
         }
 
+        case OurStrategy::FFEDragoons:
+        {
+            // Build one zealot before dragoons
+            if (zealotCount == 0 && dragoonCount == 0)
+            {
+                prioritizedProductionGoals[PRIORITY_DEPOTS + 1].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                             "SE",
+                                                                             BWAPI::UnitTypes::Protoss_Zealot,
+                                                                             1,
+                                                                             1);
+            }
+
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE",
+                                                                       BWAPI::UnitTypes::Protoss_Zealot,
+                                                                       -1,
+                                                                       -1);
+
+            // Upgrade goon range at 1 dragoon
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
+
+            break;
+        }
+
         case OurStrategy::Defensive:
         case OurStrategy::Normal:
         {
@@ -688,6 +739,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             break;
 
         case OurStrategy::SairSpeedlot:
+        case OurStrategy::FFEDragoons:
             // Handled by the play
             CherryVis::setBoardValue("natural", "forge-expand");
             return;
@@ -841,6 +893,7 @@ bool PvZ::isFFE()
     switch (ourStrategy)
     {
         case OurStrategy::SairSpeedlot:
+        case OurStrategy::FFEDragoons:
             return true;
         default:
             break;

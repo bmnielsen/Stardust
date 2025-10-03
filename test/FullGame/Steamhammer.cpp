@@ -15,27 +15,20 @@ TEST(Steamhammer, RunThirty)
     {
         BWTest test;
         test.opponentName = "Steamhammer";
-        test.opponentRace = BWAPI::Races::Random;
+        test.opponentRace = BWAPI::Races::Zerg;
 //        test.maps = Maps::Get("cog2022");
         test.map = Maps::GetOne("Vermeer");
 //        test.randomSeed = 73549;
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
-            Config::StardustTestStrategyName = "ZvZ_12PoolLing";
+//            Config::StardustTestStrategyName = "ZvZ_12PoolLing";
             return module;
         };
-//        test.onFrameMine = [&test]()
-//        {
-//            if (currentFrame == 1)
-//            {
-//                if (!BuildingPlacement::hasForgeGatewayWall())
-//                {
-//                    test.writeReplay = false;
-//                    BWAPI::Broodwar->leaveGame();
-//                }
-//            }
-//        };
+        test.onStartMine = []()
+        {
+            Strategist::setStrategyEngine(std::make_unique<PvZ>(), "FFEDragoons");
+        };
         test.onStartOpponent = [&test]()
         {
             std::cout << "Steamhammer strategy: " << Config::Strategy::StrategyName << std::endl;

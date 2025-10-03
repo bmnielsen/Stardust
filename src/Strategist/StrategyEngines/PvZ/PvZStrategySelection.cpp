@@ -10,6 +10,7 @@ std::map<PvZ::OurStrategy, std::string> PvZ::OurStrategyNames = {
         {OurStrategy::AntiAllIn,        "AntiAllIn"},
         {OurStrategy::AntiSunkenContain,"AntiSunkenContain"},
         {OurStrategy::SairSpeedlot,     "SairSpeedlot"},
+        {OurStrategy::FFEDragoons,      "FFEDragoons"},
         {OurStrategy::FastExpansion,    "FastExpansion"},
         {OurStrategy::Defensive,        "Defensive"},
         {OurStrategy::Normal,           "Normal"},
@@ -144,6 +145,28 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
 
                 // Transition to mid game when we have gone on the attack, indicating the opening is done
                 if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
+                {
+                    strategy = OurStrategy::MidGame;
+                    continue;
+                }
+
+                break;
+            }
+            case PvZ::OurStrategy::FFEDragoons:
+            {
+                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+                if (!mainArmyPlay) break;
+
+                // If the enemy is doing a rush and our main army play has transitioned to defending the main, switch to anti all-in strategy
+                if (enemyStrategy == ZergStrategy::ZerglingRush && typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                {
+                    strategy = OurStrategy::AntiAllIn;
+                    continue;
+                }
+
+                // Transition to mid game when the enemy is on lair tech
+                if (newEnemyStrategy == ZergStrategy::Lair || newEnemyStrategy == ZergStrategy::MutaRush ||
+                    Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;

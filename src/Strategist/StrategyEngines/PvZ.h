@@ -28,6 +28,7 @@ public:
         AntiAllIn,              // For fast rushes or any serious early pressure, defends main until it can get tech out
         AntiSunkenContain,      // For when enemy builds sunkens at our natural
         SairSpeedlot,           // For when we do a FFE into sair/speedlot
+        FFEDragoons,            // For when we do a FFE into dragoons
         FastExpansion,          // For when we expand quickly
         Defensive,              // Cautious opening, for when we don't know if the opponent could be going for an all-in
         Normal,                 // Normal non-greedy and non-cautious opening
