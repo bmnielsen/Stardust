@@ -25,7 +25,7 @@
 #define RETURN_EXPLORE_AFTER 5
 
 // Threshold for other patch gather probability used when optimizing patch locking
-#define PATCH_LOCK_THRESHOLD 0.9
+#define PATCH_LOCK_THRESHOLD 0.8
 
 namespace WorkerMiningOptimization
 {
