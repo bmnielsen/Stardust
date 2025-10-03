@@ -26,6 +26,7 @@ namespace Producer
         // Generally a worker assigned alone to a patch will return minerals approximately every 156 frames, a worker assigned with another worker
         // to a patch will return minerals approximately every 173 frames, and workers at a fully saturated base will return minerals approximately
         // every 168 frames.
+        // This is heavily map and base dependent, however, since it varies depending on BW does its pathing.
         const double MINERALS_PER_WORKER_FRAME = 0.0472;
         const double GAS_PER_WORKER_FRAME = 0.071;
         const double MINERALS_PER_GAS_UNIT = 0.655;
