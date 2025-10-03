@@ -9,6 +9,8 @@
 #include "Workers.h"
 #include "Units.h"
 
+#define LOG_PATCH_SWITCHES false
+
 namespace WorkerMiningOptimization
 {
     namespace
@@ -718,6 +720,7 @@ namespace WorkerMiningOptimization
 
 #if LOGGING_ENABLED
             CherryVis::log(worker->id) << "targeting different patch; resending order";
+#if LOG_PATCH_SWITCHES
             if (workerStatus.passed10DistancePosition != -1 && !workerStatus.passedUnregistered10DistancePosition && !isExploring())
             {
                 std::ostringstream dbg;
@@ -741,6 +744,7 @@ namespace WorkerMiningOptimization
                 dbg << "; passed10DistancePosition: " << workerStatus.passed10DistancePosition;
                 Log::Get() << dbg.str();
             }
+#endif
 #endif
 
             auto currentPosition = workerStatus.appendCurrentPosition();

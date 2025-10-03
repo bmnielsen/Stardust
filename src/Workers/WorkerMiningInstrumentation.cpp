@@ -10,6 +10,7 @@
 #define EPSILON 0.000001
 
 #define TRACK_MINING_EFFICIENCY true
+#define TRACK_MINING_EFFICIENCY_VERBOSE false
 #define TRACK_RESOURCE_FORECAST_ACCURACY false
 
 #if INSTRUMENTATION_ENABLED
@@ -242,6 +243,7 @@ namespace WorkerMiningInstrumentation
             }
         }
 
+#if TRACK_MINING_EFFICIENCY_VERBOSE
         if ((BWAPI::Broodwar->self()->gatheredMinerals() - 50) >= (1000 * (thousandMineralFrames.size() + 1)))
         {
             thousandMineralFrames.push_back(currentFrame);
@@ -250,6 +252,7 @@ namespace WorkerMiningInstrumentation
                 Log::Get() << "Gathered " << (1000 * thousandMineralFrames.size()) << "th mineral";
             }
         }
+#endif
 
         for (auto &[patch, workers] : getMineralsAndAssignedWorkers())
         {
@@ -778,6 +781,7 @@ namespace WorkerMiningInstrumentation
             Log::Get() << "Mining efficiency over entire game: " << miningEfficiency;
             CherryVis::log() << "Mining efficiency over entire game: " << miningEfficiency;
             Log::Get() << "50th mineral frame: " << WorkerMiningInstrumentation::getFiftiethMineralFrame();
+#if TRACK_MINING_EFFICIENCY_VERBOSE
             std::ostringstream frames;
             std::string sep;
             for (auto &frame : WorkerMiningInstrumentation::getThousandMineralFrames())
@@ -786,6 +790,7 @@ namespace WorkerMiningInstrumentation
                 sep = ", ";
             }
             Log::Get() << "Thousand mineral frames: " << frames.str();
+#endif
         }
 #endif
 #if TRACK_RESOURCE_FORECAST_ACCURACY

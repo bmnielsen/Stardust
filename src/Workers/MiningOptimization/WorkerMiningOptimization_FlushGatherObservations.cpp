@@ -18,6 +18,7 @@
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define PATCHLOCKING_DEBUG true
 #define PATCHLOCKING_DEBUG_VERBOSE false
+#define VALIDATE_ARRIVAL_FRAMES false
 #endif
 
 namespace WorkerMiningOptimization
@@ -838,7 +839,7 @@ namespace WorkerMiningOptimization
                 didNotHavePathData++;
             }
 
-            // Validate the arrival frame
+#if VALIDATE_ARRIVAL_FRAMES
             if (!it->second.switchedPatches && !it->second.expectedArrivalFrameAndOccurrenceRate.empty() && !isExploring())
             {
                 int arrivalFrame = currentFrame - (int)std::distance(positionsInHistory.arrivalPositionIt, it->second.positionHistory.end()) + 1;
@@ -858,6 +859,7 @@ namespace WorkerMiningOptimization
                                << "; worker id " << it->second.worker->id << " @ " << it->second.worker->getTilePosition();
                 }
             }
+#endif
 #endif
 
             if (WorkerMiningOptimization::isExploring())
@@ -920,9 +922,10 @@ namespace WorkerMiningOptimization
                             if (predictedOtherPatchesGatheredHistory[idx + BWAPI::Broodwar->getLatencyFrames() + 11].contains(it->second.resource))
                             {
                                 patchLockingPredictedPatchLocksAtCommandFrame++;
+#if PATCHLOCKING_DEBUG_VERBOSE
                                 Log::Get() << "WARNING: Worker could have patch locked on frame " << frame
                                            << "; worker id " << worker->id << " @ " << worker->getTilePosition();
-
+#endif
                                 break;
                             }
                         }
