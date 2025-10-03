@@ -109,16 +109,30 @@ namespace WorkerMiningOptimization
                 // Without order timer resets, we can compute the exact takeover frame
                 workerStatus.takeoverFrame = otherWorker->lastStartedMining + 81 + addedFrame;
 
-                // Compute the frame of the order timer reset prior to the take over frame
+                // Compute the frame of the order timer reset prior to the takeover frame
                 int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame - addedFrame);
                 if (previousOrderTimerReset == (workerStatus.takeoverFrame - addedFrame)) previousOrderTimerReset -= 150;
 
                 // If the order timer reset during mining, adjust our take over frame
                 // We always assume the worst-case scenario (needing to wait a full cycle after the mining timer expires)
                 // Because the order timer is at 6 when mining ends without a reset, we only have to wait two extra frames
+                int worstCaseExcluded = 0;
                 if (previousOrderTimerReset >= otherWorker->lastStartedMining)
                 {
-                    workerStatus.takeoverFrame = std::max(otherWorker->lastStartedMining + 83, previousOrderTimerReset + 8) + addedFrame;
+                    // Determine if the order process timer reset happened on a frame that excludes the worst-case result
+                    // We can calculate this since we know the order process timer will never be 8 after a reset, so it will also never
+                    // be 8 on any multiples of 9 frames into the future
+                    int earliestMiningEndFrame = otherWorker->lastStartedMining + 75;
+                    if (previousOrderTimerReset <= earliestMiningEndFrame)
+                    {
+                        if ((earliestMiningEndFrame - previousOrderTimerReset) % 9 == 0)
+                        {
+                            worstCaseExcluded = 1;
+                        }
+                    }
+
+                    workerStatus.takeoverFrame =
+                            std::max(otherWorker->lastStartedMining + 83 - worstCaseExcluded, previousOrderTimerReset + 8) + addedFrame;
                 }
 
                 // If the order process timer will reset after the command frame for optimal takeover, adjust the takeover frame so the command takes
@@ -134,7 +148,8 @@ namespace WorkerMiningOptimization
                         << "otherStarted=" << otherWorker->lastStartedMining << "; "
                         << "takeOverFrame=" << workerStatus.takeoverFrame << "; "
                         << "previousOrderTimerReset=" << previousOrderTimerReset << "; "
-                        << "addedFrame=" << addedFrame;
+                        << "addedFrame=" << addedFrame << "; "
+                        << "worstCaseExcluded=" << worstCaseExcluded;
 #endif
             };
 
