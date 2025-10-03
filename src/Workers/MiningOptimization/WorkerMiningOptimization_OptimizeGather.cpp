@@ -283,6 +283,129 @@ namespace WorkerMiningOptimization
                             }
                         }
 
+                        auto willResendHereArriveOnTime = [&]()
+                        {
+                            // Always will if we are at the patch
+                            if (distToPatch == 0)
+                            {
+#if TAKEOVER_DEBUG
+                                CherryVis::log(worker->id) << "Sending final command; worker is at patch";
+#endif
+                                return std::make_pair(true, 10);
+                            }
+
+                            // Always won't if we are still at the depot
+                            if (worker->getDistance(workerStatus.depot) == 0)
+                            {
+                                return std::make_pair(false, 0);
+                            }
+
+                            // If we've already resent twice, we assume resending again will always get to the patch on time
+                            if (workerStatus.resentPositions.size() > 1)
+                            {
+#if TAKEOVER_DEBUG
+                                CherryVis::log(worker->id) << "Sending final command; worker has already resent twice (or more)";
+#endif
+                                return std::make_pair(true, 11);
+                            }
+
+                            // The worker is still approaching the patch, so use our recorded data to figure out if we
+                            // will get to the patch on time if we resend here
+
+                            // Reference any observations we have for when we resend at this position
+                            GatherResendArrivalObservations *observations = nullptr;
+                            if (workerStatus.currentNode)
+                            {
+                                observations = &workerStatus.currentNode->resendArrivalObservations();
+                            }
+
+                            // Determine if we think a resend will succeed
+                            bool send;
+                            if (!observations || observations->empty())
+                            {
+                                send = false;
+
+                                // If we are tracking a no-resend path, use the delta to benchmark as a guide
+                                if (workerStatus.currentNode && workerStatus.currentNode->pos)
+                                {
+                                    send = !workerStatus.currentNode->pos->deltaToBenchmarkAndOccurrenceRate.empty()
+                                            && (workerStatus.currentNode->pos->largestDeltaToBenchmark() >= 0)
+                                            && (workerStatus.currentNode->pos->secondResendPositions.empty());
+#if TAKEOVER_DEBUG
+                                    if (send)
+                                    {
+                                        CherryVis::log(worker->id) << "Sending final command; delta to benchmark indicates probable success";
+                                    }
+#endif
+                                }
+                                else if (isExploring())
+                                {
+                                    send = true;
+#if TAKEOVER_DEBUG
+                                    CherryVis::log(worker->id) << "Sending final command; exploring arrival from here";
+#endif
+                                }
+                                else if (workerStatus.passed10DistancePosition != -1)
+                                {
+                                    send = true;
+#if TAKEOVER_DEBUG
+                                    CherryVis::log(worker->id) << "Sending final command; have passed 10-distance position";
+#endif
+                                }
+                            }
+                            else
+                            {
+                                send = true;
+
+                                // Count success rate
+                                // We use this position if it succeeds two-thirds of the time (170/255)
+                                unsigned int successRate = 0;
+                                for (const auto &[packedArrivalDelayAndFacingPatch, occurrenceRate]
+                                        : observations->packedArrivalDelayAndFacingPatchToOccurrenceRate)
+                                {
+                                    if (GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch) <= 0 &&
+                                        GatherResendArrivalObservations::unpackFacingPatch(packedArrivalDelayAndFacingPatch))
+                                    {
+                                        successRate += occurrenceRate;
+                                    }
+                                }
+
+                                // If exploring, ensure we try until we have three failures
+                                bool explore = false;
+                                if (successRate < 170 && WorkerMiningOptimization::isExploring())
+                                {
+                                    unsigned int failures = 0;
+                                    for (const auto &[packedDelayAndFacingPatch, occurrences]
+                                            : observations->packedArrivalDelayAndFacingPatchToOccurrences)
+                                    {
+                                        if (GatherResendArrivalObservations::unpackArrivalDelay(packedDelayAndFacingPatch) > 0) failures += occurrences;
+                                    }
+                                    explore = (failures < 3);
+                                }
+
+                                if (successRate < 170 && !explore)
+                                {
+                                    send = false;
+#if TAKEOVER_DEBUG
+                                    CherryVis::log(worker->id) << std::fixed << std::setprecision(1)
+                                                               << "Not sending here; success rate is " << ((double)successRate * 100.0 / 255.0) << "%";
+                                }
+                                else if (explore)
+                                {
+                                    CherryVis::log(worker->id) << "Sending final command; exploring";
+                                }
+                                else
+                                {
+                                    CherryVis::log(worker->id) << std::fixed << std::setprecision(1)
+                                                               << "Sending final command; success rate is "
+                                                               << ((double)successRate * 100.0 / 255.0) << "%";
+#endif
+                                }
+                            }
+
+                            return std::make_pair(send, (workerStatus.resentPositions.size() > 1) ? 12 : 13);
+                        };
+
                         // Logic for when the next command is in the future
                         if (framesToNextCommand > 0)
                         {
@@ -290,9 +413,10 @@ namespace WorkerMiningOptimization
                             // We don't do this if we are exploring
                             // TODO: Use a shared logic with the later part that determines if we are likely to arrive at the patch on time
                             //       by resending here
-                            if (!isExploring() && (!workerStatus.resentFrames.empty() || workerStatus.passed10DistancePosition != -1) &&
+                            if (!isExploring() &&
                                 !workerStatus.resentFrames.contains(currentFrame) &&
-                                !workerStatus.resentFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+                                !workerStatus.resentFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()) &&
+                                willResendHereArriveOnTime().first)
                             {
                                 auto patchLock = checkForPatchLock(workerStatus, currentFrame);
                                 if (patchLock.has_value())
@@ -461,109 +585,10 @@ namespace WorkerMiningOptimization
                             return true;
                         }
 
-                        // If the worker is at the patch, just send the command
-                        if (distToPatch == 0)
+                        auto sendHere = willResendHereArriveOnTime();
+                        if (sendHere.first && workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition))
                         {
-#if TAKEOVER_DEBUG
-                            CherryVis::log(worker->id) << "Sending final command; worker is at patch";
-#endif
-
-                            if (workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition))
-                            {
-                                workerStatus.takeoverState = 10;
-                            }
-                            return true;
-                        }
-
-                        // The worker is still approaching the patch, so use our recorded data to figure out if we
-                        // will get to the patch on time if we resend here
-
-                        // If we've already resent twice, we assume resending again will always get to the patch on time
-                        if (workerStatus.resentPositions.size() > 1)
-                        {
-#if TAKEOVER_DEBUG
-                            CherryVis::log(worker->id) << "Sending final command; worker has already resent twice (or more)";
-#endif
-
-                            if (workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition))
-                            {
-                                workerStatus.takeoverState = 11;
-                            }
-                            return true;
-                        }
-
-                        // Wait until we have left the depot
-                        if (worker->getDistance(workerStatus.depot) == 0) return true;
-
-                        // Reference any observations we have for when we resend at this position
-                        GatherResendArrivalObservations *observations = nullptr;
-                        if (workerStatus.currentNode)
-                        {
-                            observations = &workerStatus.currentNode->resendArrivalObservations();
-                        }
-
-                        // Resend if we either don't have any data or think it will succeed
-                        bool send = true;
-                        if (!observations || observations->empty())
-                        {
-#if TAKEOVER_DEBUG
-                            CherryVis::log(worker->id) << "Sending final command; no observations for this position";
-#endif
-                        }
-                        else
-                        {
-                            // Count success rate
-                            // We use this position if it succeeds two-thirds of the time (170/255)
-                            unsigned int successRate = 0;
-                            for (const auto &[packedArrivalDelayAndFacingPatch, occurrenceRate]
-                                : observations->packedArrivalDelayAndFacingPatchToOccurrenceRate)
-                            {
-                                if (GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch) <= 0 &&
-                                    GatherResendArrivalObservations::unpackFacingPatch(packedArrivalDelayAndFacingPatch))
-                                {
-                                    successRate += occurrenceRate;
-                                }
-                            }
-
-                            // If exploring, ensure we try until we have three failures
-                            bool explore = false;
-                            if (successRate < 170 && WorkerMiningOptimization::isExploring())
-                            {
-                                unsigned int failures = 0;
-                                for (const auto &[packedDelayAndFacingPatch, occurrences]
-                                        : observations->packedArrivalDelayAndFacingPatchToOccurrences)
-                                {
-                                    if (GatherResendArrivalObservations::unpackArrivalDelay(packedDelayAndFacingPatch) > 0) failures += occurrences;
-                                }
-                                explore = (failures < 3);
-                            }
-
-                            if (successRate < 170 && !explore)
-                            {
-                                send = false;
-#if TAKEOVER_DEBUG
-                                CherryVis::log(worker->id) << std::fixed << std::setprecision(1)
-                                                           << "Not sending here; success rate is " << ((double)successRate * 100.0 / 255.0) << "%";
-                            }
-                            else if (explore)
-                            {
-                                CherryVis::log(worker->id) << "Sending final command; exploring";
-                            }
-                            else
-                            {
-                                CherryVis::log(worker->id) << std::fixed << std::setprecision(1)
-                                                           << "Sending final command; success rate is "
-                                                           << ((double)successRate * 100.0 / 255.0) << "%";
-#endif
-                            }
-                        }
-
-                        if (send)
-                        {
-                            if (workerStatus.sendGatherCommand(resourceBwapiUnit, currentPosition))
-                            {
-                                workerStatus.takeoverState = ((workerStatus.resentPositions.size() > 1) ? 12 : 13);
-                            }
+                            workerStatus.takeoverState = sendHere.second;
                         }
 
                         return true;
