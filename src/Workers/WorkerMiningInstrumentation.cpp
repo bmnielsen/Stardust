@@ -18,6 +18,8 @@
 #define LOG_PATCH_STATUS false
 #define LOG_TWOPATCH_TAKEOVER false
 #define LOG_TWOPATCH_TAKEOVER_ERRORS false
+#define LOG_INEFFICIENCIES false
+#define DRAW_INEFFICIENCIES false
 #endif
 
 namespace WorkerMiningInstrumentation
@@ -540,8 +542,10 @@ namespace WorkerMiningInstrumentation
                         if (orderTimerResetBeforeArrival > 11)
                         {
                             inefficiency = "start-mining-wait-no-reset";
+#if LOG_INEFFICIENCIES
                             CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                              << ": worker waited too many frames to start mining (no reset)";
+#endif
                         }
                         else if (currentFrames > (12 - orderTimerResetBeforeArrival))
                         {
@@ -549,8 +553,10 @@ namespace WorkerMiningInstrumentation
                             // Otherwise maximum wait can be up to 7 because of order process timer reset
 
                             inefficiency = "start-mining-wait-reset";
+#if LOG_INEFFICIENCIES
                             CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                              << ": worker waited too many frames to start mining (reset)";
+#endif
                         }
                     }
                     break;
@@ -562,8 +568,10 @@ namespace WorkerMiningInstrumentation
                     if (currentFrames > 5)
                     {
                         inefficiency = "leave-depot";
+#if LOG_INEFFICIENCIES
                         CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                          << ": worker waited too many frames to leave depot";
+#endif
                     }
                     break;
                 }
@@ -649,8 +657,10 @@ namespace WorkerMiningInstrumentation
                                    << "; extraFrame=" << extraFrame
                                    << "; " << inefficiency;
 #endif
+#if LOG_INEFFICIENCIES
                         CherryVis::log() << "Patch @ " << BWAPI::WalkPosition(patch->center)
                                          << ": worker waited too many frames to take over mining (" << inefficiency << ")";
+#endif
                     }
 #if LOG_TWOPATCH_TAKEOVER
                     else
@@ -675,6 +685,7 @@ namespace WorkerMiningInstrumentation
             }
         }
 
+#if DRAW_INEFFICIENCIES
         for (auto it = patchToAlert.begin(); it != patchToAlert.end(); )
         {
             if ((currentFrame - it->second.first) > 24)
@@ -687,6 +698,7 @@ namespace WorkerMiningInstrumentation
             CherryVis::drawText(it->first->center.x, it->first->center.y, it->second.second);
             it++;
         }
+#endif
 
         if (currentFrame % 1000 == 0)
         {
