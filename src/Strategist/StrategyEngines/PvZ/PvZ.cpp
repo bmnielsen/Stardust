@@ -213,6 +213,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             case OurStrategy::SairSpeedlot:
             {
                 // Attack when we have +1 and speed or 6 corsairs and an army
+                // This strategy transitions to mid game as soon as it has gone on the attack, so the opposite transition is not needed
                 defendOurMain = true;
                 if ((BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) > 0 &&
                      BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) > 0)
@@ -225,15 +226,28 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             }
             case OurStrategy::FFEDragoons:
             {
-                // Attack when we have 5 units in our army and range
-                defendOurMain = true;
-                if ((BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) > 0
-                    || Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
-                    && canTransitionToAttack(5, true))
+                if (!mainArmyPlay)
                 {
-                    defendOurMain = false;
+                    defendOurMain = true;
+                    break;
                 }
 
+                // Transition to attack when we have 5 units in our army and range is started
+                if (mainArmyPlay->isDefensive())
+                {
+                    defendOurMain = true;
+                    if ((BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) > 0
+                         || Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+                        && canTransitionToAttack(5, true))
+                    {
+                        defendOurMain = false;
+                    }
+
+                    break;
+                }
+
+                // TODO: Should we ever transition back to defense?
+                defendOurMain = false;
                 break;
             }
             default:
