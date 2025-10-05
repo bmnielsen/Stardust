@@ -554,7 +554,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                            "SE",
                                                                            BWAPI::UnitTypes::Protoss_Corsair,
                                                                            corsairs,
-                                                                           (isEnemyMutaBuild ? 2 : 1));
+                                                                           ((Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 2) ? 2 : 1));
             }
 
             if (isEnemyMutaBuild)
