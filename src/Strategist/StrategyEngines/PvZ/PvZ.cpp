@@ -559,14 +559,17 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::FFEDragoons:
         {
-            // Build one zealot before dragoons
-            if (zealotCount == 0 && dragoonCount == 0)
+            // Scale our desired zealots based on enemy ling count
+            // Start with one before goons
+            int unitCount = zealotCount + dragoonCount;
+            int desiredZealots = std::max(1 - unitCount, 1 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3);
+            if (zealotCount < desiredZealots)
             {
-                prioritizedProductionGoals[PRIORITY_DEPOTS + 1].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                             "SE",
-                                                                             BWAPI::UnitTypes::Protoss_Zealot,
-                                                                             1,
-                                                                             1);
+                prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                              "SE",
+                                                                              BWAPI::UnitTypes::Protoss_Zealot,
+                                                                              desiredZealots - zealotCount,
+                                                                              -1);
             }
 
             prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -582,6 +585,12 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             // Upgrade goon range at 1 dragoon
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
+
+            // Upgrade +1 attack at 2 zealots
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 2);
+
+            // Upgrade leg speed at 5 zealots
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 5);
 
             break;
         }
