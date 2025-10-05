@@ -164,9 +164,10 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                     continue;
                 }
 
-                // Transition to mid game when the enemy is on lair tech
-                if (newEnemyStrategy == ZergStrategy::Lair || newEnemyStrategy == ZergStrategy::MutaRush ||
-                    Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
+                // Transition to mid game when the enemy is on lair tech, we have taken a third, or we have reached frame 12000
+                if (newEnemyStrategy == ZergStrategy::Lair || newEnemyStrategy == ZergStrategy::MutaRush
+                    || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2
+                    || currentFrame > 12000)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;
