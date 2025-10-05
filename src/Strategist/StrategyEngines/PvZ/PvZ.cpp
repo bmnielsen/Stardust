@@ -133,30 +133,55 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
         auto canTransitionToAttack = [&](int requiredUnitCount, bool requireDragoon)
         {
-            if (!mainArmyPlay) return false;
+            if (!mainArmyPlay)
+            {
+                CherryVis::setBoardValue("defend-main-reason", "no-main-army-play");
+                return false;
+            }
 
             auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
-            if (!vanguardCluster || !vanguardCluster->vanguard) return false;
+            if (!vanguardCluster || !vanguardCluster->vanguard)
+            {
+                CherryVis::setBoardValue("defend-main-reason", "no-vanguard");
+                return false;
+            }
 
+            int radius = mainArmyPlay->isDefensive() ? 200 : 250;
             bool hasDragoon = false;
             int count = 0;
             for (const auto &unit : vanguardCluster->units)
             {
-                if (unit->getDistance(vanguardCluster->vanguard) < 200)
+                if (unit->isStaticGroundDefense()) continue;
+
+                if (unit->getDistance(vanguardCluster->vanguard) < radius)
                 {
                     if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
                     count++;
                 }
             }
 
-            if (count < requiredUnitCount || (requireDragoon && !hasDragoon)) return false;
+            if (count < requiredUnitCount)
+            {
+                CherryVis::setBoardValue("defend-main-reason", "not-enough-units");
+                return false;
+            }
+            if (requireDragoon && !hasDragoon)
+            {
+                CherryVis::setBoardValue("defend-main-reason", "no-dragoon");
+                return false;
+            }
 
             // If the enemy has done a sneak attack recently, don't leave our base until we have built defensive cannons
             if (isFFE()) return true; // only relevant for non-FFE builds
             if (currentFrame > 10000) return true; // only relevant in early game
             if (enemyHasOurNatural()) return true; // exception if the enemy has our natural
             auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
-            return sneakAttack > 10000 || Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) >= 2;
+            if (sneakAttack <= 10000 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) < 2)
+            {
+                CherryVis::setBoardValue("defend-main-reason", "no-anti-sneak-attack-cannons");
+                return false;
+            }
+            return true;
         };
 
         switch (ourStrategy)
@@ -202,7 +227,8 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             {
                 // Attack when we have 5 units in our army and range
                 defendOurMain = true;
-                if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) > 0
+                if ((BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) > 0
+                    || Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
                     && canTransitionToAttack(5, true))
                 {
                     defendOurMain = false;
