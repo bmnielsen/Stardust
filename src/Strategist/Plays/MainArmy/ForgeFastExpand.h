@@ -15,6 +15,8 @@ public:
 
     void update() override;
 
+    void postTransition() override { updateState(); }
+
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
 
     void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
@@ -23,6 +25,7 @@ public:
 private:
     enum class State
     {
+        STATE_UNINITIALIZED,                // The state machine has not been run yet
         STATE_PYLON_PENDING,                // Initial state where pylon is not yet built
         STATE_FORGE_PENDING,                // Pylon is built, forge pending
         STATE_NEXUS_PENDING,                // Forge is built, builds reactive cannons before building nexus
@@ -36,10 +39,15 @@ private:
     std::shared_ptr<DefendWallSquad> squad;
     std::unique_ptr<WorkerDefenseSquad> mainBaseWorkerDefenseSquad;
 
+    void updateState();
+
     friend std::ostream &operator<<(std::ostream &out, const State &s)
     {
         switch (s)
         {
+            case State::STATE_UNINITIALIZED:
+                out << "STATE_UNINITIALIZED";
+                break;
             case State::STATE_PYLON_PENDING:
                 out << "STATE_PYLON_PENDING";
                 break;
@@ -67,5 +75,4 @@ private:
         }
         return out;
     };
-
 };

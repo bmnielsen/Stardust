@@ -592,7 +592,7 @@ namespace
 
 ForgeFastExpand::ForgeFastExpand()
         : MainArmyPlay("ForgeFastExpand")
-        , currentState(State::STATE_PYLON_PENDING)
+        , currentState(State::STATE_UNINITIALIZED)
         , squad(std::make_shared<DefendWallSquad>())
         , mainBaseWorkerDefenseSquad(std::make_unique<WorkerDefenseSquad>(Map::getMyMain()))
 {
@@ -607,129 +607,7 @@ void ForgeFastExpand::update()
     std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
     mainBaseWorkerDefenseSquad->execute(workersAndTargets, emptyUnitsAndTargets);
 
-    auto &wall = BuildingPlacement::getForgeGatewayWall();
-
-    // Update the current state
-#if CVIS_LOG_STATE_CHANGES
-    auto previousState = currentState;
-#endif
-    int counter = 0;
-    while (true)
-    {
-        auto lastState = currentState;
-        switch (currentState)
-        {
-            case State::STATE_PYLON_PENDING:
-                if (Units::myBuildingAt(wall.pylon))
-                {
-                    currentState = State::STATE_FORGE_PENDING;
-                }
-                break;
-
-            case State::STATE_FORGE_PENDING:
-                if (Units::myBuildingAt(wall.forge))
-                {
-                    currentState = State::STATE_NEXUS_PENDING;
-                }
-                break;
-
-            case State::STATE_NEXUS_PENDING:
-            {
-                auto natural = Map::getMyNatural();
-                if (natural->resourceDepot && natural->owner == BWAPI::Broodwar->self())
-                {
-                    currentState = State::STATE_GATEWAY_PENDING;
-                    break;
-                }
-                if (Strategist::getStrategyEngine()->isEnemyRushing() || Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotAllIn))
-                {
-                    Builder::cancelBase(natural);
-
-                    if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg ||
-                        proxyBehindOurWall())
-                    {
-                        currentState = State::STATE_ANTIFASTRUSHZERG;
-                    }
-                    else
-                    {
-                        currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
-                    }
-                    break;
-                }
-                if (nexusPositionBlocked())
-                {
-                    Log::Get() << "Nexus position blocked; building gateway first";
-                    currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
-                    break;
-                }
-
-                break;
-            }
-
-            case State::STATE_GATEWAY_PENDING:
-            {
-                auto natural = Map::getMyNatural();
-                if (Strategist::getStrategyEngine()->isEnemyRushing() || Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotAllIn))
-                {
-                    Builder::cancelBase(natural);
-
-                    if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
-                    {
-                        Builder::cancel(wall.gateway);
-                        currentState = State::STATE_ANTIFASTRUSHZERG;
-                    }
-                    else
-                    {
-                        currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
-                    }
-                }
-
-                if (Units::myBuildingAt(wall.gateway))
-                {
-                    currentState = State::STATE_FINISHED;
-                }
-                break;
-            }
-
-            case State::STATE_FINISHED:
-                // Final state
-                break;
-
-            case State::STATE_ANTIFASTRUSHZERG:
-                // Transition when we've completed the gateway in our main
-                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Gateway) > 0)
-                {
-                    status.transitionTo = std::make_shared<DefendMyMain>();
-                }
-                break;
-
-            case State::STATE_ANTIFASTRUSH_GATEWAY_PENDING:
-                if (Units::myBuildingAt(wall.gateway))
-                {
-                    currentState = State::STATE_ANTIFASTRUSH_NEXUS_PENDING;
-                }
-                break;
-
-            case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
-                auto natural = Map::getMyNatural();
-                if (natural->resourceDepot && natural->owner == BWAPI::Broodwar->self())
-                {
-                    currentState = State::STATE_FINISHED;
-                }
-                break;
-        }
-        if (lastState == currentState) break;
-        counter++;
-        if (counter > 20)
-        {
-            Log::Get() << "ERROR: ForgeFastExpand play unstable state, waffling between " << lastState << " and " << currentState;
-            break;
-        }
-    }
-
-#if CVIS_LOG_STATE_CHANGES
-    if (currentState != previousState) CherryVis::log() << "ForgeFastExpand: State transition from " << previousState << " to " << currentState;
-#endif
+    updateState();
 }
 
 void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
@@ -757,6 +635,10 @@ void ForgeFastExpand::addPrioritizedProductionGoals(std::map<int, std::vector<Pr
 
     switch (currentState)
     {
+        case State::STATE_UNINITIALIZED:
+        {
+            return;
+        }
         case State::STATE_PYLON_PENDING:
         case State::STATE_FORGE_PENDING:
         {
@@ -937,4 +819,136 @@ void ForgeFastExpand::disband(const std::function<void(const MyUnit)> &removedUn
 {
     MainArmyPlay::disband(removedUnitCallback, movableUnitCallback);
     mainBaseWorkerDefenseSquad->disband();
+}
+
+void ForgeFastExpand::updateState()
+{
+    auto &wall = BuildingPlacement::getForgeGatewayWall();
+
+    // Update the current state
+#if CVIS_LOG_STATE_CHANGES
+    auto previousState = currentState;
+#endif
+    int counter = 0;
+    while (true)
+    {
+        auto lastState = currentState;
+        switch (currentState)
+        {
+            case State::STATE_UNINITIALIZED:
+            case State::STATE_PYLON_PENDING:
+                if (Units::myBuildingAt(wall.pylon))
+                {
+                    currentState = State::STATE_FORGE_PENDING;
+                }
+                else
+                {
+                    currentState = State::STATE_PYLON_PENDING;
+                }
+                break;
+
+            case State::STATE_FORGE_PENDING:
+                if (Units::myBuildingAt(wall.forge))
+                {
+                    currentState = State::STATE_NEXUS_PENDING;
+                }
+                break;
+
+            case State::STATE_NEXUS_PENDING:
+            {
+                auto natural = Map::getMyNatural();
+                if (natural->resourceDepot && natural->owner == BWAPI::Broodwar->self())
+                {
+                    currentState = State::STATE_GATEWAY_PENDING;
+                    break;
+                }
+                if (Strategist::getStrategyEngine()->isEnemyRushing() || Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotAllIn))
+                {
+                    Builder::cancelBase(natural);
+
+                    if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg ||
+                        proxyBehindOurWall())
+                    {
+                        currentState = State::STATE_ANTIFASTRUSHZERG;
+                    }
+                    else
+                    {
+                        currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
+                    }
+                    break;
+                }
+                if (nexusPositionBlocked())
+                {
+                    Log::Get() << "Nexus position blocked; building gateway first";
+                    currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
+                    break;
+                }
+
+                break;
+            }
+
+            case State::STATE_GATEWAY_PENDING:
+            {
+                auto natural = Map::getMyNatural();
+                if (Strategist::getStrategyEngine()->isEnemyRushing() || Strategist::isEnemyStrategy(PvP::ProtossStrategy::ZealotAllIn))
+                {
+                    Builder::cancelBase(natural);
+
+                    if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
+                    {
+                        Builder::cancel(wall.gateway);
+                        currentState = State::STATE_ANTIFASTRUSHZERG;
+                    }
+                    else
+                    {
+                        currentState = State::STATE_ANTIFASTRUSH_GATEWAY_PENDING;
+                    }
+                }
+
+                if (Units::myBuildingAt(wall.gateway))
+                {
+                    currentState = State::STATE_FINISHED;
+                }
+                break;
+            }
+
+            case State::STATE_FINISHED:
+                // Final state
+                break;
+
+            case State::STATE_ANTIFASTRUSHZERG:
+                // Transition when we've completed the gateway in our main
+                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Gateway) > 0)
+                {
+                    status.transitionTo = std::make_shared<DefendMyMain>();
+                }
+                break;
+
+            case State::STATE_ANTIFASTRUSH_GATEWAY_PENDING:
+                if (Units::myBuildingAt(wall.gateway))
+                {
+                    currentState = State::STATE_ANTIFASTRUSH_NEXUS_PENDING;
+                }
+                break;
+
+            case State::STATE_ANTIFASTRUSH_NEXUS_PENDING:
+                auto natural = Map::getMyNatural();
+                if (natural->resourceDepot && natural->owner == BWAPI::Broodwar->self())
+                {
+                    currentState = State::STATE_FINISHED;
+                }
+                break;
+        }
+        if (lastState == currentState) break;
+        counter++;
+        if (counter > 20)
+        {
+            Log::Get() << "ERROR: ForgeFastExpand play unstable state, waffling between " << lastState << " and " << currentState;
+            break;
+        }
+    }
+
+#if CVIS_LOG_STATE_CHANGES
+    if (currentState != previousState) CherryVis::log() << "ForgeFastExpand: State transition from " << previousState << " to " << currentState;
+#endif
 }

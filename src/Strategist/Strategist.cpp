@@ -518,6 +518,7 @@ namespace Strategist
                 CherryVis::log() << "Play transition: " << (*it)->label << "->" << (*it)->status.transitionTo->label;
 
                 *it = (*it)->status.transitionTo;
+                (*it)->postTransition();
                 it++;
             }
 

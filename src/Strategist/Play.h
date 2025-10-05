@@ -90,6 +90,9 @@ public:
     // Runs at the start of the Strategist's frame and updates the play status.
     virtual void update() {}
 
+    // Runs just after the play has transitioned from another play.
+    virtual void postTransition() {}
+
     // Runs at the end of the Strategist's frame and allows the play to order units or upgrades from the producer.
     virtual void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) {}
 
