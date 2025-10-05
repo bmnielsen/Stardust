@@ -283,7 +283,11 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
     updateDefendBasePlays(plays);
     updateSpecialTeamsPlays(plays);
-    defaultExpansions(plays);
+    // When doing an FFE, wait until at least frame 10000 to take a third
+    if (!isFFE() || currentFrame > 10000)
+    {
+        defaultExpansions(plays);
+    }
     scoutExpos(plays, 10000);
 }
 
