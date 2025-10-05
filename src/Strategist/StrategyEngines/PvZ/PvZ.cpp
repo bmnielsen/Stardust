@@ -580,7 +580,8 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             // Scale our desired zealots based on enemy ling count
             // Start with one before goons
             int unitCount = zealotCount + dragoonCount;
-            int desiredZealots = std::max(1 - unitCount, 1 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3);
+            int cannonCount = Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+            int desiredZealots = std::max(1 - unitCount, (1 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3) - cannonCount);
             if (zealotCount < desiredZealots)
             {
                 prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
