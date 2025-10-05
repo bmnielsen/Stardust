@@ -241,6 +241,14 @@ namespace Builder
 
     void build(BWAPI::UnitType type, BWAPI::TilePosition tile, const MyWorker &builder, int startFrame)
     {
+        // Check we don't already have a building here
+        auto existing = Units::myBuildingAt(tile);
+        if (existing)
+        {
+            Log::Get() << "ERROR: Can't build " << type << " at " << tile << " as we already have " << existing->type;
+            return;
+        }
+
         // Sanity check that we don't already have a pending building overlapping the tile
         // This happens if the producer orders two buildings on the same frame where one is using a build location converted from the other
         // When we detect this, we can just return; the producer will use a different build location on the next frame
