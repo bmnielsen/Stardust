@@ -441,7 +441,7 @@ namespace Geo
         bool negative = raw < 0;
         if (negative) raw = -raw;
 
-        size_t r = std::lower_bound(tan_table.begin(), tan_table.end(), raw) - tan_table.begin();
+        size_t r = std::lower_bound(tan_table.begin(), tan_table.end(), (unsigned int)raw) - tan_table.begin();
 
         return int((vector.x > 0 ? 64 : -64) + (negative ? -r : r));
     }
