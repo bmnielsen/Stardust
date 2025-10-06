@@ -163,3 +163,14 @@ TEST(InitialSplitTraining, SSCAIT)
         });
     }
 }
+
+TEST(InitialSplitTraining, AIIDE2025)
+{
+    WorkerMiningOptimization::setExploring(false);
+    WorkerMiningOptimization::setUpdateResourceObservations(true);
+
+    Maps::RunOnEach(Maps::Get("aiide2025"), [](BWTest test)
+    {
+        for (int i = 0; i < 10; i++) runTest(test);
+    });
+}

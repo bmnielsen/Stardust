@@ -518,3 +518,20 @@ TEST(SpawnPositionTraining, SSCAIT)
         });
     }
 }
+
+TEST(SpawnPositionTraining, AIIDE2025)
+{
+    while (true)
+    {
+        Maps::RunOnEach(Maps::Get("aiide2025"), [](BWTest test)
+        {
+            runSpawnLocationsTest(test, true, 0, false);
+            runSpawnLocationsTest(test, false, 0, false);
+            runSpawnLocationsTest(test, false, 1, false);
+            runSpawnLocationsTest(test, false, 2, false);
+            runSpawnLocationsTest(test, false, 0, true);
+            runSpawnLocationsTest(test, false, 1, true);
+            runSpawnLocationsTest(test, false, 2, true);
+        });
+    }
+}

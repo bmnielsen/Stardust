@@ -1171,3 +1171,28 @@ TEST(FullSaturationTraining, AllSSCAITObservations)
         });
     }
 }
+
+TEST(FullSaturationTraining, AllAIIDE2025)
+{
+    while (true)
+    {
+        testRunWithResults("aiide2025", 0, true);
+    }
+}
+
+TEST(FullSaturationTraining, AllAIIDE2025Observations)
+{
+    while (true)
+    {
+        Maps::RunOnEach(Maps::Get("aiide2025"), [&](BWTest test)
+        {
+            test.randomSeed = 42;
+            runEfficiencyTestImpl(test, 1, 0, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 1, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 2, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 0, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 1, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 2, false, false, 10, false, true);
+        });
+    }
+}

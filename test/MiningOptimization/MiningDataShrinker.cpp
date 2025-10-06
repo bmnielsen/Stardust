@@ -61,3 +61,13 @@ TEST(MiningDataShrinker, SSCAIT)
         shrink(map, parameters);
     }
 }
+
+TEST(MiningDataShrinker, AIIDE2025)
+{
+    auto parameters = WorkerMiningOptimization::ObservationDataFiles::GameParameters{"", "", 3, 12, 5, 15, 5};
+
+    for (const auto &map : Maps::Get("aiide2025"))
+    {
+        shrink(map, parameters);
+    }
+}
