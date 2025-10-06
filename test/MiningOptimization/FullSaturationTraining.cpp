@@ -1045,6 +1045,14 @@ TEST(FullSaturationTraining, VermeerContinuousWithResults)
     }
 }
 
+TEST(FullSaturationTraining, JadeContinuousWithResults)
+{
+    while (true)
+    {
+        testRunWithResults("aiide2025/(4)Jade_2.1_iCCup.scx", 0, true);
+    }
+}
+
 TEST(FullSaturationTraining, VermeerContinuousNoCannonsWithResults)
 {
     while (true)
