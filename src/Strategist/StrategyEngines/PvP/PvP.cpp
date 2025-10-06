@@ -410,7 +410,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             auto ejectScoutPlay = getPlay<EjectEnemyScout>(plays);
             bool hasEjectedScout = !ejectScoutPlay || ejectScoutPlay->hasEjectedScout();
 
-            // Build three zealots from two gates initially
+            // Build three zealots initially
             if (zealotCount < 3 && Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0
                 && Units::countAll(BWAPI::UnitTypes::Protoss_Cybernetics_Core) == 0)
             {
