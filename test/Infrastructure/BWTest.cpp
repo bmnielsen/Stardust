@@ -1,7 +1,15 @@
 #include "BWTest.h"
 
 #include "BW/BWData.h"
+
 #include "StardustAIModule.h"
+#include "Geo.h"
+#include "Strategist.h"
+#include "StrategyEngines/PvP.h"
+#include "StrategyEngines/PvZ.h"
+#include "StrategyEngines/PvT.h"
+#include "StrategyEngines/PvU.h"
+
 #include <chrono>
 #include <thread>
 #include <csignal>
@@ -9,8 +17,6 @@
 #include <filesystem>
 #include <sys/shm.h>
 #include <random>
-
-#include "Geo.h"
 
 const double pi = 3.14159265358979323846;
 
@@ -384,6 +390,40 @@ void BWTest::runGame(bool opponent)
         }
         else
         {
+            if (!myOpening.empty())
+            {
+                if (onStartMine)
+                {
+                    std::cout << "ERROR: Trying to set my strategy with an onStartMine already defined; existing will be overridden" << std::endl;
+                }
+
+                if (opponentRace == BWAPI::Races::Protoss)
+                {
+                    onStartMine = [&]()
+                    {
+                        Strategist::setStrategyEngine(std::make_unique<PvP>(), myOpening);
+                    };
+                } else if (opponentRace == BWAPI::Races::Zerg)
+                {
+                    onStartMine = [&]()
+                    {
+                        Strategist::setStrategyEngine(std::make_unique<PvZ>(), myOpening);
+                    };
+                } else if (opponentRace == BWAPI::Races::Terran)
+                {
+                    onStartMine = [&]()
+                    {
+                        Strategist::setStrategyEngine(std::make_unique<PvT>(), myOpening);
+                    };
+                } else if (opponentRace == BWAPI::Races::Random)
+                {
+                    onStartMine = [&]()
+                    {
+                        Strategist::setStrategyEngine(std::make_unique<PvU>(), myOpening);
+                    };
+                }
+            }
+
             stardustModule->testOnStart = onStartMine;
             stardustModule->testOnFrame = onFrameMine;
             stardustModule->testOnEnd = onEndMine;

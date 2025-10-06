@@ -43,6 +43,8 @@ public:
     bool expectWin = true;
     bool writeReplay = true;
 
+    std::string myOpening;
+
     bool host = false;
     bool connect = false;
 
