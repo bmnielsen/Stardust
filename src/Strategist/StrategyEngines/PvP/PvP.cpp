@@ -55,6 +55,7 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
             opening = Opponent::selectOpeningUCB1(
                     {
                             OurStrategyNames[OurStrategy::EarlyGameDefense],
+                            OurStrategyNames[OurStrategy::TwoGateDT],
                             OurStrategyNames[OurStrategy::ForgeExpandDT]
                     });
 #endif
@@ -67,6 +68,11 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         else
         {
             plays.emplace_back(std::make_shared<DefendMyMain>());
+
+            if (opening == OurStrategyNames[OurStrategy::TwoGateDT])
+            {
+                ourStrategy = OurStrategy::TwoGateDT;
+            }
         }
         Log::Get() << "Selected opening " << OurStrategyNames[ourStrategy];
 
@@ -142,6 +148,15 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                 // Attack when we have goon range and a completed DT
                 defendOurMain = (Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0) ||
                                 (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0);
+                break;
+            }
+
+            case OurStrategy::TwoGateDT:
+            {
+                // TODO
+                // Attack with initial zealot groups via a different play that ignores sim
+                // Transition to normal aggressive play after the first two DTs are out
+                defendOurMain = false;
                 break;
             }
 
@@ -329,6 +344,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
     int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
     int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
+    int dtCount = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar);
 
     int inProgressCount = Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot)
                           + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
@@ -387,6 +403,56 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
             upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
+            break;
+        }
+        case OurStrategy::TwoGateDT:
+        {
+            auto ejectScoutPlay = getPlay<EjectEnemyScout>(plays);
+            bool hasEjectedScout = !ejectScoutPlay || ejectScoutPlay->hasEjectedScout();
+
+            // Build three zealots from two gates initially
+            if (zealotCount < 3 && Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0
+                && Units::countAll(BWAPI::UnitTypes::Protoss_Cybernetics_Core) == 0)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE-2gateDT",
+                                                                           BWAPI::UnitTypes::Protoss_Zealot,
+                                                                           -1,
+                                                                           2);
+            }
+
+            // Build one dragoon to eject the scout
+            if (!hasEjectedScout && dragoonCount < 1)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE-2gateDT",
+                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                           1,
+                                                                           2);
+            }
+
+            // Build two DTs once the scout is ejected
+            if (hasEjectedScout && dtCount < 2)
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE-2gateDT",
+                                                                           BWAPI::UnitTypes::Protoss_Dark_Templar,
+                                                                           2 - dtCount,
+                                                                           -1);
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE-2gateDT",
+                                                                           BWAPI::UnitTypes::Protoss_Zealot,
+                                                                           -1,
+                                                                           -1);
+            }
+            else
+            {
+                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                           "SE-2gateDT",
+                                                                           BWAPI::UnitTypes::Protoss_Zealot,
+                                                                           -1,
+                                                                           2);
+            }
             break;
         }
         case OurStrategy::EarlyGameDefense:
@@ -534,7 +600,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                     desiredDarkTemplar = 1;
                 }
             }
-            int dtCount = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar);
+
             if (desiredDarkTemplar > dtCount)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -566,7 +632,6 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         {
             auto hiddenBasePlay = getPlay<HiddenBase>(plays);
 
-            int dtCount = Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar);
             if (dtCount < 2)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
@@ -661,6 +726,12 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // Handled by the play
             CherryVis::setBoardValue("natural", "forge-expand");
             return;
+
+        case OurStrategy::TwoGateDT:
+        {
+            // Handled by transition to DTExpand after DTs are created
+            return;
+        }
 
         case OurStrategy::EarlyGameDefense:
         case OurStrategy::AntiZealotRush:

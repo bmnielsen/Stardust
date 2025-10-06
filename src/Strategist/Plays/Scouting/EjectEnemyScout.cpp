@@ -57,12 +57,13 @@ void EjectEnemyScout::update()
     if (!scout)
     {
         scout = newScout;
-#if DEBUG_LOGGING
         if (newScout)
         {
+            hasHadScout = true;
+#if DEBUG_LOGGING
             CherryVis::log() << "EjectEnemyScout: Found enemy scout: " << *scout;
-        }
 #endif
+        }
     }
 
     // End the play if there is no scout after frame 10000
@@ -130,4 +131,9 @@ void EjectEnemyScout::addUnit(const MyUnit &unit)
 #if DEBUG_LOGGING
     CherryVis::log() << "EjectEnemyScout: Assigned dragoon " << *dragoon;
 #endif
+}
+
+bool EjectEnemyScout::hasEjectedScout() const
+{
+    return hasHadScout && !scout;
 }

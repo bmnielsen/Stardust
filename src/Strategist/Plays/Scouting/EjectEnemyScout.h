@@ -8,7 +8,8 @@ public:
     EjectEnemyScout()
             : Play("EjectEnemyScout")
             , scout(nullptr)
-            , dragoon(nullptr) {}
+            , dragoon(nullptr)
+            , hasHadScout(false) {}
 
     void update() override;
 
@@ -25,7 +26,12 @@ public:
         dragoon = nullptr;
     }
 
+    // Whether the play has ejected a scout
+    bool hasEjectedScout() const;
+
 private:
     Unit scout;
     MyUnit dragoon;
+
+    bool hasHadScout;
 };

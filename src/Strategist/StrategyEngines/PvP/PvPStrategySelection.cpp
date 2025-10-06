@@ -4,10 +4,12 @@
 #include "Plays/Macro/HiddenBase.h"
 #include "Plays/MainArmy/DefendMyMain.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
+#include "Plays/Scouting/EjectEnemyScout.h"
 #include "Units.h"
 
 std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
         {OurStrategy::ForgeExpandDT,       "ForgeExpandDT"},
+        {OurStrategy::TwoGateDT,           "TwoGateDT"},
         {OurStrategy::EarlyGameDefense,    "EarlyGameDefense"},
         {OurStrategy::AntiZealotRush,      "AntiZealotRush"},
         {OurStrategy::AntiDarkTemplarRush, "AntiDarkTemplarRush"},
@@ -136,6 +138,38 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                 if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
                 {
                     strategy = OurStrategy::MidGame;
+                    continue;
+                }
+
+                break;
+            }
+            case PvP::OurStrategy::TwoGateDT:
+            {
+                if ((newEnemyStrategy == ProtossStrategy::WorkerRush ||
+                     newEnemyStrategy == ProtossStrategy::ProxyRush ||
+                     newEnemyStrategy == ProtossStrategy::ZealotRush ||
+                     newEnemyStrategy == ProtossStrategy::ZealotAllIn) &&
+                    !canTransitionFromAntiZealotRush())
+                {
+                    strategy = OurStrategy::AntiZealotRush;
+                    continue;
+                }
+
+                // If we failed to eject the enemy scout early enough, abandon DTs and go for a normal strategy
+                if (currentFrame > 7500)
+                {
+                    auto ejectScoutPlay = getPlay<EjectEnemyScout>(plays);
+                    if (ejectScoutPlay && !ejectScoutPlay->hasEjectedScout())
+                    {
+                        strategy = OurStrategy::Normal;
+                        continue;
+                    }
+                }
+
+                // Transition to DTExpand when our DTs are completed
+                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) > 1)
+                {
+                    strategy = OurStrategy::DTExpand;
                     continue;
                 }
 
