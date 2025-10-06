@@ -164,8 +164,11 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                     continue;
                 }
 
-                // Transition to mid game when the enemy is on lair tech, we have taken a third, or we have reached frame 12000
-                if (newEnemyStrategy == ZergStrategy::Lair || newEnemyStrategy == ZergStrategy::MutaRush
+                // Transition to mid game when:
+                // - enemy has mutalisks
+                // - we have a third
+                // - we are past frame 12000
+                if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 1
                     || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2
                     || currentFrame > 12000)
                 {
