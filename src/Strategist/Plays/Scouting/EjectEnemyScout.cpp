@@ -135,5 +135,5 @@ void EjectEnemyScout::addUnit(const MyUnit &unit)
 
 bool EjectEnemyScout::hasEjectedScout() const
 {
-    return hasHadScout && !scout;
+    return (hasHadScout && !scout) || (currentFrame > 5000 && !scout);
 }

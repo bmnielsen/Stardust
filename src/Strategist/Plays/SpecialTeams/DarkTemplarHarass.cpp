@@ -200,7 +200,7 @@ namespace
 
     void executeUnit(MyUnit &unit)
     {
-        bool observerNearby = false;
+        bool detectionNearby = false;
         for (const auto &observer : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Observer))
         {
             // Don't count observers we haven't seen in a while
@@ -211,8 +211,23 @@ namespace
 #if DEBUG_UNIT_ORDERS
                 CherryVis::log(unit->id) << "Nearby observer: " << *observer;
 #endif
-                observerNearby = true;
+                detectionNearby = true;
                 break;
+            }
+        }
+        if (!detectionNearby)
+        {
+            for (const auto &cannon : Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
+            {
+                if (!cannon->completed) continue;
+                if (unit->getDistance(cannon) < (8 * 32)) // actual range is 7 tiles, giving it an extra one for safety
+                {
+#if DEBUG_UNIT_ORDERS
+                    CherryVis::log(unit->id) << "Nearby observer: " << *cannon;
+#endif
+                    detectionNearby = true;
+                    break;
+                }
             }
         }
 
@@ -231,7 +246,7 @@ namespace
             return (currentFrame + framesToKill) < target->estimatedCompletionFrame;
         };
 
-        if (!observerNearby)
+        if (!detectionNearby)
         {
             auto cannonTarget = getTarget(unit,
                                           Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon),
@@ -274,7 +289,7 @@ namespace
         }
 
         // Prioritize completed nexuses, observatories we can kill before they complete, robo facilities, completed things, everything else
-        if (!observerNearby)
+        if (!detectionNearby)
         {
             auto completedPredicate = [](const Unit &target)
             {
