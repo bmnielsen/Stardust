@@ -91,12 +91,6 @@
     <ClCompile Include="$(SolutionDir)\..\3rdparty\BWEM\src\BaseFinder.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="$(SolutionDir)\..\vs\ZERO_CHECK.vcxproj">
-      <Project>{425FD9D9-B79B-3E95-B6BC-8E6ED1353D48}</Project>
-      <Name>ZERO_CHECK</Name>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </ProjectReference>
     <ProjectReference Include="$(SolutionDir)\..\vs\3rdparty\BWAPILIB\BWAPILIB.vcxproj">
       <Project>{7B9D001C-3ECF-3960-A03B-2C4719D94E96}</Project>
       <Name>BWAPILIB</Name>

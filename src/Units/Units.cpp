@@ -223,6 +223,7 @@ namespace Units
             BuildingPlacement::onUnitCreate(unit);
             NoGoAreas::onUnitCreate(unit);
 
+#if LOGGING_ENABLED
             if (unit->player == BWAPI::Broodwar->self())
             {
                 if (logUnitsCreatedAndLost) Log::Get() << "Unit created: " << *unit;
@@ -232,6 +233,7 @@ namespace Units
             {
                 if (logUnitsCreatedAndLost) Log::Get() << "Enemy discovered: " << *unit;
             }
+#endif
         }
 
         void unitDestroyed(const Unit &unit)
@@ -258,7 +260,9 @@ namespace Units
 
         void myUnitDestroyed(const MyUnit &unit)
         {
+#if LOGGING_ENABLED
             if (logUnitsCreatedAndLost) Log::Get() << "Unit lost: " << *unit;
+#endif
 
             unitDestroyed(unit);
 

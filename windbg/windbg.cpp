@@ -16,7 +16,7 @@ namespace
 
 int main()
 {
-    loadModule("C:\\Dev\\BW\\Stardust-dev\\out\\src\\RelWithDebInfo\\Stardust.dll");
+    loadModule("C:\\Users\\bruce\\AppData\\Roaming\\scbw\\build\\Stardust-private\\out\\src\\RelWithDebInfo\\Stardust.dll");
 
     while (true)
     {

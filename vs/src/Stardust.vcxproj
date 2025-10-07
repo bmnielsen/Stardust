@@ -42,7 +42,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty\nlohmann;$(SolutionDir)\..\3rdparty\BWAPILIB;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty;$(SolutionDir)\..\3rdparty\nlohmann;$(SolutionDir)\..\3rdparty\BWAPILIB;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;$(SolutionDir)\..\3rdparty\cppcrc;$(SolutionDir)\..\3rdparty\zstdstream;$(SolutionDir)\..\3rdparty\bitsery\include;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <CompileAs>CompileAsCpp</CompileAs>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -61,10 +61,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;WITHOUT_POSIX;CMAKE_INTDIR=\"Release\";Stardust_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty;$(SolutionDir)\..\3rdparty\nlohmann;$(SolutionDir)\..\3rdparty\BWAPILIB;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;$(SolutionDir)\..\3rdparty\cppcrc;$(SolutionDir)\..\3rdparty\zstdstream;$(SolutionDir)\..\3rdparty\bitsery\include;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\3rdparty;$(SolutionDir)\..\3rdparty\nlohmann;$(SolutionDir)\..\3rdparty\BWAPILIB;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;$(SolutionDir)\..\3rdparty\cppcrc;$(SolutionDir)\..\3rdparty\zstdstream;$(SolutionDir)\..\3rdparty\bitsery\include;$(SolutionDir)\..\src;$(SolutionDir)\..\src\Builder;$(SolutionDir)\..\src\General;$(SolutionDir)\..\src\Instrumentation;$(SolutionDir)\..\src\Map;$(SolutionDir)\..\src\Map\PathFinding;$(SolutionDir)\..\src\Players;$(SolutionDir)\..\src\Producer;$(SolutionDir)\..\src\Strategist;$(SolutionDir)\..\src\Units;$(SolutionDir)\..\src\Util;$(SolutionDir)\..\src\Workers;$(SolutionDir)\..\3rdparty\BWAPILIB\include;$(SolutionDir)\..\3rdparty\BWEM;$(SolutionDir)\..\3rdparty\FAP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -72,7 +72,7 @@
       <ProxyFileName>%(Filename)_p.c</ProxyFileName>
     </Midl>
     <Link>
-      <AdditionalDependencies>..\3rdparty\BWAPILIB\Release\BWAPILIB.lib;..\3rdparty\BWEM\Release\BWEM.lib;..\3rdparty\BWAPILIB\Release\BWAPILIB.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>..\3rdparty\BWAPILIB\Release\BWAPILIB.lib;..\3rdparty\BWEM\Release\BWEM.lib;kernel32.lib;..\3rdparty\zstd\Release\zstd_static.lib;..\3rdparty\zstdstream\Release\zstdstream.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalOptions>%(AdditionalOptions) /machine:X86</AdditionalOptions>
       <GenerateDebugInformation>false</GenerateDebugInformation>
@@ -213,19 +213,27 @@
     <ClCompile Include="$(SolutionDir)\..\src\Util\OrderProcessTimer.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Util\UnitUtil.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Util\UpgradeOrTechType.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\Workers\PositionAndVelocity.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\GatherPositionObservations.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\ObservationDataFiles.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\ObservationDataFiles_ReduceGatherData.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\ObservationDataFiles_ReduceReturnData.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\OccurrencesAndCollisions.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\PositionAndVelocity.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\ResourceObservations.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\ReturnPositionObservations.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\WorkerGatherStatus.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\WorkerMiningOptimization.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\WorkerMiningOptimization_FlushGatherObservations.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\WorkerMiningOptimization_FlushReturnObservations.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\WorkerMiningOptimization_GatherPathOptimizerDouble.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\WorkerMiningOptimization_GatherPathOptimizerSingle.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\WorkerMiningOptimization_OptimizeGather.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\WorkerMiningOptimization_OptimizeReturn.cpp" />
+    <ClCompile Include="$(SolutionDir)\..\src\Workers\MiningOptimization\WorkerReturnStatus.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Workers\WorkerMiningInstrumentation.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\Workers\WorkerMiningOptimization.cpp" />
-    <ClCompile Include="$(SolutionDir)\..\src\Workers\WorkerOrderTimer.cpp" />
     <ClCompile Include="$(SolutionDir)\..\src\Workers\Workers.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="$(SolutionDir)\..\vs\ZERO_CHECK.vcxproj">
-      <Project>{425FD9D9-B79B-3E95-B6BC-8E6ED1353D48}</Project>
-      <Name>ZERO_CHECK</Name>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
-    </ProjectReference>
     <ProjectReference Include="$(SolutionDir)\..\vs\3rdparty\BWAPILIB\BWAPILIB.vcxproj">
       <Project>{7B9D001C-3ECF-3960-A03B-2C4719D94E96}</Project>
       <Name>BWAPILIB</Name>
@@ -233,6 +241,10 @@
     <ProjectReference Include="$(SolutionDir)\..\vs\3rdparty\BWEM\BWEM.vcxproj">
       <Project>{3BF8709C-7777-3C81-84F4-9B50BE4D24C4}</Project>
       <Name>BWEM</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)\..\vs\3rdparty\zstdstream\zstdstream.vcxproj">
+      <Project>{A783752B-A57E-3D20-BE38-CF4BA6664ADC}</Project>
+      <Name>zstdstream</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

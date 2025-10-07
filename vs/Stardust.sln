@@ -5,6 +5,13 @@ VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BWAPILIB", "3rdparty\BWAPILIB\BWAPILIB.vcxproj", "{7B9D001C-3ECF-3960-A03B-2C4719D94E96}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libzstd_static", "3rdparty\zstd\libzstd_static.vcxproj", "{76E286AD-8561-3C63-AE59-48CAE9EEFE72}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zstdstream", "3rdparty\zstdstream\zstdstream.vcxproj", "{A783752B-A57E-3D20-BE38-CF4BA6664ADC}"
+	ProjectSection(ProjectDependencies) = postProject
+		{76E286AD-8561-3C63-AE59-48CAE9EEFE72} = {76E286AD-8561-3C63-AE59-48CAE9EEFE72}
+	EndProjectSection
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BWEM", "3rdparty\BWEM\BWEM.vcxproj", "{3BF8709C-7777-3C81-84F4-9B50BE4D24C4}"
 	ProjectSection(ProjectDependencies) = postProject
 		{7B9D001C-3ECF-3960-A03B-2C4719D94E96} = {7B9D001C-3ECF-3960-A03B-2C4719D94E96}
@@ -14,6 +21,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Stardust", "src\Stardust.vc
 	ProjectSection(ProjectDependencies) = postProject
 		{7B9D001C-3ECF-3960-A03B-2C4719D94E96} = {7B9D001C-3ECF-3960-A03B-2C4719D94E96}
 		{3BF8709C-7777-3C81-84F4-9B50BE4D24C4} = {3BF8709C-7777-3C81-84F4-9B50BE4D24C4}
+		{A783752B-A57E-3D20-BE38-CF4BA6664ADC} = {A783752B-A57E-3D20-BE38-CF4BA6664ADC}		
 	EndProjectSection
 EndProject
 Global
@@ -24,9 +32,13 @@ Global
 		{7B9D001C-3ECF-3960-A03B-2C4719D94E96}.Release|Win32.ActiveCfg = Release|Win32
 		{7B9D001C-3ECF-3960-A03B-2C4719D94E96}.Release|Win32.Build.0 = Release|Win32
 		{3BF8709C-7777-3C81-84F4-9B50BE4D24C4}.Release|Win32.ActiveCfg = Release|Win32
-		{3BF8709C-7777-3C81-84F4-9B50BE4D24C4}.Release|Win32.Build.0 = Release|Win32
+		{3BF8709C-7777-3C81-84F4-9B50BE4D24C4}.Release|Win32.Build.0 = Release|Win32		
+		{76E286AD-8561-3C63-AE59-48CAE9EEFE72}.Release|Win32.ActiveCfg = Release|Win32
+		{76E286AD-8561-3C63-AE59-48CAE9EEFE72}.Release|Win32.Build.0 = Release|Win32
 		{E8EF6F60-2273-3A31-93E7-432605FC32DD}.Release|Win32.ActiveCfg = Release|Win32
 		{E8EF6F60-2273-3A31-93E7-432605FC32DD}.Release|Win32.Build.0 = Release|Win32
+		{A783752B-A57E-3D20-BE38-CF4BA6664ADC}.Release|Win32.ActiveCfg = Release|Win32
+		{A783752B-A57E-3D20-BE38-CF4BA6664ADC}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
