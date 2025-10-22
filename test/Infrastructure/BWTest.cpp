@@ -35,6 +35,8 @@ namespace
     int scheduleInitialUnitCreation(std::vector<UnitTypeAndPosition> &initialUnits,
                                     std::unordered_map<int, std::vector<UnitTypeAndPosition>> &initialUnitsByFrame)
     {
+        if (initialUnits.empty()) return -1;
+
         // Rules for creating units:
         // - First create workers and overlords
         // - Then create pylons
@@ -461,7 +463,6 @@ void BWTest::runGame(bool opponent)
         h->setAIModule(module);
         Log::SetOutputToConsole(true);
     }
-    h->update();
 
     if (!opponent && !removeStatic.empty())
     {
@@ -478,14 +479,14 @@ void BWTest::runGame(bool opponent)
 
         for (int f = 0; f < 4; f++)
         {
-            gameOwner.getGame().nextFrame();
             h->update();
+            gameOwner.getGame().nextFrame();
         }
     }
 
     for (int frame = 0; frame <= initialUnitFrames; frame++)
     {
-        if (frame > 0) h->update();
+        h->update();
 
         auto &initialUnits = opponent ? opponentInitialUnitsByFrame[frame] : myInitialUnitsByFrame[frame];
         for (auto &unitAndPosition : initialUnits)
