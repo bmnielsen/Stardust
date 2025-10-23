@@ -30,6 +30,16 @@ namespace MiningOptimizationTraining
             return !(packed & 1);
         }
 
+        bool operator==(const ArrivalData &other) const
+        {
+            return packed == other.packed;
+        }
+
+        bool operator<(const ArrivalData &other) const
+        {
+            return packed < other.packed;
+        }
+
         static ArrivalData create(unsigned int arrivalDelay, bool facingTarget)
         {
             // Values outside the range of 7 bits are clamped
@@ -43,6 +53,11 @@ namespace MiningOptimizationTraining
             if (!facingTarget) packed |= 0b00000001;
 
             return ArrivalData{packed};
+        }
+
+        template <typename S>
+        void serialize(S& s) {
+            s.value1b(packed);
         }
 
         friend std::ostream& operator<< (std::ostream& os, const ArrivalData& data)

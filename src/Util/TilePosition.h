@@ -46,3 +46,12 @@ public:
     }
 };
 
+template <>
+struct std::hash<TilePosition>
+{
+    std::size_t operator()(const TilePosition& pos) const
+    {
+        // Only intended for use in std::unordered_map, so hash quality is not important
+        return (pos.x << 8) + pos.y;
+    }
+};

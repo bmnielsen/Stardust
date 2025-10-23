@@ -3,6 +3,8 @@ project(tests)
 
 set(CMAKE_CXX_STANDARD 20)
 
+include_directories(${CMAKE_SOURCE_DIR}/3rdparty)
+
 add_subdirectory(3rdparty/googletest)
 add_subdirectory(3rdparty/opponents/Steamhammer)
 add_subdirectory(3rdparty/opponents/Locutus)
@@ -10,8 +12,6 @@ add_subdirectory(3rdparty/opponents/Iron)
 add_subdirectory(3rdparty/opponents/BananaBrain)
 add_subdirectory(3rdparty/opponents/SAIDA)
 add_subdirectory(3rdparty/opponents/McRave)
-
-include_directories(${CMAKE_SOURCE_DIR}/3rdparty/googletest/include)
 
 include_directories(SYSTEM
         ${CMAKE_SOURCE_DIR}/3rdparty/openbw/bwapi/bwapi/Util/Source

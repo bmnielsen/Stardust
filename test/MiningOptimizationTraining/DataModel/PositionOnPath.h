@@ -113,6 +113,19 @@ namespace MiningOptimizationTraining
 #endif
                 ;
         }
+
+        template <typename S>
+        void serialize(S& s) {
+            s.value2b(x);
+            s.value2b(y);
+            s.value2b(dXSubpixel);
+            s.value2b(dYSubpixel);
+#if USE_VELOCITY_AND_HEADING
+            s.value1b(velocityX);
+            s.value1b(velocityY);
+            s.value1b(heading);
+#endif
+        }
     };
 
     std::ostream &operator<<(std::ostream &os, const SubpixelPosition &subpixelPosition);
@@ -124,6 +137,7 @@ struct std::hash<MiningOptimizationTraining::PositionOnPath>
 {
     std::size_t operator()(const MiningOptimizationTraining::PositionOnPath& pos) const
     {
+        // Only intended for use in std::unordered_map, so hash quality is not important
         uint32_t xy = (pos.x << 16) + pos.y;
         uint32_t dxySubpixel = ((uint16_t)pos.dXSubpixel << 16) + (uint16_t)pos.dYSubpixel;
 #if USE_VELOCITY_AND_HEADING
@@ -132,20 +146,5 @@ struct std::hash<MiningOptimizationTraining::PositionOnPath>
 #else
         return xy ^ dxySubpixel;
 #endif
-
-//
-//        std::size_t result = 0;
-//
-//        boost::intrusive::detail::hash_combine_size_t(result, hash<uint16_t>()(pos.x));
-//        boost::intrusive::detail::hash_combine_size_t(result, hash<uint16_t>()(pos.y));
-//        boost::intrusive::detail::hash_combine_size_t(result, hash<int16_t>()(pos.dXSubpixel));
-//        boost::intrusive::detail::hash_combine_size_t(result, hash<int16_t>()(pos.dYSubpixel));
-//#if USE_VELOCITY_AND_HEADING
-//        boost::intrusive::detail::hash_combine_size_t(result, hash<int8_t>()(pos.velocityX));
-//        boost::intrusive::detail::hash_combine_size_t(result, hash<int8_t>()(pos.velocityY));
-//        boost::intrusive::detail::hash_combine_size_t(result, hash<uint8_t>()(pos.heading));
-//#endif
-//
-//        return result;
     }
 };
