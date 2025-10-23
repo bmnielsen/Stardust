@@ -102,7 +102,11 @@ namespace MiningOptimizationTraining::Serialization
     void readMapData(MapData &data)
     {
         // Don't need to reload the data if the map hasn't changed
-        if (!data.mapHash.empty() && data.mapHash == mapHash) return;
+        if (!data.mapHash.empty() && data.mapHash == mapHash)
+        {
+            Log::Get() << "Using already-loaded mining optimization data";
+            return;
+        }
 
         data.clear();
 

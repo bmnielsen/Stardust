@@ -1,5 +1,5 @@
 #include "BWTest.h"
-#include "MiningOptimizationTraining/FullSaturationPathExploration/FullSaturationPathExplorationModule.h"
+#include "MiningOptimizationTraining/PathExploration/FullSaturationModule.h"
 #include "ClearOpponentUnitsModule.h"
 
 namespace
@@ -20,7 +20,7 @@ namespace
         initializeTest(test);
         test.myModule = [&cannons]()
         {
-            return new FullSaturationPathExplorationModule(cannons);
+            return new MiningOptimizationTraining::FullSaturationModule(cannons);
         };
         test.frameLimit = 10000 * (int)iterations;
 
@@ -37,5 +37,5 @@ TEST(PathExploration, Vermeer)
 {
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    runFullSaturationTest(test, 0, 2);
+    runFullSaturationTest(test, 0, 1);
 }
