@@ -30,17 +30,20 @@ namespace MiningOptimizationTraining
     class WorkerPathExploration
     {
     public:
-        WorkerPathExploration(BWAPI::Unit worker, BWAPI::Unit patch, BWAPI::Unit depot)
-            : worker(worker)
+        WorkerPathExploration(MapData &mapData, BWAPI::Unit worker, BWAPI::Unit patch, BWAPI::Unit depot)
+            : mapData(mapData)
+            , worker(worker)
             , patch(patch)
             , depot(depot)
             , previousPosition(SubpixelPosition(worker))
             , state(0)
         {}
 
-        void update(MapData &mapData);
+        void update();
 
     private:
+        MapData &mapData;
+
         BWAPI::Unit worker;
         BWAPI::Unit patch;
         BWAPI::Unit depot;
@@ -59,17 +62,20 @@ namespace MiningOptimizationTraining
         int state;
 
         // Called for workers that are on their way to gather minerals
-        void gathering(MapData &mapData);
+        void gathering();
 
         // Called when the worker is transitioning to mining to record the path
-        void recordGatherPath(MapData &mapData);
+        void recordGatherPath();
 
         // Called for workers that are on their way to return minerals
-        void returning(MapData &mapData);
+        void returning();
 
         void appendCurrentPosition(std::vector<std::shared_ptr<const PositionOnPath>> &vector)
         {
-            vector.emplace_back(std::make_shared<PositionOnPath>(worker, previousPosition));
+            // The first node ignores the subpixel change
+            vector.emplace_back(vector.empty()
+                                ? std::make_shared<PositionOnPath>(worker)
+                                : std::make_shared<PositionOnPath>(worker, previousPosition));
         }
 
         // Parses data like the arrival and resend positions out of the position history

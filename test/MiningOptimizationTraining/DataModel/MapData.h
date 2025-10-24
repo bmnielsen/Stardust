@@ -14,8 +14,9 @@ namespace MiningOptimizationTraining
         std::unordered_map<TilePosition, std::unordered_map<PositionOnPath, GatherObservations>> resourceToGatherRootNodes;
         std::unordered_map<TilePosition, std::unordered_map<PositionOnPath, ReturnObservations>> resourceToReturnRootNodes;
 
-        void clear()
+        void clear(const std::string &_mapHash)
         {
+            mapHash = _mapHash;
             resourceToGatherRootNodes.clear();
             resourceToReturnRootNodes.clear();
         }

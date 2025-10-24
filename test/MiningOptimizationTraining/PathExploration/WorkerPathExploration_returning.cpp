@@ -2,7 +2,7 @@
 
 namespace MiningOptimizationTraining
 {
-    void WorkerPathExploration::returning(MapData &mapData)
+    void WorkerPathExploration::returning()
     {
         // If the worker has delivered its minerals, we can record the path information
         if (!worker->isCarryingMinerals())

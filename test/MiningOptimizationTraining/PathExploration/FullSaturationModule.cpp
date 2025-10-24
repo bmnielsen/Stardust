@@ -256,7 +256,7 @@ namespace MiningOptimizationTraining
                         }
                         else
                         {
-                            workerStatuses.emplace_back(worker, patch, depot);
+                            workerStatuses.emplace_back(mapData, worker, patch, depot);
                             CherryVis::log(worker->getID()) << "Assigned to patch @ " << BWAPI::WalkPosition(patch->getPosition());
                             worker->gather(patch);
                         }

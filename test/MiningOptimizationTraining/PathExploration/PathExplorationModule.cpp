@@ -45,7 +45,7 @@ namespace MiningOptimizationTraining
         {
             for (auto &workerStatus : workerStatuses)
             {
-                workerStatus.update(mapData);
+                workerStatus.update();
             }
         }
 

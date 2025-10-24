@@ -34,8 +34,6 @@ namespace MiningOptimizationTraining::Serialization
 
         std::string getFilename(bool writing)
         {
-            ensureGameParametersInitialized();
-
             std::ostringstream builder;
             builder << "mining-optimization-training";
             builder << "_" << mapHash;
@@ -101,6 +99,8 @@ namespace MiningOptimizationTraining::Serialization
 
     void readMapData(MapData &data)
     {
+        ensureGameParametersInitialized();
+
         // Don't need to reload the data if the map hasn't changed
         if (!data.mapHash.empty() && data.mapHash == mapHash)
         {
@@ -108,7 +108,7 @@ namespace MiningOptimizationTraining::Serialization
             return;
         }
 
-        data.clear();
+        data.clear(mapHash);
 
         auto filename = getFilename(false);
         if (filename.empty())
@@ -133,6 +133,8 @@ namespace MiningOptimizationTraining::Serialization
 
     void writeMapData(MapData &data)
     {
+        ensureGameParametersInitialized();
+
         auto filename = getFilename(true);
         if (filename.empty())
         {

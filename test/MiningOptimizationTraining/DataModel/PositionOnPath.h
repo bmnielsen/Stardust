@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include "MyWorker.h"
-//#include "hash_combine.hpp"
 
 #define USE_VELOCITY_AND_HEADING true
 

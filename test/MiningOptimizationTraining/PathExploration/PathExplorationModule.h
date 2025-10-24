@@ -27,13 +27,11 @@ namespace MiningOptimizationTraining
         void onEnd(bool isWinner) override;
 
     protected:
+        MapData mapData;
         std::vector<WorkerPathExploration> workerStatuses;
 
         // Function that is called every frame to check if the test is initialized
         // Should return true when the workerStatuses vector is populated and the test is ready to start
         virtual bool initialize() = 0;
-
-    private:
-        MapData mapData;
     };
 }

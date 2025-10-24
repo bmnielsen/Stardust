@@ -4,7 +4,7 @@
 
 namespace MiningOptimizationTraining
 {
-    void WorkerPathExploration::update(MapData &mapData)
+    void WorkerPathExploration::update()
     {
         auto stateTransition = [&](int newState)
         {
@@ -56,7 +56,7 @@ namespace MiningOptimizationTraining
                             break;
                         }
 
-                        gathering(mapData);
+                        gathering();
 
                         return;
                     }
@@ -79,13 +79,13 @@ namespace MiningOptimizationTraining
                         if (!worker->isCarryingMinerals())
                         {
                             // Run the returning handler once more to record the data before switching states
-                            returning(mapData);
+                            returning();
 
                             stateTransition(0);
                             break;
                         }
 
-                        returning(mapData);
+                        returning();
 
                         return;
                     }
