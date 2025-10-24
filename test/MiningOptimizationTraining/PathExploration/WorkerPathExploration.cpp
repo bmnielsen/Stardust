@@ -129,6 +129,7 @@ namespace MiningOptimizationTraining
         }
 
         // Extract the arrival and resend positions
+        // TODO: Extract resend positions
         for (auto it = positionHistory.begin(); it != positionHistory.end(); it++)
         {
             auto dist = Geo::EdgeToEdgeDistance(worker->getType(), (*it)->bwapiPosition(), target->getType(), target->getPosition());
@@ -155,6 +156,16 @@ namespace MiningOptimizationTraining
                 }
             }
         }
+
+        // If the arrival position was not found, jump out
+        if (result.arrivalPositionIt == positionHistory.end())
+        {
+            Log::Get() << "ERROR: Arrival position not found"
+                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+            return result;
+        }
+
+        // TODO: Validated that all resend positions are found
 
         // For mining, determine if the worker's heading will require turning to start mining
         // The worker has two frames to turn before the order process timer will be nonzero and it will have to wait 9 frames

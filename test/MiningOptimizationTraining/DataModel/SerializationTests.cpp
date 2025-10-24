@@ -19,12 +19,12 @@ namespace
         MiningOptimizationTraining::GatherObservations result;
         result.pos = pos;
         result.occurrences = pos.x;
-        result.noResendArrivalObservations.arrivalToOccurrences.emplace(MiningOptimizationTraining::ArrivalData(pos.x), pos.x);
-        result.noResendArrivalObservations.collisions = pos.x;
-        result.noResendArrivalObservations.nonCollisions = pos.x;
-        result.resendArrivalObservations.arrivalToOccurrences.emplace(MiningOptimizationTraining::ArrivalData(pos.x - 5), pos.x - 5);
-        result.resendArrivalObservations.collisions = pos.x - 5;
-        result.resendArrivalObservations.nonCollisions = pos.x - 5;
+        result.arrivalObservations.arrivalToOccurrences.emplace(MiningOptimizationTraining::ArrivalData(pos.x), pos.x);
+        result.arrivalObservations.collisions = pos.x;
+        result.arrivalObservations.nonCollisions = pos.x;
+        result.arrivalObservationsAfterResend.arrivalToOccurrences.emplace(MiningOptimizationTraining::ArrivalData(pos.x - 5), pos.x - 5);
+        result.arrivalObservationsAfterResend.collisions = pos.x - 5;
+        result.arrivalObservationsAfterResend.nonCollisions = pos.x - 5;
         return result;
     }
 
@@ -54,8 +54,8 @@ namespace
     {
         ASSERT_EQ(expected.pos, actual.pos);
         ASSERT_EQ(expected.occurrences, actual.occurrences);
-        assertGatherArrivalObservationsEqual(expected.noResendArrivalObservations, actual.noResendArrivalObservations);
-        assertGatherArrivalObservationsEqual(expected.resendArrivalObservations, actual.resendArrivalObservations);
+        assertGatherArrivalObservationsEqual(expected.arrivalObservations, actual.arrivalObservations);
+        assertGatherArrivalObservationsEqual(expected.arrivalObservationsAfterResend, actual.arrivalObservationsAfterResend);
 
         auto assertGatherObservationsVectorEqual = [](std::vector<MiningOptimizationTraining::GatherObservations> &expected,
                                                       std::vector<MiningOptimizationTraining::GatherObservations> &actual)

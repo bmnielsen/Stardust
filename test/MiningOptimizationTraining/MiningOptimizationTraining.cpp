@@ -33,9 +33,16 @@ namespace
     }
 }
 
-TEST(PathExploration, Vermeer)
+TEST(PathExploration, VermeerOneIteration)
 {
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
     runFullSaturationTest(test, 0, 1);
+}
+
+TEST(PathExploration, VermeerTenIterations)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    runFullSaturationTest(test, 0, 10);
 }

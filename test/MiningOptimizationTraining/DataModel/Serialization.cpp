@@ -30,6 +30,7 @@ namespace MiningOptimizationTraining::Serialization
 
             mapHash = BWAPI::Broodwar->mapHash();
             latencyFrames = BWAPI::Broodwar->getLatencyFrames();
+            gameParametersInitialized = true;
         }
 
         std::string getFilename(bool writing)
@@ -63,8 +64,8 @@ namespace MiningOptimizationTraining::Serialization
             {
                 s.object(value.pos);
                 s.value4b(value.occurrences);
-                s.object(value.noResendArrivalObservations, gatherArrivalObservationsSerializer);
-                s.object(value.resendArrivalObservations, gatherArrivalObservationsSerializer);
+                s.object(value.arrivalObservations, gatherArrivalObservationsSerializer);
+                s.object(value.arrivalObservationsAfterResend, gatherArrivalObservationsSerializer);
                 s.container(value.nextPositions, INT_MAX, [&](S &s, GatherObservations &v) {
                     s.object(v, gatherObservationsSerializer);
                 });
@@ -92,9 +93,9 @@ namespace MiningOptimizationTraining::Serialization
 
     void setGameParameters(const std::string &_mapHash, unsigned int _latencyFrames)
     {
-        gameParametersInitialized = true;
         mapHash = _mapHash;
         latencyFrames = _latencyFrames;
+        gameParametersInitialized = true;
     }
 
     void readMapData(MapData &data)

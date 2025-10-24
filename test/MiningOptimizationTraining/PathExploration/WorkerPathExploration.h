@@ -18,7 +18,7 @@ namespace MiningOptimizationTraining
         std::vector<std::shared_ptr<const PositionOnPath>>::iterator arrivalPositionIt;
 
         // Iterators in the position history to the positions where command resends took effect
-        std::vector<std::vector<std::shared_ptr<const PositionOnPath>>::iterator> resendPositionIts;
+        std::set<std::vector<std::shared_ptr<const PositionOnPath>>::iterator> resendPositionIts;
 
         explicit ParsedPositionHistory(std::vector<std::shared_ptr<const PositionOnPath>> &positionHistory)
             : valid(false)

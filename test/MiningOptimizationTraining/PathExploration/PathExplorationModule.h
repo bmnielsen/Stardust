@@ -11,14 +11,7 @@ namespace MiningOptimizationTraining
     class PathExplorationModule : public InstrumentedDoNothingModule
     {
     public:
-        PathExplorationModule() : InstrumentedDoNothingModule(false)
-        {
-            reset();
-        }
-
-        // Resets the module ahead of using it for a new game
-        // If the new game is on the same map as the previous one, the loaded map data will be reused
-        void reset();
+        PathExplorationModule() : InstrumentedDoNothingModule(false) {}
 
         void onStart() override;
 

@@ -8,12 +8,6 @@
 
 namespace MiningOptimizationTraining
 {
-    void PathExplorationModule::reset()
-    {
-        workerStatuses.clear();
-        Serialization::readMapData(mapData);
-    }
-
     void PathExplorationModule::onStart()
     {
         InstrumentedDoNothingModule::onStart();
@@ -22,6 +16,9 @@ namespace MiningOptimizationTraining
         Units::initialize();
         Map::initialize();
         BuildingPlacement::initialize();
+
+        workerStatuses.clear();
+        Serialization::readMapData(mapData);
 
         Log::Get() << "Initialized mining training on " << BWAPI::Broodwar->mapFileName() << " (" << BWAPI::Broodwar->mapHash() << ")";
         CherryVis::setBoardValue("dummy", "yes"); // just setting it so we write the cvis file and don't get errors in the frontend

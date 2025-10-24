@@ -16,6 +16,17 @@ namespace MiningOptimizationTraining
 
         // How many arrivals did not have a collision
         uint32_t nonCollisions = 0;
+
+        void addArrivalObservation(ArrivalData arrivalData)
+        {
+            auto it = arrivalToOccurrences.find(arrivalData);
+            if (it == arrivalToOccurrences.end())
+            {
+                arrivalToOccurrences[arrivalData] = 1;
+                return;
+            }
+            if (it->second < UINT32_MAX) it->second++;
+        }
     };
 
     // This structure stores a node in a gather path
@@ -31,10 +42,10 @@ namespace MiningOptimizationTraining
         uint32_t occurrences = 0;
 
         // The arrival observations from this node when the path is not changed by a later gather command
-        GatherArrivalObservations noResendArrivalObservations;
+        GatherArrivalObservations arrivalObservations;
 
-        // The arrival observations when a resend is sent here and the path is not changed by a later gather command
-        GatherArrivalObservations resendArrivalObservations;
+        // The arrival observations when a resend takes effect here
+        GatherArrivalObservations arrivalObservationsAfterResend;
 
         // All next positions seen from this position when the path has not been changed by a resend
         // Will be empty on the last node before arrival at the patch
