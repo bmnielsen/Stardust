@@ -127,8 +127,7 @@ namespace MiningOptimizationTraining
             int idx = 0;
             for (auto &base : Map::allBases())
             {
-                auto wpDepot = BWAPI::WalkPosition(base->getPosition());
-                std::set<std::pair<int, BWAPI::WalkPosition>> positionsByDistToDepot;
+                std::set<std::pair<int, BWAPI::WalkPosition>> positionsByDistToMineralLineCenter;
                 std::set<BWAPI::WalkPosition> availablePositions;
                 for (auto tile : base->mineralLineTiles)
                 {
@@ -139,25 +138,32 @@ namespace MiningOptimizationTraining
                         for (int y = 0; y < 4; y++)
                         {
                             auto here = BWAPI::WalkPosition(tile) + BWAPI::WalkPosition(x, y);
-                            if (Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus,
-                                                         base->getPosition(),
-                                                         BWAPI::Position(here) + BWAPI::Position(4, 4)) < 4)
+                            if (!BWAPI::Broodwar->isWalkable(here)) continue;
+
+                            availablePositions.insert(here);
+
+                            auto workerCenter = Geo::CenterOfUnit(BWAPI::Position(here), BWAPI::UnitTypes::Protoss_Probe);
+                            if (Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Nexus,
+                                                        base->getPosition(),
+                                                        BWAPI::UnitTypes::Protoss_Probe,
+                                                        workerCenter) < 16)
                             {
                                 continue;
                             }
-                            if (BWAPI::Broodwar->isWalkable(here))
-                            {
-                                availablePositions.insert(here);
-                                positionsByDistToDepot.insert(std::make_pair(here.getApproxDistance(wpDepot), here));
-                            }
+
+                            positionsByDistToMineralLineCenter.insert(std::make_pair(Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                                                                              workerCenter,
+                                                                                                              base->mineralLineCenter), here));
                         }
                     }
                 }
 
                 for (int built = 0; built < base->mineralPatchCount(); built++)
                 {
-                    for (auto [_, start] : positionsByDistToDepot)
+                    for (auto [_, start] : positionsByDistToMineralLineCenter)
                     {
+                        BWAPI::Position workerCenter;
+
                         for (int x = 0; x < 3; x++)
                         {
                             for (int y = 0; y < 3; y++)
@@ -169,11 +175,9 @@ namespace MiningOptimizationTraining
                             }
                         }
 
-                        BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                    BWAPI::UnitTypes::Protoss_Probe,
-                                                    Geo::CenterOfUnit(BWAPI::Position(start), BWAPI::UnitTypes::Protoss_Probe));
-                        workerCreationOrderAndBase[Geo::CenterOfUnit(BWAPI::Position(start),
-                                                                     BWAPI::UnitTypes::Protoss_Probe)] = std::make_pair(++idx, base);
+                        workerCenter = Geo::CenterOfUnit(BWAPI::Position(start), BWAPI::UnitTypes::Protoss_Probe);
+                        BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe, workerCenter);
+                        workerCreationOrderAndBase[workerCenter] = std::make_pair(++idx, base);
 
                         for (int x = 0; x < 3; x++)
                         {

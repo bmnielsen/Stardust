@@ -106,7 +106,7 @@ TEST(SerializationTests, WriteAndReadBack)
             });
 
     // Serialize the data
-    MiningOptimizationTraining::Serialization::setGameParameters("test", 3);
+    MiningOptimizationTraining::Serialization::setGameParameters("test");
     MiningOptimizationTraining::Serialization::writeMapData(expected);
 
     // Deserialize the data to a new structure

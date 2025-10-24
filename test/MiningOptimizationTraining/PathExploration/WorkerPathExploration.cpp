@@ -130,6 +130,7 @@ namespace MiningOptimizationTraining
 
         // Extract the arrival and resend positions
         // TODO: Extract resend positions
+        auto finalWorkerPosition = (*positionHistory.rbegin())->bwapiPosition();
         for (auto it = positionHistory.begin(); it != positionHistory.end(); it++)
         {
             auto dist = Geo::EdgeToEdgeDistance(worker->getType(), (*it)->bwapiPosition(), target->getType(), target->getPosition());
@@ -144,7 +145,7 @@ namespace MiningOptimizationTraining
                 bool stablePosition = true;
                 for (auto stableIt = it; stableIt != positionHistory.end(); stableIt++)
                 {
-                    if (worker->getPosition() != (*stableIt)->bwapiPosition())
+                    if (finalWorkerPosition != (*stableIt)->bwapiPosition())
                     {
                         stablePosition = false;
                         break;
@@ -165,14 +166,14 @@ namespace MiningOptimizationTraining
             return result;
         }
 
-        // TODO: Validated that all resend positions are found
+        // TODO: Validate that all resend positions are found
 
         // For mining, determine if the worker's heading will require turning to start mining
         // The worker has two frames to turn before the order process timer will be nonzero and it will have to wait 9 frames
         // The worker always points directly at the center of the patch when mining
         if (target->getType().isMineralField())
         {
-            auto vectorToPatch = target->getPosition() - worker->getPosition();
+            auto vectorToPatch = target->getPosition() - finalWorkerPosition;
             auto angleDiff = Geo::BWAngleDiff(Geo::BWHeading(worker->getAngle()), Geo::BWDirection(vectorToPatch));
             if (angleDiff > 2 * worker->getType().turnRadius())
             {

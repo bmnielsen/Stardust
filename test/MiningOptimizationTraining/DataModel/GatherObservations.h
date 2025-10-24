@@ -27,6 +27,12 @@ namespace MiningOptimizationTraining
             }
             if (it->second < UINT32_MAX) it->second++;
         }
+
+        void addCollisionObservation(bool collision)
+        {
+            if ((collisions + nonCollisions) == UINT32_MAX) return;
+            (collision ? collisions : nonCollisions)++;
+        }
     };
 
     // This structure stores a node in a gather path
@@ -51,8 +57,8 @@ namespace MiningOptimizationTraining
         // Will be empty on the last node before arrival at the patch
         std::vector<GatherObservations> nextPositions;
 
-        // All next positions seen from this position after a resend that changes the path takes effect at this node
-        // Empty for positions where the path does not change after a resend
+        // All next positions seen from this position after a resend takes effect at this node
+        // For training, we do not differentiate between resends that change the path and resends that do not
         std::vector<GatherObservations> nextPositionsAfterResend;
     };
 

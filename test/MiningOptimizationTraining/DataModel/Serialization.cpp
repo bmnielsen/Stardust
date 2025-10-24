@@ -22,14 +22,12 @@ namespace MiningOptimizationTraining::Serialization
     {
         bool gameParametersInitialized = false;
         std::string mapHash;
-        unsigned int latencyFrames;
 
         void ensureGameParametersInitialized()
         {
             if (gameParametersInitialized) return;
 
             mapHash = BWAPI::Broodwar->mapHash();
-            latencyFrames = BWAPI::Broodwar->getLatencyFrames();
             gameParametersInitialized = true;
         }
 
@@ -38,7 +36,6 @@ namespace MiningOptimizationTraining::Serialization
             std::ostringstream builder;
             builder << "mining-optimization-training";
             builder << "_" << mapHash;
-            builder << "_lf" << latencyFrames;
             return FileTools::getFilePath(builder.str(), "bin.zstd", writing);
         }
 
@@ -91,10 +88,9 @@ namespace MiningOptimizationTraining::Serialization
         }
     }
 
-    void setGameParameters(const std::string &_mapHash, unsigned int _latencyFrames)
+    void setGameParameters(const std::string &_mapHash)
     {
         mapHash = _mapHash;
-        latencyFrames = _latencyFrames;
         gameParametersInitialized = true;
     }
 

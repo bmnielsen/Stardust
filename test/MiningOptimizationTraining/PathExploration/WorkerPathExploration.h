@@ -67,6 +67,9 @@ namespace MiningOptimizationTraining
         // Called when the worker is transitioning to mining to record the path
         void recordGatherPath();
 
+        // Called when the worker has started returning minerals and we know if it collided with the patch or not
+        void recordGatherCollisions();
+
         // Called for workers that are on their way to return minerals
         void returning();
 
