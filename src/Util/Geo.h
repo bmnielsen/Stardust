@@ -55,6 +55,9 @@ namespace Geo
     // Gets the relative direction between a building and a position
     Direction directionFromBuilding(BWAPI::TilePosition tile, BWAPI::TilePosition size, BWAPI::Position pos, bool fourDirections = false);
 
+    // Converts a unit's angle in BWAPI to a heading in BW's representation (1/256th of a circle)
+    int BWHeading(double bwapiAngle);
+
     // The direction along a vector in BW representation (1/256th of a circle)
     int BWDirection(BWAPI::Position vector);
 

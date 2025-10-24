@@ -430,6 +430,15 @@ namespace Geo
         return Direction::downright;
     }
 
+    int BWHeading(double bwapiAngle)
+    {
+        // Do the reverse of what BWAPI does in UnitUpdate when it converts the BW heading into an angle
+        int bwHeading = (int)round((bwapiAngle * 128.0) / 3.14159265358979323846);
+        bwHeading += 64;
+        if (bwHeading > 127) bwHeading -= 256;
+        return bwHeading;
+    }
+
     int BWDirection(BWAPI::Position vector)
     {
         // Combination of the logic in openbw's xy_direction and atan

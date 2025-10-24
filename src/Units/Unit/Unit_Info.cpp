@@ -22,11 +22,7 @@ int UnitImpl::BWHeading() const
 {
     if (!bwHeadingUpdated)
     {
-        // Do the reverse of what BWAPI does in UnitUpdate to get BW's heading
-        bwHeading = (int)round((lastAngle * 128.0) / 3.14159265358979323846);
-        bwHeading += 64;
-        if (bwHeading > 127) bwHeading -= 256;
-
+        bwHeading = Geo::BWHeading(lastAngle);
         bwHeadingUpdated = true;
     }
     return bwHeading;

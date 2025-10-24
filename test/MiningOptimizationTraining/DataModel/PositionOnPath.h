@@ -114,6 +114,11 @@ namespace MiningOptimizationTraining
                 ;
         }
 
+        BWAPI::Position bwapiPosition() const
+        {
+            return BWAPI::Position(x, y);
+        }
+
         template <typename S>
         void serialize(S& s) {
             s.value2b(x);
