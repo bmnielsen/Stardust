@@ -249,6 +249,7 @@ namespace BWAPI
       virtual void setShields(int value) override;
       virtual void setEnergy(int value) override;
       virtual void setResources(int value) override;
+      virtual void setHeading(int value) override;
 
       virtual Position getSubpixelPosition() const override;
       virtual int getOrderProcessTimer() const override;

@@ -419,6 +419,7 @@ struct Unit {
   void setShields(int value);
   void setEnergy(int value);
   void setResources(int value);
+  void setHeading(int value);
 
   Position getSubpixelPosition() const;
   int getOrderProcessTimer() const;

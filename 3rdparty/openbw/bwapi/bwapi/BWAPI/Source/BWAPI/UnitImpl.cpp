@@ -237,6 +237,11 @@ namespace BWAPI
     bwunit.setResources(value);
   }
 
+  void UnitImpl::setHeading(int value)
+  {
+    bwunit.setHeading(value);
+  }
+
   Position UnitImpl::getSubpixelPosition() const
   {
     return bwunit.getSubpixelPosition();
