@@ -2,8 +2,9 @@
 
 #include <cstdint>
 #include "MyWorker.h"
+#include "Geo.h"
 
-#define USE_VELOCITY_AND_HEADING true
+#define USE_VELOCITY true
 
 namespace MiningOptimizationTraining
 {
@@ -47,7 +48,7 @@ namespace MiningOptimizationTraining
 
         int8_t velocityX;   // 8-bit integer representation of the unit's speed on the X axis
         int8_t velocityY;   // 8-bit integer representation of the unit's speed on the Y axis
-        uint8_t heading;    // 8-bit integer representation of the unit's heading
+        int8_t heading;     // The heading in BW representation (1/256th of a circle)
 
         int16_t dXSubpixel; // X subpixel delta from previous position on path, between -1280 and 1280 inclusive
         int16_t dYSubpixel; // Y subpixel delta from previous position on path, between -1280 and 1280 inclusive
@@ -57,7 +58,7 @@ namespace MiningOptimizationTraining
                 , y(0)
                 , velocityX(0)
                 , velocityY(0)
-                , heading(UINT8_MAX)
+                , heading(0)
                 , dXSubpixel(0)
                 , dYSubpixel(0)
         {}
@@ -67,7 +68,7 @@ namespace MiningOptimizationTraining
                 , y((uint16_t)unit->getPosition().y)
                 , velocityX(MyWorkerImpl::to8bSpeed(unit->getVelocityX()))
                 , velocityY(MyWorkerImpl::to8bSpeed(unit->getVelocityY()))
-                , heading(MyWorkerImpl::to8bHeading(unit->getAngle()))
+                , heading(Geo::BWHeading(unit->getAngle()))
                 , dXSubpixel(0)
                 , dYSubpixel(0)
         {}
@@ -77,7 +78,7 @@ namespace MiningOptimizationTraining
                 , y((uint16_t)unit->getPosition().y)
                 , velocityX(MyWorkerImpl::to8bSpeed(unit->getVelocityX()))
                 , velocityY(MyWorkerImpl::to8bSpeed(unit->getVelocityY()))
-                , heading(MyWorkerImpl::to8bHeading(unit->getAngle()))
+                , heading(Geo::BWHeading(unit->getAngle()))
                 , dXSubpixel(SubpixelPosition(unit).x - previousPosition.x)
                 , dYSubpixel(SubpixelPosition(unit).y - previousPosition.x)
         {}
@@ -88,10 +89,10 @@ namespace MiningOptimizationTraining
                    && y == other.y
                    && dXSubpixel == other.dXSubpixel
                    && dYSubpixel == other.dYSubpixel
-#if USE_VELOCITY_AND_HEADING
+                   && heading == other.heading
+#if USE_VELOCITY
                    && velocityX == other.velocityX
                    && velocityY == other.velocityY
-                   && heading == other.heading
 #endif
                 ;
         }
@@ -102,13 +103,13 @@ namespace MiningOptimizationTraining
                 || (x == other.x && y < other.y)
                 || (x == other.x && y == other.y && dXSubpixel < other.dXSubpixel)
                 || (x == other.x && y == other.y && dXSubpixel == other.dXSubpixel && dYSubpixel < other.dYSubpixel)
-#if USE_VELOCITY_AND_HEADING
                 || (x == other.x && y == other.y && dXSubpixel == other.dXSubpixel && dYSubpixel == other.dYSubpixel
-                    && velocityX < other.velocityX)
+                    && heading < other.heading)
+#if USE_VELOCITY
                 || (x == other.x && y == other.y && dXSubpixel == other.dXSubpixel && dYSubpixel == other.dYSubpixel
-                    && velocityX == other.velocityX && velocityY < other.velocityY)
+                    && heading == other.heading && velocityX < other.velocityX)
                 || (x == other.x && y == other.y && dXSubpixel == other.dXSubpixel && dYSubpixel == other.dYSubpixel
-                    && velocityX == other.velocityX && velocityY == other.velocityY && heading < other.heading)
+                    && heading == other.heading && velocityX == other.velocityX && velocityY < other.velocityY)
 #endif
                 ;
         }
@@ -124,10 +125,10 @@ namespace MiningOptimizationTraining
             s.value2b(y);
             s.value2b(dXSubpixel);
             s.value2b(dYSubpixel);
-#if USE_VELOCITY_AND_HEADING
+            s.value1b(heading);
+#if USE_VELOCITY
             s.value1b(velocityX);
             s.value1b(velocityY);
-            s.value1b(heading);
 #endif
         }
     };
@@ -144,11 +145,10 @@ struct std::hash<MiningOptimizationTraining::PositionOnPath>
         // Only intended for use in std::unordered_map, so hash quality is not important
         uint32_t xy = (pos.x << 16) + pos.y;
         uint32_t dxySubpixel = ((uint16_t)pos.dXSubpixel << 16) + (uint16_t)pos.dYSubpixel;
-#if USE_VELOCITY_AND_HEADING
-        uint32_t velocityAndHeading = ((uint8_t)pos.velocityX << 16) + ((uint8_t)pos.velocityY << 8) + pos.heading;
-        return xy ^ dxySubpixel ^ velocityAndHeading;
-#else
-        return xy ^ dxySubpixel;
+        uint32_t velocityAndHeading = (uint32_t)pos.heading;
+#if USE_VELOCITY
+        velocityAndHeading += ((uint8_t)pos.velocityX << 16) + ((uint8_t)pos.velocityY << 8);
 #endif
+        return xy ^ dxySubpixel ^ velocityAndHeading;
     }
 };

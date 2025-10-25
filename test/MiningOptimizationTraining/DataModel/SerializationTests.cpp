@@ -7,9 +7,9 @@ namespace
     MiningOptimizationTraining::PositionOnPath generateTestPosition(int value)
     {
         MiningOptimizationTraining::PositionOnPath result;
-        result.x = result.y = result.dXSubpixel = result.dYSubpixel = value;
-#if USE_VELOCITY_AND_HEADING
-        result.velocityX = result.velocityY = result.heading = value;
+        result.x = result.y = result.dXSubpixel = result.dYSubpixel = result.heading = value;
+#if USE_VELOCITY
+        result.velocityX = result.velocityY = value;
 #endif
         return result;
     }

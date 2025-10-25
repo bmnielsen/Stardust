@@ -14,10 +14,10 @@ namespace MiningOptimizationTraining
            << " y=" << positionOnPath.y
            << " dxSpxl=" << positionOnPath.dXSubpixel
            << " dySpxl=" << positionOnPath.dYSubpixel
-#if USE_VELOCITY_AND_HEADING
+           << " h=" << (int)positionOnPath.heading
+#if USE_VELOCITY
            << " dx=" << (int)positionOnPath.velocityX
            << " dy=" << (int)positionOnPath.velocityY
-           << " h=" << (unsigned int)positionOnPath.heading
 #endif
            << ")";
 

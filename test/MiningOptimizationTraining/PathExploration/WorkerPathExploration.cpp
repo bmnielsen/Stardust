@@ -174,11 +174,10 @@ namespace MiningOptimizationTraining
         if (target->getType().isMineralField())
         {
             auto vectorToPatch = target->getPosition() - finalWorkerPosition;
-            auto angleDiff = Geo::BWAngleDiff(Geo::BWHeading(worker->getAngle()), Geo::BWDirection(vectorToPatch));
+            auto angleDiff = Geo::BWAngleDiff((*positionHistory.rbegin())->heading, Geo::BWDirection(vectorToPatch));
             if (angleDiff > 2 * worker->getType().turnRadius())
             {
                 result.facingTarget = false;
-                CherryVis::log(worker->getID()) << "Not facing patch, angle diff is " << angleDiff;
             }
         }
 
