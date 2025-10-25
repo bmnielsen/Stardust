@@ -9,7 +9,7 @@ namespace MiningOptimizationTraining
     struct GatherArrivalObservations
     {
         // The arrival data (delay and facing patch) with their occurrences
-        std::unordered_map<ArrivalData, uint32_t> arrivalToOccurrences;
+        std::map<ArrivalData, uint32_t> arrivalToOccurrences;
 
         // How many arrivals had a collision
         uint32_t collisions = 0;

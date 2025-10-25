@@ -13,6 +13,7 @@ namespace
         };
         test.allowOpponentOutput = true;
         test.expectWin = false;
+        test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
     }
 
     void runFullSaturationTest(BWTest &test, unsigned int cannons, unsigned int iterations)
