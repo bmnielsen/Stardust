@@ -9,6 +9,8 @@
 
 #include "BW/BWData.h"
 
+#include <optional>
+
 #ifdef COMPAT
 #include "CompatGameImpl.h"
 #endif
@@ -253,6 +255,7 @@ namespace BWAPI
 
       virtual Position getSubpixelPosition() const override;
       virtual int getOrderProcessTimer() const override;
+      virtual std::optional<bool> wouldAGatherResendHereChangeThePath() const override;
 
       //Internal BWAPI commands:
       UnitImpl(BW::Unit bwunit, u16 index);

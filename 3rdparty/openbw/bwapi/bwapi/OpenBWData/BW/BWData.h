@@ -9,6 +9,7 @@
 #include <iterator>
 #include <type_traits>
 #include <vector>
+#include <optional>
 
 namespace bwgame {
   struct unit_t;
@@ -424,6 +425,7 @@ struct Unit {
 
   Position getSubpixelPosition() const;
   int getOrderProcessTimer() const;
+  std::optional<bool> wouldAGatherResendHereChangeThePath() const;
 };
 
 struct Bullet {

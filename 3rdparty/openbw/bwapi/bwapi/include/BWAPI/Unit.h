@@ -5,6 +5,8 @@
 #include <BWAPI/UnaryFilter.h>
 #include <BWAPI/Interface.h>
 
+#include <optional>
+
 namespace BWAPI
 {
   // Forwards
@@ -2582,6 +2584,7 @@ namespace BWAPI
 
     virtual Position getSubpixelPosition() const = 0;
     virtual int getOrderProcessTimer() const = 0;
+    virtual std::optional<bool> wouldAGatherResendHereChangeThePath() const = 0;
 
     ///@}
   };

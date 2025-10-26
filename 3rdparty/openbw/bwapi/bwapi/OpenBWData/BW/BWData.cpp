@@ -2345,6 +2345,25 @@ int Unit::getOrderProcessTimer() const
     return u->order_process_timer;
 }
 
+std::optional<bool> Unit::wouldAGatherResendHereChangeThePath() const
+{
+    // Validate the unit is moving to minerals, has a target patch, and has a path it is currently following
+    if (u->order_type->id != bwgame::Orders::MoveToMinerals) return std::nullopt;
+    if (!u->order_target.unit) return std::nullopt;
+    if (!u->path) return std::nullopt;
+
+    // Use the pathfinder to plan a fresh path to the patch
+    // This does not change the state of the unit
+    bwgame::action_functions::pathfinder pf;
+    pf.u = u;
+    pf.source = u->sprite->position;
+    pf.destination = u->order_target.unit->sprite->position;
+    impl->funcs.pathfinder_find(pf);
+
+    // Return whether the next waypoint of the new path matches the current one
+    return (pf.short_path.at(0) != u->path->next);
+}
+
 Bullet::operator bool() const
 {
   return b != nullptr;

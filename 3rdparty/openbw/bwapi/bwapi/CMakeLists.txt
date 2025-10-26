@@ -3,6 +3,8 @@ option(USE_OPENBW "Use OpenBW" ON)
 
 include_directories(include)
 
+set(CMAKE_CXX_STANDARD 17)
+
 if (BUILD_COMPAT)
 	if (NOT MSVC)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m32")

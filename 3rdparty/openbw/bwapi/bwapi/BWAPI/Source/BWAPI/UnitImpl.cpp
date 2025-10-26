@@ -251,4 +251,9 @@ namespace BWAPI
   {
     return bwunit.getOrderProcessTimer();
   }
+
+  std::optional<bool> UnitImpl::wouldAGatherResendHereChangeThePath() const
+  {
+    return bwunit.wouldAGatherResendHereChangeThePath();
+  }
 };
