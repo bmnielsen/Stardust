@@ -117,6 +117,14 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
 #endif
     }
 
+    // The mineral patch and geyser vectors will be in a random order based on the memory layout, so sort them for better determinism
+    auto cmpResource = [](const Resource &a, const Resource &b)
+    {
+        return a->tile < b->tile;
+    };
+    std::sort(_mineralPatches.begin(), _mineralPatches.end(), cmpResource);
+    std::sort(_geysersOrRefineries.begin(), _geysersOrRefineries.end(), cmpResource);
+
     // Call update to set the minerals and gas counts
     update();
 
