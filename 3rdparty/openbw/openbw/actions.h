@@ -1356,6 +1356,11 @@ struct action_functions: state_functions {
 				int value = r.template get<int32_t>();
 				st.current_gas.at(player) = value;
 			} else error("unknown ext cheat player subtype %d", subtype);
+		} else if (type == 2) {
+			int subtype = r.template get<uint8_t>();
+			if (subtype == 0) {
+                st.mining_training = true;
+			} else error("unknown ext cheat game subtype %d", subtype);
 		} else error("unknown ext cheat type %d", type);
 		return true;
 	}

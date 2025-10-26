@@ -685,6 +685,10 @@ namespace BWAPI
     }
     setLastError(Errors::Invalid_Parameter);
   }
+  void GameImpl::enableMiningTraining()
+  {
+    bwgame.enableMiningTraining();
+  }
   //------------------------------------------ ISSUE COMMAND -------------------------------------------------
   bool GameImpl::issueCommand(const Unitset& units, UnitCommand command)
   {

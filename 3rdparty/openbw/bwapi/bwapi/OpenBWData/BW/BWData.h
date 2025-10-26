@@ -190,6 +190,7 @@ struct Game {
   void nextFrame();
   void setGUI(bool enabled);
   void enableCheats() const;
+  void enableMiningTraining() const;
   void saveReplay(const std::string& filename);
   std::tuple<int, int, void*> GameScreenBuffer();
   void setOnDraw(std::function<void(uint8_t*, size_t)> onDraw);

@@ -199,6 +199,8 @@ namespace BWAPI
       virtual bool setMap(const char *mapFileName) override;
       virtual void setFrameSkip(int frameSkip) override;
 
+      virtual void enableMiningTraining() override;
+
       virtual bool setAlliance(Player player, bool allied = true, bool alliedVictory = true) override;
       virtual bool setVision(Player player, bool enabled = true) override;
       virtual int  elapsedTime() const override;

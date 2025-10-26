@@ -1446,6 +1446,8 @@ namespace BWAPI
     /// @see setLocalSpeed
     virtual void setFrameSkip(int frameSkip) = 0;
 
+    virtual void enableMiningTraining() = 0;
+
     /// <summary>Checks if there is a path from source to destination.</summary> This only checks
     /// if the source position is connected to the destination position. This function does not
     /// check if all units can actually travel from source to destination. Because of this

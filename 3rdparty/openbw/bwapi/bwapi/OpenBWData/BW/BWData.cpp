@@ -1510,6 +1510,15 @@ void Game::enableCheats() const
   impl->funcs.st.cheats_enabled = true;
 }
 
+void Game::enableMiningTraining() const
+{
+  bwgame::sync_functions::dynamic_writer<> w;
+  w.template put<uint8_t>(210);
+  w.template put<uint8_t>(2);
+  w.template put<uint8_t>(0);
+  impl->game_setup_helper.input_action(w.data(), w.size());
+}
+
 void Game::saveReplay(const std::string& filename)
 {
   if (impl->sync_funcs.sync_st.save_replay) {

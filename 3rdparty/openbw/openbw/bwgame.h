@@ -267,6 +267,8 @@ struct state_base_copyable {
 	bool cheats_enabled;
 	bool cheat_operation_cwal;
 
+    bool mining_training;
+
 	a_vector<location> locations;
 };
 
@@ -4377,7 +4379,7 @@ struct state_functions {
 				if (is_facing_next_target_waypoint(u)) {
 					u->order_target.pos = u->sprite->position + to_xy(direction_xy(u->heading, fp8::integer(20)));
 					sprite_run_anim(u->sprite, iscript_anims::AlmostBuilt);
-					u->main_order_timer = 75;
+					u->main_order_timer = (st.mining_training ? 1 : 75);
 					u->order_state = 5;
 				}
 			} else if (u->order_state == 5) {
@@ -12866,16 +12868,18 @@ struct state_functions {
 	}
 
 	void update_units() {
-		--st.order_timer_counter;
-		if (!st.order_timer_counter) {
-			st.order_timer_counter = 150;
-			int v = 0;
-			for (unit_t* u : ptr(st.visible_units)) {
-				u->order_process_timer = v;
-				++v;
-				if (v == 8) v = 0;
-			}
-		}
+        if (!st.mining_training) {
+            --st.order_timer_counter;
+            if (!st.order_timer_counter) {
+                st.order_timer_counter = 150;
+                int v = 0;
+                for (unit_t* u : ptr(st.visible_units)) {
+                    u->order_process_timer = v;
+                    ++v;
+                    if (v == 8) v = 0;
+                }
+            }
+        }
 		--st.secondary_order_timer_counter;
 		if (!st.secondary_order_timer_counter) {
 			st.secondary_order_timer_counter = 300;
@@ -20004,6 +20008,8 @@ struct game_load_functions : state_functions {
 		st.disruption_webbed_units = 0;
 		st.cheats_enabled = false;
 		st.cheat_operation_cwal = false;
+
+        st.mining_training = false;
 
 		st.locations.clear();
 	}
