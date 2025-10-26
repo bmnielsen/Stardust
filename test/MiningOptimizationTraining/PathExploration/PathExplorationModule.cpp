@@ -10,6 +10,8 @@ namespace MiningOptimizationTraining
 {
     void PathExplorationModule::onStart()
     {
+        BWAPI::Broodwar->enableMiningTraining();
+
         InstrumentedDoNothingModule::onStart();
 
         // Initialize the minimum needed to have bases, start blocks and cannon placements available

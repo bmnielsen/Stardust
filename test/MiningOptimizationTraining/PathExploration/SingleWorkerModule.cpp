@@ -1,0 +1,133 @@
+#include "SingleWorkerModule.h"
+
+namespace MiningOptimizationTraining
+{
+    namespace
+    {
+        std::vector<BWAPI::Position> noResendPath = {
+                {240,296},
+                {240,296},
+                {240,296},
+                {240,296},
+                {240,296},
+                {240,296},
+                {239,295},
+                {239,295},
+                {238,295},
+                {237,295},
+                {236,295},
+                {234,294},
+                {232,294},
+                {230,294},
+                {228,293},
+                {225,292},
+                {223,292},
+                {220,291},
+                {217,289},
+                {215,286},
+                {212,283},
+                {209,280},
+                {205,277},
+                {202,274},
+                {199,270},
+                {195,267},
+                {191,263},
+                {188,260},
+                {184,256},
+                {181,253},
+                {177,249},
+                {174,246},
+                {170,242},
+                {167,239},
+                {163,235},
+                {160,231},
+                {156,228},
+                {156,227},
+                {152,223},
+                {148,220},
+                {144,217},
+                {141,213},
+                {139,212},
+                {134,212},
+                {129,212},
+                {125,212},
+                {121,212},
+                {117,212},
+                {114,212},
+                {111,212},
+                {108,212}
+        };
+    }
+    bool SingleWorkerModule::initialize()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 0)
+        {
+            // Kill all but the leftmost initial worker
+            for (auto unit : BWAPI::Broodwar->self()->getUnits())
+            {
+                if (unit->getType().isWorker() && unit->getPosition() != BWAPI::Position(240, 296))
+                {
+                    BWAPI::Broodwar->killUnit(unit);
+                }
+            }
+        }
+
+        // Give the workers time to die
+        if (BWAPI::Broodwar->getFrameCount() < 10) return false;
+
+        // Find the worker
+        BWAPI::Unit worker;
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType().isWorker()) worker = unit;
+        }
+        if (!worker) return false;
+
+        // Find the patch
+        auto patch = (*Map::getMyMain()->mineralPatches().begin())->getBwapiUnitIfVisible();
+        if (!patch) return false;
+
+        // Leave when the worker arrives at the patch
+        if (worker->getDistance(patch) == 0)
+        {
+            BWAPI::Broodwar->leaveGame();
+            return false;
+        }
+
+        // Send the command on frame 10 and the resend frame
+        if (BWAPI::Broodwar->getFrameCount() == 10 || BWAPI::Broodwar->getFrameCount() == resendFrame)
+        {
+            if (BWAPI::Broodwar->getFrameCount() == resendFrame)
+            {
+                Log::Get() << "Resending at frame " << resendFrame;
+            }
+            worker->gather(patch);
+        }
+
+        if (resendFrame == -1)
+        {
+            auto resendChanges = worker->wouldAGatherResendHereChangeThePath();
+            if (resendChanges.has_value())
+            {
+                Log::Get() << worker->getPosition() << ": resend changes: " << resendChanges.value();
+            }
+            else
+            {
+                Log::Get() << worker->getPosition() << ": resend changes: unknown";
+            }
+            return false;
+        }
+
+        auto index = BWAPI::Broodwar->getFrameCount() - 10;
+        if (index >= noResendPath.size())
+        {
+            Log::Get() << "Path diverged - expected to be finished here";
+        }
+        else if (noResendPath[index] != worker->getPosition())
+        {
+            Log::Get() << "Path diverged: " << worker->getPosition() << " vs. expected " << noResendPath[index];
+        }
+
+        return false;
+    }
+}
