@@ -2,6 +2,22 @@
 
 namespace MiningOptimizationTraining
 {
+    namespace
+    {
+        GatherObservations *observationsForNextPosition(std::vector<GatherObservations> &nextPositions, const PositionOnPath &pos)
+        {
+            auto nextObservationIt = std::find_if(
+                    nextPositions.begin(),
+                    nextPositions.end(),
+                    [&pos](const GatherObservations &x)
+                    {
+                        return x.pos == pos;
+                    });
+            if (nextObservationIt == nextPositions.end()) return nullptr;
+            return &*nextObservationIt;
+        }
+    }
+
     void WorkerPathExploration::gathering()
     {
         appendCurrentPosition(gatherPositionHistory);
@@ -11,6 +27,32 @@ namespace MiningOptimizationTraining
         {
             recordGatherPath();
             return;
+        }
+
+        // Update the current gather node
+        if (!currentGatherNode)
+        {
+            auto &rootNodes = mapData.resourceToGatherRootNodes[TilePosition::fromBWAPI(patch->getTilePosition())];
+            auto rootNodeIt = rootNodes.find(**gatherPositionHistory.rbegin());
+            if (rootNodeIt != rootNodes.end())
+            {
+                currentGatherNode = &rootNodeIt->second;
+            }
+        }
+        else
+        {
+            // TODO: Use resend next positions if a resend was sent
+            currentGatherNode = observationsForNextPosition(currentGatherNode->nextPositions, **gatherPositionHistory.rbegin());
+        }
+
+        // If the current gather node has no information about whether a resend changes the path, query that now
+        if (currentGatherNode && currentGatherNode->withinExplorationWindow() && currentGatherNode->canResendChangePath == ResendChangesPath::Unknown)
+        {
+            auto result = worker->wouldAGatherResendHereChangeThePath();
+            if (result.has_value())
+            {
+                currentGatherNode->canResendChangePath = result.value() ? ResendChangesPath::Yes : ResendChangesPath::No;
+            }
         }
 
         // TODO: Plan and execute resends
@@ -66,21 +108,11 @@ namespace MiningOptimizationTraining
             if (nextPositionIt == parsedPositionHistory.arrivalPositionIt) break; // reached end of path
 
             // Find the next position in the vector
-            auto nextObservationIt = std::find_if(
-                    nextPositions->begin(),
-                    nextPositions->end(),
-                    [&nextPositionIt](const GatherObservations &x)
-                    {
-                        return x.pos == **nextPositionIt;
-                    });
-            if (nextObservationIt == nextPositions->end())
+            current = observationsForNextPosition(*nextPositions, **nextPositionIt);
+            if (!current)
             {
                 current = &nextPositions->emplace_back(GatherObservations{**nextPositionIt});
                 CherryVis::log(worker->getID()) << "Discovered new next position " << *current;
-            }
-            else
-            {
-                current = &*nextObservationIt;
             }
         }
     }
@@ -142,20 +174,13 @@ namespace MiningOptimizationTraining
             if (nextPositionIt == parsedPositionHistory.arrivalPositionIt) break; // reached end of path
 
             // Find the next position in the vector
-            auto nextObservationIt = std::find_if(
-                    nextPositions->begin(),
-                    nextPositions->end(),
-                    [&nextPositionIt](const GatherObservations &x)
-                    {
-                        return x.pos == **nextPositionIt;
-                    });
-            if (nextObservationIt == nextPositions->end())
+            current = observationsForNextPosition(*nextPositions, **nextPositionIt);
+            if (!current)
             {
                 Log::Get() << "ERROR: Next node not found when registering collision status"
                            << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                 return;
             }
-            current = &*nextObservationIt;
         }
     }
 }

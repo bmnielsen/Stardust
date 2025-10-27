@@ -19,6 +19,7 @@ namespace
         MiningOptimizationTraining::GatherObservations result;
         result.pos = pos;
         result.occurrences = pos.x;
+        result.canResendChangePath = (MiningOptimizationTraining::ResendChangesPath)(pos.x % 3);
         result.arrivalObservations.arrivalToOccurrences.emplace(MiningOptimizationTraining::ArrivalData(pos.x), pos.x);
         result.arrivalObservations.collisions = pos.x;
         result.arrivalObservations.nonCollisions = pos.x;
@@ -54,6 +55,7 @@ namespace
     {
         ASSERT_EQ(expected.pos, actual.pos);
         ASSERT_EQ(expected.occurrences, actual.occurrences);
+        ASSERT_EQ(expected.canResendChangePath, actual.canResendChangePath);
         assertGatherArrivalObservationsEqual(expected.arrivalObservations, actual.arrivalObservations);
         assertGatherArrivalObservationsEqual(expected.arrivalObservationsAfterResend, actual.arrivalObservationsAfterResend);
 

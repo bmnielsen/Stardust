@@ -61,6 +61,7 @@ namespace MiningOptimizationTraining::Serialization
             {
                 s.object(value.pos);
                 s.value4b(value.occurrences);
+                s.value1b(value.canResendChangePath);
                 s.object(value.arrivalObservations, gatherArrivalObservationsSerializer);
                 s.object(value.arrivalObservationsAfterResend, gatherArrivalObservationsSerializer);
                 s.container(value.nextPositions, INT_MAX, [&](S &s, GatherObservations &v) {

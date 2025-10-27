@@ -4,8 +4,19 @@
 #include "ArrivalData.h"
 #include "PositionOnPath.h"
 
+// Defines the exploration horizon in number of frames to arrival
+#define EXPLORATION_WINDOW_START 20
+#define EXPLORATION_WINDOW_END 5
+
 namespace MiningOptimizationTraining
 {
+    enum class ResendChangesPath:uint8_t
+    {
+        Unknown,    // Have not explored this yet
+        Yes,        // A resend could change the path (there are false positives)
+        No          // A resend will not change the path
+    };
+
     struct GatherArrivalObservations
     {
         // The arrival data (delay and facing patch) with their occurrences
@@ -33,6 +44,8 @@ namespace MiningOptimizationTraining
             if ((collisions + nonCollisions) == UINT32_MAX) return;
             (collision ? collisions : nonCollisions)++;
         }
+
+        ArrivalData mostCommonArrivalData() const;
     };
 
     // This structure stores a node in a gather path
@@ -47,6 +60,11 @@ namespace MiningOptimizationTraining
         // For root nodes, how often it has been observed
         uint32_t occurrences = 0;
 
+        // Whether a resend taking effect at this position could change the path.
+        // This is determined by running an openbw pathfind and checking if the next waypoint differs from the current one. This does generate
+        // false positives but is still useful for reducing the optimization search space
+        ResendChangesPath canResendChangePath = ResendChangesPath::Unknown;
+
         // The arrival observations from this node when the path is not changed by a later gather command
         GatherArrivalObservations arrivalObservations;
 
@@ -60,6 +78,9 @@ namespace MiningOptimizationTraining
         // All next positions seen from this position after a resend takes effect at this node
         // For training, we do not differentiate between resends that change the path and resends that do not
         std::vector<GatherObservations> nextPositionsAfterResend;
+
+        // Whether this position is within the exploration window (the set of frames-before-arrival that we explore within)
+        bool withinExplorationWindow() const;
     };
 
     std::ostream &operator<<(std::ostream &os, const GatherObservations &gatherObservations);

@@ -18,6 +18,7 @@ namespace MiningOptimizationTraining
                 case 0:
                 {
                     gatherPositionHistory.clear();
+                    currentGatherNode = nullptr;
 
                     break;
                 }

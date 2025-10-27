@@ -51,8 +51,14 @@ namespace MiningOptimizationTraining
         // Stores the previous subpixel position of the worker
         SubpixelPosition previousPosition;
 
+        // History of positions visited while on the way to gather
         std::vector<std::shared_ptr<const PositionOnPath>> gatherPositionHistory;
 
+        // Pointer to the gather node at the current position
+        // Will be null if there is no saved data yet for this position
+        GatherObservations* currentGatherNode = nullptr;
+
+        // History of positions visited while returning
         std::vector<std::shared_ptr<const PositionOnPath>> returnPositionHistory;
 
         // State for the state machine. Possible values:

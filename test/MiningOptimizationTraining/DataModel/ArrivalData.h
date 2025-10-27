@@ -55,6 +55,12 @@ namespace MiningOptimizationTraining
             return ArrivalData{packed};
         }
 
+        // A "null" value that just gives the worst delay possible
+        static ArrivalData nullopt()
+        {
+            return create(127U, false);
+        }
+
         template <typename S>
         void serialize(S& s) {
             s.value1b(packed);
