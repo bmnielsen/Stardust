@@ -18,7 +18,11 @@ namespace MiningOptimizationTraining
                 case 0:
                 {
                     gatherPositionHistory.clear();
+                    gatherPositionHistoryStartFrame = currentFrame;
                     currentGatherNode = nullptr;
+                    plannedGatherResendFrames.clear();
+                    executedGatherResendFrames.clear();
+                    resendsPlanned = false;
 
                     break;
                 }
@@ -30,6 +34,8 @@ namespace MiningOptimizationTraining
                 case 2:
                 {
                     returnPositionHistory.clear();
+                    returnPositionHistoryStartFrame = currentFrame;
+                    resendsPlanned = false;
 
                     break;
                 }
@@ -48,6 +54,12 @@ namespace MiningOptimizationTraining
             {
                 switch (state)
                 {
+                    case -1:
+                    {
+                        // Assumption is that the worker has just been ordered to gather
+                        stateTransition(0);
+                        break;
+                    }
                     case 0:
                     {
                         // Worker is approaching the patch; transition to state 1 when it starts mining
@@ -104,6 +116,8 @@ namespace MiningOptimizationTraining
 
     ParsedPositionHistory WorkerPathExploration::parsePositionHistory(
             std::vector<std::shared_ptr<const PositionOnPath>> &positionHistory,
+            int positionHistoryStartFrame,
+            std::set<int> &executedResendFrames,
             BWAPI::Unit start,
             BWAPI::Unit target)
     {
@@ -130,8 +144,8 @@ namespace MiningOptimizationTraining
         }
 
         // Extract the arrival and resend positions
-        // TODO: Extract resend positions
         auto finalWorkerPosition = (*positionHistory.rbegin())->bwapiPosition();
+        int positionFrame = positionHistoryStartFrame;
         for (auto it = positionHistory.begin(); it != positionHistory.end(); it++)
         {
             auto dist = Geo::EdgeToEdgeDistance(worker->getType(), (*it)->bwapiPosition(), target->getType(), target->getPosition());
@@ -157,6 +171,14 @@ namespace MiningOptimizationTraining
                     result.arrivalPositionIt = it;
                 }
             }
+
+            // This is a resend position if a resend was send LF before this
+            if (executedResendFrames.contains(positionFrame - BWAPI::Broodwar->getLatencyFrames()))
+            {
+                result.resendPositionIts.insert(it);
+            }
+
+            positionFrame++;
         }
 
         // If the arrival position was not found, jump out
@@ -167,7 +189,13 @@ namespace MiningOptimizationTraining
             return result;
         }
 
-        // TODO: Validate that all resend positions are found
+        // If an incorrect number of rsend positions are found, jump out
+        if (result.resendPositionIts.size() != executedResendFrames.size())
+        {
+            Log::Get() << "ERROR: Only found " << result.resendPositionIts.size() << " of " << executedResendFrames.size() << " resend positions"
+                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+            return result;
+        }
 
         // For mining, determine if the worker's heading will require turning to start mining
         // The worker has two frames to turn before the order process timer will be nonzero and it will have to wait 9 frames

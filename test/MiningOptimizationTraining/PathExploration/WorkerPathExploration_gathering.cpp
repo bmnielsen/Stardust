@@ -1,23 +1,8 @@
 #include "PathExplorationModule.h"
+#include "MiningOptimizationTraining/DataModel/Configuration.h"
 
 namespace MiningOptimizationTraining
 {
-    namespace
-    {
-        GatherObservations *observationsForNextPosition(std::vector<GatherObservations> &nextPositions, const PositionOnPath &pos)
-        {
-            auto nextObservationIt = std::find_if(
-                    nextPositions.begin(),
-                    nextPositions.end(),
-                    [&pos](const GatherObservations &x)
-                    {
-                        return x.pos == pos;
-                    });
-            if (nextObservationIt == nextPositions.end()) return nullptr;
-            return &*nextObservationIt;
-        }
-    }
-
     void WorkerPathExploration::gathering()
     {
         appendCurrentPosition(gatherPositionHistory);
@@ -39,13 +24,45 @@ namespace MiningOptimizationTraining
                 currentGatherNode = &rootNodeIt->second;
             }
         }
+        else if (resendsPlanned && plannedGatherResendFrames.size() > executedGatherResendFrames.size())
+        {
+            bool resendTakesEffectHere = executedGatherResendFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames() - 1);
+            auto nextNode = currentGatherNode->observationsForSpecificNextPosition(
+                    resendTakesEffectHere,
+                    **gatherPositionHistory.rbegin());
+            auto expectedNextNode = currentGatherNode->observationsForMostLikelyNextPosition(resendTakesEffectHere);
+
+            // Validate that we are following the expected path. Otherwise clear the state so we can replan.
+            if (expectedNextNode != nextNode)
+            {
+                resendsPlanned = false;
+
+                // Remove any planned resends that have not already been executed
+                for (auto it = plannedGatherResendFrames.begin(); it != plannedGatherResendFrames.end(); )
+                {
+                    if (*it >= currentFrame)
+                    {
+                        it = plannedGatherResendFrames.erase(it);
+                    }
+                    else
+                    {
+                        it++;
+                    }
+                }
+            }
+            currentGatherNode = nextNode;
+        }
         else
         {
-            // TODO: Use resend next positions if a resend was sent
-            currentGatherNode = observationsForNextPosition(currentGatherNode->nextPositions, **gatherPositionHistory.rbegin());
+            currentGatherNode = currentGatherNode->observationsForSpecificNextPosition(
+                    executedGatherResendFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames() - 1),
+                    **gatherPositionHistory.rbegin());
         }
 
-        // If the current gather node has no information about whether a resend changes the path, query that now
+        // If we don't have a gather node, we are observing a new path (or have already arrived at the patch) and nothing more is needed
+        if (!currentGatherNode) return;
+
+        // If the current node has no information about whether a resend changes the path, query that now
         if (currentGatherNode && currentGatherNode->withinExplorationWindow() && currentGatherNode->canResendChangePath == ResendChangesPath::Unknown)
         {
             auto result = worker->wouldAGatherResendHereChangeThePath();
@@ -55,12 +72,59 @@ namespace MiningOptimizationTraining
             }
         }
 
-        // TODO: Plan and execute resends
+        planResends();
+
+        // Execute a planned resend for this frame
+        if (plannedGatherResendFrames.contains(currentFrame))
+        {
+            auto result = worker->gather(patch);
+            if (result)
+            {
+                executedGatherResendFrames.insert(currentFrame);
+            }
+            else
+            {
+                Log::Get() << "ERROR: Failed to send gather command: " << BWAPI::Broodwar->getLastError()
+                           << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+            }
+        }
+    }
+
+    void WorkerPathExploration::planResends()
+    {
+        // Hop out if we have already planned
+        if (resendsPlanned) return;
+
+        // Hop out if we have already executed the maximum number of resends
+        if (executedGatherResendFrames.size() >= GATHER_RESEND_LIMIT) return;
+
+        // Start by getting the node where resends take effect
+        int frame = currentFrame;
+        GatherObservations *observationsAtResend = currentGatherNode;
+        while (frame < (currentFrame + BWAPI::Broodwar->getLatencyFrames()) && observationsAtResend)
+        {
+            observationsAtResend =
+                    observationsAtResend->observationsForMostLikelyNextPosition(
+                            executedGatherResendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames()));
+            frame++;
+        }
+        if (!observationsAtResend) return;
+
+        // Ensure it is within the exploration window
+        if (!observationsAtResend->withinExplorationWindow()) return;
+
+        // Find the least explored branch of the path and add its resends
+        auto result = observationsAtResend->leastObservedInPath(executedGatherResendFrames, frame);
+        plannedGatherResendFrames.insert(result.resendFrames.begin(), result.resendFrames.end());
+        resendsPlanned = true;
+
+        CherryVis::log(worker->getID()) << "Planned resends: " << result;
     }
 
     void WorkerPathExploration::recordGatherPath()
     {
-        auto parsedPositionHistory = parsePositionHistory(gatherPositionHistory, depot, patch);
+        auto parsedPositionHistory =
+                parsePositionHistory(gatherPositionHistory, gatherPositionHistoryStartFrame, executedGatherResendFrames, depot, patch);
         if (!parsedPositionHistory.valid) return;
 
         // Find or create the root node
@@ -73,31 +137,24 @@ namespace MiningOptimizationTraining
             CherryVis::log(worker->getID()) << "Discovered new root node " << rootNodeIt->second;
         }
         auto current = &rootNodeIt->second;
+        if (current->occurrences < UINT32_MAX) current->occurrences++;
 
         // Now step through the path and make the observations
         for (auto it = gatherPositionHistory.begin(); it != parsedPositionHistory.arrivalPositionIt; it++)
         {
             // At the start of the loop, current is guaranteed to be a pointer to the gather observations for this node
+            // We have also already incremented the occurrences, since it depends on the other next positions
 
-            // Increment the occurrences
-            if (current->occurrences < UINT32_MAX) current->occurrences++;
+            bool resendTookEffectHere = parsedPositionHistory.resendPositionIts.contains(it);
 
             // Reference the correct arrival and next position data depending on whether there was a resend taking effect here
-            GatherArrivalObservations *arrivalObservations;
-            std::vector<GatherObservations> *nextPositions;
-            if (parsedPositionHistory.resendPositionIts.contains(it))
-            {
-                arrivalObservations = &current->arrivalObservationsAfterResend;
-                nextPositions = &current->nextPositionsAfterResend;
-            }
-            else
-            {
-                arrivalObservations = &current->arrivalObservations;
-                nextPositions = &current->nextPositions;
-            }
+            GatherArrivalObservations &arrivalObservations =
+                    (resendTookEffectHere ? current->arrivalObservationsAfterResend : current->arrivalObservations);
+            std::vector<GatherObservations> &nextPositions =
+                    (resendTookEffectHere ? current->nextPositionsAfterResend : current->nextPositions);
 
             // Make the arrival observation. Frames to arrival is equivalent to the distance from here to the arrival position iterator.
-            arrivalObservations->addArrivalObservation(
+            arrivalObservations.addArrivalObservation(
                     ArrivalData::create(std::distance(it, parsedPositionHistory.arrivalPositionIt),
                                         parsedPositionHistory.facingTarget));
 
@@ -107,20 +164,51 @@ namespace MiningOptimizationTraining
             auto nextPositionIt = it + 1;
             if (nextPositionIt == parsedPositionHistory.arrivalPositionIt) break; // reached end of path
 
-            // Find the next position in the vector
-            current = observationsForNextPosition(*nextPositions, **nextPositionIt);
-            if (!current)
+            // Sum up the occurrences
+            // We use this to determine if there is room to make another observation
+            // TODO: We actually should include both resend and no resend next positions since we use their ratios in path exploration
+            uint32_t totalOccurrences = 0;
+            for (auto &next : nextPositions)
             {
-                current = &nextPositions->emplace_back(GatherObservations{**nextPositionIt});
-                CherryVis::log(worker->getID()) << "Discovered new next position " << *current;
+                totalOccurrences += next.occurrences;
             }
+
+            // Find the next position in the vector
+            auto next = current->observationsForSpecificNextPosition(resendTookEffectHere, **nextPositionIt);
+            if (!next)
+            {
+                current = &nextPositions.emplace_back(GatherObservations{**nextPositionIt});
+                if (totalOccurrences < UINT32_MAX) current->occurrences++;
+                CherryVis::log(worker->getID()) << "Discovered new next position " << *current;
+                continue;
+            }
+
+            // Increment the occurrences if there is room
+            if (totalOccurrences < UINT32_MAX)
+            {
+                next->occurrences++;
+
+                // If there are more than one positions here, sort the vector to ensure the most likely is first
+                if (nextPositions.size() > 1)
+                {
+                    std::sort(nextPositions.begin(), nextPositions.end(), [](const GatherObservations &a, const GatherObservations &b)
+                    {
+                        return a.occurrences > b.occurrences;
+                    });
+
+                    // Re-reference the next position since its pointer might have changed during the sort
+                    next = current->observationsForSpecificNextPosition(resendTookEffectHere, **nextPositionIt);
+                }
+            }
+            current = next;
         }
     }
 
     void WorkerPathExploration::recordGatherCollisions()
     {
         // Parse the gather position history to ensure we had a valid path
-        auto parsedPositionHistory = parsePositionHistory(gatherPositionHistory, depot, patch);
+        auto parsedPositionHistory =
+                parsePositionHistory(gatherPositionHistory, gatherPositionHistoryStartFrame, executedGatherResendFrames, depot, patch);
         if (!parsedPositionHistory.valid) return;
 
         // This method gets called 8 frames after the worker starts returning minerals
@@ -150,22 +238,12 @@ namespace MiningOptimizationTraining
         {
             // At the start of the loop, current is guaranteed to be a pointer to the gather observations for this node
 
-            // Reference the correct arrival and next position data depending on whether there was a resend taking effect here
-            GatherArrivalObservations *arrivalObservations;
-            std::vector<GatherObservations> *nextPositions;
-            if (parsedPositionHistory.resendPositionIts.contains(it))
-            {
-                arrivalObservations = &current->arrivalObservationsAfterResend;
-                nextPositions = &current->nextPositionsAfterResend;
-            }
-            else
-            {
-                arrivalObservations = &current->arrivalObservations;
-                nextPositions = &current->nextPositions;
-            }
+            bool resendTookEffectHere = parsedPositionHistory.resendPositionIts.contains(it);
 
-            // Make the arrival observation. Frames to arrival is equivalent to the distance from here to the arrival position iterator.
-            arrivalObservations->addCollisionObservation(collision);
+            // Make the collision observation, using the correct arrival data depending on whether there was a resend taking effect here
+            GatherArrivalObservations &arrivalObservations =
+                    (resendTookEffectHere ? current->arrivalObservationsAfterResend : current->arrivalObservations);
+            arrivalObservations.addCollisionObservation(collision);
 
             // Find the next position node, which must exist since we have already recorded arrival observations
 
@@ -173,8 +251,8 @@ namespace MiningOptimizationTraining
             auto nextPositionIt = it + 1;
             if (nextPositionIt == parsedPositionHistory.arrivalPositionIt) break; // reached end of path
 
-            // Find the next position in the vector
-            current = observationsForNextPosition(*nextPositions, **nextPositionIt);
+            // Find the next position
+            current = current->observationsForSpecificNextPosition(resendTookEffectHere, **nextPositionIt);
             if (!current)
             {
                 Log::Get() << "ERROR: Next node not found when registering collision status"

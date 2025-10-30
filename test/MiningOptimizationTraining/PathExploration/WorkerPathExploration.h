@@ -36,7 +36,11 @@ namespace MiningOptimizationTraining
             , patch(patch)
             , depot(depot)
             , previousPosition(SubpixelPosition(worker))
-            , state(0)
+            , gatherPositionHistoryStartFrame(-1)
+            , currentGatherNode(nullptr)
+            , returnPositionHistoryStartFrame(-1)
+            , resendsPlanned(false)
+            , state(-1)
         {}
 
         void update();
@@ -51,17 +55,40 @@ namespace MiningOptimizationTraining
         // Stores the previous subpixel position of the worker
         SubpixelPosition previousPosition;
 
+        /* State specific to the gather phase */
+
         // History of positions visited while on the way to gather
         std::vector<std::shared_ptr<const PositionOnPath>> gatherPositionHistory;
 
+        // The first frame in the gather position history
+        int gatherPositionHistoryStartFrame;
+
         // Pointer to the gather node at the current position
         // Will be null if there is no saved data yet for this position
-        GatherObservations* currentGatherNode = nullptr;
+        GatherObservations* currentGatherNode;
+
+        // Frames with a planned gather resend
+        std::set<int> plannedGatherResendFrames;
+
+        // Frames with an executed gather resend
+        std::set<int> executedGatherResendFrames;
+
+        /* State specific to the return phase */
 
         // History of positions visited while returning
         std::vector<std::shared_ptr<const PositionOnPath>> returnPositionHistory;
 
+        // The first frame in the return position history
+        int returnPositionHistoryStartFrame;
+
+        /* State used by both phases */
+
+        // Whether any resends have been planned yet
+        // Note that we can also plan to observe the path without resends, so this can be true without having any resends scheduled
+        bool resendsPlanned;
+
         // State for the state machine. Possible values:
+        // -1 - uninitialized
         // 0 - approaching the patch
         // 1 - mining
         // 2 - approaching the depot
@@ -69,6 +96,9 @@ namespace MiningOptimizationTraining
 
         // Called for workers that are on their way to gather minerals
         void gathering();
+
+        // Plans resends for the path being followed
+        void planResends();
 
         // Called when the worker is transitioning to mining to record the path
         void recordGatherPath();
@@ -93,6 +123,8 @@ namespace MiningOptimizationTraining
         // If the positions are wrong for whatever reason, valid will be set to false.
         ParsedPositionHistory parsePositionHistory(
                 std::vector<std::shared_ptr<const PositionOnPath>> &positionHistory,
+                int positionHistoryStartFrame,
+                std::set<int> &executedResendFrames,
                 BWAPI::Unit start,
                 BWAPI::Unit target);
     };

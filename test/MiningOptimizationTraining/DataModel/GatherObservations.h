@@ -4,10 +4,6 @@
 #include "ArrivalData.h"
 #include "PositionOnPath.h"
 
-// Defines the exploration horizon in number of frames to arrival
-#define EXPLORATION_WINDOW_START 20
-#define EXPLORATION_WINDOW_END 5
-
 namespace MiningOptimizationTraining
 {
     enum class ResendChangesPath:uint8_t
@@ -15,6 +11,57 @@ namespace MiningOptimizationTraining
         Unknown,    // Have not explored this yet
         Yes,        // A resend could change the path (there are false positives)
         No          // A resend will not change the path
+    };
+
+    // Forward declaration so we can declare it as friend
+    struct GatherObservations;
+
+    // Encapsulates the result from a call to GatherObservations::leastObservedInPath
+    struct LeastObservedInGatherPathResult
+    {
+        friend GatherObservations;
+
+        // The exploration score of the best result so far
+        // A score of 0.0 is neutral (the node has been explored as much as desired)
+        // A positive score means the node has been overexplored
+        // A negative score means the node has been underexplored
+        double explorationScore;
+
+        // The frames on which to resend for the best result so far
+        std::set<int> resendFrames;
+
+    private:
+        // The number of explorable nodes further in the path
+        int explorableNodes;
+
+        LeastObservedInGatherPathResult(double explorationScore, std::set<int> resendFrames, int explorableNodes)
+                : explorationScore(explorationScore)
+                , resendFrames(std::move(resendFrames))
+                , explorableNodes(explorableNodes)
+        {}
+
+        static LeastObservedInGatherPathResult NoResend(std::set<int> previousResends)
+        {
+            return LeastObservedInGatherPathResult{ 0.0, std::move(previousResends), 1 };
+        }
+
+        friend std::ostream &operator<<(std::ostream &out, const LeastObservedInGatherPathResult &obj)
+        {
+            // Use a separate buffer to format the text to avoid changing the configuration of the given stream
+            std::ostringstream buf;
+            buf << std::fixed << std::setprecision(3);
+            buf << "Resend frames: ";
+            std::string sep;
+            for (int frame : obj.resendFrames)
+            {
+                buf << sep << frame;
+                sep = ", ";
+            }
+            buf << "; score: " << obj.explorationScore;
+
+            out << buf.str();
+            return out;
+        };
     };
 
     struct GatherArrivalObservations
@@ -45,7 +92,7 @@ namespace MiningOptimizationTraining
             (collision ? collisions : nonCollisions)++;
         }
 
-        ArrivalData mostCommonArrivalData() const;
+        [[nodiscard]] ArrivalData mostCommonArrivalData() const;
     };
 
     // This structure stores a node in a gather path
@@ -80,7 +127,22 @@ namespace MiningOptimizationTraining
         std::vector<GatherObservations> nextPositionsAfterResend;
 
         // Whether this position is within the exploration window (the set of frames-before-arrival that we explore within)
-        bool withinExplorationWindow() const;
+        [[nodiscard]] bool withinExplorationWindow() const;
+
+        // Gets the next gather observations on the path for a specific next position
+        // Returns nullptr if there are no observations for that position
+        GatherObservations *observationsForSpecificNextPosition(bool resendTakesEffectHere, const PositionOnPath &nextPos);
+
+        // Gets the gather observations for the most likely next position on the path
+        GatherObservations *observationsForMostLikelyNextPosition(bool resendTakesEffectHere);
+
+        // Gets the gather observations for the most likely next position on the path (const version)
+        [[nodiscard]] const GatherObservations *observationsForMostLikelyNextPosition(bool resendTakesEffectHere) const;
+
+        // Looks forward in the path to find the branch that is least explored
+        LeastObservedInGatherPathResult leastObservedInPath(
+                std::set<int> &previousResends,
+                int frame) const;
     };
 
     std::ostream &operator<<(std::ostream &os, const GatherObservations &gatherObservations);
