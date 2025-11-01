@@ -256,4 +256,9 @@ namespace BWAPI
   {
     return bwunit.wouldAGatherResendHereChangeThePath();
   }
+
+  std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>> UnitImpl::simulatePathWithAndWithoutResend() const
+  {
+    return bwunit.simulatePathWithAndWithoutResend();
+  }
 };

@@ -2364,6 +2364,50 @@ std::optional<bool> Unit::wouldAGatherResendHereChangeThePath() const
     return (pf.short_path.at(0) != u->path->next);
 }
 
+std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>> Unit::simulatePathWithAndWithoutResend() const
+{
+    // Validate the unit has a path, target, and is either moving to minerals or moving to return cargo
+    if (!u->path) return std::nullopt;
+    if (!u->order_target.unit) return std::nullopt;
+    if (u->order_type->id != bwgame::Orders::MoveToMinerals && u->order_type->id != bwgame::Orders::ReturnMinerals) return std::nullopt;
+
+    // We simulate by backing up the state, running without a resend, restoring state, running with a resend, and finally restoring state
+
+    // Backup the starting state
+    bwgame::state state_backup;
+    bwgame::state_copier(impl->st, state_backup)();
+
+    auto simulateUntilAtMoveTarget = [&](std::vector<std::pair<int, int>> &positions)
+    {
+        // Loop until the unit reaches their move target or we reach a limit (to avoid an endless loop)
+        while (!impl->funcs.unit_is_at_move_target(u) && positions.size() < 200)
+        {
+            impl->next_frame();
+            positions.emplace_back(u->position.x, u->position.y);
+        }
+
+        // Restore the state
+        bwgame::state_copier(state_backup, impl->st)();
+    };
+
+    // Run the simulation to get the no resend positions
+    std::vector<std::pair<int, int>> noResendPositions;
+    simulateUntilAtMoveTarget(noResendPositions);
+    if (noResendPositions.size() >= 200) return std::nullopt;
+
+    // Resend the command
+    bwgame::order_target_t order_target;
+    order_target.unit = u->order_target.unit;
+    impl->funcs.issue_order(u, false, u->order_type, order_target);
+
+    // Run the simulation to get the resend positions
+    std::vector<std::pair<int, int>> resendPositions;
+    simulateUntilAtMoveTarget(resendPositions);
+    if (resendPositions.size() >= 200) return std::nullopt;
+
+    return std::make_pair(std::move(resendPositions), std::move(noResendPositions));
+}
+
 Bullet::operator bool() const
 {
   return b != nullptr;

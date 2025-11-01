@@ -2585,6 +2585,7 @@ namespace BWAPI
     virtual Position getSubpixelPosition() const = 0;
     virtual int getOrderProcessTimer() const = 0;
     virtual std::optional<bool> wouldAGatherResendHereChangeThePath() const = 0;
+    virtual std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>> simulatePathWithAndWithoutResend() const = 0;
 
     ///@}
   };

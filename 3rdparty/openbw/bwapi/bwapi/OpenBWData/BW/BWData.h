@@ -426,6 +426,7 @@ struct Unit {
   Position getSubpixelPosition() const;
   int getOrderProcessTimer() const;
   std::optional<bool> wouldAGatherResendHereChangeThePath() const;
+  std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>> simulatePathWithAndWithoutResend() const;
 };
 
 struct Bullet {
