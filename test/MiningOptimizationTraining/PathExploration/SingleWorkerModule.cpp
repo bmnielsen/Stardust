@@ -88,11 +88,11 @@ namespace MiningOptimizationTraining
         if (!patch) return false;
 
         // Leave when the worker arrives at the patch
-        if (worker->getDistance(patch) == 0)
-        {
-            BWAPI::Broodwar->leaveGame();
-            return false;
-        }
+//        if (worker->getDistance(patch) == 0)
+//        {
+//            BWAPI::Broodwar->leaveGame();
+//            return false;
+//        }
 
         // Send the command on frame 10 and the resend frame
         if (BWAPI::Broodwar->getFrameCount() == 10 || BWAPI::Broodwar->getFrameCount() == resendFrame)
@@ -114,6 +114,43 @@ namespace MiningOptimizationTraining
             else
             {
                 Log::Get() << worker->getPosition() << ": resend changes: unknown";
+            }
+
+            auto simulatedPaths = worker->simulatePathWithAndWithoutResend();
+            auto pathToString = [](const std::vector<std::pair<int, int>> &path)
+            {
+                std::ostringstream buf;
+                std::string sep;
+                for (const auto &[x, y] : path)
+                {
+                    buf << sep << "(" << x << "," << y << ")";
+                    sep = ", ";
+                }
+                return buf.str();
+            };
+            auto pathsEqual = [](const std::vector<std::pair<int, int>> &a, const std::vector<std::pair<int, int>> &b)
+            {
+                if (a.size() != b.size()) return false;
+                auto a_it = a.begin();
+                auto b_it = b.begin();
+                while (a_it != a.end())
+                {
+                    if (a_it->first != b_it->first || a_it->second != b_it->second) return false;
+
+                    a_it++;
+                    b_it++;
+                }
+                return true;
+            };
+            if (simulatedPaths.has_value())
+            {
+                Log::Get() << worker->getPosition() << ": simulated paths equal: " << pathsEqual(simulatedPaths->first, simulatedPaths->second);
+                Log::Get() << worker->getPosition() << ": resend path: " << pathToString(simulatedPaths->first);
+                Log::Get() << worker->getPosition() << ": no-resend path: " << pathToString(simulatedPaths->second);
+            }
+            else
+            {
+                Log::Get() << worker->getPosition() << ": Unknown path simulation";
             }
             return false;
         }

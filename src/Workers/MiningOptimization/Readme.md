@@ -63,7 +63,7 @@ When the patch is free, we ideally want the approaching worker's order process t
 Gather commands have the following delay before they can transition into mining:
 
 - Latency frames
-- One frame where the unit replans its movement and resets the mining status
+- One frame where the unit is in the ResetHarvestCollision order, during which it replans its movement and resets the mining status
 - 9 frames for order process timer to cycle back to 0
 - 1 frame in WaitForMinerals (once the worker is at the patch)
 
