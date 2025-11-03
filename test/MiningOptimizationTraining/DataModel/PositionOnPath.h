@@ -2,24 +2,13 @@
 
 #include <cstdint>
 #include "MyWorker.h"
-#include "Geo.h"
+
+#include <BWAPI/ExactPosition.h>
 
 #define USE_VELOCITY true
 
 namespace MiningOptimizationTraining
 {
-    // Represends a position at subpixel precision
-    struct SubpixelPosition
-    {
-        uint32_t x;
-        uint32_t y;
-
-        explicit SubpixelPosition(BWAPI::Unit unit)
-                : x(((uint32_t)unit->getPosition().x << 8) + unit->getSubpixelPosition().x)
-                , y(((uint32_t)unit->getPosition().y << 8) + unit->getSubpixelPosition().y)
-        {}
-    };
-
     /*
      * Represents a position on a path.
      *
@@ -37,8 +26,7 @@ namespace MiningOptimizationTraining
      * velocityX: 8
      * velocityY: 8
      * heading: 8
-     * dXSubpixel: 12
-     * dYSubpixel: 12
+     * exactPositionDelta: 24 (12 for x and 12 for y)
      */
     class PositionOnPath
     {
@@ -50,8 +38,7 @@ namespace MiningOptimizationTraining
         int8_t velocityY;   // 8-bit integer representation of the unit's speed on the Y axis
         int8_t heading;     // The heading in BW representation (1/256th of a circle)
 
-        int16_t dXSubpixel; // X subpixel delta from previous position on path, between -1280 and 1280 inclusive
-        int16_t dYSubpixel; // Y subpixel delta from previous position on path, between -1280 and 1280 inclusive
+        BWAPI::ExactPositionDifference exactPositionDelta; // Subpixel delta from previous position on path, values between -1280 and 1280 inclusive
 
         PositionOnPath()
                 : x(0)
@@ -59,8 +46,7 @@ namespace MiningOptimizationTraining
                 , velocityX(0)
                 , velocityY(0)
                 , heading(0)
-                , dXSubpixel(0)
-                , dYSubpixel(0)
+                , exactPositionDelta({0, 0})
         {}
 
         explicit PositionOnPath(const BWAPI::Unit &unit)
@@ -68,63 +54,53 @@ namespace MiningOptimizationTraining
                 , y((uint16_t)unit->getPosition().y)
                 , velocityX(MyWorkerImpl::to8bSpeed(unit->getVelocityX()))
                 , velocityY(MyWorkerImpl::to8bSpeed(unit->getVelocityY()))
-                , heading(Geo::BWHeading(unit->getAngle()))
-                , dXSubpixel(0)
-                , dYSubpixel(0)
+                , heading(unit->getExactPosition().heading)
+                , exactPositionDelta({0, 0})
         {}
 
-        PositionOnPath(const BWAPI::Unit &unit, const SubpixelPosition &previousPosition)
+        PositionOnPath(const BWAPI::Unit &unit, const BWAPI::ExactPosition &previousPosition)
                 : x((uint16_t)unit->getPosition().x)
                 , y((uint16_t)unit->getPosition().y)
                 , velocityX(MyWorkerImpl::to8bSpeed(unit->getVelocityX()))
                 , velocityY(MyWorkerImpl::to8bSpeed(unit->getVelocityY()))
-                , heading(Geo::BWHeading(unit->getAngle()))
-                , dXSubpixel(SubpixelPosition(unit).x - previousPosition.x)
-                , dYSubpixel(SubpixelPosition(unit).y - previousPosition.x)
+                , heading(unit->getExactPosition().heading)
+                , exactPositionDelta(unit->getExactPosition() - previousPosition)
         {}
 
         bool operator==(const PositionOnPath &other) const
         {
-            return x == other.x
-                   && y == other.y
-                   && dXSubpixel == other.dXSubpixel
-                   && dYSubpixel == other.dYSubpixel
-                   && heading == other.heading
 #if USE_VELOCITY
-                   && velocityX == other.velocityX
-                   && velocityY == other.velocityY
+            return std::tie(x, y, exactPositionDelta, heading, velocityX, velocityY) ==
+                   std::tie(other.x, other.y, other.exactPositionDelta, other.heading, other.velocityX, other.velocityY);
+#else
+            return std::tie(x, y, exactPositionDelta, heading) == std::tie(other.x, other.y, other.exactPositionDelta, other.heading);
 #endif
-                ;
         }
 
         bool operator<(const PositionOnPath &other) const
         {
-            return (x < other.x)
-                || (x == other.x && y < other.y)
-                || (x == other.x && y == other.y && dXSubpixel < other.dXSubpixel)
-                || (x == other.x && y == other.y && dXSubpixel == other.dXSubpixel && dYSubpixel < other.dYSubpixel)
-                || (x == other.x && y == other.y && dXSubpixel == other.dXSubpixel && dYSubpixel == other.dYSubpixel
-                    && heading < other.heading)
 #if USE_VELOCITY
-                || (x == other.x && y == other.y && dXSubpixel == other.dXSubpixel && dYSubpixel == other.dYSubpixel
-                    && heading == other.heading && velocityX < other.velocityX)
-                || (x == other.x && y == other.y && dXSubpixel == other.dXSubpixel && dYSubpixel == other.dYSubpixel
-                    && heading == other.heading && velocityX == other.velocityX && velocityY < other.velocityY)
+            return std::tie(x, y, exactPositionDelta, heading, velocityX, velocityY) <
+                   std::tie(other.x, other.y, other.exactPositionDelta, other.heading, other.velocityX, other.velocityY);
+#else
+            return std::tie(x, y, exactPositionDelta, heading) < std::tie(other.x, other.y, other.exactPositionDelta, other.heading);
 #endif
-                ;
         }
 
-        BWAPI::Position bwapiPosition() const
+        [[nodiscard]] BWAPI::Position bwapiPosition() const
         {
-            return BWAPI::Position(x, y);
+            return {x, y};
         }
 
         template <typename S>
         void serialize(S& s) {
             s.value2b(x);
             s.value2b(y);
-            s.value2b(dXSubpixel);
-            s.value2b(dYSubpixel);
+
+            // These could be stored as 2 bytes each but it would be a bit messy and this is only used in training anyway
+            s.value4b(exactPositionDelta.x);
+            s.value4b(exactPositionDelta.y);
+
             s.value1b(heading);
 #if USE_VELOCITY
             s.value1b(velocityX);
@@ -133,7 +109,6 @@ namespace MiningOptimizationTraining
         }
     };
 
-    std::ostream &operator<<(std::ostream &os, const SubpixelPosition &subpixelPosition);
     std::ostream &operator<<(std::ostream &os, const PositionOnPath &positionOnPath);
 }
 
@@ -144,8 +119,8 @@ struct std::hash<MiningOptimizationTraining::PositionOnPath>
     {
         // Only intended for use in std::unordered_map, so hash quality is not important
         uint32_t xy = (pos.x << 16) + pos.y;
-        uint32_t dxySubpixel = ((uint16_t)pos.dXSubpixel << 16) + (uint16_t)pos.dYSubpixel;
-        uint32_t velocityAndHeading = (uint32_t)pos.heading;
+        uint32_t dxySubpixel = ((uint16_t)pos.exactPositionDelta.x << 16) + (uint16_t)pos.exactPositionDelta.y;
+        uint32_t velocityAndHeading = (unsigned char)pos.heading;
 #if USE_VELOCITY
         velocityAndHeading += ((uint8_t)pos.velocityX << 16) + ((uint8_t)pos.velocityY << 8);
 #endif

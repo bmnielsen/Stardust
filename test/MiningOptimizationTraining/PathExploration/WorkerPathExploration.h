@@ -35,7 +35,7 @@ namespace MiningOptimizationTraining
             , worker(worker)
             , patch(patch)
             , depot(depot)
-            , previousPosition(SubpixelPosition(worker))
+            , previousPosition(worker->getExactPosition())
             , gatherPositionHistoryStartFrame(-1)
             , currentGatherNode(nullptr)
             , returnPositionHistoryStartFrame(-1)
@@ -52,8 +52,8 @@ namespace MiningOptimizationTraining
         BWAPI::Unit patch;
         BWAPI::Unit depot;
 
-        // Stores the previous subpixel position of the worker
-        SubpixelPosition previousPosition;
+        // Stores the previous exact position of the worker (including subpixels)
+        BWAPI::ExactPosition previousPosition;
 
         /* State specific to the gather phase */
 

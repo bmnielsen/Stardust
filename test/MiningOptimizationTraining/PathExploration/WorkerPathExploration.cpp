@@ -111,7 +111,7 @@ namespace MiningOptimizationTraining
             }
         }();
 
-        previousPosition = SubpixelPosition(worker);
+        previousPosition = worker->getExactPosition();
     }
 
     ParsedPositionHistory WorkerPathExploration::parsePositionHistory(
