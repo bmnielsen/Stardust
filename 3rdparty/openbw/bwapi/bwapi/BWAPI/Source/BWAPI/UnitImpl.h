@@ -2,6 +2,7 @@
 
 #include <BWAPI/Unit.h>
 #include <BWAPI/Unitset.h>
+#include <BWAPI/ExactPosition.h>
 #include <Util/Types.h>
 
 #include <BWAPI/UnitCommand.h>
@@ -253,7 +254,7 @@ namespace BWAPI
       virtual void setResources(int value) override;
       virtual void setHeading(int value) override;
 
-      virtual Position getSubpixelPosition() const override;
+      virtual ExactPosition getExactPosition() const override;
       virtual int getOrderProcessTimer() const override;
       virtual std::optional<bool> wouldAGatherResendHereChangeThePath() const override;
       virtual std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>>

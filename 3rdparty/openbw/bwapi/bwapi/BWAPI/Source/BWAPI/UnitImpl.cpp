@@ -6,6 +6,7 @@
 #include <BWAPI/Player.h>
 #include <BWAPI/Order.h>
 #include <BWAPI/WeaponType.h>
+#include <BWAPI/ExactPosition.h>
 
 #include "Command.h"
 #include "Templates.h"
@@ -242,9 +243,9 @@ namespace BWAPI
     bwunit.setHeading(value);
   }
 
-  Position UnitImpl::getSubpixelPosition() const
+  ExactPosition UnitImpl::getExactPosition() const
   {
-    return bwunit.getSubpixelPosition();
+    return ExactPosition{bwunit.getExactPosition()};
   }
 
   int UnitImpl::getOrderProcessTimer() const

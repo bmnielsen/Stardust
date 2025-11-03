@@ -423,7 +423,7 @@ struct Unit {
   void setResources(int value);
   void setHeading(int value);
 
-  Position getSubpixelPosition() const;
+  std::tuple<uint32_t, uint32_t, int8_t> getExactPosition() const;
   int getOrderProcessTimer() const;
   std::optional<bool> wouldAGatherResendHereChangeThePath() const;
   std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>> simulatePathWithAndWithoutResend() const;

@@ -2335,9 +2335,9 @@ void Unit::setHeading(int value)
   impl->game_setup_helper.input_action(w.data(), w.size());
 }
 
-Position Unit::getSubpixelPosition() const
+std::tuple<uint32_t, uint32_t, int8_t> Unit::getExactPosition() const
 {
-    return {(s16)u->exact_position.x.fractional_part(), (s16)u->exact_position.y.fractional_part()};
+    return {(uint32_t)u->exact_position.x.raw_value, (uint32_t)u->exact_position.y.raw_value, (int8_t)u->heading.raw_value};
 }
 
 int Unit::getOrderProcessTimer() const

@@ -4,6 +4,7 @@
 #include <BWAPI/Filters.h>
 #include <BWAPI/UnaryFilter.h>
 #include <BWAPI/Interface.h>
+#include <BWAPI/ExactPosition.h>
 
 #include <optional>
 
@@ -2582,7 +2583,7 @@ namespace BWAPI
     virtual void setResources(int value) = 0;
     virtual void setHeading(int value) = 0;
 
-    virtual Position getSubpixelPosition() const = 0;
+    virtual ExactPosition getExactPosition() const = 0;
     virtual int getOrderProcessTimer() const = 0;
     virtual std::optional<bool> wouldAGatherResendHereChangeThePath() const = 0;
     virtual std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>> simulatePathWithAndWithoutResend() const = 0;
