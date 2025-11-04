@@ -57,6 +57,8 @@ namespace MiningOptimizationTraining
                 {111,212},
                 {108,212}
         };
+
+        std::vector<BWAPI::ExactPosition> actuals;
     }
     bool SingleWorkerModule::initialize()
     {
@@ -75,7 +77,7 @@ namespace MiningOptimizationTraining
         // Give the workers time to die
         if (BWAPI::Broodwar->getFrameCount() < 10) return false;
 
-        // Find the worker
+        // Find the worker and depot
         BWAPI::Unit worker;
         for (auto unit : BWAPI::Broodwar->self()->getUnits())
         {
@@ -102,6 +104,43 @@ namespace MiningOptimizationTraining
                 Log::Get() << "Resending at frame " << resendFrame;
             }
             worker->gather(patch);
+        }
+
+        auto out = [](const auto &container)
+        {
+            std::ostringstream buf;
+            std::string sep;
+            for (const auto &item : container)
+            {
+                buf << sep << item;
+                sep = ", ";
+            }
+            return buf.str();
+        };
+
+        // Resend return minerals
+        if (BWAPI::Broodwar->getFrameCount() == 80)
+        {
+            auto result = worker->simulateGatherPath({107});
+            if (result.has_value())
+            {
+                Log::Get() << "Simulated: " << out(result->first);
+            }
+        }
+        if (BWAPI::Broodwar->getFrameCount() > 80)
+        {
+            if (BWAPI::Broodwar->getFrameCount() == 105)
+            {
+                worker->returnCargo();
+            }
+            if (BWAPI::Broodwar->getFrameCount() < 130)
+            {
+                actuals.push_back(worker->getExactPosition());
+            }
+            else if (BWAPI::Broodwar->getFrameCount() == 130)
+            {
+                Log::Get() << "   Actual: " << out(actuals);
+            }
         }
 
         if (resendFrame == -1)
@@ -155,15 +194,15 @@ namespace MiningOptimizationTraining
             return false;
         }
 
-        auto index = BWAPI::Broodwar->getFrameCount() - 10;
-        if (index >= noResendPath.size())
-        {
-            Log::Get() << "Path diverged - expected to be finished here";
-        }
-        else if (noResendPath[index] != worker->getPosition())
-        {
-            Log::Get() << "Path diverged: " << worker->getPosition() << " vs. expected " << noResendPath[index];
-        }
+//        auto index = BWAPI::Broodwar->getFrameCount() - 10;
+//        if (index >= noResendPath.size())
+//        {
+//            Log::Get() << "Path diverged - expected to be finished here";
+//        }
+//        else if (noResendPath[index] != worker->getPosition())
+//        {
+//            Log::Get() << "Path diverged: " << worker->getPosition() << " vs. expected " << noResendPath[index];
+//        }
 
         return false;
     }

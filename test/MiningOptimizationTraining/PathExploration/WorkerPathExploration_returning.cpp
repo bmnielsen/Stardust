@@ -13,8 +13,8 @@ namespace MiningOptimizationTraining
 
         appendCurrentPosition(returnPositionHistory);
 
-        // We check the patch collision status 8 frames after starting the return
-        if (returnPositionHistory.size() == 8)
+        // We check the patch collision status 15 frames after starting the return
+        if (returnPositionHistory.size() == 15)
         {
             recordGatherCollisions();
         }

@@ -64,8 +64,8 @@ TEST(PathExploration, VermeerSingleWorker)
 //        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 //    }
 //    for (int i = 12; i < 55; i++) runSingleWorkerTest(test, i);
-//    runSingleWorkerTest(test, 25);
-    runSingleWorkerTest(test, -1);
+    runSingleWorkerTest(test, 25);
+//    runSingleWorkerTest(test, -1);
 }
 
 TEST(PathExploration, VermeerOneIteration)

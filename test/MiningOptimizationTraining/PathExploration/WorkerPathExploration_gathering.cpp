@@ -6,6 +6,7 @@ namespace MiningOptimizationTraining
     void WorkerPathExploration::gathering()
     {
         appendCurrentPosition(gatherPositionHistory);
+        if (resendsPlanned) gatherExactPositionHistory.emplace_back(worker->getExactPosition());
 
         // If the worker has reached the WaitForMinerals frame, we can record the path information
         if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
@@ -119,6 +120,35 @@ namespace MiningOptimizationTraining
         resendsPlanned = true;
 
         CherryVis::log(worker->getID()) << "Planned resends: " << result;
+
+        // Temporary validation logic
+        gatherExactPositionHistory.clear();
+        expectedExactPositionPath.clear();
+        expectedCollision = std::nullopt;
+//        if (plannedGatherResendFrames.size() == 2 && *plannedGatherResendFrames.begin() == (*plannedGatherResendFrames.rbegin() - 1))
+//        {
+            std::set<int> resendFrames;
+            for (auto resendFrame : plannedGatherResendFrames) resendFrames.insert(resendFrame + BWAPI::Broodwar->getLatencyFrames());
+//            Log::Get() << "Starting sim";
+            auto result2 = worker->simulateGatherPath(resendFrames);
+            if (result2.has_value())
+            {
+//                auto out = [](const auto &container)
+//                {
+//                    std::ostringstream buf;
+//                    std::string sep;
+//                    for (const auto &item : container)
+//                    {
+//                        buf << sep << item;
+//                        sep = ", ";
+//                    }
+//                    return buf.str();
+//                };
+                expectedExactPositionPath = std::move(result2->first);
+                expectedCollision = result2->second;
+//                Log::Get() << "Finished sim with result " << out(expectedExactPositionPath);
+//            }
+        }
     }
 
     void WorkerPathExploration::recordGatherPath()
@@ -126,6 +156,34 @@ namespace MiningOptimizationTraining
         auto parsedPositionHistory =
                 parsePositionHistory(gatherPositionHistory, gatherPositionHistoryStartFrame, executedGatherResendFrames, depot, patch);
         if (!parsedPositionHistory.valid) return;
+
+        if (!gatherExactPositionHistory.empty() && !expectedExactPositionPath.empty())
+        {
+            auto out = [](const auto &container)
+            {
+                std::ostringstream buf;
+                std::string sep;
+                for (const auto &item : container)
+                {
+                    buf << sep << item;
+                    sep = ", ";
+                }
+                return buf.str();
+            };
+            bool pathsMatch = (expectedExactPositionPath.size() <= gatherExactPositionHistory.size());
+            int i = 0;
+            while (pathsMatch && i < expectedExactPositionPath.size())
+            {
+                pathsMatch = (expectedExactPositionPath[i] == gatherExactPositionHistory[i]);
+                i++;
+            }
+            if (!pathsMatch)
+            {
+                Log::Get() << "Paths didn't match; " << executedGatherResendFrames.size() << " resends: " << out(executedGatherResendFrames);
+                Log::Get() << "Expected: " << out(expectedExactPositionPath);
+                Log::Get() << "  Actual: " << out(gatherExactPositionHistory);
+            }
+        }
 
         // Find or create the root node
         auto &rootNodes = mapData.resourceToGatherRootNodes[TilePosition::fromBWAPI(patch->getTilePosition())];
@@ -211,15 +269,46 @@ namespace MiningOptimizationTraining
                 parsePositionHistory(gatherPositionHistory, gatherPositionHistoryStartFrame, executedGatherResendFrames, depot, patch);
         if (!parsedPositionHistory.valid) return;
 
+        // Go through the start of the return history to see if the worker stalled for a full order process timer cycle
+        int stallFrames = 0;
+        int maxStallFrames = 0;
+        int maxStallStart = 0;
+        for (auto it = returnPositionHistory.begin() + 1; it != returnPositionHistory.end(); it++)
+        {
+            if ((*it)->bwapiPosition() == (*(it - 1))->bwapiPosition())
+            {
+                stallFrames++;
+                if (stallFrames > maxStallFrames)
+                {
+                    maxStallFrames = stallFrames;
+                    maxStallStart = std::distance(returnPositionHistory.begin(), it) - maxStallFrames;
+                }
+            }
+            else
+            {
+                stallFrames = 0;
+            }
+        }
+
+        bool collision = (maxStallFrames > 8);
+
         // This method gets called 8 frames after the worker starts returning minerals
         // Since a collision adds a full order process timer cycle of delay, we can therefore detect it by checking if the worker
         // is still at the patch and hasn't moved the past two frames
-        bool collision = (patch->getDistance(worker) == 0
-                && **returnPositionHistory.rbegin() == **(returnPositionHistory.rbegin() + 1)
-                && **returnPositionHistory.rbegin() == **(returnPositionHistory.rbegin() + 2));
+//        bool collision = (patch->getDistance(worker) == 0
+//                && **returnPositionHistory.rbegin() == **(returnPositionHistory.rbegin() + 1)
+//                && **returnPositionHistory.rbegin() == **(returnPositionHistory.rbegin() + 2)
+//                );
         if (collision)
         {
             CherryVis::log(worker->getID()) << "Detected collision with patch";
+        }
+
+        if (expectedCollision.has_value() && *expectedCollision != collision)
+        {
+            Log::Get() << "Collision mismatch, expected collision: " << *expectedCollision
+                    << "; maxStallFrames=" << maxStallFrames << "; maxStallStart=" << maxStallStart
+                    << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
         }
 
         // Find the root node, which must exist since we have already recorded arrival observations

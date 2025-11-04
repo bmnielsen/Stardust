@@ -60,6 +60,11 @@ namespace MiningOptimizationTraining
         // History of positions visited while on the way to gather
         std::vector<std::shared_ptr<const PositionOnPath>> gatherPositionHistory;
 
+        // Temporarily added for validation
+        std::vector<BWAPI::ExactPosition> gatherExactPositionHistory;
+        std::vector<BWAPI::ExactPosition> expectedExactPositionPath;
+        std::optional<bool> expectedCollision;
+
         // The first frame in the gather position history
         int gatherPositionHistoryStartFrame;
 

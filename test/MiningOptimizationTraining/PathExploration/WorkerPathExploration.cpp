@@ -24,6 +24,10 @@ namespace MiningOptimizationTraining
                     executedGatherResendFrames.clear();
                     resendsPlanned = false;
 
+                    gatherExactPositionHistory.clear();
+                    expectedExactPositionPath.clear();
+                    expectedCollision = std::nullopt;
+
                     break;
                 }
                 case 1:
