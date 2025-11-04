@@ -257,9 +257,6 @@ namespace BWAPI
 
       virtual ExactPosition getExactPosition() const override;
       virtual int getOrderProcessTimer() const override;
-      virtual std::optional<bool> wouldAGatherResendHereChangeThePath() const override;
-      virtual std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>>
-              simulatePathWithAndWithoutResend() const override;
       virtual std::optional<std::pair<std::vector<ExactPosition>, bool>> simulateGatherPath(const std::set<int> &resendFrames) const override;
 
       //Internal BWAPI commands:
