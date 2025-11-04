@@ -4,6 +4,7 @@
 #include <bitsery/adapter/stream.h>
 #include <bitsery/traits/vector.h>
 #include <bitsery/ext/std_map.h>
+#include <bitsery/ext/std_set.h>
 
 #include <zstdstream.h>
 
@@ -42,50 +43,58 @@ namespace MiningOptimizationTraining::Serialization
         template <typename S>
         void serialize(S &ser, MapData &data)
         {
-            std::function<void(S&, GatherArrivalObservations&)> gatherArrivalObservationsSerializer;
-            std::function<void(S&, GatherObservations&)> gatherObservationsSerializer;
-            std::function<void(S&, std::unordered_map<TilePosition, std::unordered_map<PositionOnPath, GatherObservations>>&)>
-                resourceToGatherRootNodesSerializer;
-
-            gatherArrivalObservationsSerializer = [](S &s, GatherArrivalObservations &value)
+            auto exactPositionDifferenceSerializer = [](S &s, BWAPI::ExactPositionDifference &value)
             {
-                s.ext(value.arrivalToOccurrences, bitsery::ext::StdMap{INT_MAX}, [](S& s, ArrivalData& key, uint32_t& v) {
-                    s.object(key);
-                    s.value4b(v);
-                });
-                s.value4b(value.collisions);
-                s.value4b(value.nonCollisions);
+                s.value4b(value.x);
+                s.value4b(value.y);
             };
 
-            gatherObservationsSerializer = [&](S &s, GatherObservations &value)
+            auto rootNodeSerializer = [&]<typename T>(S &s, Path<T>& value)
             {
+                std::function<void(S&, PathNode<T>&)> pathNodeSerializer;
+
+                pathNodeSerializer = [&](S &s, PathNode<T>& value)
+                {
+                    s.object(value.positionDifferenceFromPreviousNode, exactPositionDifferenceSerializer);
+                    s.value1b(value.type);
+                    s.value4b(value.timesExplored);
+                    s.ext(value.arrivalData, bitsery::ext::StdSet{INT_MAX}, [](auto &s, T &value)
+                    {
+                        s.object(value);
+                    });
+                    s.ext(value.arrivalDataAfterResend, bitsery::ext::StdSet{INT_MAX}, [](auto &s, T &value)
+                    {
+                        s.object(value);
+                    });
+                    s.container(value.nextPositions, INT_MAX, [&](S &s, PathNode<T> &v) {
+                        s.object(v, pathNodeSerializer);
+                    });
+                    s.container(value.nextPositionsAfterResend, INT_MAX, [&](S &s, PathNode<T> &v) {
+                        s.object(v, pathNodeSerializer);
+                    });
+                };
+
                 s.object(value.pos);
-                s.value4b(value.occurrences);
-                s.value1b(value.canResendChangePath);
-                s.object(value.arrivalObservations, gatherArrivalObservationsSerializer);
-                s.object(value.arrivalObservationsAfterResend, gatherArrivalObservationsSerializer);
-                s.container(value.nextPositions, INT_MAX, [&](S &s, GatherObservations &v) {
-                    s.object(v, gatherObservationsSerializer);
-                });
-                s.container(value.nextPositionsAfterResend, INT_MAX, [&](S &s, GatherObservations &v) {
-                    s.object(v, gatherObservationsSerializer);
+                s.container(value.nextPositions, INT_MAX, [&](S &s, PathNode<T> &v) {
+                    s.object(v, pathNodeSerializer);
                 });
             };
 
-            resourceToGatherRootNodesSerializer = [&](
+            auto resourceToRootNodesSerializer = [&]<typename T>(
                     S &s,
-                    std::unordered_map<TilePosition, std::unordered_map<PositionOnPath, GatherObservations>> &value)
+                    std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<T>>> &value)
             {
-                s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S& s, TilePosition& key, std::unordered_map<PositionOnPath, GatherObservations>& v) {
+                s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S& s, TilePosition& key, std::unordered_map<PositionAndVelocity, Path<T>>& v) {
                     s.object(key);
-                    s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S& s, PositionOnPath& key, GatherObservations& v) {
+                    s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S& s, PositionAndVelocity& key, Path<T>& v) {
                         s.object(key);
-                        s.object(v, gatherObservationsSerializer);
+                        s.object(v, rootNodeSerializer);
                     });
                 });
             };
 
-            ser.object(data.resourceToGatherRootNodes, resourceToGatherRootNodesSerializer);
+            ser.object(data.resourceToGatherPaths, resourceToRootNodesSerializer);
+            ser.object(data.resourceToReturnPaths, resourceToRootNodesSerializer);
         }
     }
 

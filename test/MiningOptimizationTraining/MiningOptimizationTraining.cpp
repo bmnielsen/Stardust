@@ -19,18 +19,17 @@ namespace
         test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
     }
 
-    void runSingleWorkerTest(BWTest &test, int resend)
+    void runSingleWorkerTest(BWTest &test)
     {
         initializeTest(test);
         test.myModule = [&]()
         {
-            return new MiningOptimizationTraining::SingleWorkerModule(resend);
+            return new MiningOptimizationTraining::SingleWorkerModule();
         };
         test.frameLimit = 1000;
 
         std::ostringstream replayNameBuilder;
-        replayNameBuilder << "MiningTraining_" << test.map->shortname();
-        replayNameBuilder << "_SingleWorker_" << resend;
+        replayNameBuilder << "MiningTraining_" << test.map->shortname() << "_SingleWorker";
         test.replayName = replayNameBuilder.str();
 
         test.run();
@@ -58,14 +57,7 @@ TEST(PathExploration, VermeerSingleWorker)
 {
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-//    for (int i = -20; i < -10; i++)
-//    {
-//        runSingleWorkerTest(test, -1);
-//        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-//    }
-//    for (int i = 12; i < 55; i++) runSingleWorkerTest(test, i);
-    runSingleWorkerTest(test, 25);
-//    runSingleWorkerTest(test, -1);
+    runSingleWorkerTest(test);
 }
 
 TEST(PathExploration, VermeerOneIteration)

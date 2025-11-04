@@ -1,9 +1,9 @@
 #pragma once
 
 #include "TilePosition.h"
-#include "PositionOnPath.h"
-#include "GatherObservations.h"
-#include "ReturnObservations.h"
+#include "PositionAndVelocity.h"
+#include "GatherArrivalData.h"
+#include "ReturnArrivalData.h"
 
 namespace MiningOptimizationTraining
 {
@@ -11,14 +11,14 @@ namespace MiningOptimizationTraining
     {
     public:
         std::string mapHash;
-        std::unordered_map<TilePosition, std::unordered_map<PositionOnPath, GatherObservations>> resourceToGatherRootNodes;
-        std::unordered_map<TilePosition, std::unordered_map<PositionOnPath, ReturnObservations>> resourceToReturnRootNodes;
+        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPath>> resourceToGatherPaths;
+        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPath>> resourceToReturnPaths;
 
         void clear(const std::string &_mapHash)
         {
             mapHash = _mapHash;
-            resourceToGatherRootNodes.clear();
-            resourceToReturnRootNodes.clear();
+            resourceToGatherPaths.clear();
+            resourceToReturnPaths.clear();
         }
     };
 }

@@ -4,34 +4,24 @@
 
 namespace
 {
-    MiningOptimizationTraining::PositionOnPath generateTestPosition(int value)
+    MiningOptimizationTraining::PositionAndVelocity generateTestPosition(uint16_t value)
     {
-        MiningOptimizationTraining::PositionOnPath result;
-        result.x = result.y = result.heading = value;
-        result.exactPositionDelta = {value, value};
-#if USE_VELOCITY
-        result.velocityX = result.velocityY = value;
-#endif
+        return {value, value, (int8_t)value, (int8_t)value, (int8_t)value};
+    }
+
+    MiningOptimizationTraining::GatherPathNode generateGatherPathNode(MiningOptimizationTraining::PositionAndVelocity pos)
+    {
+        MiningOptimizationTraining::GatherPathNode result;
+        result.positionDifferenceFromPreviousNode = { pos.x, pos.y };
+        result.type = (MiningOptimizationTraining::NodeType)(pos.x % 6);
+        result.timesExplored = pos.x;
+        result.arrivalData.insert(MiningOptimizationTraining::GatherArrivalData(pos.x));
+        result.arrivalDataAfterResend.insert(MiningOptimizationTraining::GatherArrivalData(pos.x - 5));
         return result;
     }
 
-    MiningOptimizationTraining::GatherObservations generateGatherObservations(MiningOptimizationTraining::PositionOnPath pos)
-    {
-        MiningOptimizationTraining::GatherObservations result;
-        result.pos = pos;
-        result.occurrences = pos.x;
-        result.canResendChangePath = (MiningOptimizationTraining::ResendChangesPath)(pos.x % 3);
-        result.arrivalObservations.arrivalToOccurrences.emplace(MiningOptimizationTraining::ArrivalData(pos.x), pos.x);
-        result.arrivalObservations.collisions = pos.x;
-        result.arrivalObservations.nonCollisions = pos.x;
-        result.arrivalObservationsAfterResend.arrivalToOccurrences.emplace(MiningOptimizationTraining::ArrivalData(pos.x - 5), pos.x - 5);
-        result.arrivalObservationsAfterResend.collisions = pos.x - 5;
-        result.arrivalObservationsAfterResend.nonCollisions = pos.x - 5;
-        return result;
-    }
-
-    template <typename M, typename V>
-    void assertMapsEqual(M &expected, M &actual, std::function<void(V&, V&)> valueComparator)
+    template <typename M>
+    void assertMapsEqual(M &expected, M &actual, const auto& valueComparator)
     {
         ASSERT_EQ(expected.size(), actual.size());
         for (auto &[expectedKey, expectedValue] : expected)
@@ -41,36 +31,46 @@ namespace
         }
     }
 
-    void assertGatherArrivalObservationsEqual(MiningOptimizationTraining::GatherArrivalObservations &expected,
-                                              MiningOptimizationTraining::GatherArrivalObservations &actual)
+    template <typename M>
+    void assertSetsEqual(M &expected, M &actual)
     {
-        assertMapsEqual(expected.arrivalToOccurrences,
-                        actual.arrivalToOccurrences,
-                        std::function{[](uint32_t &expected, uint32_t &actual){ ASSERT_EQ(expected, actual); }});
-        ASSERT_EQ(expected.collisions, actual.collisions);
-        ASSERT_EQ(expected.nonCollisions, actual.nonCollisions);
+        ASSERT_EQ(expected.size(), actual.size());
+        for (auto &expectedKey : expected)
+        {
+            ASSERT_TRUE(actual.contains(expectedKey));
+        }
     }
 
-    void assertGatherObservationsEqual(MiningOptimizationTraining::GatherObservations &expected,
-                                       MiningOptimizationTraining::GatherObservations &actual)
+    void assertGatherPathNodesVectorEqual(std::vector<MiningOptimizationTraining::GatherPathNode> &expected,
+                                          std::vector<MiningOptimizationTraining::GatherPathNode> &actual);
+
+    void assertGatherPathNodesEqual(MiningOptimizationTraining::GatherPathNode &expected,
+                                    MiningOptimizationTraining::GatherPathNode &actual)
+    {
+        ASSERT_EQ(expected.positionDifferenceFromPreviousNode, actual.positionDifferenceFromPreviousNode);
+        ASSERT_EQ(expected.type, actual.type);
+        assertSetsEqual(expected.arrivalData, actual.arrivalData);
+        assertSetsEqual(expected.arrivalDataAfterResend, actual.arrivalDataAfterResend);
+
+        assertGatherPathNodesVectorEqual(expected.nextPositions, actual.nextPositions);
+        assertGatherPathNodesVectorEqual(expected.nextPositionsAfterResend, actual.nextPositionsAfterResend);
+    }
+
+    void assertGatherPathNodesVectorEqual(std::vector<MiningOptimizationTraining::GatherPathNode> &expected,
+                                          std::vector<MiningOptimizationTraining::GatherPathNode> &actual)
+    {
+        ASSERT_EQ(expected.size(), actual.size());
+        for (int i = 0; i < expected.size(); i++)
+        {
+            assertGatherPathNodesEqual(expected[i], actual[i]);
+        }
+    }
+
+    void assertGatherPathsEqual(MiningOptimizationTraining::GatherPath &expected,
+                                MiningOptimizationTraining::GatherPath &actual)
     {
         ASSERT_EQ(expected.pos, actual.pos);
-        ASSERT_EQ(expected.occurrences, actual.occurrences);
-        ASSERT_EQ(expected.canResendChangePath, actual.canResendChangePath);
-        assertGatherArrivalObservationsEqual(expected.arrivalObservations, actual.arrivalObservations);
-        assertGatherArrivalObservationsEqual(expected.arrivalObservationsAfterResend, actual.arrivalObservationsAfterResend);
-
-        auto assertGatherObservationsVectorEqual = [](std::vector<MiningOptimizationTraining::GatherObservations> &expected,
-                                                      std::vector<MiningOptimizationTraining::GatherObservations> &actual)
-        {
-            ASSERT_EQ(expected.size(), actual.size());
-            for (int i = 0; i < expected.size(); i++)
-            {
-                assertGatherObservationsEqual(expected[i], actual[i]);
-            }
-        };
-        assertGatherObservationsVectorEqual(expected.nextPositions, actual.nextPositions);
-        assertGatherObservationsVectorEqual(expected.nextPositionsAfterResend, actual.nextPositionsAfterResend);
+        assertGatherPathNodesVectorEqual(expected.nextPositions, actual.nextPositions);
     }
 }
 
@@ -80,12 +80,12 @@ TEST(SerializationTests, WriteAndReadBack)
     Log::SetOutputToConsole(true);
 
     // Set up sample gather data
-    MiningOptimizationTraining::PositionOnPath pos[9];
-    MiningOptimizationTraining::GatherObservations gatherObservations[9];
+    MiningOptimizationTraining::PositionAndVelocity pos[9];
+    MiningOptimizationTraining::GatherPathNode gatherObservations[9];
     for (int i = 0; i < 9; i++)
     {
         pos[i] = generateTestPosition(10 * (i+1));
-        gatherObservations[i] = generateGatherObservations(pos[i]);
+        gatherObservations[i] = generateGatherPathNode(pos[i]);
     }
     gatherObservations[0].nextPositions.push_back(gatherObservations[1]);
     gatherObservations[0].nextPositions.push_back(gatherObservations[2]);
@@ -96,16 +96,16 @@ TEST(SerializationTests, WriteAndReadBack)
 
     // Create the expected map data
     MiningOptimizationTraining::MapData expected;
-    expected.resourceToGatherRootNodes.emplace(
+    expected.resourceToGatherPaths.emplace(
             TilePosition(0, 0),
-            std::unordered_map<MiningOptimizationTraining::PositionOnPath, MiningOptimizationTraining::GatherObservations>{
-                {pos[0], gatherObservations[0]},
-                {pos[8], gatherObservations[8]}
+            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
+                {pos[0], MiningOptimizationTraining::GatherPath{pos[0], {gatherObservations[0]}}},
+                {pos[8], MiningOptimizationTraining::GatherPath{pos[8], {gatherObservations[8]}}}
             });
-    expected.resourceToGatherRootNodes.emplace(
+    expected.resourceToGatherPaths.emplace(
             TilePosition(1, 1),
-            std::unordered_map<MiningOptimizationTraining::PositionOnPath, MiningOptimizationTraining::GatherObservations>{
-                {pos[5], gatherObservations[5]}
+            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
+                {pos[5], MiningOptimizationTraining::GatherPath{pos[5], {gatherObservations[5]}}}
             });
 
     // Serialize the data
@@ -117,12 +117,12 @@ TEST(SerializationTests, WriteAndReadBack)
     MiningOptimizationTraining::Serialization::readMapData(actual);
 
     // Assert
-    assertMapsEqual(expected.resourceToGatherRootNodes,
-                    actual.resourceToGatherRootNodes,
+    assertMapsEqual(expected.resourceToGatherPaths,
+                    actual.resourceToGatherPaths,
                     std::function{[](
-                            std::unordered_map<MiningOptimizationTraining::PositionOnPath, MiningOptimizationTraining::GatherObservations> &expected,
-                            std::unordered_map<MiningOptimizationTraining::PositionOnPath, MiningOptimizationTraining::GatherObservations> &actual)
+                            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> &expected,
+                            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> &actual)
                             {
-                                assertMapsEqual(expected, actual, std::function{&assertGatherObservationsEqual});
+                                assertMapsEqual(expected, actual, std::function{&assertGatherPathsEqual});
                             }});
 }
