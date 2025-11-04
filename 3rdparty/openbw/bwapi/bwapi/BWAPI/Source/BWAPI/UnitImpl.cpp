@@ -262,4 +262,17 @@ namespace BWAPI
   {
     return bwunit.simulatePathWithAndWithoutResend();
   }
+
+  std::optional<std::pair<std::vector<ExactPosition>, bool>> UnitImpl::simulateGatherPath(const std::set<int> &resendFrames) const
+  {
+    auto result = bwunit.simulateGatherPath(resendFrames);
+    if (!result.has_value()) return std::nullopt;
+
+    // Convert the positions to the BWAPI object
+    std::vector<ExactPosition> positions;
+    positions.reserve(result->first.size());
+    for (const auto &pos : result->first) positions.emplace_back(pos);
+
+    return std::make_pair(positions, result->second);
+  }
 };

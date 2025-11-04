@@ -11,6 +11,7 @@
 #include "BW/BWData.h"
 
 #include <optional>
+#include <set>
 
 #ifdef COMPAT
 #include "CompatGameImpl.h"
@@ -259,6 +260,7 @@ namespace BWAPI
       virtual std::optional<bool> wouldAGatherResendHereChangeThePath() const override;
       virtual std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>>
               simulatePathWithAndWithoutResend() const override;
+      virtual std::optional<std::pair<std::vector<ExactPosition>, bool>> simulateGatherPath(const std::set<int> &resendFrames) const override;
 
       //Internal BWAPI commands:
       UnitImpl(BW::Unit bwunit, u16 index);

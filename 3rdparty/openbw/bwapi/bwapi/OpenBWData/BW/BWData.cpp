@@ -2408,6 +2408,121 @@ std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<
     return std::make_pair(std::move(resendPositions), std::move(noResendPositions));
 }
 
+std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, bool>> Unit::simulateGatherPath(const std::set<int> &resendFrames) const
+{
+    // Validate the unit has a path and target
+    if (!u->path) return std::nullopt;
+    if (!u->order_target.unit) return std::nullopt;
+
+    // Set the relevant orders based on what the unit is currently doing
+    bwgame::Orders resendOrderType;
+    bwgame::Orders nextOrderType;
+    switch (u->order_type->id)
+    {
+        case bwgame::Orders::MoveToMinerals:
+        {
+            resendOrderType = bwgame::Orders::Harvest1;
+            nextOrderType = bwgame::Orders::ReturnMinerals;
+            break;
+        }
+        case bwgame::Orders::ReturnMinerals:
+        {
+            resendOrderType = bwgame::Orders::ReturnMinerals;
+            nextOrderType = bwgame::Orders::MoveToMinerals;
+            break;
+        }
+        case bwgame::Orders::MoveToGas:
+        {
+            resendOrderType = bwgame::Orders::HarvestGas;
+            nextOrderType = bwgame::Orders::None; // not relevant since the worker spawns out of the refinery
+            break;
+        }
+        case bwgame::Orders::ReturnGas:
+        {
+            resendOrderType = bwgame::Orders::ReturnGas;
+            nextOrderType = bwgame::Orders::MoveToGas;
+            break;
+        }
+        default:
+        {
+            // The worker is doing something else, so we can't do the simulation
+            return std::nullopt;
+        }
+    }
+
+    // Create a copy of the state
+    bwgame::state state_copy = copy_state(impl->st);
+    openbwapi_functions<bwgame::state_functions> funcs_copy(impl->vars, state_copy);
+
+    // Get the unit pointer in the state copy
+    auto unit = funcs_copy.get_unit(u->index);
+
+    // Create the order target to use for reissuing commands
+    // We capture this now in case it changes later
+    bwgame::order_target_t order_target;
+    order_target.unit = unit->order_target.unit;
+
+    // Advances the state of the unit to the next frame
+    // Does not update any other units, bullets, triggers, etc.
+    auto nextFrame = [&]()
+    {
+        state_copy.current_frame++;
+        funcs_copy.update_unit_movement(unit);
+        funcs_copy.update_unit_sprite(unit);
+        funcs_copy.update_unit(unit);
+    };
+
+    // Checks if we have hit the limit to how many frames we are allowed to simulate
+    // This is intended to guard against the unit getting stuck and the simulation never returning
+    auto depthLimitExceeded = [&]()
+    {
+        if ((state_copy.current_frame - impl->st.current_frame) < 250) return false;
+        std::cout << "WARNING: Path simulation for unit at (" << u->position.x << "," << u->position.y << ") did not complete" << std::endl;
+        return true;
+    };
+
+    // Gather the positions visited by the unit on its way to its move target
+    std::vector<std::tuple<uint32_t, uint32_t, int8_t>> positions;
+    while (!funcs_copy.unit_is_at_move_target(unit))
+    {
+        if (depthLimitExceeded()) return std::nullopt;
+
+        // Resend if we want to resend on this frame
+        if (resendFrames.find(state_copy.current_frame) != resendFrames.end())
+        {
+            funcs_copy.issue_order(unit, false, funcs_copy.get_order_type(resendOrderType), order_target);
+        }
+        nextFrame();
+        positions.emplace_back((uint32_t)unit->exact_position.x.raw_value,
+                               (uint32_t)unit->exact_position.y.raw_value,
+                               (int8_t)unit->heading.raw_value);
+    }
+
+    // If there is no next order, we don't need to check for collisions
+    if (nextOrderType == bwgame::Orders::None)
+    {
+        return std::make_pair(std::move(positions), false);
+    }
+
+    // Continue simulating until the unit reaches its next order
+    while (unit->order_type->id != nextOrderType)
+    {
+        if (depthLimitExceeded()) return std::nullopt;
+        nextFrame();
+    }
+
+    // Detect a collision by checking if the unit is not moving 8 frames after the order changes
+    // We don't check against the initial position, as sometimes the unit will move a bit before colliding and entering collision resolution
+    for (int i = 0; i < 6; i++) nextFrame();
+    auto pos1 = unit->exact_position;
+    nextFrame();
+    auto pos2 = unit->exact_position;
+    nextFrame();
+    auto pos3 = unit->exact_position;
+
+    return std::make_pair(std::move(positions), (pos1 == pos2 && pos1 == pos3));
+}
+
 Bullet::operator bool() const
 {
   return b != nullptr;

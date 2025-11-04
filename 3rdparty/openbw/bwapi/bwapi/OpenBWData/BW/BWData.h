@@ -10,6 +10,7 @@
 #include <type_traits>
 #include <vector>
 #include <optional>
+#include <set>
 
 namespace bwgame {
   struct unit_t;
@@ -427,6 +428,7 @@ struct Unit {
   int getOrderProcessTimer() const;
   std::optional<bool> wouldAGatherResendHereChangeThePath() const;
   std::optional<std::pair<std::vector<std::pair<int, int>>, std::vector<std::pair<int, int>>>> simulatePathWithAndWithoutResend() const;
+  std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, bool>> simulateGatherPath(const std::set<int> &resendFrames) const;
 };
 
 struct Bullet {
