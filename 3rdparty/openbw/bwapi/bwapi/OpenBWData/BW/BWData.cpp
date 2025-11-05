@@ -2345,7 +2345,12 @@ int Unit::getOrderProcessTimer() const
     return u->order_process_timer;
 }
 
-std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, bool>> Unit::simulateGatherPath(const std::set<int> &resendFrames) const
+// Method that simulates the path of a worker gathering
+// Returns the path (same format as getExactPosition) and the "exit speed" (speed 8 frames after moving along the next path)
+// Exit speed will be 0 if the worker collided with the target
+// Returns no value if the unit isn't currently on a valid path with a valid order
+std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, uint64_t>>
+    Unit::simulateGatherPath(const std::set<int> &resendFrames) const
 {
     // Validate the unit has a path and target
     if (!u->path) return std::nullopt;
@@ -2438,7 +2443,7 @@ std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, boo
     // If there is no next order, we don't need to check for collisions
     if (nextOrderType == bwgame::Orders::None)
     {
-        return std::make_pair(std::move(positions), false);
+        return std::make_pair(std::move(positions), 0);
     }
 
     // Continue simulating until the unit reaches its next order
@@ -2457,7 +2462,19 @@ std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, boo
     nextFrame();
     auto pos3 = unit->exact_position;
 
-    return std::make_pair(std::move(positions), (pos1 == pos2 && pos1 == pos3));
+    // Compute the squared speed, but zero it if the unit collided, as during collision resolution the unit may still have a velocity
+    uint64_t squaredSpeed;
+    if (pos1 == pos2 && pos1 == pos3)
+    {
+        squaredSpeed = 0;
+    }
+    else
+    {
+        squaredSpeed = (uint64_t)((int64_t)unit->velocity.x.raw_value * (int64_t)unit->velocity.x.raw_value)
+                     + (uint64_t)((int64_t)unit->velocity.y.raw_value * (int64_t)unit->velocity.y.raw_value);
+    }
+
+    return std::make_pair(std::move(positions), squaredSpeed);
 }
 
 Bullet::operator bool() const

@@ -253,7 +253,7 @@ namespace BWAPI
     return bwunit.getOrderProcessTimer();
   }
 
-  std::optional<std::pair<std::vector<ExactPosition>, bool>> UnitImpl::simulateGatherPath(const std::set<int> &resendFrames) const
+  std::optional<std::pair<std::vector<ExactPosition>, uint64_t>> UnitImpl::simulateGatherPath(const std::set<int> &resendFrames) const
   {
     auto result = bwunit.simulateGatherPath(resendFrames);
     if (!result.has_value()) return std::nullopt;
