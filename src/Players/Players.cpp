@@ -12,6 +12,11 @@ namespace Players
 
         std::shared_ptr<UpgradeTracker> &getUpgradeTracker(BWAPI::Player player)
         {
+            if (!player)
+            {
+                Log::Get() << "ERROR: Trying to get an upgrade tracker for a null player";
+            }
+
             auto it = playerToUpgradeTracker.find(player);
             if (it != playerToUpgradeTracker.end())
             {

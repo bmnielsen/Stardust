@@ -158,12 +158,11 @@ void UpgradeTracker::update(Grid &grid)
         }
     }
 
-    for (auto &techAndResearched : _hasResearched)
+    for (auto &[techType, researched] : _hasResearched)
     {
-        bool current = player->hasResearched(techAndResearched.first);
-        if (current && !techAndResearched.second)
+        if (!researched && player->hasResearched(techType))
         {
-            techAndResearched.second = current;
+            researched = true;
         }
     }
 

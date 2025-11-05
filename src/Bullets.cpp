@@ -27,44 +27,55 @@ namespace Bullets
                 {BWAPI::BulletTypes::Subterranean_Spines, {{BWAPI::UnitTypes::Zerg_Lurker, 254}}},
         };
 
+        // Map of bullet types to the tech they infer
+        // Includes information about what race uses that tech and whether the tech is usually used on own units or not
+        const std::map<BWAPI::BulletType, std::tuple<BWAPI::TechType, BWAPI::Race, bool>> bulletTechTypes = {
+                {BWAPI::BulletTypes::Psionic_Storm, {BWAPI::TechTypes::Psionic_Storm, BWAPI::Races::Protoss, false}},
+                {BWAPI::BulletTypes::EMP_Missile, {BWAPI::TechTypes::EMP_Shockwave, BWAPI::Races::Terran, false}},
+                {BWAPI::BulletTypes::Yamato_Gun, {BWAPI::TechTypes::Yamato_Gun, BWAPI::Races::Terran, false}},
+                {BWAPI::BulletTypes::Optical_Flare_Grenade, {BWAPI::TechTypes::Optical_Flare, BWAPI::Races::Terran, false}},
+                {BWAPI::BulletTypes::Plague_Cloud, {BWAPI::TechTypes::Plague, BWAPI::Races::Zerg, false}},
+                {BWAPI::BulletTypes::Consume, {BWAPI::TechTypes::Consume, BWAPI::Races::Zerg, true}},
+                {BWAPI::BulletTypes::Ensnare, {BWAPI::TechTypes::Ensnare, BWAPI::Races::Zerg, false}},
+        };
+
+
         std::map<int, int> seenBulletFrames;
         int bulletsSeenAtExtendedMarineRange;
 
         void trackResearch(BWAPI::Bullet bullet)
         {
-            // Terran
-            if (bullet->getType() == BWAPI::BulletTypes::EMP_Missile)
+            // Reference the data for this bullet type, or return if it isn't a bullet that infers tech research
+            auto it = bulletTechTypes.find(bullet->getType());
+            if (it == bulletTechTypes.end()) return;
+            const auto &[techType, race, usedOnOwnUnits] = it->second;
+
+            // Determine the player
+            // This may be null if the source of the bullet has died
+            auto player = bullet->getPlayer();
+
+            // If the tech is used by a race other than ours, we can infer that the enemy used it (at least until we mind control SCVs or drones)
+            if (!player && race != BWAPI::Broodwar->self()->getRace())
             {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::EMP_Shockwave);
-            }
-            if (bullet->getType() == BWAPI::BulletTypes::Yamato_Gun)
-            {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Yamato_Gun);
-            }
-            if (bullet->getType() == BWAPI::BulletTypes::Optical_Flare_Grenade)
-            {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Optical_Flare);
+                player = BWAPI::Broodwar->enemy();
             }
 
-            // Zerg
-            if (bullet->getType() == BWAPI::BulletTypes::Plague_Cloud)
+            // If the bullet has a target unit, we can infer the player based on which player the tech is expected to be used on
+            if (!player && bullet->getTarget() && bullet->getTarget()->getPlayer())
             {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Plague);
-            }
-            if (bullet->getType() == BWAPI::BulletTypes::Consume)
-            {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Consume);
-            }
-            if (bullet->getType() == BWAPI::BulletTypes::Ensnare)
-            {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Ensnare);
+                if (bullet->getTarget()->getPlayer() == BWAPI::Broodwar->self())
+                {
+                    player = usedOnOwnUnits ? BWAPI::Broodwar->self() : BWAPI::Broodwar->enemy();
+                }
+                else if (bullet->getTarget()->getPlayer() == BWAPI::Broodwar->enemy())
+                {
+                    player = usedOnOwnUnits ? BWAPI::Broodwar->enemy() : BWAPI::Broodwar->self();
+                }
             }
 
-            // Protoss
-            if (bullet->getType() == BWAPI::BulletTypes::Psionic_Storm)
-            {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Psionic_Storm);
-            }
+            if (!player) return;
+
+            Players::setHasResearched(player, techType);
         }
 
         void checkBunkerRange(BWAPI::Bullet bullet)
