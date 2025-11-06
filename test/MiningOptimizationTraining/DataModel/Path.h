@@ -35,18 +35,18 @@ namespace MiningOptimizationTraining
         uint32_t timesExplored;
 
         // The arrival observations from this node when the path is not changed by a later gather command
-        std::set<ObservationType> arrivalData;
+        std::map<ObservationType, uint32_t> arrivalData;
 
         // The arrival observations when a resend takes effect here
-        std::set<ObservationType> arrivalDataAfterResend;
+        std::map<ObservationType, uint32_t> arrivalDataAfterResend;
 
         // All next positions seen from this position when the path has not been changed by a resend
         // Will be empty on the last node before arrival at the patch
-        std::vector<PathNode<ObservationType>> nextPositions;
+        std::vector<std::pair<PathNode<ObservationType>, uint32_t>> nextPositions;
 
         // All next positions seen from this position after a resend takes effect at this node
         // Will be empty on any nodes where resends do not change the path or no additional resends are possible
-        std::vector<PathNode<ObservationType>> nextPositionsAfterResend;
+        std::vector<std::pair<PathNode<ObservationType>, uint32_t>> nextPositionsAfterResend;
     };
 
     // Stores the root of a path
@@ -57,6 +57,6 @@ namespace MiningOptimizationTraining
         PositionAndVelocity pos;
 
         // All next positions seen from this node
-        std::vector<PathNode<ObservationType>> nextPositions;
+        std::vector<std::pair<PathNode<ObservationType>, uint32_t>> nextPositions;
     };
 }

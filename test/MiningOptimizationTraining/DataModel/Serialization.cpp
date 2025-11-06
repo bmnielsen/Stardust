@@ -58,25 +58,30 @@ namespace MiningOptimizationTraining::Serialization
                     s.object(value.positionDifferenceFromPreviousNode, exactPositionDifferenceSerializer);
                     s.value1b(value.type);
                     s.value4b(value.timesExplored);
-                    s.ext(value.arrivalData, bitsery::ext::StdSet{INT_MAX}, [](auto &s, T &value)
+                    s.ext(value.arrivalData, bitsery::ext::StdMap{INT_MAX}, [](auto &s, T &key, uint32_t &value)
                     {
-                        s.object(value);
+                        s.object(key);
+                        s.value4b(value);
                     });
-                    s.ext(value.arrivalDataAfterResend, bitsery::ext::StdSet{INT_MAX}, [](auto &s, T &value)
+                    s.ext(value.arrivalDataAfterResend, bitsery::ext::StdMap{INT_MAX}, [](auto &s, T &key, uint32_t &value)
                     {
-                        s.object(value);
+                        s.object(key);
+                        s.value4b(value);
                     });
-                    s.container(value.nextPositions, INT_MAX, [&](S &s, PathNode<T> &v) {
-                        s.object(v, pathNodeSerializer);
+                    s.container(value.nextPositions, INT_MAX, [&](S &s, std::pair<PathNode<T>, uint32_t> &v) {
+                        s.object(v.first, pathNodeSerializer);
+                        s.value4b(v.second);
                     });
-                    s.container(value.nextPositionsAfterResend, INT_MAX, [&](S &s, PathNode<T> &v) {
-                        s.object(v, pathNodeSerializer);
+                    s.container(value.nextPositionsAfterResend, INT_MAX, [&](S &s, std::pair<PathNode<T>, uint32_t> &v) {
+                        s.object(v.first, pathNodeSerializer);
+                        s.value4b(v.second);
                     });
                 };
 
                 s.object(value.pos);
-                s.container(value.nextPositions, INT_MAX, [&](S &s, PathNode<T> &v) {
-                    s.object(v, pathNodeSerializer);
+                s.container(value.nextPositions, INT_MAX, [&](S &s, std::pair<PathNode<T>, uint32_t> &v) {
+                    s.object(v.first, pathNodeSerializer);
+                    s.value4b(v.second);
                 });
             };
 
