@@ -11,8 +11,7 @@ namespace
 
     MiningOptimizationTraining::GatherPathNode generateGatherPathNode(MiningOptimizationTraining::PositionAndVelocity pos)
     {
-        MiningOptimizationTraining::GatherPathNode result;
-        result.positionDifferenceFromPreviousNode = { pos.x, pos.y };
+        MiningOptimizationTraining::GatherPathNode result{{ pos.x, pos.y }};
         result.type = (MiningOptimizationTraining::NodeType)(pos.x % 6);
         result.timesExplored = pos.x;
         result.arrivalData.emplace(MiningOptimizationTraining::GatherArrivalData(pos.x), pos.x);
@@ -78,11 +77,11 @@ TEST(SerializationTests, WriteAndReadBack)
 
     // Set up sample gather data
     MiningOptimizationTraining::PositionAndVelocity pos[9];
-    MiningOptimizationTraining::GatherPathNode gatherObservations[9];
+    std::vector<MiningOptimizationTraining::GatherPathNode> gatherObservations;
     for (int i = 0; i < 9; i++)
     {
         pos[i] = generateTestPosition(10 * (i+1));
-        gatherObservations[i] = generateGatherPathNode(pos[i]);
+        gatherObservations.push_back(generateGatherPathNode(pos[i]));
     }
     gatherObservations[0].nextPositions.emplace_back(gatherObservations[1], gatherObservations[1].positionDifferenceFromPreviousNode.x);
     gatherObservations[0].nextPositions.emplace_back(gatherObservations[2], gatherObservations[2].positionDifferenceFromPreviousNode.x);

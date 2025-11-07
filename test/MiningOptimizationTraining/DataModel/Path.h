@@ -24,7 +24,7 @@ namespace MiningOptimizationTraining
         BWAPI::ExactPositionDifference positionDifferenceFromPreviousNode;
 
         // The type of node, see definition of NodeType for details on each type
-        NodeType type;
+        NodeType type = NodeType::Uninitialized;
 
         // The number of times this node has been explored
         // The meaning of this depends on the node type
@@ -32,7 +32,7 @@ namespace MiningOptimizationTraining
         // For NonfinalResendNode, it is the number of times a resend took effect here without a subsequent resend.
         // For FinalResendNode, it is the number of times a resend took effect here.
         // For AfterExplorationWindow, it is the number of times a no-resend path reached the node.
-        uint32_t timesExplored;
+        uint32_t timesExplored = 0;
 
         // The arrival observations from this node when the path is not changed by a later gather command
         std::map<ObservationType, uint32_t> arrivalData;
