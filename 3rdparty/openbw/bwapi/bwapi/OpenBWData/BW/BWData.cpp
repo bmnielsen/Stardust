@@ -2357,8 +2357,7 @@ int Unit::getOrderProcessTimer() const
 std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, uint64_t>>
     Unit::simulateGatherPath(const std::set<int> &resendFrames) const
 {
-    // Validate the unit has a path and target
-    if (!u->path) return std::nullopt;
+    // Validate the unit has a target
     if (!u->order_target.unit) return std::nullopt;
 
     // Set the relevant orders based on what the unit is currently doing
@@ -2398,7 +2397,9 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
     }
 
     // Create a copy of the state
-    bwgame::state state_copy = copy_state(impl->st);
+    // We reuse the same object to avoid unnecessary memory allocations/deallocations
+    static bwgame::state state_copy;
+    bwgame::state_copier<true>(impl->st, state_copy)();
     openbwapi_functions<bwgame::state_functions> funcs_copy(impl->vars, state_copy);
 
     // Get the unit pointer in the state copy
@@ -2435,15 +2436,21 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
         return true;
     };
 
+    // In some states, the unit will not have updated its move target to its order target yet when we start the simulation
+    // We therefore allow the loop to run until the first time they match, then only consider arrival at move target
+    bool targetLocked = (unit->move_target.unit == order_target.unit);
+
     // Gather the positions visited by the unit on its way to its move target
     std::vector<Unit::exactPosition> positions;
-    while (!funcs_copy.unit_is_at_move_target(unit))
+    while (!targetLocked || !funcs_copy.unit_is_at_move_target(unit))
     {
         if (depthLimitExceeded()) return std::nullopt;
+        targetLocked = targetLocked || (unit->move_target.unit == order_target.unit);
 
         // Resend if we want to resend on this frame
         if (resendFrames.find(state_copy.current_frame) != resendFrames.end())
         {
+            positions.clear(); // We only return the path following the last resend
             funcs_copy.issue_order(unit, false, funcs_copy.get_order_type(resendOrderType), order_target);
         }
         nextFrame();

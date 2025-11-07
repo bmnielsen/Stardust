@@ -19543,6 +19543,7 @@ struct state_functions {
 
 };
 
+template<bool skipBullets = false>
 struct state_copier {
 	const state& st;
 	state& r;
@@ -19717,8 +19718,11 @@ struct state_copier {
 			assemble(r.sprites_on_tile_line[i], st.sprites_on_tile_line[i], &state_copier::sprite);
 		}
 
-		assemble(r.bullets_container.free_list, st.bullets_container.free_list, &state_copier::bullet);
-		assemble(r.active_bullets, st.active_bullets, &state_copier::bullet);
+        if constexpr (!skipBullets)
+        {
+            assemble(r.bullets_container.free_list, st.bullets_container.free_list, &state_copier::bullet);
+            assemble(r.active_bullets, st.active_bullets, &state_copier::bullet);
+        }
 
 		assemble(r.cloaked_units, st.cloaked_units, &state_copier::unit);
 		assemble(r.psionic_matrix_units, st.psionic_matrix_units, &state_copier::unit);
