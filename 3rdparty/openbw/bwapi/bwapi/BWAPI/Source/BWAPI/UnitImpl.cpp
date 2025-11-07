@@ -253,16 +253,16 @@ namespace BWAPI
     return bwunit.getOrderProcessTimer();
   }
 
-  std::optional<std::pair<std::vector<ExactPosition>, uint64_t>> UnitImpl::simulateGatherPath(const std::set<int> &resendFrames) const
+  std::optional<std::tuple<std::vector<ExactPosition>, ExactPosition, uint64_t>> UnitImpl::simulateGatherPath(const std::set<int> &resendFrames) const
   {
     auto result = bwunit.simulateGatherPath(resendFrames);
     if (!result.has_value()) return std::nullopt;
 
     // Convert the positions to the BWAPI object
     std::vector<ExactPosition> positions;
-    positions.reserve(result->first.size());
-    for (const auto &pos : result->first) positions.emplace_back(pos);
+    positions.reserve(std::get<0>(*result).size());
+    for (const auto &pos : std::get<0>(*result)) positions.emplace_back(pos);
 
-    return std::make_pair(positions, result->second);
+    return std::make_tuple(positions, ExactPosition(std::get<1>(*result)), std::get<2>(*result));
   }
 };

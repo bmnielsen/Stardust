@@ -2346,10 +2346,11 @@ int Unit::getOrderProcessTimer() const
 }
 
 // Method that simulates the path of a worker gathering
-// Returns the path (same format as getExactPosition) and the "exit speed" (speed 8 frames after moving along the next path)
+// Returns the path (same format as getExactPosition), the first position in the next path (gather path after returning, return path after mining),
+// and the "exit speed" (speed 8 frames after moving along the next path)
 // Exit speed will be 0 if the worker collided with the target
 // Returns no value if the unit isn't currently on a valid path with a valid order
-std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, uint64_t>>
+std::optional<std::tuple<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, std::tuple<uint32_t, uint32_t, int8_t>, uint64_t>>
     Unit::simulateGatherPath(const std::set<int> &resendFrames) const
 {
     // Validate the unit has a path and target
@@ -2376,7 +2377,7 @@ std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, uin
         case bwgame::Orders::MoveToGas:
         {
             resendOrderType = bwgame::Orders::HarvestGas;
-            nextOrderType = bwgame::Orders::None; // not relevant since the worker spawns out of the refinery
+            nextOrderType = bwgame::Orders::ReturnGas;
             break;
         }
         case bwgame::Orders::ReturnGas:
@@ -2409,9 +2410,16 @@ std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, uin
     auto nextFrame = [&]()
     {
         state_copy.current_frame++;
-        funcs_copy.update_unit_movement(unit);
-        funcs_copy.update_unit_sprite(unit);
-        funcs_copy.update_unit(unit);
+        if (funcs_copy.us_hidden(unit))
+        {
+            funcs_copy.update_hidden_unit(unit);
+        }
+        else
+        {
+            funcs_copy.update_unit_movement(unit);
+            funcs_copy.update_unit_sprite(unit);
+            funcs_copy.update_unit(unit);
+        }
     };
 
     // Checks if we have hit the limit to how many frames we are allowed to simulate
@@ -2440,18 +2448,17 @@ std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, uin
                                (int8_t)unit->heading.raw_value);
     }
 
-    // If there is no next order, we don't need to check for collisions
-    if (nextOrderType == bwgame::Orders::None)
-    {
-        return std::make_pair(std::move(positions), 0);
-    }
-
     // Continue simulating until the unit reaches its next order
     while (unit->order_type->id != nextOrderType)
     {
         if (depthLimitExceeded()) return std::nullopt;
         nextFrame();
     }
+
+    // Save the first position of the next path
+    auto firstNextPathPosition = std::make_tuple((uint32_t)unit->exact_position.x.raw_value,
+                                                 (uint32_t)unit->exact_position.y.raw_value,
+                                                 (int8_t)unit->heading.raw_value);
 
     // Detect a collision by checking if the unit is not moving 8 frames after the order changes
     // We don't check against the initial position, as sometimes the unit will move a bit before colliding and entering collision resolution
@@ -2474,7 +2481,7 @@ std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, uin
                      + (uint64_t)((int64_t)unit->velocity.y.raw_value * (int64_t)unit->velocity.y.raw_value);
     }
 
-    return std::make_pair(std::move(positions), squaredSpeed);
+    return std::make_tuple(std::move(positions), firstNextPathPosition, squaredSpeed);
 }
 
 Bullet::operator bool() const

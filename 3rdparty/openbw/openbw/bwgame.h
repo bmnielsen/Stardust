@@ -4880,7 +4880,7 @@ struct state_functions {
 			if (u->order_state == 0) {
 				hide_unit(u, false);
 				u->order_state = 5;
-				u->main_order_timer = 37;
+				u->main_order_timer = (st.mining_training ? 1 : 37);
 			} else if (u->order_state == 5) {
 				if (u->main_order_timer == 0) {
 					xy pos;

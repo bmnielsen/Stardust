@@ -426,7 +426,8 @@ struct Unit {
 
   std::tuple<uint32_t, uint32_t, int8_t> getExactPosition() const;
   int getOrderProcessTimer() const;
-  std::optional<std::pair<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, uint64_t>> simulateGatherPath(const std::set<int> &resendFrames) const;
+  std::optional<std::tuple<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, std::tuple<uint32_t, uint32_t, int8_t>, uint64_t>>
+    simulateGatherPath(const std::set<int> &resendFrames) const;
 };
 
 struct Bullet {

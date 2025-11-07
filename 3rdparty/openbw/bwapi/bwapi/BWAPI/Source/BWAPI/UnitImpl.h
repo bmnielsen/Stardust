@@ -257,7 +257,8 @@ namespace BWAPI
 
       virtual ExactPosition getExactPosition() const override;
       virtual int getOrderProcessTimer() const override;
-      virtual std::optional<std::pair<std::vector<ExactPosition>, uint64_t>> simulateGatherPath(const std::set<int> &resendFrames) const override;
+      virtual std::optional<std::tuple<std::vector<ExactPosition>, ExactPosition, uint64_t>>
+        simulateGatherPath(const std::set<int> &resendFrames) const override;
 
       //Internal BWAPI commands:
       UnitImpl(BW::Unit bwunit, u16 index);
