@@ -424,10 +424,10 @@ struct Unit {
   void setResources(int value);
   void setHeading(int value);
 
-  std::tuple<uint32_t, uint32_t, int8_t> getExactPosition() const;
+  typedef std::tuple<uint32_t, uint32_t, int8_t, int32_t, int32_t> exactPosition;
+  exactPosition getExactPosition() const;
   int getOrderProcessTimer() const;
-  std::optional<std::tuple<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, std::tuple<uint32_t, uint32_t, int8_t>, uint64_t>>
-    simulateGatherPath(const std::set<int> &resendFrames) const;
+  std::optional<std::tuple<std::vector<exactPosition>, exactPosition, uint64_t>> simulateGatherPath(const std::set<int> &resendFrames) const;
 };
 
 struct Bullet {

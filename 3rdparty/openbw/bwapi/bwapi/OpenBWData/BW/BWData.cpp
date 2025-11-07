@@ -2335,9 +2335,13 @@ void Unit::setHeading(int value)
   impl->game_setup_helper.input_action(w.data(), w.size());
 }
 
-std::tuple<uint32_t, uint32_t, int8_t> Unit::getExactPosition() const
+Unit::exactPosition Unit::getExactPosition() const
 {
-    return {(uint32_t)u->exact_position.x.raw_value, (uint32_t)u->exact_position.y.raw_value, (int8_t)u->heading.raw_value};
+    return {(uint32_t)u->exact_position.x.raw_value,
+            (uint32_t)u->exact_position.y.raw_value,
+            (int8_t)u->heading.raw_value,
+            (int32_t)u->velocity.x.raw_value,
+            (int32_t)u->velocity.y.raw_value};
 }
 
 int Unit::getOrderProcessTimer() const
@@ -2350,7 +2354,7 @@ int Unit::getOrderProcessTimer() const
 // and the "exit speed" (speed 8 frames after moving along the next path)
 // Exit speed will be 0 if the worker collided with the target
 // Returns no value if the unit isn't currently on a valid path with a valid order
-std::optional<std::tuple<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, std::tuple<uint32_t, uint32_t, int8_t>, uint64_t>>
+std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, uint64_t>>
     Unit::simulateGatherPath(const std::set<int> &resendFrames) const
 {
     // Validate the unit has a path and target
@@ -2432,7 +2436,7 @@ std::optional<std::tuple<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, st
     };
 
     // Gather the positions visited by the unit on its way to its move target
-    std::vector<std::tuple<uint32_t, uint32_t, int8_t>> positions;
+    std::vector<Unit::exactPosition> positions;
     while (!funcs_copy.unit_is_at_move_target(unit))
     {
         if (depthLimitExceeded()) return std::nullopt;
@@ -2445,7 +2449,9 @@ std::optional<std::tuple<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, st
         nextFrame();
         positions.emplace_back((uint32_t)unit->exact_position.x.raw_value,
                                (uint32_t)unit->exact_position.y.raw_value,
-                               (int8_t)unit->heading.raw_value);
+                               (int8_t)unit->heading.raw_value,
+                               (int32_t)unit->velocity.x.raw_value,
+                               (int32_t)unit->velocity.y.raw_value);
     }
 
     // Continue simulating until the unit reaches its next order
@@ -2458,7 +2464,9 @@ std::optional<std::tuple<std::vector<std::tuple<uint32_t, uint32_t, int8_t>>, st
     // Save the first position of the next path
     auto firstNextPathPosition = std::make_tuple((uint32_t)unit->exact_position.x.raw_value,
                                                  (uint32_t)unit->exact_position.y.raw_value,
-                                                 (int8_t)unit->heading.raw_value);
+                                                 (int8_t)unit->heading.raw_value,
+                                                 (int32_t)unit->velocity.x.raw_value,
+                                                 (int32_t)unit->velocity.y.raw_value);
 
     // Detect a collision by checking if the unit is not moving 8 frames after the order changes
     // We don't check against the initial position, as sometimes the unit will move a bit before colliding and entering collision resolution
