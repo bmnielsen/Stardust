@@ -2,6 +2,7 @@
 
 #include "PositionAndVelocity.h"
 #include "Path.h"
+#include "Geo.h"
 
 #include <cstdint>
 #include <algorithm>
@@ -21,7 +22,7 @@ namespace MiningOptimizationTraining
      */
     struct GatherArrivalData
     {
-        uint8_t packed;
+        uint8_t packed = UINT8_MAX;
         PositionAndVelocity returnPathStartPosition;
 
         // The number of frames to arrival at the target
@@ -45,6 +46,15 @@ namespace MiningOptimizationTraining
             return (packed & 0b00000010) == 0b00000010;
         }
 
+        void setArrivalDelay(unsigned int arrivalDelay)
+        {
+            // Arrival delay values outside the range of 6 bits are clamped
+            // This is fine since such long arrival delays would never be useful for optimization anyway
+            arrivalDelay = std::min(63U, arrivalDelay);
+
+            packed = ((uint8_t)arrivalDelay << 2) + (packed & 0b00000011);
+        }
+
         bool operator==(const GatherArrivalData &other) const
         {
             return std::tie(packed, returnPathStartPosition) == std::tie(other.packed, other.returnPathStartPosition);
@@ -55,7 +65,10 @@ namespace MiningOptimizationTraining
             return std::tie(packed, returnPathStartPosition) < std::tie(other.packed, other.returnPathStartPosition);
         }
 
-        static GatherArrivalData create(unsigned int arrivalDelay, bool facingTarget, bool collision, PositionAndVelocity returnPathStartPosition)
+        static GatherArrivalData create(unsigned int arrivalDelay,
+                                        bool facingTarget,
+                                        bool collision,
+                                        const PositionAndVelocity &returnPathStartPosition)
         {
             // Arrival delay values outside the range of 6 bits are clamped
             // This is fine since such long arrival delays would never be useful for optimization anyway
@@ -70,13 +83,24 @@ namespace MiningOptimizationTraining
             // We set the second-lowest bit if there is a collision
             if (collision) packed |= 0b00000010;
 
-            return GatherArrivalData{packed, std::move(returnPathStartPosition)};
+            return GatherArrivalData{packed, returnPathStartPosition};
         }
 
-        // A "null" value that just gives the worst delay possible
-        static GatherArrivalData nullopt()
+        // Populates the members of the struct, except arrivalDelay, from simulated path data
+        static GatherArrivalData createFromSimulatedPath(
+                const std::tuple<std::vector<BWAPI::ExactPosition>, BWAPI::ExactPosition, uint64_t> &simulatedPath,
+                BWAPI::Unit patch)
         {
-            return create(63U, false, true, {});
+            auto &positionHistory = std::get<0>(simulatedPath);
+            if (positionHistory.empty()) return {};
+
+            // The worker is "facing target" if it can turn to face the patch in two frames
+            auto finalWorkerPosition = *positionHistory.rbegin();
+            auto vectorToPatch = patch->getPosition() - finalWorkerPosition.pos();
+            auto angleDiff = Geo::BWAngleDiff(finalWorkerPosition.heading, Geo::BWDirection(vectorToPatch));
+            bool facingTarget = (angleDiff <= 2 * BWAPI::UnitTypes::Protoss_Probe.turnRadius());
+
+            return create(63, facingTarget, std::get<2>(simulatedPath) == 0, PositionAndVelocity{std::get<1>(simulatedPath)});
         }
 
         template <typename S>

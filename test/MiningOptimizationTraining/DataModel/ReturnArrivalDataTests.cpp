@@ -35,3 +35,28 @@ TEST(ReturnArrivalDataTests, TestClampingOfExtremeValues)
         testCase(UINT_MAX, 63, (MiningOptimizationTraining::ReturnExitSpeed)i);
     }
 }
+
+// Tests that setting the arrival delay works
+TEST(ReturnArrivalDataTests, TestSetArrivalDelay)
+{
+    auto testCase = [](
+            unsigned int oldArrivalDelay, unsigned int newArrivalDelay, MiningOptimizationTraining::ReturnExitSpeed exitSpeed)
+    {
+        auto test = MiningOptimizationTraining::ReturnArrivalData::create(oldArrivalDelay, exitSpeed, {});
+        EXPECT_EQ(oldArrivalDelay, test.arrivalDelay());
+        EXPECT_EQ(exitSpeed, test.exitSpeed());
+        test.setArrivalDelay(newArrivalDelay);
+        EXPECT_EQ(newArrivalDelay, test.arrivalDelay());
+        EXPECT_EQ(exitSpeed, test.exitSpeed());
+    };
+    for (unsigned int i = 0; i < 64; i++)
+    {
+        for (unsigned int j = 0; j < 64; j++)
+        {
+            for (uint8_t k = 0; k < 4; k++)
+            {
+                testCase(i, j, (MiningOptimizationTraining::ReturnExitSpeed)k);
+            }
+        }
+    }
+}

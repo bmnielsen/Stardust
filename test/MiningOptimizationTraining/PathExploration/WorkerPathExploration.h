@@ -13,8 +13,10 @@ namespace MiningOptimizationTraining
             , worker(worker)
             , patch(patch)
             , depot(depot)
-            , previousPosition(worker->getExactPosition())
-            , state(-1)
+            , state(0)
+            , startOfGatherExplorationWindow(nullptr)
+            , startOfReturnExplorationWindow(nullptr)
+            , startOfExplorationWindowFrame(INT_MAX)
         {}
 
         void update();
@@ -26,29 +28,22 @@ namespace MiningOptimizationTraining
         BWAPI::Unit patch;
         BWAPI::Unit depot;
 
-        // Stores the previous exact position of the worker (including subpixels)
-        BWAPI::ExactPosition previousPosition;
-
-        /* State specific to the gather phase */
-
-
-
-        /* State specific to the return phase */
-
-
-        /* State used by both phases */
-
         // State for the state machine. Possible values:
-        // -1 - uninitialized
         // 0 - approaching the patch
         // 1 - mining
         // 2 - approaching the depot
         int state;
 
-        // Called for workers that are on their way to gather minerals
-        void gathering();
+        // Pointer to the gather path node that starts the gather exploration window
+        GatherPathNode *startOfGatherExplorationWindow;
 
-        // Called for workers that are on their way to return minerals
-        void returning();
+        // Pointer to the return path node that starts the return exploration window
+        ReturnPathNode *startOfReturnExplorationWindow;
+
+        // The frame where we will reach the start of the exploration window
+        int startOfExplorationWindowFrame;
+
+        // The planned resend frames
+        std::set<int> plannedResendFrames;
     };
 }

@@ -40,3 +40,30 @@ TEST(GatherArrivalDataTests, TestClampingOfExtremeValues)
     testCase(UINT_MAX, 63, false, true);
     testCase(UINT_MAX, 63, true, true);
 }
+
+// Tests that setting the arrival delay works
+TEST(GatherArrivalDataTests, TestSetArrivalDelay)
+{
+    auto testCase = [](
+            unsigned int oldArrivalDelay, unsigned int newArrivalDelay, bool facingTarget, bool collision)
+    {
+        auto test = MiningOptimizationTraining::GatherArrivalData::create(oldArrivalDelay, facingTarget, collision, {});
+        EXPECT_EQ(oldArrivalDelay, test.arrivalDelay());
+        EXPECT_EQ(facingTarget, test.facingTarget());
+        EXPECT_EQ(collision, test.collision());
+        test.setArrivalDelay(newArrivalDelay);
+        EXPECT_EQ(newArrivalDelay, test.arrivalDelay());
+        EXPECT_EQ(facingTarget, test.facingTarget());
+        EXPECT_EQ(collision, test.collision());
+    };
+    for (unsigned int i = 0; i < 64; i++)
+    {
+        for (unsigned int j = 0; j < 64; j++)
+        {
+            testCase(i, j, false, false);
+            testCase(i, j, true, false);
+            testCase(i, j, false, true);
+            testCase(i, j, true, true);
+        }
+    }
+}

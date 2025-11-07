@@ -6,7 +6,7 @@ namespace
 {
     MiningOptimizationTraining::PositionAndVelocity generateTestPosition(uint16_t value)
     {
-        return {value, value, (int8_t)value, (int8_t)value, (int8_t)value};
+        return {value, value, (int8_t)value, (int32_t)value, (int32_t)value};
     }
 
     MiningOptimizationTraining::GatherPathNode generateGatherPathNode(MiningOptimizationTraining::PositionAndVelocity pos)

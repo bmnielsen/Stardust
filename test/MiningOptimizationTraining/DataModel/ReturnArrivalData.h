@@ -27,7 +27,7 @@ namespace MiningOptimizationTraining
      */
     struct ReturnArrivalData
     {
-        uint8_t packed;
+        uint8_t packed = UINT8_MAX;
         PositionAndVelocity gatherPathStartPosition;
 
         // The number of frames to arrival at the target
@@ -42,6 +42,15 @@ namespace MiningOptimizationTraining
         {
             // Exit speed is stored in the lowest two bits
             return (ReturnExitSpeed)(packed & 0b00000011);
+        }
+
+        void setArrivalDelay(unsigned int arrivalDelay)
+        {
+            // Arrival delay values outside the range of 6 bits are clamped
+            // This is fine since such long arrival delays would never be useful for optimization anyway
+            arrivalDelay = std::min(63U, arrivalDelay);
+
+            packed = ((uint8_t)arrivalDelay << 2) + (packed & 0b00000011);
         }
 
         bool operator==(const ReturnArrivalData &other) const
@@ -69,10 +78,31 @@ namespace MiningOptimizationTraining
             return ReturnArrivalData{packed, std::move(gatherPathStartPosition)};
         }
 
-        // A "null" value that just gives the worst delay possible
-        static ReturnArrivalData nullopt()
+        // Populates the members of the struct, except arrivalDelay, from simulated path data
+        static ReturnArrivalData createFromSimulatedPath(
+                const std::tuple<std::vector<BWAPI::ExactPosition>, BWAPI::ExactPosition, uint64_t> &simulatedPath)
         {
-            return create(63U, ReturnExitSpeed::Collision, {});
+            // The return exit speed is bucketed based on the squared speed
+            // The max speed of a worker is 5 pixels per frame, which corresponds to 5*256=1280 subpixels per frame or 1638400 squared
+            ReturnExitSpeed returnExitSpeed;
+            if (std::get<2>(simulatedPath) > 1048576) // 80% of top speed
+            {
+                returnExitSpeed = ReturnExitSpeed::High;
+            }
+            else if (std::get<2>(simulatedPath) > 409600) // 50% of top speed
+            {
+                returnExitSpeed = ReturnExitSpeed::Medium;
+            }
+            else if (std::get<2>(simulatedPath) == 0)
+            {
+                returnExitSpeed = ReturnExitSpeed::Collision;
+            }
+            else
+            {
+                returnExitSpeed = ReturnExitSpeed::Low;
+            }
+
+            return create(63, returnExitSpeed, PositionAndVelocity{std::get<1>(simulatedPath)});
         }
 
         template <typename S>
