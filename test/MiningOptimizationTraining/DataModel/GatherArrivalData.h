@@ -23,7 +23,7 @@ namespace MiningOptimizationTraining
     struct GatherArrivalData
     {
         uint8_t packed = UINT8_MAX;
-        PositionAndVelocity returnPathStartPosition;
+        PositionAndVelocity nextPathStartPosition;
 
         // The number of frames to arrival at the target
         [[nodiscard]] unsigned int arrivalDelay() const
@@ -57,18 +57,18 @@ namespace MiningOptimizationTraining
 
         bool operator==(const GatherArrivalData &other) const
         {
-            return std::tie(packed, returnPathStartPosition) == std::tie(other.packed, other.returnPathStartPosition);
+            return std::tie(packed, nextPathStartPosition) == std::tie(other.packed, other.nextPathStartPosition);
         }
 
         bool operator<(const GatherArrivalData &other) const
         {
-            return std::tie(packed, returnPathStartPosition) < std::tie(other.packed, other.returnPathStartPosition);
+            return std::tie(packed, nextPathStartPosition) < std::tie(other.packed, other.nextPathStartPosition);
         }
 
         static GatherArrivalData create(unsigned int arrivalDelay,
                                         bool facingTarget,
                                         bool collision,
-                                        const PositionAndVelocity &returnPathStartPosition)
+                                        const PositionAndVelocity &nextPathStartPosition)
         {
             // Arrival delay values outside the range of 6 bits are clamped
             // This is fine since such long arrival delays would never be useful for optimization anyway
@@ -83,7 +83,7 @@ namespace MiningOptimizationTraining
             // We set the second-lowest bit if there is a collision
             if (collision) packed |= 0b00000010;
 
-            return GatherArrivalData{packed, returnPathStartPosition};
+            return GatherArrivalData{packed, nextPathStartPosition};
         }
 
         // Populates the members of the struct, except arrivalDelay, from simulated path data
@@ -100,13 +100,13 @@ namespace MiningOptimizationTraining
             auto angleDiff = Geo::BWAngleDiff(finalWorkerPosition.heading, Geo::BWDirection(vectorToPatch));
             bool facingTarget = (angleDiff <= 2 * BWAPI::UnitTypes::Protoss_Probe.turnRadius());
 
-            return create(63, facingTarget, std::get<2>(simulatedPath) == 0, PositionAndVelocity{std::get<1>(simulatedPath)});
+            return create(positionHistory.size(), facingTarget, std::get<2>(simulatedPath) == 0, PositionAndVelocity{std::get<1>(simulatedPath)});
         }
 
         template <typename S>
         void serialize(S& s) {
             s.value1b(packed);
-            s.object(returnPathStartPosition);
+            s.object(nextPathStartPosition);
         }
 
         friend std::ostream& operator<< (std::ostream& os, const GatherArrivalData& data)
@@ -134,7 +134,7 @@ namespace std {
         size_t operator()(const MiningOptimizationTraining::GatherArrivalData& data) const
         {
             // As this is only intended for use in std::unordered_map, hash quality is not important
-            return data.packed ^ std::hash<MiningOptimizationTraining::PositionAndVelocity>()(data.returnPathStartPosition);
+            return data.packed ^ std::hash<MiningOptimizationTraining::PositionAndVelocity>()(data.nextPathStartPosition);
         }
     };
 }

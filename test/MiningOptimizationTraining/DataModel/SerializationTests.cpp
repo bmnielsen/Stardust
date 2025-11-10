@@ -13,7 +13,6 @@ namespace
     {
         MiningOptimizationTraining::GatherPathNode result{{ pos.x, pos.y }};
         result.type = (MiningOptimizationTraining::NodeType)(pos.x % 6);
-        result.timesExplored = pos.x;
         result.arrivalData.emplace(MiningOptimizationTraining::GatherArrivalData(pos.x), pos.x);
         result.arrivalDataAfterResend.emplace(MiningOptimizationTraining::GatherArrivalData(pos.x - 5), pos.x - 5);
         return result;
@@ -97,17 +96,17 @@ TEST(SerializationTests, WriteAndReadBack)
             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
                 {pos[0], MiningOptimizationTraining::GatherPath{pos[0], {
                     {gatherObservations[0], gatherObservations[0].positionDifferenceFromPreviousNode.x}
-                }}},
+                }, (uint32_t)gatherObservations[0].positionDifferenceFromPreviousNode.x}},
                 {pos[8], MiningOptimizationTraining::GatherPath{pos[8], {
                     {gatherObservations[8], gatherObservations[8].positionDifferenceFromPreviousNode.x}
-                }}}
+                }, (uint32_t)gatherObservations[8].positionDifferenceFromPreviousNode.x}}
             });
     expected.resourceToGatherPaths.emplace(
             TilePosition(1, 1),
             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
                 {pos[5], MiningOptimizationTraining::GatherPath{pos[5], {
                     {gatherObservations[5], gatherObservations[5].positionDifferenceFromPreviousNode.x}
-                }}}
+                }, (uint32_t)gatherObservations[5].positionDifferenceFromPreviousNode.x}}
             });
 
     // Serialize the data

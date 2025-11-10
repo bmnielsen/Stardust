@@ -57,7 +57,6 @@ namespace MiningOptimizationTraining::Serialization
                 {
                     s.object(value.positionDifferenceFromPreviousNode, exactPositionDifferenceSerializer);
                     s.value1b(value.type);
-                    s.value4b(value.timesExplored);
                     s.ext(value.arrivalData, bitsery::ext::StdMap{INT_MAX}, [](auto &s, T &key, uint32_t &value)
                     {
                         s.object(key);
@@ -83,6 +82,7 @@ namespace MiningOptimizationTraining::Serialization
                     s.object(v.first, pathNodeSerializer);
                     s.value4b(v.second);
                 });
+                s.value4b(value.timesExplored);
             };
 
             auto resourceToRootNodesSerializer = [&]<typename T>(

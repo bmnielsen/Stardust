@@ -14,8 +14,8 @@ namespace MiningOptimizationTraining
             , patch(patch)
             , depot(depot)
             , state(0)
-            , startOfGatherExplorationWindow(nullptr)
-            , startOfReturnExplorationWindow(nullptr)
+            , currentGatherPath({nullptr, nullptr})
+            , currentReturnPath({nullptr, nullptr})
             , startOfExplorationWindowFrame(INT_MAX)
         {}
 
@@ -34,14 +34,20 @@ namespace MiningOptimizationTraining
         // 2 - approaching the depot
         int state;
 
-        // Pointer to the gather path node that starts the gather exploration window
-        GatherPathNode *startOfGatherExplorationWindow;
+        // Pointers to the current gather path (root and start of exploration window)
+        std::pair<GatherPath*, GatherPathNode*> currentGatherPath;
 
-        // Pointer to the return path node that starts the return exploration window
-        ReturnPathNode *startOfReturnExplorationWindow;
+        // Pointers to the current return path (root and start of exploration window)
+        std::pair<ReturnPath*, ReturnPathNode*> currentReturnPath;
 
         // The frame where we will reach the start of the exploration window
         int startOfExplorationWindowFrame;
+
+        // The no resend path, starting with the start of the exploration window
+        std::vector<BWAPI::ExactPosition> noResendPath;
+
+        // The start position of the next path after no resend
+        PositionAndVelocity noResendStartOfNextPath;
 
         // The planned resend frames
         std::set<int> plannedResendFrames;

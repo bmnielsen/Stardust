@@ -26,14 +26,6 @@ namespace MiningOptimizationTraining
         // The type of node, see definition of NodeType for details on each type
         NodeType type = NodeType::Uninitialized;
 
-        // The number of times this node has been explored
-        // The meaning of this depends on the node type
-        // For Uninitialized, BeforeExplorationWindow and StableNode, it is unused.
-        // For NonfinalResendNode, it is the number of times a resend took effect here without a subsequent resend.
-        // For FinalResendNode, it is the number of times a resend took effect here.
-        // For AfterExplorationWindow, it is the number of times a no-resend path reached the node.
-        uint32_t timesExplored = 0;
-
         // The arrival observations from this node when the path is not changed by a later gather command
         std::map<ObservationType, uint32_t> arrivalData;
 
@@ -58,5 +50,8 @@ namespace MiningOptimizationTraining
 
         // All next positions seen from this node
         std::vector<std::pair<PathNode<ObservationType>, uint32_t>> nextPositions;
+
+        // The number of times this root node has been explored
+        uint32_t timesExplored = 0;
     };
 }

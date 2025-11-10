@@ -28,7 +28,7 @@ namespace MiningOptimizationTraining
     struct ReturnArrivalData
     {
         uint8_t packed = UINT8_MAX;
-        PositionAndVelocity gatherPathStartPosition;
+        PositionAndVelocity nextPathStartPosition;
 
         // The number of frames to arrival at the target
         [[nodiscard]] unsigned int arrivalDelay() const
@@ -55,15 +55,15 @@ namespace MiningOptimizationTraining
 
         bool operator==(const ReturnArrivalData &other) const
         {
-            return std::tie(packed, gatherPathStartPosition) == std::tie(other.packed, other.gatherPathStartPosition);
+            return std::tie(packed, nextPathStartPosition) == std::tie(other.packed, other.nextPathStartPosition);
         }
 
         bool operator<(const ReturnArrivalData &other) const
         {
-            return std::tie(packed, gatherPathStartPosition) < std::tie(other.packed, other.gatherPathStartPosition);
+            return std::tie(packed, nextPathStartPosition) < std::tie(other.packed, other.nextPathStartPosition);
         }
 
-        static ReturnArrivalData create(unsigned int arrivalDelay, ReturnExitSpeed exitSpeed, PositionAndVelocity gatherPathStartPosition)
+        static ReturnArrivalData create(unsigned int arrivalDelay, ReturnExitSpeed exitSpeed, PositionAndVelocity nextPathStartPosition)
         {
             // Arrival delay values outside the range of 6 bits are clamped
             // This is fine since such long arrival delays would never be useful for optimization anyway
@@ -75,7 +75,7 @@ namespace MiningOptimizationTraining
             // Add the exit speed
             packed += (uint8_t)exitSpeed;
 
-            return ReturnArrivalData{packed, std::move(gatherPathStartPosition)};
+            return ReturnArrivalData{packed, std::move(nextPathStartPosition)};
         }
 
         // Populates the members of the struct, except arrivalDelay, from simulated path data
@@ -102,13 +102,13 @@ namespace MiningOptimizationTraining
                 returnExitSpeed = ReturnExitSpeed::Low;
             }
 
-            return create(63, returnExitSpeed, PositionAndVelocity{std::get<1>(simulatedPath)});
+            return create(std::get<0>(simulatedPath).size(), returnExitSpeed, PositionAndVelocity{std::get<1>(simulatedPath)});
         }
 
         template <typename S>
         void serialize(S& s) {
             s.value1b(packed);
-            s.object(gatherPathStartPosition);
+            s.object(nextPathStartPosition);
         }
 
         friend std::ostream& operator<< (std::ostream& os, const ReturnArrivalData& data)
@@ -143,7 +143,7 @@ namespace std {
         size_t operator()(const MiningOptimizationTraining::ReturnArrivalData& data) const
         {
             // As this is only intended for use in std::unordered_map, hash quality is not important
-            return data.packed ^ std::hash<MiningOptimizationTraining::PositionAndVelocity>()(data.gatherPathStartPosition);
+            return data.packed ^ std::hash<MiningOptimizationTraining::PositionAndVelocity>()(data.nextPathStartPosition);
         }
     };
 }
