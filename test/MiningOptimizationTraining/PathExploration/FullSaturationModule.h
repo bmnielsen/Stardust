@@ -139,6 +139,17 @@ namespace MiningOptimizationTraining
             }
             else if (BWAPI::Broodwar->getFrameCount() % 10000 == 20)
             {
+                // Gather tiles occupied by cannons
+                std::set<BWAPI::TilePosition> cannonTiles;
+                for (auto cannon : BWAPI::Broodwar->self()->getUnits())
+                {
+                    if (cannon->getType() != BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+                    cannonTiles.insert(cannon->getTilePosition());
+                    cannonTiles.insert(cannon->getTilePosition() + BWAPI::TilePosition(1, 0));
+                    cannonTiles.insert(cannon->getTilePosition() + BWAPI::TilePosition(0, 1));
+                    cannonTiles.insert(cannon->getTilePosition() + BWAPI::TilePosition(1, 1));
+                }
+
                 // Create workers
                 int idx = 0;
                 for (auto &base : Map::allBases())
@@ -148,6 +159,7 @@ namespace MiningOptimizationTraining
                     for (auto tile : base->mineralLineTiles)
                     {
                         if (!Map::isWalkable(tile)) continue;
+                        if (cannonTiles.contains(tile)) continue;
 
                         for (int x = 0; x < 4; x++)
                         {

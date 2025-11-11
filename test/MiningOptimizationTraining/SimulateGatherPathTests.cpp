@@ -69,6 +69,13 @@ TEST(SimulateGatherPathTests, VermeerOneIteration)
     runFullSaturationTest(test, 0, 1);
 }
 
+TEST(SimulateGatherPathTests, VermeerCannonsOneIteration)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    runFullSaturationTest(test, 2, 1);
+}
+
 TEST(SimulateGatherPathTests, VermeerTenIterations)
 {
     BWTest test;
@@ -81,5 +88,13 @@ TEST(SimulateGatherPathTests, AllSSCAITOneIteration)
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
     {
         runFullSaturationTest(test, 0, 1);
+    });
+}
+
+TEST(SimulateGatherPathTests, AllSSCAITCannonsOneIteration)
+{
+    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        runFullSaturationTest(test, 2, 1);
     });
 }

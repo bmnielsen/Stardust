@@ -44,6 +44,7 @@ namespace
             return new MiningOptimizationTraining::FullSaturationModule<MiningOptimizationTraining::WorkerPathExploration>(cannons);
         };
         test.frameLimit = 10000 * (int)iterations;
+        test.timeLimit = 300 * (int)iterations;
 
         std::ostringstream replayNameBuilder;
         replayNameBuilder << "MiningTraining_" << test.map->shortname();
