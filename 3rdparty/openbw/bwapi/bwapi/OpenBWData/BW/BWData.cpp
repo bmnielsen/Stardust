@@ -2397,8 +2397,16 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
     }
 
     // Create a copy of the state
-    // We reuse the same object to avoid unnecessary memory allocations/deallocations
-    static bwgame::state state_copy;
+    // To balance memory allocations/deallocations with total memory usage, we reuse the same state object but reset it every 1000 times
+    static std::unique_ptr<bwgame::state> state_copy_ptr;
+    static int counter = 0;
+    if (++counter == 1000)
+    {
+        state_copy_ptr.reset();
+        counter = 0;
+    }
+    if (!state_copy_ptr) state_copy_ptr = std::make_unique<bwgame::state>();
+    auto &state_copy = *state_copy_ptr;
     bwgame::state_copier<true>(impl->st, state_copy)();
     openbwapi_functions<bwgame::state_functions> funcs_copy(impl->vars, state_copy);
 
