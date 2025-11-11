@@ -46,7 +46,7 @@ namespace MiningOptimizationTraining
                 for (auto unit : BWAPI::Broodwar->getNeutralUnits())
                 {
                     if (!unit->getType().isMineralField()) continue;
-                    if (unit->getResources() < 100) unit->setResources(1500);
+                    if (unit->getResources() < 200) unit->setResources(1500);
                 }
             }
 
@@ -55,6 +55,14 @@ namespace MiningOptimizationTraining
                 for (auto &workerStatus : workerStatuses)
                 {
                     workerStatus.update();
+                }
+
+                if ((currentFrame % 2000 == 0 && currentFrame % 10000 != 0) || currentFrame % 10000 == 9950)
+                {
+                    for (auto &workerStatus : workerStatuses)
+                    {
+                        workerStatus.outputDebugInformation();
+                    }
                 }
             }
 

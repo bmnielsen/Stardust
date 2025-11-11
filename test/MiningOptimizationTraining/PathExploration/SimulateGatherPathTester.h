@@ -21,6 +21,8 @@ namespace MiningOptimizationTraining
 
         void update();
 
+        void outputDebugInformation() {}
+
     private:
         BWAPI::Unit worker;
         BWAPI::Unit patch;

@@ -27,7 +27,7 @@ namespace
         {
             return new MiningOptimizationTraining::SingleWorkerModule<MiningOptimizationTraining::WorkerPathExploration>();
         };
-        test.frameLimit = 1000;
+        test.frameLimit = 10000;
 
         std::ostringstream replayNameBuilder;
         replayNameBuilder << "MiningTraining_" << test.map->shortname() << "_SingleWorker";
