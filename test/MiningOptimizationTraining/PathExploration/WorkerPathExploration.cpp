@@ -1,5 +1,4 @@
-#include "PathExplorationModule.h"
-
+#include "WorkerPathExploration.h"
 #include "../DataModel/Configuration.h"
 
 namespace MiningOptimizationTraining
