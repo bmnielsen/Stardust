@@ -15,6 +15,14 @@ namespace MiningOptimizationTraining
             int resends;
         };
 
+        // Gets the total occurrences from a next positions vector or arrival observations map
+        uint32_t getTotalOccurrences(const auto &observations)
+        {
+            uint32_t totalOccurrences = 0;
+            for (const auto &[_, occurrences] : observations) totalOccurrences += occurrences;
+            return totalOccurrences;
+        }
+
         // Gets the next path node matching a specific next position
         // If update is set, nodes are created where they don't exist and occurrence counts are incremented
         template <typename ObservationType>
@@ -22,12 +30,14 @@ namespace MiningOptimizationTraining
                                                    BWAPI::ExactPositionDifference positionDifference,
                                                    bool update)
         {
-            uint32_t totalOccurrences = 0;
             std::pair<PathNode<ObservationType>, uint32_t> *nextPathNodePair = nullptr;
             for (auto &pathNodePair : nextPositions)
             {
-                if (pathNodePair.first.positionDifferenceFromPreviousNode == positionDifference) nextPathNodePair = &pathNodePair;
-                totalOccurrences += pathNodePair.second;
+                if (pathNodePair.first.positionDifferenceFromPreviousNode == positionDifference)
+                {
+                    nextPathNodePair = &pathNodePair;
+                    break;
+                }
             }
 
             if (!update && !nextPathNodePair) return nullptr;
@@ -37,7 +47,7 @@ namespace MiningOptimizationTraining
                 nextPathNodePair = &nextPositions.emplace_back(PathNode<ObservationType>{positionDifference}, 0);
             }
 
-            if (update && totalOccurrences < UINT32_MAX)
+            if (update && getTotalOccurrences(nextPositions) < UINT32_MAX)
             {
                 nextPathNodePair->second++;
             }
@@ -49,16 +59,13 @@ namespace MiningOptimizationTraining
         template <typename ObservationType>
         void addArrivalObservation(std::map<ObservationType, uint32_t> &observations, const ObservationType &arrivalData)
         {
-            uint32_t totalOccurrences = 0;
-            for (const auto &[_, occurrences] : observations) totalOccurrences += occurrences;
-
             auto dataIt = observations.find(arrivalData);
             if (dataIt == observations.end())
             {
                 dataIt = observations.emplace(arrivalData, 0).first;
             }
 
-            if (totalOccurrences < UINT32_MAX) dataIt->second++;
+            if (getTotalOccurrences(observations) < UINT32_MAX) dataIt->second++;
         }
 
         // Gets the number of times a root node has been explored
@@ -69,6 +76,20 @@ namespace MiningOptimizationTraining
             auto it = pathRootNodes.find(pos);
             if (it == pathRootNodes.end()) return 0;
             return it->second.timesExplored;
+        }
+
+        // Checks if two paths are equal, can be called with a vector or range
+        bool pathsEqual(auto first, auto second)
+        {
+            std::input_or_output_iterator auto firstIt = first.begin();
+            std::input_or_output_iterator auto secondIt = second.begin();
+            while (firstIt != first.end() && secondIt != second.end())
+            {
+                if (*firstIt != *secondIt) return false;
+                firstIt++;
+                secondIt++;
+            }
+            return firstIt == first.end() && secondIt == second.end();
         }
 
         // Container for keeping track of the least-explored next path found so far
@@ -152,20 +173,9 @@ namespace MiningOptimizationTraining
                 if (resendNode)
                 {
                     // If this node is uninitialized, check if the resend changed the path or not
-                    if (resendNode->type == NodeType::Uninitialized)
+                    if (resendNode->type == NodeType::Uninitialized || resendNode->type == NodeType::StableNode)
                     {
-                        std::input_or_output_iterator auto firstIt = noResendPath.begin();
-                        auto secondIt = simulatedPath.begin();
-                        bool pathsEqual = true;
-                        while (pathsEqual && firstIt != noResendPath.end() && secondIt != simulatedPath.end())
-                        {
-                            pathsEqual = (*firstIt == *secondIt);
-                            firstIt++;
-                            secondIt++;
-                        }
-                        pathsEqual = pathsEqual && firstIt == noResendPath.end() && secondIt == simulatedPath.end();
-
-                        if (pathsEqual)
+                        if (pathsEqual(noResendPath, simulatedPath))
                         {
                             resendNode->type = NodeType::StableNode;
 
@@ -227,8 +237,9 @@ namespace MiningOptimizationTraining
                     }
 
                     // If a resend is relevant from the node, explore one level deeper
-                    if (node->type == NodeType::Uninitialized || node->type == NodeType::NonfinalResendNode
-                        || node->type == NodeType::FinalResendNode)
+                    // We check stable nodes 3 times since we do see some false positives
+                    if (node->type == NodeType::Uninitialized || node->type == NodeType::NonfinalResendNode || node->type == NodeType::FinalResendNode
+                        || (node->type == NodeType::StableNode && getTotalOccurrences(node->arrivalData) < 3))
                     {
                         std::set<int> nextResendFrames = resendFrames;
                         nextResendFrames.insert(frame);
