@@ -8,12 +8,12 @@ namespace MiningOptimizationTraining
     enum class NodeType:uint8_t
     {
         Uninitialized,              // Initial state
-        BeforeExplorationWindow,    // A node that occurs before our exploration window, so we don't explore it
         AfterExplorationWindow,     // A node that occurs after our exploration window, so we don't explore it
+        StableNode,                 // A node where resends do not change the path
+        PoorResendNode,             // A node early in the path that results in a longer path to the patch
         NonfinalResendNode,         // A node where resends change the path, and additional resends may be sent later
         FinalResendNode,            // A node where resends change the path, but no additional resends may be sent
-        StableNode,                 // A node within the exploration window where resends do not change the path
-        ResendUnavailable,          // A node where resends cannot occur because of Unit_Busy
+        ResendUnavailable,          // A node where resends cannot occur because of Unit_Busy or because it is too early in the path
     };
 
     // This structure stores a node in a path

@@ -183,8 +183,12 @@ namespace MiningOptimizationTraining
                             return {};
                         }
 
-                        // Set the type of resend node depending on whether we are at our resend depth limit
-                        if (resendFrames.size() >= limits.resends)
+                        // Set the type of resend node
+                        if (noResendPath.size() > limits.startOfExplorationWindow && noResendPath.size() < simulatedPath.size())
+                        {
+                            resendNode->type = NodeType::PoorResendNode;
+                        }
+                        else if (resendFrames.size() >= limits.resends)
                         {
                             resendNode->type = NodeType::FinalResendNode;
                         }
@@ -197,8 +201,8 @@ namespace MiningOptimizationTraining
                     // Make the resend observation on the resend node
                     addArrivalObservation(resendNode->arrivalDataAfterResend, arrivalData);
 
-                    // If we are at our depth limit, we don't need to explore the nodes along the path
-                    if (resendNode->type == NodeType::FinalResendNode) return bestResult;
+                    // Jump out unless we need to explore more resends from here
+                    if (resendNode->type != NodeType::NonfinalResendNode) return bestResult;
                 }
 
                 // Loop through the path, creating and updating nodes as needed
@@ -214,23 +218,19 @@ namespace MiningOptimizationTraining
                     // For new nodes, set the type if we can already determine it here
                     if (node->type == NodeType::Uninitialized)
                     {
-                        if ((frame - currentFrame) < BWAPI::Broodwar->getLatencyFrames()
-                            || (arrivalDelay > limits.startOfExplorationWindow && resendFrames.empty()))
-                        {
-                            node->type = NodeType::BeforeExplorationWindow;
-                        }
-                        else if (arrivalDelay < limits.endOfExplorationWindow)
+                        if (arrivalDelay < limits.endOfExplorationWindow)
                         {
                             node->type = NodeType::AfterExplorationWindow;
                         }
-                        else if (resendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
+                        else if ((frame - currentFrame) < BWAPI::Broodwar->getLatencyFrames()
+                            || resendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
                         {
                             node->type = NodeType::ResendUnavailable;
                         }
                     }
 
                     // Make the observation on the node
-                    if (node->type != NodeType::BeforeExplorationWindow && node->type != NodeType::AfterExplorationWindow)
+                    if (node->type != NodeType::AfterExplorationWindow)
                     {
                         arrivalData.setArrivalDelay(arrivalDelay);
                         addArrivalObservation(node->arrivalData, arrivalData);
@@ -316,6 +316,7 @@ namespace MiningOptimizationTraining
                             createReturnArrivalData,
                             returnPaths,
                             gatherPaths);
+                    return;
                 }
 
                 return;
@@ -332,6 +333,7 @@ namespace MiningOptimizationTraining
                             createGatherArrivalData,
                             gatherPaths,
                             returnPaths);
+                    return;
                 }
 
                 // Execute a desired resend

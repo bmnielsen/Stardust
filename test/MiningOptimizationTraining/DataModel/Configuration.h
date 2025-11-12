@@ -5,8 +5,8 @@
 #define RETURN_RESEND_LIMIT 1
 
 // Defines the gather exploration horizon in number of frames to arrival
-// We still record path data for positions outside the window, but only explore resends within it
+// Nodes before the exploration window are still explored to see how resends affect the path, but longer paths are not explored further
 #define GATHER_EXPLORATION_WINDOW_START 20
 #define GATHER_EXPLORATION_WINDOW_END 5
-#define RETURN_EXPLORATION_WINDOW_START 20
+#define RETURN_EXPLORATION_WINDOW_START INT_MAX
 #define RETURN_EXPLORATION_WINDOW_END 5
