@@ -17,8 +17,6 @@ namespace MiningOptimizationTraining
             , expectedNextPathStartPosition({})
         {}
 
-        static void initialize(size_t randomSeed);
-
         void update();
 
         void outputDebugInformation() {}

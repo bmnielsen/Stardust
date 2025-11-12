@@ -6,23 +6,44 @@ namespace MiningOptimizationTraining
 {
     namespace
     {
-        std::default_random_engine rng; // NOLINT(*-msc51-cpp) - initialized later
+        std::default_random_engine rng(42); // NOLINT(*-msc51-cpp) - using fixed sequence for reproducability
         std::vector<std::set<int>> resendCombinations;
-    }
 
-    void SimulateGatherPathTester::initialize(size_t randomSeed)
-    {
-        rng = std::default_random_engine(randomSeed);
-        resendCombinations.clear();
-        resendCombinations.emplace_back();
-        for (int firstResend = -25; firstResend <= -5; firstResend++)
+        std::set<int> &chooseResendCombination(int arrivalFrame)
         {
-            resendCombinations.push_back({firstResend});
-            for (int secondResend = (firstResend + 1); secondResend <= -5; secondResend++)
+            // Initialize resend combinations lazily
+            if (resendCombinations.empty())
             {
-                // TODO: Should call this after BW is initialized so we can use getLatencyFrames
-                if (secondResend == (firstResend + 3)) continue;
-                resendCombinations.push_back({firstResend, secondResend});
+                resendCombinations.emplace_back(); // the no resend option
+                for (int firstResend = -50; firstResend <= -5; firstResend++)
+                {
+                    resendCombinations.push_back({firstResend});
+                    for (int secondResend = (firstResend + 1); secondResend <= -5; secondResend++)
+                    {
+                        if (secondResend == (firstResend + BWAPI::Broodwar->getLatencyFrames())) continue;
+                        resendCombinations.push_back({firstResend, secondResend});
+                    }
+                }
+            }
+
+            while (true)
+            {
+                // Pick a combination
+                std::uniform_int_distribution<size_t> dist(0, resendCombinations.size() - 1);
+                auto &chosenCombination = resendCombinations[dist(rng)];
+
+                // Validate if it is usable
+                bool usable = true;
+                for (auto &resendFrameDelta : chosenCombination)
+                {
+                    int resendFrame = arrivalFrame + resendFrameDelta;
+                    if (resendFrame < (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    {
+                        usable = false;
+                        break;
+                    }
+                }
+                if (usable) return chosenCombination;
             }
         }
     }
@@ -46,8 +67,7 @@ namespace MiningOptimizationTraining
 
             // Pick the resend frames
             int arrivalFrame = currentFrame + (int)noResendPath.size();
-            std::uniform_int_distribution<size_t> dist(0, resendCombinations.size() - 1);
-            auto &chosenCombination = resendCombinations[dist(rng)];
+            auto &chosenCombination = chooseResendCombination(arrivalFrame);
 
             // As the simulate method only returns the positions from the last resend, we graft the full path together
             // We are taking advantage of the fact that std::set is sorted ascending by default
@@ -55,8 +75,7 @@ namespace MiningOptimizationTraining
             for (auto &resendFrameDelta : chosenCombination)
             {
                 int resendFrame = arrivalFrame + resendFrameDelta;
-                if (resendFrame < (currentFrame + BWAPI::Broodwar->getLatencyFrames())) return; // Abort if we can't satisfy this path
-                if (resendFrame >= (currentFrame + (int)expectedPath.size())) return;
+                if (resendFrame >= (currentFrame + (int)expectedPath.size())) return; // Expected path size can change along the way
 
                 plannedResendFrames.insert(resendFrame);
                 auto resendPathResult = worker->simulateGatherPath(plannedResendFrames);

@@ -18,7 +18,6 @@ namespace
         test.allowOpponentOutput = false;
         test.expectWin = false;
         test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
-        MiningOptimizationTraining::SimulateGatherPathTester::initialize(42);
     }
 
     void runSingleWorkerTest(BWTest &test)
