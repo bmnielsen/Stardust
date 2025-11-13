@@ -3,6 +3,8 @@
 
 #include <ranges>
 
+#define EPSILON 0.0001
+
 namespace MiningOptimizationTraining
 {
     namespace
@@ -92,21 +94,19 @@ namespace MiningOptimizationTraining
             return firstIt == first.end() && secondIt == second.end();
         }
 
-        // Container for keeping track of the least-explored next path found so far
-        struct LeastExploredNode
+        // Records the results of exploring a node
+        template <typename ObservationType>
+        struct NodeExplorationResult
         {
-            uint32_t timesExplored = UINT32_MAX;
+            std::pair<unsigned int, int> arrivalDelay;
+            BWAPI::ExactPosition nextPathStartPosition;
             std::set<int> resends;
 
-            void updateIfBetter(LeastExploredNode &other)
-            {
-                if (other.timesExplored < timesExplored
-                    || (other.timesExplored == timesExplored && resends.size() > other.resends.size()))
-                {
-                    timesExplored = other.timesExplored;
-                    resends = std::move(other.resends);
-                }
-            }
+            NodeExplorationResult(ObservationType &arrivalData, BWAPI::ExactPosition nextPathStartPosition, std::set<int> resends)
+                    : arrivalDelay(arrivalData.calculateFullDelay(resends.empty() ? 0 : (*resends.rbegin() - currentFrame)))
+                    , nextPathStartPosition(std::move(nextPathStartPosition))
+                    , resends(std::move(resends))
+            {}
         };
     }
 
@@ -144,15 +144,18 @@ namespace MiningOptimizationTraining
             auto &rootNode = rootNodeIt->second;
             rootNode.timesExplored++;
 
+            // While exploring, we gather the results of each subpath in order to pick a good next path to explore and keep some overall statistics
+            std::vector<NodeExplorationResult<ObservationType>> results;
+
             // Explores the path, recursively going down a level as appropriate
             auto explorePath = [&]( // NOLINT(*-no-recursion)
                     auto &explorePath,
                     int frame,
                     BWAPI::ExactPosition currentPosition,
                     std::vector<std::pair<PathNode<ObservationType>, uint32_t>> *nextPositions,
-                    std::set<int> &resendFrames,
+                    std::set<int> resendFrames = {},
                     PathNode<ObservationType> *resendNode = nullptr,
-                    std::ranges::subrange<std::vector<BWAPI::ExactPosition>::iterator> noResendPath = {}) -> LeastExploredNode
+                    std::ranges::subrange<std::vector<BWAPI::ExactPosition>::iterator> noResendPath = {})
             {
                 // Simulate the path
                 auto simulatedPathResult = worker->simulateGatherPath(resendFrames);
@@ -160,14 +163,20 @@ namespace MiningOptimizationTraining
                 {
                     Log::Get() << "ERROR: Path could not be simulated"
                                << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                    return {};
+                    return;
                 }
                 auto &simulatedPath = std::get<0>(*simulatedPathResult);
                 auto &nextPathStartPos = std::get<1>(*simulatedPathResult);
                 ObservationType arrivalData = createArrivalData(*simulatedPathResult);
 
-                // Initialize the best result to the case where we follow the path with no additional resends
-                LeastExploredNode bestResult{getTimesExplored(nextPathRootNodes, PositionAndVelocity(nextPathStartPos)), resendFrames};
+                auto addResult = [&]()
+                {
+                    // Reset the arrival delay since it might have been updated while exploring
+                    arrivalData.setArrivalDelay(simulatedPath.size());
+
+                    // This is always called last, so we can use move semantics
+                    results.emplace_back(arrivalData, std::move(nextPathStartPos), std::move(resendFrames));
+                };
 
                 // If this is a resend node, we have a couple of additional steps to do
                 if (resendNode)
@@ -180,7 +189,7 @@ namespace MiningOptimizationTraining
                             resendNode->type = NodeType::StableNode;
 
                             // We can just jump out now, since stable nodes don't need to be explored for resends
-                            return {};
+                            return;
                         }
 
                         // Set the type of resend node
@@ -202,7 +211,11 @@ namespace MiningOptimizationTraining
                     addArrivalObservation(resendNode->arrivalDataAfterResend, arrivalData);
 
                     // Jump out unless we need to explore more resends from here
-                    if (resendNode->type != NodeType::NonfinalResendNode) return bestResult;
+                    if (resendNode->type != NodeType::NonfinalResendNode)
+                    {
+                        if (resendNode->type != NodeType::PoorResendNode) addResult();
+                        return;
+                    }
                 }
 
                 // Loop through the path, creating and updating nodes as needed
@@ -243,30 +256,80 @@ namespace MiningOptimizationTraining
                     {
                         std::set<int> nextResendFrames = resendFrames;
                         nextResendFrames.insert(frame);
-                        auto resendResult = explorePath(explorePath,
-                                                        frame + 1,
-                                                        currentPosition,
-                                                        &node->nextPositionsAfterResend,
-                                                        nextResendFrames,
-                                                        node,
-                                                        std::ranges::subrange(positionIt + 1, simulatedPath.end()));
-                        bestResult.updateIfBetter(resendResult);
+                        explorePath(explorePath,
+                                    frame + 1,
+                                    currentPosition,
+                                    &node->nextPositionsAfterResend,
+                                    std::move(nextResendFrames),
+                                    node,
+                                    std::ranges::subrange(positionIt + 1, simulatedPath.end()));
+                    }
+                    else if (node->type == NodeType::StableNode)
+                    {
+                        // For stable nodes, add a result as if we resent here, as it affects the order timer at arrival and therefore may differ from
+                        // the initial node
+                        std::set<int> nextResendFrames = resendFrames;
+                        nextResendFrames.insert(frame);
+                        results.emplace_back(arrivalData, nextPathStartPos, std::move(nextResendFrames));
                     }
 
                     nextPositions = &node->nextPositions;
                     frame++;
                 }
 
-                return bestResult;
+                // Add the result if we did not resend after this node
+                addResult();
             };
 
-            std::set<int> resendFrames;
-            auto result = explorePath(explorePath,
-                                      currentFrame,
-                                      worker->getExactPosition(),
-                                      &rootNode.nextPositions,
-                                      resendFrames);
-            plannedResendFrames = std::move(result.resends);
+            // Start exploring the path from the worker's initial position
+            explorePath(explorePath,
+                        currentFrame,
+                        worker->getExactPosition(),
+                        &rootNode.nextPositions);
+
+            // Process the results
+            // The goals are twofold:
+            // - Keep statistics on the root node of how the optimal arrival delays tend to shake out, which we can later use to prioritize paths
+            //   that get us to better next paths.
+            // - Plan to explore relevant next paths, excluding those that will never come up in real situations because they only occur after
+            //   horrible earlier path decisions. This especially applies to return paths that are not being straightened.
+
+            // Start by scanning to get the best arrival data
+            unsigned int bestArrivalDelay;
+            for (auto &result : results)
+            {
+                unsigned int arrivalDelay = (result.arrivalDelay.first + result.arrivalDelay.second);
+                if (arrivalDelay < bestArrivalDelay)
+                {
+                    bestArrivalDelay = arrivalDelay;
+                }
+            }
+            if (getTotalOccurrences(rootNode.bestArrivalDelaysAndOccurrences) < UINT32_MAX)
+            {
+                rootNode.bestArrivalDelaysAndOccurrences[bestArrivalDelay]++;
+            }
+
+            // Now choose the next path start node we want to explore
+            // Our scoring function is to take the times explored and weight it by the difference between the arrival delay and the best arrival delay
+            // The score is doubled for every 5 frames of additional delay
+            auto bestScore = (float)UINT32_MAX;
+            unsigned int bestDelayDelta = UINT_MAX;
+            for (auto &result : results)
+            {
+                float score = getTimesExplored(nextPathRootNodes, PositionAndVelocity(result.nextPathStartPosition));
+                unsigned int arrivalDelayDelta = (result.arrivalDelay.first + result.arrivalDelay.second) - bestArrivalDelay;
+                score *= (1.0f + (float)arrivalDelayDelta / 5.0f);
+
+                if (score < (bestScore - EPSILON) || (score < (bestScore + EPSILON) && arrivalDelayDelta < bestDelayDelta))
+                {
+                    bestScore = score;
+                    bestDelayDelta = arrivalDelayDelta;
+                    plannedResendFrames = std::move(result.resends);
+#if VALIDATE_EXPECTED_TRANSITION_FRAMES
+                    expectedTransitionFrame = currentFrame + result.arrivalDelay.first;
+#endif
+                }
+            }
 
             std::ostringstream dbg;
             std::string sep;
@@ -276,84 +339,121 @@ namespace MiningOptimizationTraining
                 sep = ", ";
             }
             CherryVis::log(worker->getID()) << "Planned resend frame(s): " << dbg.str();
+#if VALIDATE_EXPECTED_TRANSITION_FRAMES
+            CherryVis::log(worker->getID()) << "Expected transition frame: " << expectedTransitionFrame;
+#endif
         };
 
-        switch (state)
+        while (true)
         {
-            case 0:
+            switch (state)
             {
-                // Worker is approaching the patch; transition to state 1 when it starts mining
-                if (worker->getOrder() == BWAPI::Orders::MiningMinerals)
+                case 0:
                 {
-                    CherryVis::log(worker->getID()) << "State transition from approaching patch to mining";
-                    state = 1;
-                    return;
-                }
-
-                // Execute a desired resend
-                if (plannedResendFrames.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
-                {
-                    CherryVis::log(worker->getID()) << "Issuing gather command";
-                    auto result = worker->gather(patch);
-                    if (!result)
+                    // Worker is approaching the patch; transition to state 1 when it is waiting for minerals
+                    if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
                     {
-                        Log::Get() << "ERROR: Failed to reissue gather command: " << BWAPI::Broodwar->getLastError()
-                                   << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                        CherryVis::log(worker->getID()) << "State transition from approaching patch to wait for minerals";
+                        state = 1;
+
+#if VALIDATE_EXPECTED_TRANSITION_FRAMES
+                        if (expectedTransitionFrame != -1 && expectedTransitionFrame != currentFrame)
+                        {
+                            Log::Get() << "ERROR: Incorrect expected transition frame of " << expectedTransitionFrame
+                                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+
+                        }
+#endif
+                        continue;
                     }
-                }
 
-                return;
-            }
-            case 1:
-            {
-                // Worker is mining; transition to state 2 when it is finished mining
-                if (worker->getOrder() == BWAPI::Orders::ReturnMinerals && worker->isCarryingMinerals())
-                {
-                    CherryVis::log(worker->getID()) << "State transition from mining to returning minerals";
-                    state = 2;
-                    initializePath(
-                            {RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
-                            createReturnArrivalData,
-                            returnPaths,
-                            gatherPaths);
-                    return;
-                }
-
-                return;
-            }
-            case 2:
-            {
-                // Worker is returning minerals; transition to state 0 when it has returned minerals
-                if (!worker->isCarryingMinerals())
-                {
-                    CherryVis::log(worker->getID()) << "State transition from returning minerals to approaching patch";
-                    state = 0;
-                    initializePath(
-                            {GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
-                            createGatherArrivalData,
-                            gatherPaths,
-                            returnPaths);
-                    return;
-                }
-
-                // Execute a desired resend
-                if (plannedResendFrames.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
-                {
-                    CherryVis::log(worker->getID()) << "Issuing return command";
-                    auto result = worker->rightClick(depot);
-                    if (!result)
+                    // Execute a desired resend
+                    if (plannedResendFrames.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                     {
-                        Log::Get() << "ERROR: Failed to reissue return command: " << BWAPI::Broodwar->getLastError()
-                                   << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                        CherryVis::log(worker->getID()) << "Issuing gather command";
+                        auto result = worker->gather(patch);
+                        if (!result)
+                        {
+                            Log::Get() << "ERROR: Failed to reissue gather command: " << BWAPI::Broodwar->getLastError()
+                                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                        }
                     }
-                }
 
-                return;
-            }
-            default:
-            {
-                Log::Get() << "ERROR: Worker has unknown state " << state;
-                return;
+                    return;
+                }
+                case 1:
+                {
+                    // Worker is waiting for minerals; transition to state 2 when it starts mining
+                    if (worker->getOrder() == BWAPI::Orders::MiningMinerals)
+                    {
+                        CherryVis::log(worker->getID()) << "State transition from wait for minerals to mining";
+                        state = 2;
+                        continue;
+                    }
+
+                    return;
+                }
+                case 2:
+                {
+                    // Worker is mining; transition to state 2 when it is finished mining
+                    if (worker->getOrder() == BWAPI::Orders::ReturnMinerals && worker->isCarryingMinerals())
+                    {
+                        CherryVis::log(worker->getID()) << "State transition from mining to returning minerals";
+                        state = 3;
+                        initializePath(
+                                {RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
+                                createReturnArrivalData,
+                                returnPaths,
+                                gatherPaths);
+                        continue;
+                    }
+
+                    return;
+                }
+                case 3:
+                {
+                    // Worker is returning minerals; transition to state 0 when it has returned minerals
+                    if (!worker->isCarryingMinerals())
+                    {
+                        CherryVis::log(worker->getID()) << "State transition from returning minerals to approaching patch";
+                        state = 0;
+
+#if VALIDATE_EXPECTED_TRANSITION_FRAMES
+                        if (expectedTransitionFrame != -1 && expectedTransitionFrame != currentFrame)
+                        {
+                            Log::Get() << "ERROR: Incorrect expected transition frame of " << expectedTransitionFrame
+                                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+
+                        }
+#endif
+
+                        initializePath(
+                                {GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
+                                createGatherArrivalData,
+                                gatherPaths,
+                                returnPaths);
+                        continue;
+                    }
+
+                    // Execute a desired resend
+                    if (plannedResendFrames.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    {
+                        CherryVis::log(worker->getID()) << "Issuing return command";
+                        auto result = worker->rightClick(depot);
+                        if (!result)
+                        {
+                            Log::Get() << "ERROR: Failed to reissue return command: " << BWAPI::Broodwar->getLastError()
+                                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                        }
+                    }
+
+                    return;
+                }
+                default:
+                {
+                    Log::Get() << "ERROR: Worker has unknown state " << state;
+                    return;
+                }
             }
         }
     }

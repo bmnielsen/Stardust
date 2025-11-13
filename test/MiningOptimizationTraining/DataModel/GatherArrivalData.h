@@ -66,6 +66,28 @@ namespace MiningOptimizationTraining
             return std::tie(packed, nextPathStartPosition) < std::tie(other.packed, other.nextPathStartPosition);
         }
 
+        // Calculates the full delay from the start of the path to when mining will start, assuming no order process timer resets occur, along
+        // with the penalty from not facing patch or colliding with it
+        [[nodiscard]] std::pair<unsigned int, int> calculateFullDelay(unsigned int lastResendDistanceFromPathStart) const
+        {
+            // Compute the order process timer value at the start of the frame where the worker is at this node (i.e. where this arrival delay is
+            // measured from)
+            // If the node is the start of the path, the value will be 0 on the next frame, so we set it to 11 to make the math work
+            // If the node is a resend node, the value will be 0 on the next two frames, so we set it to 11 to make the math work
+            int orderProcessTimerAtNode = (lastResendDistanceFromPathStart == 0) ? 10 : 11;
+
+            // Compute the order process timer value at the arrival frame
+            // We do this by subtracting and then cycling forward
+            int orderProcessTimerAtArrival = orderProcessTimerAtNode - (int)arrivalDelay();
+            while (orderProcessTimerAtArrival < 0) orderProcessTimerAtArrival += 9;
+
+            // Put everything together
+            // Both having to turn to face the patch and colliding with it incur an extra order process timer cycle of delay after mining starts/ends
+            return std::make_pair(
+                    lastResendDistanceFromPathStart + arrivalDelay() + orderProcessTimerAtArrival,
+                    (!facingTarget() ? 9 : 0) + (collision() ? 9 : 0));
+        }
+
         static GatherArrivalData create(unsigned int arrivalDelay,
                                         bool facingTarget,
                                         bool collision,

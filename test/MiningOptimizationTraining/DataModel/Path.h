@@ -54,5 +54,8 @@ namespace MiningOptimizationTraining
 
         // The number of times this root node has been explored
         uint32_t timesExplored = 0;
+
+        // Counters for our best arrival delays and their occurrences
+        std::map<uint16_t, uint32_t> bestArrivalDelaysAndOccurrences;
     };
 }

@@ -18,6 +18,17 @@ namespace
         return result;
     }
 
+    MiningOptimizationTraining::GatherPath generateGatherPath(MiningOptimizationTraining::PositionAndVelocity &pos,
+                                                              MiningOptimizationTraining::GatherPathNode &nextNode)
+    {
+        return MiningOptimizationTraining::GatherPath{
+            pos,
+            {{nextNode, nextNode.positionDifferenceFromPreviousNode.x}}, // next positions
+            pos.x, // times explored
+            {{pos.x, pos.x}} // delay and occurrences
+        };
+    }
+
     template <typename M>
     void assertMapsEqual(M &expected, M &actual, const auto& valueComparator)
     {
@@ -94,19 +105,13 @@ TEST(SerializationTests, WriteAndReadBack)
     expected.resourceToGatherPaths.emplace(
             TilePosition(0, 0),
             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
-                {pos[0], MiningOptimizationTraining::GatherPath{pos[0], {
-                    {gatherObservations[0], gatherObservations[0].positionDifferenceFromPreviousNode.x}
-                }, (uint32_t)gatherObservations[0].positionDifferenceFromPreviousNode.x}},
-                {pos[8], MiningOptimizationTraining::GatherPath{pos[8], {
-                    {gatherObservations[8], gatherObservations[8].positionDifferenceFromPreviousNode.x}
-                }, (uint32_t)gatherObservations[8].positionDifferenceFromPreviousNode.x}}
+                    {pos[0], generateGatherPath(pos[0], gatherObservations[0])},
+                    {pos[8], generateGatherPath(pos[8], gatherObservations[8])}
             });
     expected.resourceToGatherPaths.emplace(
             TilePosition(1, 1),
             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
-                {pos[5], MiningOptimizationTraining::GatherPath{pos[5], {
-                    {gatherObservations[5], gatherObservations[5].positionDifferenceFromPreviousNode.x}
-                }, (uint32_t)gatherObservations[5].positionDifferenceFromPreviousNode.x}}
+                    {pos[5], generateGatherPath(pos[5], gatherObservations[8])}
             });
 
     // Serialize the data

@@ -65,6 +65,51 @@ namespace MiningOptimizationTraining
             return std::tie(packed, nextPathStartPosition) < std::tie(other.packed, other.nextPathStartPosition);
         }
 
+        // Calculates the full delay from the start of the path to when minerals will be delivered, assuming no order process timer resets occur,
+        // along with the penalty or benefit from exit speed
+        [[nodiscard]] std::pair<unsigned int, int> calculateFullDelay(unsigned int lastResendDistanceFromPathStart) const
+        {
+            // Compute the order process timer value at the start of the frame where the worker is at this node (i.e. where this arrival delay is
+            // measured from)
+            // If the node is the start of the path, the value is 0 since the worker just gained minerals
+            // If the node is a resend node, the value will be 0 on the next frame, so we set it to 10 to make the math work
+            int orderProcessTimerAtNode = (lastResendDistanceFromPathStart == 0) ? 0 : 10;
+
+            // Compute the order process timer value at the arrival frame
+            // In the case of a resend, the order timer is 0 at the start of the next frame, so we set it to 9 on this frame for the math to work out
+
+            // Compute the order process timer value at the arrival frame
+            // We do this by subtracting and then cycling forward
+            int orderProcessTimerAtArrival = orderProcessTimerAtNode - (int)arrivalDelay();
+            while (orderProcessTimerAtArrival < 0) orderProcessTimerAtArrival += 9;
+
+            // Compute the exit speed adjustment
+            // Collisions add a full order process timer cycle
+            // Low exit speed, also applicable if the order process timer is nonzero, is the standard and doesn't modify the timing
+            // Medium exit speed saves two frames
+            // High exit speed saves four frames
+            int exitSpeedAdjustment = 0;
+            switch (exitSpeed())
+            {
+                case ReturnExitSpeed::Collision:
+                    exitSpeedAdjustment = 9;
+                    break;
+                case ReturnExitSpeed::Medium:
+                    if (orderProcessTimerAtArrival == 0) exitSpeedAdjustment = -2;
+                    break;
+                case ReturnExitSpeed::High:
+                    if (orderProcessTimerAtArrival == 0) exitSpeedAdjustment = -4;
+                    break;
+                default:
+                    break;
+            }
+
+            // Put everything together
+            return std::make_pair(
+                    lastResendDistanceFromPathStart + arrivalDelay() + orderProcessTimerAtArrival,
+                    exitSpeedAdjustment);
+        }
+
         static ReturnArrivalData create(unsigned int arrivalDelay, ReturnExitSpeed exitSpeed, PositionAndVelocity nextPathStartPosition)
         {
             // Arrival delay values outside the range of 14 bits are clamped

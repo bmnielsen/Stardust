@@ -83,6 +83,10 @@ namespace MiningOptimizationTraining::Serialization
                     s.value4b(v.second);
                 });
                 s.value4b(value.timesExplored);
+                s.ext(value.bestArrivalDelaysAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [&](S& s, uint16_t& key, uint32_t& v) {
+                    s.value2b(key);
+                    s.value4b(v);
+                });
             };
 
             auto resourceToRootNodesSerializer = [&]<typename T>(
