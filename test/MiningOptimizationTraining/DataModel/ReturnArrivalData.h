@@ -18,6 +18,8 @@ namespace MiningOptimizationTraining
         High,       // The worker maintained a great deal of speed after delivery
     };
 
+    std::ostream& operator<<(std::ostream& os, const ReturnExitSpeed exitSpeed);
+
     /*
      * Stores the arrival data we need to track for return paths.
      *

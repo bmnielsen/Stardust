@@ -44,7 +44,7 @@ namespace
             return new MiningOptimizationTraining::FullSaturationModule<MiningOptimizationTraining::WorkerPathExploration>(cannons);
         };
         test.frameLimit = 10000 * (int)iterations;
-        test.timeLimit = 300 * (int)iterations;
+        test.timeLimit = 600 * (int)iterations;
 
         std::ostringstream replayNameBuilder;
         replayNameBuilder << "MiningTraining_" << test.map->shortname();
@@ -74,4 +74,14 @@ TEST(PathExploration, VermeerTenIterations)
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
     runFullSaturationTest(test, 0, 10);
+}
+
+TEST(PathExploration, VermeerContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("Vermeer");
+        runFullSaturationTest(test, 0, 10);
+    }
 }

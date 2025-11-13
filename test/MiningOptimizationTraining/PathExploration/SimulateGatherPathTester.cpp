@@ -50,7 +50,17 @@ namespace MiningOptimizationTraining
 
     void SimulateGatherPathTester::update()
     {
-        auto planPath = [&]()
+        auto setGatherArrivalData = [&](auto &simulatedPath)
+        {
+            expectedGatherArrivalData = std::make_unique<GatherArrivalData>(GatherArrivalData::createFromSimulatedPath(simulatedPath, patch));
+        };
+
+        auto setReturnArrivalData = [&](auto &simulatedPath)
+        {
+            expectedReturnArrivalData = std::make_unique<ReturnArrivalData>(ReturnArrivalData::createFromSimulatedPath(simulatedPath));
+        };
+
+        auto planPath = [&](auto &setArrivalData)
         {
             followingPath = false;
 
@@ -63,7 +73,7 @@ namespace MiningOptimizationTraining
             }
             auto &noResendPath = std::get<0>(*noResendPathResult);
             expectedPath.assign(noResendPath.begin(), noResendPath.end());
-            expectedNextPathStartPosition = std::get<1>(*noResendPathResult);
+            setArrivalData(*noResendPathResult);
 
             // Pick the resend frames
             int arrivalFrame = currentFrame + (int)noResendPath.size();
@@ -88,7 +98,7 @@ namespace MiningOptimizationTraining
                 auto &resendPath = std::get<0>(*resendPathResult);
                 expectedPath.erase(expectedPath.begin() + (resendFrame - currentFrame), expectedPath.end());
                 expectedPath.insert(expectedPath.end(), resendPath.begin(), resendPath.end());
-                expectedNextPathStartPosition = std::get<1>(*resendPathResult);
+                setArrivalData(*resendPathResult);
             }
 
             std::ostringstream buf;
@@ -117,15 +127,108 @@ namespace MiningOptimizationTraining
             expectedPath.pop_front();
         };
 
-        auto validateStartOfNextPath = [&]()
+        auto validateStartOfNextPath = [&](PositionAndVelocity &expectedNextPathStartPosition)
         {
-            if (!followingPath) return;
+            PositionAndVelocity actual(worker);
+            if (actual == expectedNextPathStartPosition) return;
 
-            if (worker->getExactPosition() != expectedNextPathStartPosition)
+            Log::Get() << "ERROR: Next path start position does not match"
+                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+            ASSERT_EQ(actual, expectedNextPathStartPosition);
+        };
+
+        auto validateGatherFacingPatch = [&]()
+        {
+            if (!expectedGatherArrivalData) return;
+
+            bool actualFacingPatch = (preMiningFrames == 1);
+            if (actualFacingPatch != expectedGatherArrivalData->facingTarget())
             {
-                Log::Get() << "ERROR: Next path start position does not match"
+                Log::Get() << "ERROR: Facing patch does not match"
                            << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                ASSERT_EQ(worker->getExactPosition(), expectedNextPathStartPosition);
+                ASSERT_EQ(actualFacingPatch, expectedGatherArrivalData->facingTarget());
+            }
+        };
+
+        auto validateCollision = [&](bool expectedCollision)
+        {
+            // Resends early in the path can obscure the collision results, so don't validate this if there is a resend early in the path
+            if (!plannedResendFrames.empty() && *plannedResendFrames.begin() < (currentFrame + 12)) return;
+
+            // Go through the start of the path to see if the worker stalled for a full order process timer cycle
+            int stallFrames = 0;
+            int maxStallFrames = 0;
+            size_t maxStallStart = 0;
+            for (auto it = expectedPath.begin() + 1; it != expectedPath.end() && std::distance(expectedPath.begin(), it) < 12; it++)
+            {
+                if ((*it).pos() == (*(it - 1)).pos())
+                {
+                    stallFrames++;
+                    if (stallFrames > maxStallFrames)
+                    {
+                        maxStallFrames = stallFrames;
+                        maxStallStart = std::distance(expectedPath.begin(), it) - maxStallFrames;
+                    }
+                }
+                else
+                {
+                    stallFrames = 0;
+                }
+            }
+            bool collision = (maxStallFrames > 7);
+
+            // Assert the correct collision data
+            if (collision != expectedCollision)
+            {
+                Log::Get() << "ERROR: Collision mismatch, actual collision: " << collision
+                           << "; stall frames: " << maxStallFrames
+                           << "; stall start " << maxStallStart
+                           << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                ASSERT_EQ(collision, expectedCollision);
+            }
+        };
+
+        auto validateGatherArrival = [&]()
+        {
+            if (!expectedGatherArrivalData) return;
+            if (!followingPath) return; // require expected path for return
+
+            validateStartOfNextPath(expectedGatherArrivalData->nextPathStartPosition);
+            validateCollision(expectedGatherArrivalData->collision());
+        };
+
+        auto validateReturnArrival = [&]()
+        {
+            if (!expectedReturnArrivalData) return;
+            if (!followingPath) return; // require expected path for gather
+            if (expectedPath.size() < 8) return;
+
+            validateStartOfNextPath(expectedReturnArrivalData->nextPathStartPosition);
+
+            auto expectedExitSpeed = expectedReturnArrivalData->exitSpeed();
+            validateCollision(expectedExitSpeed == ReturnExitSpeed::Collision);
+            if (expectedExitSpeed == ReturnExitSpeed::Collision) return;
+
+            // Validate the exit speed, which is measured on the 8th position
+            auto &exitSpeedPosition = expectedPath.at(7);
+            auto velocityX = ((double)exitSpeedPosition.velocityX) / 256.0;
+            auto velocityY = ((double)exitSpeedPosition.velocityY) / 256.0;
+            auto speed = std::sqrt(velocityX * velocityX + velocityY * velocityY);
+            ReturnExitSpeed actualExitSpeed = ReturnExitSpeed::Low;
+            if (speed > 4.0)
+            {
+                actualExitSpeed = ReturnExitSpeed::High;
+            }
+            else if (speed > 2.5)
+            {
+                actualExitSpeed = ReturnExitSpeed::Medium;
+            }
+            if (actualExitSpeed != expectedExitSpeed)
+            {
+                Log::Get() << "ERROR: Exit speed mismatch, actual: " << actualExitSpeed
+                           << "; expected: " << expectedExitSpeed
+                           << "; actual speed: " << std::fixed << std::setprecision(3) << speed
+                           << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
             }
         };
 
@@ -152,8 +255,9 @@ namespace MiningOptimizationTraining
                 // Worker is approaching the patch; transition to state 1 when it starts mining
                 if (worker->getOrder() == BWAPI::Orders::MiningMinerals)
                 {
-                    CherryVis::log(worker->getID()) << "State transition from approaching patch to mining";
+                    CherryVis::log(worker->getID()) << "State transition from approaching patch to pre-mining";
                     state = 1;
+                    preMiningFrames = 1;
                     return;
                 }
 
@@ -164,27 +268,50 @@ namespace MiningOptimizationTraining
             }
             case 1:
             {
+                if (worker->getOrderTimer() == 1)
+                {
+                    CherryVis::log(worker->getID()) << "State transition from pre-mining to mining";
+                    state = 2;
+                    validateGatherFacingPatch();
+                    return;
+                }
+
+                preMiningFrames++;
+
+                return;
+            }
+            case 2:
+            {
                 // Worker is mining; transition to state 2 when it is finished mining
                 if (worker->getOrder() == BWAPI::Orders::ReturnMinerals && worker->isCarryingMinerals())
                 {
                     CherryVis::log(worker->getID()) << "State transition from mining to returning minerals";
-                    state = 2;
-                    validateStartOfNextPath();
-                    planPath();
+                    state = 3;
+
+                    planPath(setReturnArrivalData);
+                    if (!followingPath) expectedReturnArrivalData.reset();
+
+                    validateGatherArrival();
+
+                    // validate
                     issueResends();
                 }
 
                 return;
             }
-            case 2:
+            case 3:
             {
                 // Worker is returning minerals; transition to state 0 when it has returned minerals
                 if (!worker->isCarryingMinerals())
                 {
                     CherryVis::log(worker->getID()) << "State transition from returning minerals to approaching patch";
                     state = 0;
-                    validateStartOfNextPath();
-                    planPath();
+
+                    planPath(setGatherArrivalData);
+                    if (!followingPath) expectedGatherArrivalData.reset();
+
+                    validateReturnArrival();
+
                     issueResends();
                     return;
                 }
