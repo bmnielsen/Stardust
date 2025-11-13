@@ -6,9 +6,11 @@
 #include <cstdint>
 #include <algorithm>
 
+#define UINT14_MAX 16383U
+
 namespace MiningOptimizationTraining
 {
-    enum class ReturnExitSpeed:uint8_t
+    enum class ReturnExitSpeed:uint16_t
     {
         Collision,  // The worker collided with the depot when trying to leave it
         Low,        // The worker stopped at the depot and will therefore accelerate slowly towards the patch
@@ -23,17 +25,17 @@ namespace MiningOptimizationTraining
      * Exit speed: the exit speed from the depot
      * Gather path start position: the position and velocity of the worker at the start of the gather path
      *
-     * As we don't care about arrival delays above 63, we pack the arrival delay and exit speed into one 8-bit value for efficient serialization.
+     * We patch the exit speed data into the arrival delay, since we don't need the full 16 bits.
      */
     struct ReturnArrivalData
     {
-        uint8_t packed = UINT8_MAX;
+        uint16_t packed = UINT8_MAX;
         PositionAndVelocity nextPathStartPosition;
 
         // The number of frames to arrival at the target
         [[nodiscard]] unsigned int arrivalDelay() const
         {
-            // Delay is stored in the upper 6 bits, so shift two right and return
+            // Delay is stored in the upper 14 bits, so shift two right and return
             return packed >> 2;
         }
 
@@ -46,11 +48,11 @@ namespace MiningOptimizationTraining
 
         void setArrivalDelay(unsigned int arrivalDelay)
         {
-            // Arrival delay values outside the range of 6 bits are clamped
+            // Arrival delay values outside the range of 14 bits are clamped
             // This is fine since such long arrival delays would never be useful for optimization anyway
-            arrivalDelay = std::min(63U, arrivalDelay);
+            arrivalDelay = std::min(UINT14_MAX, arrivalDelay);
 
-            packed = ((uint8_t)arrivalDelay << 2) + (packed & 0b00000011);
+            packed = ((uint16_t)arrivalDelay << 2) + (packed & 0b00000011);
         }
 
         bool operator==(const ReturnArrivalData &other) const
@@ -65,15 +67,15 @@ namespace MiningOptimizationTraining
 
         static ReturnArrivalData create(unsigned int arrivalDelay, ReturnExitSpeed exitSpeed, PositionAndVelocity nextPathStartPosition)
         {
-            // Arrival delay values outside the range of 6 bits are clamped
+            // Arrival delay values outside the range of 14 bits are clamped
             // This is fine since such long arrival delays would never be useful for optimization anyway
-            arrivalDelay = std::min(63U, arrivalDelay);
+            arrivalDelay = std::min(UINT14_MAX, arrivalDelay);
 
             // Shift to the left to make room for the exit speed
-            uint8_t packed = (uint8_t)arrivalDelay << 2;
+            uint16_t packed = (uint16_t)arrivalDelay << 2;
 
             // Add the exit speed
-            packed += (uint8_t)exitSpeed;
+            packed += (uint16_t)exitSpeed;
 
             return ReturnArrivalData{packed, std::move(nextPathStartPosition)};
         }
@@ -107,7 +109,7 @@ namespace MiningOptimizationTraining
 
         template <typename S>
         void serialize(S& s) {
-            s.value1b(packed);
+            s.value2b(packed);
             s.object(nextPathStartPosition);
         }
 

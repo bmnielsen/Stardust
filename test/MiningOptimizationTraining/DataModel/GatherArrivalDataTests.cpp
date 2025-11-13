@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
 #include "GatherArrivalData.h"
 
-// Tests that the bit packing works for all valid arrival delay, facing target and collision combinations
-TEST(GatherArrivalDataTests, TestPackingOfAllValidValues)
+// Tests that the bit packing works for valid arrival delay, facing target and collision combinations
+TEST(GatherArrivalDataTests, TestPackingOfValidValues)
 {
     auto testCase = [](unsigned int arrivalDelay, bool facingTarget, bool collision)
     {
@@ -11,7 +11,7 @@ TEST(GatherArrivalDataTests, TestPackingOfAllValidValues)
         EXPECT_EQ(facingTarget, test.facingTarget());
         EXPECT_EQ(collision, test.collision());
     };
-    for (unsigned int i = 0; i < 64; i++)
+    for (unsigned int i = 0; i < 150; i++)
     {
         testCase(i, false, false);
         testCase(i, true, false);
@@ -31,14 +31,14 @@ TEST(GatherArrivalDataTests, TestClampingOfExtremeValues)
                 EXPECT_EQ(facingTarget, test.facingTarget());
                 EXPECT_EQ(collision, test.collision());
             };
-    testCase(64, 63, false, false);
-    testCase(64, 63, true, false);
-    testCase(64, 63, false, true);
-    testCase(64, 63, true, true);
-    testCase(UINT_MAX, 63, false, false);
-    testCase(UINT_MAX, 63, true, false);
-    testCase(UINT_MAX, 63, false, true);
-    testCase(UINT_MAX, 63, true, true);
+    testCase(UINT14_MAX + 1, UINT14_MAX, false, false);
+    testCase(UINT14_MAX + 1, UINT14_MAX, true, false);
+    testCase(UINT14_MAX + 1, UINT14_MAX, false, true);
+    testCase(UINT14_MAX + 1, UINT14_MAX, true, true);
+    testCase(UINT_MAX, UINT14_MAX, false, false);
+    testCase(UINT_MAX, UINT14_MAX, true, false);
+    testCase(UINT_MAX, UINT14_MAX, false, true);
+    testCase(UINT_MAX, UINT14_MAX, true, true);
 }
 
 // Tests that setting the arrival delay works
@@ -56,9 +56,9 @@ TEST(GatherArrivalDataTests, TestSetArrivalDelay)
         EXPECT_EQ(facingTarget, test.facingTarget());
         EXPECT_EQ(collision, test.collision());
     };
-    for (unsigned int i = 0; i < 64; i++)
+    for (unsigned int i = 0; i < 150; i++)
     {
-        for (unsigned int j = 0; j < 64; j++)
+        for (unsigned int j = 0; j < 150; j++)
         {
             testCase(i, j, false, false);
             testCase(i, j, true, false);

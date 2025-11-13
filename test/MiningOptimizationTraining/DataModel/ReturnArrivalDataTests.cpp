@@ -1,8 +1,8 @@
 #include "gtest/gtest.h"
 #include "ReturnArrivalData.h"
 
-// Tests that the bit packing works for all valid arrival delay and exit speed
-TEST(ReturnArrivalDataTests, TestPackingOfAllValidValues)
+// Tests that the bit packing works for valid arrival delay and exit speed
+TEST(ReturnArrivalDataTests, TestPackingOfValidValues)
 {
     auto testCase = [](unsigned int arrivalDelay, MiningOptimizationTraining::ReturnExitSpeed exitSpeed)
     {
@@ -10,7 +10,7 @@ TEST(ReturnArrivalDataTests, TestPackingOfAllValidValues)
         EXPECT_EQ(arrivalDelay, test.arrivalDelay());
         EXPECT_EQ(exitSpeed, test.exitSpeed());
     };
-    for (unsigned int i = 0; i < 64; i++)
+    for (unsigned int i = 0; i < 150; i++)
     {
         for (uint8_t j = 0; j < 4; j++)
         {
@@ -31,8 +31,8 @@ TEST(ReturnArrivalDataTests, TestClampingOfExtremeValues)
             };
     for (uint8_t i = 0; i < 4; i++)
     {
-        testCase(64, 63, (MiningOptimizationTraining::ReturnExitSpeed)i);
-        testCase(UINT_MAX, 63, (MiningOptimizationTraining::ReturnExitSpeed)i);
+        testCase(UINT14_MAX + 1, UINT14_MAX, (MiningOptimizationTraining::ReturnExitSpeed)i);
+        testCase(UINT_MAX, UINT14_MAX, (MiningOptimizationTraining::ReturnExitSpeed)i);
     }
 }
 
@@ -49,9 +49,9 @@ TEST(ReturnArrivalDataTests, TestSetArrivalDelay)
         EXPECT_EQ(newArrivalDelay, test.arrivalDelay());
         EXPECT_EQ(exitSpeed, test.exitSpeed());
     };
-    for (unsigned int i = 0; i < 64; i++)
+    for (unsigned int i = 0; i < 150; i++)
     {
-        for (unsigned int j = 0; j < 64; j++)
+        for (unsigned int j = 0; j < 150; j++)
         {
             for (uint8_t k = 0; k < 4; k++)
             {

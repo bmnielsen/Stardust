@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <algorithm>
 
+#define UINT14_MAX 16383U
+
 namespace MiningOptimizationTraining
 {
     /*
@@ -17,18 +19,17 @@ namespace MiningOptimizationTraining
      * Collision: whether there was a collision when the worker leaves the target again
      * Return path start position: the position and velocity of the worker at the start of the return path
      *
-     * As we don't care about arrival delays above 63, we pack the arrival delay, facing target, and collision fields into one 8-bit value for
-     * efficient serialization.
+     * We patch the collision and facing target data into the arrival delay, since we don't need the full 16 bits.
      */
     struct GatherArrivalData
     {
-        uint8_t packed = UINT8_MAX;
+        uint16_t packed = UINT8_MAX;
         PositionAndVelocity nextPathStartPosition;
 
         // The number of frames to arrival at the target
         [[nodiscard]] unsigned int arrivalDelay() const
         {
-            // Delay is stored in the upper 6 bits, so shift two right and return
+            // Delay is stored in the upper 14 bits, so shift two right and return
             return packed >> 2;
         }
 
@@ -48,11 +49,11 @@ namespace MiningOptimizationTraining
 
         void setArrivalDelay(unsigned int arrivalDelay)
         {
-            // Arrival delay values outside the range of 6 bits are clamped
+            // Arrival delay values outside the range of 14 bits are clamped
             // This is fine since such long arrival delays would never be useful for optimization anyway
-            arrivalDelay = std::min(63U, arrivalDelay);
+            arrivalDelay = std::min(UINT14_MAX, arrivalDelay);
 
-            packed = ((uint8_t)arrivalDelay << 2) + (packed & 0b00000011);
+            packed = ((uint16_t)arrivalDelay << 2) + (packed & 0b00000011);
         }
 
         bool operator==(const GatherArrivalData &other) const
@@ -70,12 +71,12 @@ namespace MiningOptimizationTraining
                                         bool collision,
                                         const PositionAndVelocity &nextPathStartPosition)
         {
-            // Arrival delay values outside the range of 6 bits are clamped
+            // Arrival delay values outside the range of 14 bits are clamped
             // This is fine since such long arrival delays would never be useful for optimization anyway
-            arrivalDelay = std::min(63U, arrivalDelay);
+            arrivalDelay = std::min(UINT14_MAX, arrivalDelay);
 
             // Shift to the left to make room for the boolean bits
-            uint8_t packed = (uint8_t)arrivalDelay << 2;
+            uint16_t packed = (uint16_t)arrivalDelay << 2;
 
             // We assume we are usually facing the target, so only set the lowest bit if this isn't the case
             if (!facingTarget) packed |= 0b00000001;
@@ -105,7 +106,7 @@ namespace MiningOptimizationTraining
 
         template <typename S>
         void serialize(S& s) {
-            s.value1b(packed);
+            s.value2b(packed);
             s.object(nextPathStartPosition);
         }
 
