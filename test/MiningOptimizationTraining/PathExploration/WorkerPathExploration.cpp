@@ -303,6 +303,10 @@ namespace MiningOptimizationTraining
                 {
                     bestArrivalDelay = arrivalDelay;
                 }
+                if (result.resends.empty() && getTotalOccurrences(rootNode.noResendArrivalDelaysAndOccurrences) < UINT32_MAX)
+                {
+                    rootNode.noResendArrivalDelaysAndOccurrences[arrivalDelay]++;
+                }
             }
             if (getTotalOccurrences(rootNode.bestArrivalDelaysAndOccurrences) < UINT32_MAX)
             {

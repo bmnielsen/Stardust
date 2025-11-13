@@ -25,7 +25,8 @@ namespace
             pos,
             {{nextNode, nextNode.positionDifferenceFromPreviousNode.x}}, // next positions
             pos.x, // times explored
-            {{pos.x, pos.x}} // delay and occurrences
+            {{pos.x + 5, pos.x + 5}}, // no resend delay and occurrences
+            {{pos.x, pos.x}} // best delay and occurrences
         };
     }
 

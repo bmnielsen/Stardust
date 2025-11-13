@@ -55,7 +55,11 @@ namespace MiningOptimizationTraining
         // The number of times this root node has been explored
         uint32_t timesExplored = 0;
 
+        // Counters for the no resend arrival delays and their occurrences
+        std::map<uint16_t, uint32_t> noResendArrivalDelaysAndOccurrences;
+
         // Counters for our best arrival delays and their occurrences
+        // Best arrival delay is whatever combination of resends gave the best result on a given exploration
         std::map<uint16_t, uint32_t> bestArrivalDelaysAndOccurrences;
     };
 }
