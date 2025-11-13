@@ -42,17 +42,17 @@ namespace BWAPI
         uint32_t x;
         uint32_t y;
         int8_t heading;
-        uint32_t velocityX;
-        uint32_t velocityY;
+        int32_t velocityX;
+        int32_t velocityY;
 
-        ExactPosition(uint32_t x, uint32_t y, int8_t heading, uint32_t velocityX, uint32_t velocityY)
+        ExactPosition(uint32_t x, uint32_t y, int8_t heading, int32_t velocityX, int32_t velocityY)
             : x(x)
             , y(y)
             , heading(heading)
             , velocityX(velocityX)
             , velocityY(velocityY) {}
 
-        explicit ExactPosition(const std::tuple<uint32_t, uint32_t, int8_t, uint32_t, uint32_t> &tuple)
+        explicit ExactPosition(const std::tuple<uint32_t, uint32_t, int8_t, int32_t, int32_t> &tuple)
             : x(std::get<0>(tuple))
             , y(std::get<1>(tuple))
             , heading(std::get<2>(tuple))
