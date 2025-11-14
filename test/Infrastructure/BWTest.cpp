@@ -621,6 +621,7 @@ void BWTest::runGame(bool opponent)
             {
                 std::ostringstream cvisFilename;
                 cvisFilename << "replays/" << gameId.str() << ".rep.cvis";
+                if (std::filesystem::exists(cvisFilename.str())) std::filesystem::remove_all(cvisFilename.str());
                 std::filesystem::rename("bwapi-data/write/cvis", cvisFilename.str());
             }
 
@@ -637,6 +638,7 @@ void BWTest::runGame(bool opponent)
 
                     std::ostringstream newLogFilename;
                     newLogFilename << logDirectory.str() << "/" << logFilename.substr(logFilename.rfind('/') + 1);
+                    if (std::filesystem::exists(newLogFilename.str())) std::filesystem::remove_all(newLogFilename.str());
                     std::filesystem::rename(logFilename, newLogFilename.str());
                 }
             }
