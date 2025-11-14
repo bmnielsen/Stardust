@@ -153,13 +153,13 @@ namespace MiningOptimizationTraining
         auto validateCollision = [&](bool expectedCollision)
         {
             // Resends early in the path can obscure the collision results, so don't validate this if there is a resend early in the path
-            if (!plannedResendFrames.empty() && *plannedResendFrames.begin() < (currentFrame + 12)) return;
+            if (!plannedResendFrames.empty() && *plannedResendFrames.begin() < (currentFrame + 13)) return;
 
             // Go through the start of the path to see if the worker stalled for a full order process timer cycle
             int stallFrames = 0;
             int maxStallFrames = 0;
             size_t maxStallStart = 0;
-            for (auto it = expectedPath.begin() + 1; it != expectedPath.end() && std::distance(expectedPath.begin(), it) < 12; it++)
+            for (auto it = expectedPath.begin() + 1; it != expectedPath.end() && std::distance(expectedPath.begin(), it) < 13; it++)
             {
                 if ((*it).pos() == (*(it - 1)).pos())
                 {
