@@ -65,6 +65,14 @@ namespace MiningOptimizationTraining
                     }
                 }
             }
+            else
+            {
+                if ((currentFrame - lastWrite) > 1000)
+                {
+                    Serialization::writeMapData(mapData);
+                    lastWrite = currentFrame;
+                }
+            }
 
             InstrumentedDoNothingModule::onFrameEnd();
         }
@@ -82,5 +90,8 @@ namespace MiningOptimizationTraining
         // Function that is called every frame to check if the test is initialized
         // Should return true when the workerStatuses vector is populated and the test is ready to start
         virtual bool initialize() = 0;
+
+    private:
+        int lastWrite = 0;
     };
 }
