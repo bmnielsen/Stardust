@@ -2353,7 +2353,8 @@ int Unit::getOrderProcessTimer() const
 // Returns the path (same format as getExactPosition), the first position in the next path (gather path after returning, return path after mining),
 // and the "exit speed" (speed 8 frames after moving along the next path)
 // Exit speed will be 0 if the worker collided with the target
-// Returns no value if the unit isn't currently on a valid path with a valid order
+// Returns no value if the unit doesn't have a valid gather-related order or the path gets stuck somewhere.
+// The method is only intended for use with a single worker mining a patch, there may be unintended results if taking over from another worker.
 std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, uint64_t>>
     Unit::simulateGatherPath(const std::set<int> &resendFrames) const
 {
@@ -2362,33 +2363,41 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
 
     // Set the relevant orders based on what the unit is currently doing
     bwgame::Orders resendOrderType;
+    bwgame::Orders pathFinishedOrderType;
     bwgame::Orders nextOrderType;
     switch (u->order_type->id)
     {
         case bwgame::Orders::MoveToMinerals:
         {
             resendOrderType = bwgame::Orders::Harvest1;
+            pathFinishedOrderType = bwgame::Orders::WaitForMinerals;
             nextOrderType = bwgame::Orders::ReturnMinerals;
             break;
         }
         case bwgame::Orders::ReturnMinerals:
         {
             resendOrderType = bwgame::Orders::ReturnMinerals;
+            pathFinishedOrderType = bwgame::Orders::MoveToMinerals;
             nextOrderType = bwgame::Orders::MoveToMinerals;
             break;
         }
+        // TODO: Enable and test when we want to optimize anything with gas
+        /*
         case bwgame::Orders::MoveToGas:
         {
             resendOrderType = bwgame::Orders::HarvestGas;
+            pathFinishedOrderType = ???
             nextOrderType = bwgame::Orders::ReturnGas;
             break;
         }
         case bwgame::Orders::ReturnGas:
         {
             resendOrderType = bwgame::Orders::ReturnGas;
+            pathFinishedOrderType = bwgame::Orders::MoveToGas;
             nextOrderType = bwgame::Orders::MoveToGas;
             break;
         }
+         */
         default:
         {
             // The worker is doing something else, so we can't do the simulation
@@ -2444,16 +2453,11 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
         return true;
     };
 
-    // In some states, the unit will not have updated its move target to its order target yet when we start the simulation
-    // We therefore allow the loop to run until the first time they match, then only consider arrival at move target
-    bool targetLocked = (unit->move_target.unit == order_target.unit);
-
-    // Gather the positions visited by the unit on its way to its move target
+    // Simulate the unit until it reaches the "path finished" order
     std::vector<Unit::exactPosition> positions;
-    while (!targetLocked || !funcs_copy.unit_is_at_move_target(unit))
+    while (unit->order_type->id != pathFinishedOrderType)
     {
         if (depthLimitExceeded()) return std::nullopt;
-        targetLocked = targetLocked || (unit->move_target.unit == order_target.unit);
 
         // Resend if we want to resend on this frame
         if (resendFrames.find(state_copy.current_frame) != resendFrames.end())
@@ -2467,6 +2471,12 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
                                (int8_t)unit->heading.raw_value,
                                (int32_t)unit->velocity.x.raw_value,
                                (int32_t)unit->velocity.y.raw_value);
+    }
+
+    // Remove duplicated positions at the end of the path, these are the positions while the worker was waiting to gather or deliver
+    while (positions.size() > 1 && *(positions.rbegin()) == *(positions.rbegin() + 1))
+    {
+        positions.pop_back();
     }
 
     // Continue simulating until the unit reaches its next order
