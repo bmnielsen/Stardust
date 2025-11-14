@@ -19,7 +19,9 @@ namespace MiningOptimizationTraining
 
         void update();
 
-        void outputDebugInformation() {}
+        [[nodiscard]] bool isFinished() const { return false; };
+
+        void outputDebugInformation() const {}
 
     private:
         BWAPI::Unit worker;

@@ -22,7 +22,9 @@ namespace MiningOptimizationTraining
 
         void update();
 
-        void outputDebugInformation();
+        [[nodiscard]] bool isFinished() const { return state == 4; };
+
+        void outputDebugInformation() const;
 
     private:
         BWAPI::Unit worker;
@@ -37,6 +39,7 @@ namespace MiningOptimizationTraining
         // 1 - wait for minerals
         // 2 - mining
         // 3 - approaching the depot
+        // 4 - finished
         int state;
 
         // Count of how many times the worker has transitioned out of each state

@@ -52,16 +52,24 @@ namespace MiningOptimizationTraining
 
             if (initialize())
             {
-                for (auto &workerStatus : workerStatuses)
+                for (auto it = workerStatuses.begin(); it != workerStatuses.end(); )
                 {
-                    workerStatus.update();
+                    (*it)->update();
+                    if ((*it)->isFinished())
+                    {
+                        it = workerStatuses.erase(it);
+                    }
+                    else
+                    {
+                        it++;
+                    }
                 }
 
                 if ((currentFrame % 2000 == 0 && currentFrame % 10000 != 0) || currentFrame % 10000 == 9950)
                 {
                     for (auto &workerStatus : workerStatuses)
                     {
-                        workerStatus.outputDebugInformation();
+                        workerStatus->outputDebugInformation();
                     }
                 }
             }
@@ -85,7 +93,7 @@ namespace MiningOptimizationTraining
 
     protected:
         MapData mapData;
-        std::vector<WorkerStatusType> workerStatuses;
+        std::vector<std::unique_ptr<WorkerStatusType>> workerStatuses;
 
         // Function that is called every frame to check if the test is initialized
         // Should return true when the workerStatuses vector is populated and the test is ready to start

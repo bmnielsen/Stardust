@@ -48,7 +48,7 @@ namespace MiningOptimizationTraining
                 if (!patch) return false;
 
                 // Initialize
-                workerStatuses.emplace_back(mapData, worker, patch, depot);
+                workerStatuses.emplace_back(std::make_unique<WorkerStatusType>(mapData, worker, patch, depot));
                 worker->gather(patch);
             }
 

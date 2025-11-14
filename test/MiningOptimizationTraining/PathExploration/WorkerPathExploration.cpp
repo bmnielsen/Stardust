@@ -315,14 +315,14 @@ namespace MiningOptimizationTraining
 
             // Now choose the next path start node we want to explore
             // Our scoring function is to take the times explored and weight it by the difference between the arrival delay and the best arrival delay
-            // The score is doubled for every 5 frames of additional delay
+            // The weighting is done through an exponential function that roughly doubles the score at 4 frames and multiplies by 10 at 10 frames
             auto bestScore = (float)UINT32_MAX;
             unsigned int bestDelayDelta = UINT_MAX;
             for (auto &result : results)
             {
                 float score = getTimesExplored(nextPathRootNodes, PositionAndVelocity(result.nextPathStartPosition));
                 unsigned int arrivalDelayDelta = (result.arrivalDelay.first + result.arrivalDelay.second) - bestArrivalDelay;
-                score *= (1.0f + (float)arrivalDelayDelta / 5.0f);
+                score *= 0.4f * std::pow(3.5f, (float)arrivalDelayDelta / 4.0f) + 0.6f;
 
                 if (score < (bestScore - EPSILON) || (score < (bestScore + EPSILON) && arrivalDelayDelta < bestDelayDelta))
                 {
@@ -353,6 +353,28 @@ namespace MiningOptimizationTraining
             CherryVis::log(worker->getID()) << "State transition from " << state << " to " << to;
             stateCount[state]++;
             state = to;
+        };
+
+        // We treat the worker as finished if both gather and return have more than 100 explorations on the most-explored option
+        auto finishedExploring = [&]()
+        {
+            auto fullyExplored = []<typename ObservationType>(const std::unordered_map<PositionAndVelocity, Path<ObservationType>> &paths)
+            {
+                for (auto &[_, path] : paths)
+                {
+                    if (path.timesExplored >= 100) return true;
+                }
+                return false;
+            };
+
+            if (fullyExplored(gatherPaths) && fullyExplored(returnPaths))
+            {
+                stateChange(4);
+                BWAPI::Broodwar->killUnit(worker);
+                return true;
+            }
+
+            return false;
         };
 
         while (true)
@@ -407,6 +429,8 @@ namespace MiningOptimizationTraining
                     // Worker is mining; transition to state 2 when it is finished mining
                     if (worker->getOrder() == BWAPI::Orders::ReturnMinerals && worker->isCarryingMinerals())
                     {
+                        if (finishedExploring()) return;
+
                         stateChange(3);
 
                         if (stateCount[3] > 0)
@@ -427,6 +451,8 @@ namespace MiningOptimizationTraining
                     // Worker is returning minerals; transition to state 0 when it has returned minerals
                     if (!worker->isCarryingMinerals())
                     {
+                        if (finishedExploring()) return;
+
                         stateChange(0);
 
 #if VALIDATE_EXPECTED_TRANSITION_FRAMES
@@ -463,6 +489,11 @@ namespace MiningOptimizationTraining
 
                     return;
                 }
+                case 4:
+                {
+                    // We've identified that we don't need to do any more work
+                    return;
+                }
                 default:
                 {
                     Log::Get() << "ERROR: Worker has unknown state " << state;
@@ -472,11 +503,11 @@ namespace MiningOptimizationTraining
         }
     }
 
-    void WorkerPathExploration::outputDebugInformation()
+    void WorkerPathExploration::outputDebugInformation() const
     {
         std::ostringstream dbg;
         dbg << patch->getTilePosition() << ": ";
-        auto dbgPath = []<typename ObservationType>(std::unordered_map<PositionAndVelocity, Path<ObservationType>> &paths)
+        auto dbgPath = []<typename ObservationType>(const std::unordered_map<PositionAndVelocity, Path<ObservationType>> &paths)
         {
             std::ostringstream out;
             out << paths.size() << " path(s)";
