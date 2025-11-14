@@ -20,7 +20,7 @@ namespace
         test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
     }
 
-    void runSingleWorkerTest(BWTest &test)
+    bool runSingleWorkerTest(BWTest &test)
     {
         initializeTest(test);
         test.myModule = [&]()
@@ -33,10 +33,18 @@ namespace
         replayNameBuilder << "MiningTraining_" << test.map->shortname() << "_SingleWorker";
         test.replayName = replayNameBuilder.str();
 
+        bool finishedEarly = false;
+        test.onEndMine = [&](bool)
+        {
+            if (BWAPI::Broodwar->getFrameCount() < 500) finishedEarly = true;
+        };
+
         test.run();
+
+        return finishedEarly;
     }
 
-    void runFullSaturationTest(BWTest &test, unsigned int cannons, unsigned int iterations)
+    bool runFullSaturationTest(BWTest &test, unsigned int cannons, unsigned int iterations)
     {
         initializeTest(test);
         test.myModule = [&cannons]()
@@ -51,7 +59,15 @@ namespace
         replayNameBuilder << "_" << cannons << "cannons";
         test.replayName = replayNameBuilder.str();
 
+        bool finishedEarly = false;
+        test.onEndMine = [&](bool)
+        {
+            if (BWAPI::Broodwar->getFrameCount() < 500) finishedEarly = true;
+        };
+
         test.run();
+
+        return finishedEarly;
     }
 }
 
@@ -82,6 +98,6 @@ TEST(PathExploration, VermeerContinuous)
     {
         BWTest test;
         test.map = Maps::GetOne("Vermeer");
-        runFullSaturationTest(test, 0, 10);
+        if (runFullSaturationTest(test, 0, 10)) return;
     }
 }

@@ -5,6 +5,9 @@
 
 #define EPSILON 0.0001
 
+// The number of times the most-explored path (gather and return) should be explored for us to consider a patch "finished"
+#define EXPLORATION_GOAL 100
+
 namespace MiningOptimizationTraining
 {
     namespace
@@ -320,7 +323,7 @@ namespace MiningOptimizationTraining
             unsigned int bestDelayDelta = UINT_MAX;
             for (auto &result : results)
             {
-                float score = getTimesExplored(nextPathRootNodes, PositionAndVelocity(result.nextPathStartPosition));
+                float score = 1 + getTimesExplored(nextPathRootNodes, PositionAndVelocity(result.nextPathStartPosition));
                 unsigned int arrivalDelayDelta = (result.arrivalDelay.first + result.arrivalDelay.second) - bestArrivalDelay;
                 score *= 0.4f * std::pow(3.5f, (float)arrivalDelayDelta / 4.0f) + 0.6f;
 
@@ -355,14 +358,14 @@ namespace MiningOptimizationTraining
             state = to;
         };
 
-        // We treat the worker as finished if both gather and return have more than 100 explorations on the most-explored option
+        // We treat the worker as finished if both gather and return have exceeded our exploration goal
         auto finishedExploring = [&]()
         {
             auto fullyExplored = []<typename ObservationType>(const std::unordered_map<PositionAndVelocity, Path<ObservationType>> &paths)
             {
                 for (auto &[_, path] : paths)
                 {
-                    if (path.timesExplored >= 100) return true;
+                    if (path.timesExplored >= EXPLORATION_GOAL) return true;
                 }
                 return false;
             };

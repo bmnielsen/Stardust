@@ -58,6 +58,11 @@ namespace MiningOptimizationTraining
                     if ((*it)->isFinished())
                     {
                         it = workerStatuses.erase(it);
+                        if (workerStatuses.empty())
+                        {
+                            Log::Get() << "No more workers left; leaving game";
+                            BWAPI::Broodwar->leaveGame();
+                        }
                     }
                     else
                     {
