@@ -21,6 +21,9 @@ namespace MiningOptimizationTraining
     template <typename ObservationType>
     struct PathNode
     {
+        // The position, including velocity and heading
+        PositionAndVelocity pos;
+
         // The difference in x, y position between this node and the previous one, at subpixel precision
         BWAPI::ExactPositionDifference positionDifferenceFromPreviousNode = {};
 

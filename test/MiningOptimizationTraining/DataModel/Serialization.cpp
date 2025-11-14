@@ -55,6 +55,7 @@ namespace MiningOptimizationTraining::Serialization
 
                 pathNodeSerializer = [&](S &s, PathNode<T>& value)
                 {
+                    s.object(value.pos);
                     s.object(value.positionDifferenceFromPreviousNode, exactPositionDifferenceSerializer);
                     s.value1b(value.type);
                     s.ext(value.arrivalData, bitsery::ext::StdMap{INT_MAX}, [](auto &s, T &key, uint32_t &value)

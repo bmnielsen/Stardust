@@ -78,6 +78,16 @@ TEST(PathExploration, VermeerSingleWorker)
     runSingleWorkerTest(test);
 }
 
+TEST(PathExploration, VermeerSingleWorkerContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("Vermeer");
+        if (runSingleWorkerTest(test)) return;
+    }
+}
+
 TEST(PathExploration, VermeerOneIteration)
 {
     BWTest test;

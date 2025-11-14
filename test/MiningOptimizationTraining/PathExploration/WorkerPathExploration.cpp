@@ -32,13 +32,17 @@ namespace MiningOptimizationTraining
         // If update is set, nodes are created where they don't exist and occurrence counts are incremented
         template <typename ObservationType>
         PathNode<ObservationType> *getNextPathNode(std::vector<std::pair<PathNode<ObservationType>, uint32_t>> &nextPositions,
+                                                   BWAPI::ExactPosition position,
                                                    BWAPI::ExactPositionDifference positionDifference,
                                                    bool update)
         {
+            PositionAndVelocity pos(position);
+
             std::pair<PathNode<ObservationType>, uint32_t> *nextPathNodePair = nullptr;
             for (auto &pathNodePair : nextPositions)
             {
-                if (pathNodePair.first.positionDifferenceFromPreviousNode == positionDifference)
+                if (pathNodePair.first.pos == pos
+                    && pathNodePair.first.positionDifferenceFromPreviousNode == positionDifference)
                 {
                     nextPathNodePair = &pathNodePair;
                     break;
@@ -49,7 +53,7 @@ namespace MiningOptimizationTraining
 
             if (!nextPathNodePair)
             {
-                nextPathNodePair = &nextPositions.emplace_back(PathNode<ObservationType>{positionDifference}, 0);
+                nextPathNodePair = &nextPositions.emplace_back(PathNode<ObservationType>{pos, positionDifference}, 0);
             }
 
             if (update && getTotalOccurrences(nextPositions) < UINT32_MAX)
@@ -225,7 +229,7 @@ namespace MiningOptimizationTraining
                 for (auto positionIt = simulatedPath.begin(); positionIt != simulatedPath.end(); positionIt++)
                 {
                     auto &position = *positionIt;
-                    auto node = getNextPathNode(*nextPositions, position - currentPosition, true);
+                    auto node = getNextPathNode(*nextPositions, position, position - currentPosition, true);
                     currentPosition = position;
 
                     // The arrival delay is the distance to the last position node, which is the arrival position

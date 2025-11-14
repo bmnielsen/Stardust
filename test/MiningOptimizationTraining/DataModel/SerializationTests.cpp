@@ -11,7 +11,7 @@ namespace
 
     MiningOptimizationTraining::GatherPathNode generateGatherPathNode(MiningOptimizationTraining::PositionAndVelocity pos)
     {
-        MiningOptimizationTraining::GatherPathNode result{{ pos.x, pos.y }};
+        MiningOptimizationTraining::GatherPathNode result{pos, { pos.x, pos.y }};
         result.type = (MiningOptimizationTraining::NodeType)(pos.x % 6);
         result.arrivalData.emplace(MiningOptimizationTraining::GatherArrivalData(pos.x), pos.x);
         result.arrivalDataAfterResend.emplace(MiningOptimizationTraining::GatherArrivalData(pos.x - 5), pos.x - 5);
