@@ -348,6 +348,13 @@ namespace MiningOptimizationTraining
 #endif
         };
 
+        auto stateChange = [&](int to)
+        {
+            CherryVis::log(worker->getID()) << "State transition from " << state << " to " << to;
+            stateCount[state]++;
+            state = to;
+        };
+
         while (true)
         {
             switch (state)
@@ -357,8 +364,7 @@ namespace MiningOptimizationTraining
                     // Worker is approaching the patch; transition to state 1 when it is waiting for minerals
                     if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
                     {
-                        CherryVis::log(worker->getID()) << "State transition from approaching patch to wait for minerals";
-                        state = 1;
+                        stateChange(1);
 
 #if VALIDATE_EXPECTED_TRANSITION_FRAMES
                         if (expectedTransitionFrame != -1 && expectedTransitionFrame != currentFrame)
@@ -390,8 +396,7 @@ namespace MiningOptimizationTraining
                     // Worker is waiting for minerals; transition to state 2 when it starts mining
                     if (worker->getOrder() == BWAPI::Orders::MiningMinerals)
                     {
-                        CherryVis::log(worker->getID()) << "State transition from wait for minerals to mining";
-                        state = 2;
+                        stateChange(2);
                         continue;
                     }
 
@@ -402,13 +407,16 @@ namespace MiningOptimizationTraining
                     // Worker is mining; transition to state 2 when it is finished mining
                     if (worker->getOrder() == BWAPI::Orders::ReturnMinerals && worker->isCarryingMinerals())
                     {
-                        CherryVis::log(worker->getID()) << "State transition from mining to returning minerals";
-                        state = 3;
-                        initializePath(
-                                {RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
-                                createReturnArrivalData,
-                                returnPaths,
-                                gatherPaths);
+                        stateChange(3);
+
+                        if (stateCount[3] > 0)
+                        {
+                            initializePath(
+                                    {RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
+                                    createReturnArrivalData,
+                                    returnPaths,
+                                    gatherPaths);
+                        }
                         continue;
                     }
 
@@ -419,8 +427,7 @@ namespace MiningOptimizationTraining
                     // Worker is returning minerals; transition to state 0 when it has returned minerals
                     if (!worker->isCarryingMinerals())
                     {
-                        CherryVis::log(worker->getID()) << "State transition from returning minerals to approaching patch";
-                        state = 0;
+                        stateChange(0);
 
 #if VALIDATE_EXPECTED_TRANSITION_FRAMES
                         if (expectedTransitionFrame != -1 && expectedTransitionFrame != currentFrame)
@@ -431,11 +438,14 @@ namespace MiningOptimizationTraining
                         }
 #endif
 
-                        initializePath(
-                                {GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
-                                createGatherArrivalData,
-                                gatherPaths,
-                                returnPaths);
+                        if (stateCount[0] > 0)
+                        {
+                            initializePath(
+                                    {GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
+                                    createGatherArrivalData,
+                                    gatherPaths,
+                                    returnPaths);
+                        }
                         continue;
                     }
 

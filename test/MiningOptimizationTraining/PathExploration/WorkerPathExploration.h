@@ -39,6 +39,9 @@ namespace MiningOptimizationTraining
         // 3 - approaching the depot
         int state;
 
+        // Count of how many times the worker has transitioned out of each state
+        std::map<int, unsigned int> stateCount;
+
         // The planned resend frames
         std::set<int> plannedResendFrames;
 
