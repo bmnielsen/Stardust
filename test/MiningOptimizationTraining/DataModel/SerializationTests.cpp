@@ -11,7 +11,7 @@ namespace
 
     MiningOptimizationTraining::GatherPathNode generateGatherPathNode(MiningOptimizationTraining::PositionAndVelocity pos)
     {
-        MiningOptimizationTraining::GatherPathNode result{pos, { pos.x, pos.y }};
+        MiningOptimizationTraining::GatherPathNode result{pos};
         result.type = (MiningOptimizationTraining::NodeType)(pos.x % 6);
         result.arrivalData.emplace(MiningOptimizationTraining::GatherArrivalData(pos.x), pos.x);
         result.arrivalDataAfterResend.emplace(MiningOptimizationTraining::GatherArrivalData(pos.x - 5), pos.x - 5);
@@ -23,7 +23,7 @@ namespace
     {
         return MiningOptimizationTraining::GatherPath{
             pos,
-            {{nextNode, nextNode.positionDifferenceFromPreviousNode.x}}, // next positions
+            {{nextNode, nextNode.pos.x}}, // next positions
             pos.x, // times explored
             {{pos.x + 5, pos.x + 5}}, // no resend delay and occurrences
             {{pos.x, pos.x}} // best delay and occurrences
@@ -47,7 +47,7 @@ namespace
     void assertGatherPathNodesEqual(MiningOptimizationTraining::GatherPathNode &expected,
                                     MiningOptimizationTraining::GatherPathNode &actual)
     {
-        ASSERT_EQ(expected.positionDifferenceFromPreviousNode, actual.positionDifferenceFromPreviousNode);
+        ASSERT_EQ(expected.pos, actual.pos);
         ASSERT_EQ(expected.type, actual.type);
 
         auto occurrenceCountEqual = [](uint32_t &expected, uint32_t &actual)
@@ -94,12 +94,12 @@ TEST(SerializationTests, WriteAndReadBack)
         pos[i] = generateTestPosition(10 * (i+1));
         gatherObservations.push_back(generateGatherPathNode(pos[i]));
     }
-    gatherObservations[0].nextPositions.emplace_back(gatherObservations[1], gatherObservations[1].positionDifferenceFromPreviousNode.x);
-    gatherObservations[0].nextPositions.emplace_back(gatherObservations[2], gatherObservations[2].positionDifferenceFromPreviousNode.x);
-    gatherObservations[0].nextPositionsAfterResend.emplace_back(gatherObservations[3], gatherObservations[3].positionDifferenceFromPreviousNode.x);
-    gatherObservations[0].nextPositionsAfterResend.emplace_back(gatherObservations[4], gatherObservations[4].positionDifferenceFromPreviousNode.x);
-    gatherObservations[5].nextPositions.emplace_back(gatherObservations[6], gatherObservations[6].positionDifferenceFromPreviousNode.x);
-    gatherObservations[5].nextPositionsAfterResend.emplace_back(gatherObservations[7], gatherObservations[7].positionDifferenceFromPreviousNode.x);
+    gatherObservations[0].nextPositions.emplace_back(gatherObservations[1], gatherObservations[1].pos.x);
+    gatherObservations[0].nextPositions.emplace_back(gatherObservations[2], gatherObservations[2].pos.x);
+    gatherObservations[0].nextPositionsAfterResend.emplace_back(gatherObservations[3], gatherObservations[3].pos.x);
+    gatherObservations[0].nextPositionsAfterResend.emplace_back(gatherObservations[4], gatherObservations[4].pos.x);
+    gatherObservations[5].nextPositions.emplace_back(gatherObservations[6], gatherObservations[6].pos.x);
+    gatherObservations[5].nextPositionsAfterResend.emplace_back(gatherObservations[7], gatherObservations[7].pos.x);
 
     // Create the expected map data
     MiningOptimizationTraining::MapData expected;

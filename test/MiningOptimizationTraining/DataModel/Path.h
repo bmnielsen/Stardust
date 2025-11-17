@@ -24,9 +24,6 @@ namespace MiningOptimizationTraining
         // The position, including velocity and heading
         PositionAndVelocity pos;
 
-        // The difference in x, y position between this node and the previous one, at subpixel precision
-        BWAPI::ExactPositionDifference positionDifferenceFromPreviousNode = {};
-
         // The type of node, see definition of NodeType for details on each type
         NodeType type = NodeType::Uninitialized;
 

@@ -33,7 +33,6 @@ namespace MiningOptimizationTraining
         template <typename ObservationType>
         PathNode<ObservationType> *getNextPathNode(std::vector<std::pair<PathNode<ObservationType>, uint32_t>> &nextPositions,
                                                    BWAPI::ExactPosition position,
-                                                   BWAPI::ExactPositionDifference positionDifference,
                                                    bool update)
         {
             PositionAndVelocity pos(position);
@@ -41,8 +40,7 @@ namespace MiningOptimizationTraining
             std::pair<PathNode<ObservationType>, uint32_t> *nextPathNodePair = nullptr;
             for (auto &pathNodePair : nextPositions)
             {
-                if (pathNodePair.first.pos == pos
-                    && pathNodePair.first.positionDifferenceFromPreviousNode == positionDifference)
+                if (pathNodePair.first.pos == pos)
                 {
                     nextPathNodePair = &pathNodePair;
                     break;
@@ -53,7 +51,7 @@ namespace MiningOptimizationTraining
 
             if (!nextPathNodePair)
             {
-                nextPathNodePair = &nextPositions.emplace_back(PathNode<ObservationType>{pos, positionDifference}, 0);
+                nextPathNodePair = &nextPositions.emplace_back(PathNode<ObservationType>{pos}, 0);
             }
 
             if (update && getTotalOccurrences(nextPositions) < UINT32_MAX)
@@ -229,7 +227,7 @@ namespace MiningOptimizationTraining
                 for (auto positionIt = simulatedPath.begin(); positionIt != simulatedPath.end(); positionIt++)
                 {
                     auto &position = *positionIt;
-                    auto node = getNextPathNode(*nextPositions, position, position - currentPosition, true);
+                    auto node = getNextPathNode(*nextPositions, position, true);
                     currentPosition = position;
 
                     // The arrival delay is the distance to the last position node, which is the arrival position
