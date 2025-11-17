@@ -23,7 +23,7 @@ namespace MiningOptimizationTraining
      */
     struct GatherArrivalData
     {
-        uint16_t packed = UINT8_MAX;
+        uint16_t packed = UINT16_MAX;
         PositionAndVelocity nextPathStartPosition;
 
         // The number of frames to arrival at the target

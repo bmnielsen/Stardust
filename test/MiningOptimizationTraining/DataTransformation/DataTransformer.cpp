@@ -1,9 +1,5 @@
 #include "DataTransformer.h"
 
-#define CULL_THRESHOLD 10
-
-#include <fstream>
-
 namespace MiningOptimizationTraining::DataTransformer
 {
     namespace
@@ -19,34 +15,6 @@ namespace MiningOptimizationTraining::DataTransformer
         unsigned long totalNextNodes = 0;
         unsigned long nextNodePositionDeltaCollisions = 0;
         unsigned long nextNodePositionAndVelocityCollisions = 0;
-        std::unique_ptr<std::ofstream> file;
-
-        size_t culledSize(const auto &item)
-        {
-            if (item.size() < 2) return item.size();
-
-            if (file)
-            {
-                std::string sep = "\n";
-                for (const auto &[_, occurrences] : item)
-                {
-                    (*file) << sep << occurrences;
-                    sep = ",";
-                }
-            }
-
-            uint32_t totalOccurrences = 0;
-            for (const auto &[_, occurrences] : item) totalOccurrences += occurrences;
-            uint32_t cullThreshold = totalOccurrences / CULL_THRESHOLD;
-
-            size_t result = 0;
-            for (const auto &[_, occurrences] : item)
-            {
-                if (occurrences >= cullThreshold) result++;
-            }
-
-            return result;
-        }
 
         template <typename ObservationType>
         void processNextNodes(
@@ -56,7 +24,6 @@ namespace MiningOptimizationTraining::DataTransformer
         {
             uint32_t totalOccurrences = 0;
             for (const auto &[_, occurrences] : nextNodes) totalOccurrences += occurrences;
-            uint32_t cullThreshold = totalOccurrences / CULL_THRESHOLD;
 
             std::set<PositionAndVelocity> positionsAndVelocities;
             std::set<std::pair<int8_t, int8_t>> positionDeltas;
@@ -64,8 +31,6 @@ namespace MiningOptimizationTraining::DataTransformer
             size_t nodeCount = 0;
             for (const auto &[nextNode, occurrences] : nextNodes)
             {
-                if (occurrences < cullThreshold) continue;
-
                 nodeCount++;
 
                 positionsAndVelocities.insert(nextNode.pos);
@@ -74,11 +39,11 @@ namespace MiningOptimizationTraining::DataTransformer
                 positionDeltas.insert(delta);
                 nextPositionDeltaCombinations.emplace(delta.first, delta.second);
 
-                arrivalDataCounts[culledSize(nextNode.arrivalData)]++;
-                arrivalDataCounts[culledSize(nextNode.arrivalDataAfterResend)]++;
+                arrivalDataCounts[nextNode.arrivalData.size()]++;
+                arrivalDataCounts[nextNode.arrivalDataAfterResend.size()]++;
 
-//                nextPositionCounts[culledSize(nextNode.nextPositions)]++;
-//                nextPositionCounts[culledSize(nextNode.nextPositionsAfterResend)]++;
+                nextPositionCounts[nextNode.nextPositions.size()]++;
+                nextPositionCounts[nextNode.nextPositionsAfterResend.size()]++;
 
                 processNextNodes(patchData, nextNode.pos, nextNode.nextPositions);
                 processNextNodes(patchData, nextNode.pos, nextNode.nextPositionsAfterResend);
@@ -158,16 +123,10 @@ namespace MiningOptimizationTraining::DataTransformer
 
     void transform(const MapData &trainingData)
     {
-        file = std::make_unique<std::ofstream>("gather.csv");
-        (*file) << "occurrences";
-
         std::cout << "Gather:" << std::endl;
         outputStatistics(trainingData.resourceToGatherPaths);
 
         std::cout << std::endl << std::endl;
-
-        file = std::make_unique<std::ofstream>("return.csv");
-        (*file) << "occurrences";
 
         std::cout << "Return:" << std::endl;
         outputStatistics(trainingData.resourceToReturnPaths);

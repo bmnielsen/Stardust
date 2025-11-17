@@ -1,0 +1,43 @@
+#pragma once
+
+#include "Common.h"
+
+#include "PositionAndVelocity.h"
+#include "PositionDeltaAndVelocity.h"
+
+namespace MiningOptimizationV2
+{
+    // This structure stores a node in a path
+    // The path may branch because of a resend taking effect at this position or because of subpixel instability in the path
+    template <typename ObservationType>
+    struct PathNode
+    {
+        // The position delta, which includes velocity and heading when needed
+        PositionDeltaAndVelocity pos;
+
+        // The arrival observations from this node when the path is not changed by a later gather command
+        std::map<ObservationType, uint8_t> arrivalData;
+
+        // The arrival observations when a resend takes effect here
+        std::map<ObservationType, uint8_t> arrivalDataAfterResend;
+
+        // All next positions seen from this position when the path has not been changed by a resend
+        // Will be empty on the last node before arrival at the patch
+        std::vector<std::pair<PathNode<ObservationType>, uint8_t>> nextPositions;
+
+        // All next positions seen from this position after a resend takes effect at this node
+        // Will be empty on any nodes where resends do not change the path or no additional resends are possible
+        std::vector<std::pair<PathNode<ObservationType>, uint8_t>> nextPositionsAfterResend;
+    };
+
+    // Stores the root of a path
+    template <typename ObservationType>
+    struct Path
+    {
+        // The position, including velocity and heading
+        PositionAndVelocity pos;
+
+        // All next positions seen from this node
+        std::vector<std::pair<PathNode<ObservationType>, uint8_t>> nextPositions;
+    };
+}
