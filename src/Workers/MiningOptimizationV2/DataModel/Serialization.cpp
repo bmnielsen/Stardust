@@ -11,13 +11,6 @@
 
 #include "FileTools.h"
 
-// Provides the best speed (on my machine) for the training use case where we are continually saving and reloading
-// Lower levels are not much faster to compress and slower to decompress (because of increased time to read the larger files)
-// Higher levels do not compress the files sufficiently better to make up for the increased compression time
-#define COMPRESSION_LEVEL 4
-
-//#define COMPRESSION_LEVEL ZSTD_maxCLevel()
-
 namespace MiningOptimizationV2::Serialization
 {
     namespace
@@ -143,7 +136,8 @@ namespace MiningOptimizationV2::Serialization
 
     void writeMapData(MapData &data)
     {
-        ensureGameParametersInitialized();
+        gameParametersInitialized = true;
+        mapHash = data.mapHash;
 
         auto filename = getFilename(true);
         if (filename.empty())
@@ -152,7 +146,7 @@ namespace MiningOptimizationV2::Serialization
             return;
         }
 
-        zstd::ofstream file(filename, std::ofstream::trunc, COMPRESSION_LEVEL);
+        zstd::ofstream file(filename, std::ofstream::trunc, ZSTD_maxCLevel());
         if (file.fail())
         {
             Log::Get() << "Could not open mining optimization data file for writing: " << filename;
