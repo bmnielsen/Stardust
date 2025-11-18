@@ -11,12 +11,21 @@
 
 #include "FileTools.h"
 
+// Serialization logic for mining optimization data
+// We use the following techniques to reduce the data file size:
+// - Positions are stored as deltas instead of absolute positions wherever possible
+// - The heading and velocity are only included on positions where they are needed to discriminate between peers
+// - The vectors and maps with occurrence rates are serialized such that they don't need a separate size item
+// - We know we never have resend data if we don't have non-resend data
+// - We use maximum zstd compression
 namespace MiningOptimizationV2::Serialization
 {
     namespace
     {
         bool gameParametersInitialized = false;
         std::string mapHash;
+
+        uint8_t zero = 0;
 
         void ensureGameParametersInitialized()
         {
@@ -34,41 +43,111 @@ namespace MiningOptimizationV2::Serialization
             return FileTools::getFilePath(builder.str(), "bin.zstd", writing);
         }
 
-        template <typename S>
+        template <bool serializing, typename S>
         void serialize(S &ser, MapData &data)
         {
             auto rootNodeSerializer = [&]<typename T>(S &s, Path<T>& value)
             {
                 std::function<void(S&, PathNode<T>&)> pathNodeSerializer;
 
+                auto nodeVectorSerializer = [&]()
+                {
+                    if constexpr (serializing)
+                    {
+                        return [&](S &s, std::vector<std::pair<PathNode<T>, uint8_t>> &vec)
+                        {
+                            // If the vector is empty, just write a zero
+                            if (vec.empty())
+                            {
+                                s.value1b(zero);
+                                return;
+                            }
+
+                            // Write the occurrences before the nodes
+                            for (auto &[k, v] : vec)
+                            {
+                                s.value1b(v);
+                                s.object(k, pathNodeSerializer);
+                            }
+                        };
+                    }
+                    else
+                    {
+                        return [&](S &s, std::vector<std::pair<PathNode<T>, uint8_t>> &vec)
+                        {
+                            uint8_t total = 0;
+                            while (total < 255)
+                            {
+                                uint8_t occurrenceRate;
+                                s.value1b(occurrenceRate);
+
+                                // First item will be zero for an empty vector
+                                if (occurrenceRate == 0) return;
+
+                                auto &item = vec.emplace_back(PathNode<T>{}, occurrenceRate);
+                                s.object(item.first, pathNodeSerializer);
+
+                                total += occurrenceRate;
+                            }
+                        };
+                    }
+                }();
+
+                auto arrivalDataSerializer = [&]()
+                {
+                    if constexpr (serializing)
+                    {
+                        return [&](S &s, std::map<T, uint8_t> &map)
+                        {
+                            // If the map is empty, just write a zero
+                            if (map.empty())
+                            {
+                                s.value1b(zero);
+                                return;
+                            }
+
+                            // Write the occurrences before the nodes
+                            for (auto &[k, v] : map)
+                            {
+                                s.value1b(v);
+                                s.object(k);
+                            }
+                        };
+                    }
+                    else
+                    {
+                        return [&](S &s, std::map<T, uint8_t> &map)
+                        {
+                            uint8_t total = 0;
+                            while (total < 255)
+                            {
+                                uint8_t occurrenceRate;
+                                s.value1b(occurrenceRate);
+
+                                // First item will be zero for an empty map
+                                if (occurrenceRate == 0) return;
+
+                                T item;
+                                s.object(item);
+                                map.emplace(std::move(item), occurrenceRate);
+
+                                total += occurrenceRate;
+                            }
+                        };
+                    }
+                }();
+
                 pathNodeSerializer = [&](S &s, PathNode<T>& value)
                 {
                     s.object(value.pos);
-                    s.ext(value.arrivalData, bitsery::ext::StdMap{INT_MAX}, [](auto &s, T &key, uint8_t &value)
-                    {
-                        s.object(key);
-                        s.value1b(value);
-                    });
-                    s.ext(value.arrivalDataAfterResend, bitsery::ext::StdMap{INT_MAX}, [](auto &s, T &key, uint8_t &value)
-                    {
-                        s.object(key);
-                        s.value1b(value);
-                    });
-                    s.container(value.nextPositions, INT_MAX, [&](S &s, std::pair<PathNode<T>, uint8_t> &v) {
-                        s.object(v.first, pathNodeSerializer);
-                        s.value1b(v.second);
-                    });
-                    s.container(value.nextPositionsAfterResend, INT_MAX, [&](S &s, std::pair<PathNode<T>, uint8_t> &v) {
-                        s.object(v.first, pathNodeSerializer);
-                        s.value1b(v.second);
-                    });
+                    s.object(value.arrivalData, arrivalDataSerializer);
+                    if (!value.arrivalData.empty()) s.object(value.arrivalDataAfterResend, arrivalDataSerializer);
+                    s.object(value.nextPositions, nodeVectorSerializer);
+                    if (!value.nextPositions.empty()) s.object(value.nextPositionsAfterResend, nodeVectorSerializer);
                 };
 
                 s.object(value.pos);
-                s.container(value.nextPositions, INT_MAX, [&](S &s, std::pair<PathNode<T>, uint8_t> &v) {
-                    s.object(v.first, pathNodeSerializer);
-                    s.value1b(v.second);
-                });
+                s.object(value.nextPositions, nodeVectorSerializer);
             };
 
             auto resourceToRootNodesSerializer = [&]<typename T>(
@@ -128,7 +207,7 @@ namespace MiningOptimizationV2::Serialization
         }
 
         bitsery::Deserializer<bitsery::InputStreamAdapter> ser{file};
-        serialize(ser, data);
+        serialize<false>(ser, data);
         file.close();
 
         Log::Get() << "Read mining optimization data from " << filename;
@@ -154,7 +233,7 @@ namespace MiningOptimizationV2::Serialization
         }
 
         bitsery::Serializer<bitsery::OutputStreamAdapter> ser{file};
-        serialize(ser, data);
+        serialize<true>(ser, data);
         ser.adapter().flush();
         file.close();
 

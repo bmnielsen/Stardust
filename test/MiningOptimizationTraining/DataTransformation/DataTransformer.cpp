@@ -143,6 +143,16 @@ namespace MiningOptimizationTraining::DataTransformer
                     [&](const PathNode<TrainingObservationType> &node) // NOLINT(*-no-recursion)
                     -> MiningOptimizationV2::PathNode<OutputObservationType>
             {
+                // Assert that if non-resend data is unavailable, resend data is also unavailable
+                if (node.arrivalData.empty())
+                {
+                    EXPECT_TRUE(node.arrivalDataAfterResend.empty()) << "Empty arrivalData should mean empty arrivalDataAfterResend";
+                }
+                if (node.nextPositions.empty())
+                {
+                    EXPECT_TRUE(node.nextPositionsAfterResend.empty()) << "Empty nextPositions should mean empty nextPositionsAfterResend";
+                }
+
                 return {delta(pos, node.pos, positionDeltaToIndex),
                         convertArrivalData(node.arrivalData),
                         convertArrivalData(node.arrivalDataAfterResend),
