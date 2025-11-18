@@ -27,13 +27,20 @@ namespace MiningOptimizationTraining::DataTransformer
         {
             if (observations.size() < 2) return;
 
-            // Get the total and check if it is 255, also tracking what the max occurrence count is
+            // Get the total and check if it is 255, also tracking what the max occurrence count is and removing any with a 0 rate
             unsigned int totalOccurrences = 0;
             uint8_t maxOccurrences = 0;
-            for (const auto &[_, occurrences] : observations)
+            for (auto it = observations.begin(); it != observations.end(); )
             {
-                totalOccurrences += occurrences;
-                maxOccurrences = std::max(maxOccurrences, occurrences);
+                if (it->second == 0)
+                {
+                    it = observations.erase(it);
+                    continue;
+                }
+
+                totalOccurrences += it->second;
+                maxOccurrences = std::max(maxOccurrences, it->second);
+                it++;
             }
             if (totalOccurrences == 255) return;
 
