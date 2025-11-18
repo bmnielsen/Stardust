@@ -22,6 +22,30 @@ namespace MiningOptimizationTraining::DataTransformer
             return (uint8_t)(std::round(255.0 * ((double)occurrences / (double)(*totalOccurrences))));
         }
 
+        // Ensures that the total occurrence rate is 255
+        void ensureOccurrenceRateTotal(auto &observations)
+        {
+            if (observations.size() < 2) return;
+
+            // Get the total and check if it is 255, also tracking what the max occurrence count is
+            unsigned int totalOccurrences = 0;
+            uint8_t maxOccurrences = 0;
+            for (const auto &[_, occurrences] : observations)
+            {
+                totalOccurrences += occurrences;
+                maxOccurrences = std::max(maxOccurrences, occurrences);
+            }
+            if (totalOccurrences == 255) return;
+
+            // Increment or decrement the max occurrence count to make the total be 255
+            for (auto &[_, occurrences] : observations)
+            {
+                if (occurrences != maxOccurrences) continue;
+                occurrences += (255 - totalOccurrences);
+                return;
+            }
+        }
+
         template <typename ObservationType>
         void gatherPositionDeltas(const PositionAndVelocity &pos, // NOLINT(*-no-recursion)
                                   const std::vector<std::pair<PathNode<ObservationType>, uint32_t>> &nextNodes,
@@ -103,6 +127,8 @@ namespace MiningOptimizationTraining::DataTransformer
                                    computeOccurrenceRate(observations, totalArrivalOccurrences, occurrences));
                 }
 
+                ensureOccurrenceRateTotal(result);
+
                 return result;
             };
 
@@ -124,6 +150,8 @@ namespace MiningOptimizationTraining::DataTransformer
             {
                 result.emplace_back(convertNode(node), computeOccurrenceRate(nextNodes, totalNodeOccurrences, occurrences));
             }
+
+            ensureOccurrenceRateTotal(result);
 
             // Flag the positions that need to include the heading and velocity to differentiate between nodes
             for (size_t i = 0; i < result.size(); i++)
