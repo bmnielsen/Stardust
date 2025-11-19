@@ -2,7 +2,7 @@
 
 namespace MiningOptimizationV2
 {
-    std::ostream &operator<<(std::ostream &os, const ReturnExitSpeed exitSpeed)
+    std::ostream &operator<<(std::ostream &os, const ReturnExitSpeed &exitSpeed)
     {
         switch (exitSpeed)
         {

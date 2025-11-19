@@ -167,7 +167,7 @@ namespace MiningOptimizationV2::Serialization
                 s.value1b(v.first);
                 s.value1b(v.second);
             });
-
+            ser.value4b(data.minimumNextPathLength);
             ser.object(data.resourceToGatherPaths, resourceToRootNodesSerializer);
             ser.object(data.resourceToReturnPaths, resourceToRootNodesSerializer);
         }

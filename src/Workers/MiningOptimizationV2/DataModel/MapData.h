@@ -15,6 +15,9 @@ namespace MiningOptimizationV2
         // To save on bits, we store position deltas as indices into this vector
         std::vector<std::pair<uint8_t, uint8_t>> positionDeltas;
 
+        // To save on bits, we store next path lengths as an increment from the minimum path length for the map
+        unsigned int minimumNextPathLength = 0;
+
         std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPath>> resourceToGatherPaths;
         std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPath>> resourceToReturnPaths;
 

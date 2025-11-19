@@ -6,8 +6,6 @@
 #include <cstdint>
 #include <algorithm>
 
-#define UINT6_MAX 63U
-
 namespace MiningOptimizationV2
 {
     enum class ReturnExitSpeed:uint8_t
@@ -18,27 +16,28 @@ namespace MiningOptimizationV2
         High,       // The worker maintained a great deal of speed after delivery
     };
 
-    std::ostream& operator<<(std::ostream& os, const ReturnExitSpeed exitSpeed);
+    std::ostream& operator<<(std::ostream& os, const ReturnExitSpeed &exitSpeed);
 
     /*
      * Stores the arrival data we need to track for return paths.
      *
      * Arrival delay: the number of frames to arrival at the depot
      * Exit speed: the exit speed from the depot
-     * Gather path start position: the position and velocity of the worker at the start of the gather path
+     * Next path length: average length of the gather path from the end position of this arrival
      *
-     * We patch the exit speed data into the arrival delay, since we don't need the full 16 bits.
+     * We store the next path length as an increment from the minimum path length in MapData. This allows it to fit into 6 bits, which allows us
+     * to pack the exit speed data alongside it in a single 8-bit integer.
      */
     struct ReturnArrivalData
     {
+        uint8_t arrivalDelay = UINT8_MAX;
         uint8_t packed = UINT8_MAX;
-        uint8_t nextPathLength = UINT8_MAX;
 
-        // The number of frames to arrival at the target
-        [[nodiscard]] unsigned int arrivalDelay() const
+        // The length of the gather path from the end position of this arrival
+        [[nodiscard]] unsigned int nextPathLength(uint8_t minimumNextPathLength) const
         {
-            // Delay is stored in the upper 6 bits, so shift two right and return
-            return packed >> 2;
+            // Next path length is stored in the upper 6 bits, so shift two right and add the minimum value
+            return (unsigned int)(packed >> 2) + minimumNextPathLength;
         }
 
         // The exit speed of the worker from the depot back towards the patch
@@ -50,23 +49,23 @@ namespace MiningOptimizationV2
 
         bool operator==(const ReturnArrivalData &other) const
         {
-            return std::tie(packed, nextPathLength) == std::tie(other.packed, other.nextPathLength);
+            return std::tie(arrivalDelay, packed) == std::tie(other.arrivalDelay, other.packed);
         }
 
         bool operator<(const ReturnArrivalData &other) const
         {
-            return std::tie(packed, nextPathLength) < std::tie(other.packed, other.nextPathLength);
+            return std::tie(arrivalDelay, packed) < std::tie(other.arrivalDelay, other.packed);
         }
 
         template <typename S>
         void serialize(S& s) {
+            s.value1b(arrivalDelay);
             s.value1b(packed);
-            s.value1b(nextPathLength);
         }
 
         friend std::ostream& operator<< (std::ostream& os, const ReturnArrivalData& data)
         {
-            os << data.arrivalDelay();
+            os << data.arrivalDelay;
             switch (data.exitSpeed())
             {
                 case ReturnExitSpeed::Collision:

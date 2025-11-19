@@ -88,6 +88,49 @@ namespace MiningOptimizationTraining::DataTransformer
             }
         }
 
+        template <typename ObservationType>
+        void gatherAveragePathArrivalDelays(
+                const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<ObservationType>>> &pathData,
+                std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, unsigned int>> &averageArrivalDelays,
+                unsigned int &minAverageArrivalDelay)
+        {
+            for (const auto &[tile, rootNodes] : pathData)
+            {
+                auto &patchAverageArrivalDelays = averageArrivalDelays[tile];
+                for (const auto &[pos, rootNode] : rootNodes)
+                {
+                    unsigned long delayAccumulator = 0;
+                    unsigned long occurrenceOccumulator = 0;
+                    for (const auto &[delay, occurrences] : rootNode.bestArrivalDelaysAndOccurrences)
+                    {
+                        delayAccumulator += delay * occurrences;
+                        occurrenceOccumulator += occurrences;
+                    }
+
+                    auto result = (unsigned int)std::round((double)delayAccumulator / (double)occurrenceOccumulator);
+                    patchAverageArrivalDelays[pos] = result;
+                    minAverageArrivalDelay = std::min(minAverageArrivalDelay, result);
+                }
+            }
+        }
+
+        void convertAverageArrivalDelays(const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, unsigned int>> &raw,
+                                         std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, uint8_t>> &out,
+                                         unsigned int minAverageArrivalDelay)
+        {
+            for (const auto &[tile, rootNodes] : raw)
+            {
+                auto &patchOut = out[tile];
+                for (const auto &[pos, averageArrivalDelay] : rootNodes)
+                {
+                    EXPECT_GE(averageArrivalDelay, minAverageArrivalDelay) << "Average arrival delay is smaller than minimum average arrival delay";
+                    auto converted = averageArrivalDelay - minAverageArrivalDelay;
+                    EXPECT_LE(converted, 63) << "Converted average arrival delay is too big for 6-bit integer";
+                    patchOut[pos] = (uint8_t)converted;
+                }
+            }
+        }
+
         MiningOptimizationV2::PositionAndVelocity convert(const PositionAndVelocity &pos)
         {
             return {pos.x, pos.y, pos.heading, (int16_t)pos.velocityX, (int16_t)pos.velocityY};
@@ -106,11 +149,18 @@ namespace MiningOptimizationTraining::DataTransformer
         OutputObservationType convert(const TrainingObservationType &arrivalData,
                                       const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
+            // Start by looking up the next path arrival delay, defaulting to the max value if it isn't found
             auto it = nextPathArrivalDelays.find(arrivalData.nextPathStartPosition);
-            uint8_t nextPathArrivalDelay = (it == nextPathArrivalDelays.end()) ? 255 : it->second;
+            uint8_t nextPathArrivalDelay = (it == nextPathArrivalDelays.end()) ? 63 : it->second;
 
-            unsigned int delay = std::min(63U, arrivalData.arrivalDelay());
-            return {(uint8_t)(((uint8_t)delay << 2) + (arrivalData.packed & 0b00000011)), nextPathArrivalDelay};
+            // Now pack the next path arrival delay with whatever is already packed in the arrival data
+            // For gather this is the collision and facing patch, for return this is the exit speed
+            uint8_t packed = (nextPathArrivalDelay << 2) + (arrivalData.packed & 0b00000011);
+
+            // Validate the arrival delay can fit in 8 bits
+            EXPECT_LE(arrivalData.arrivalDelay(), 255) << "Arrival delay does not fit in 8 bits";
+
+            return {(uint8_t)arrivalData.arrivalDelay(), packed};
         }
 
         template <typename TrainingObservationType, typename OutputObservationType>
@@ -196,10 +246,10 @@ namespace MiningOptimizationTraining::DataTransformer
                                                                             nextPathArrivalDelays)};
         }
 
-        template <typename TrainingObservationType, typename OtherTrainingObservationType, typename OutputObservationType>
+        template <typename TrainingObservationType, typename OutputObservationType>
         void transform(
                 const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<TrainingObservationType>>> &pathData,
-                const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<OtherTrainingObservationType>>> &nextPathData,
+                const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, uint8_t>> &nextPathArrivalDelays,
                 std::unordered_map<TilePosition, std::unordered_map<MiningOptimizationV2::PositionAndVelocity,
                                                                     MiningOptimizationV2::Path<OutputObservationType>>> &outputData,
                 const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &positionDeltaToIndex)
@@ -207,28 +257,14 @@ namespace MiningOptimizationTraining::DataTransformer
             for (const auto &[tile, rootNodes] : pathData)
             {
                 // Compute the arrival delays for the next paths
-                std::unordered_map<PositionAndVelocity, uint8_t> nextPathArrivalDelays;
-                for (const auto &[pos, nextPathRootNode] : nextPathData.at(tile))
-                {
-                    unsigned long delayAccumulator = 0;
-                    unsigned long occurrenceOccumulator = 0;
-                    for (const auto &[delay, occurrences] : nextPathRootNode.bestArrivalDelaysAndOccurrences)
-                    {
-                        delayAccumulator += delay * occurrences;
-                        occurrenceOccumulator += occurrences;
-                    }
-
-                    auto result = (unsigned long)std::round((double)delayAccumulator / (double)occurrenceOccumulator);
-                    ASSERT_GE(255, result) << "Average arrival delay is too large for 8 bits";
-                    nextPathArrivalDelays[pos] = (uint8_t)result;
-                }
+                auto &patchNextPathArrivalDelays = nextPathArrivalDelays.at(tile);
 
                 // Convert the root nodes
                 auto &outputRootNodes = outputData[tile];
                 for (const auto &[pos, rootNode] : rootNodes)
                 {
                     outputRootNodes[convert(pos)] =
-                            convert<TrainingObservationType, OutputObservationType>(rootNode, positionDeltaToIndex, nextPathArrivalDelays);
+                            convert<TrainingObservationType, OutputObservationType>(rootNode, positionDeltaToIndex, patchNextPathArrivalDelays);
                 }
             }
         }
@@ -246,13 +282,30 @@ namespace MiningOptimizationTraining::DataTransformer
         gatherPositionDeltas(trainingData.resourceToReturnPaths, outputData.positionDeltas, positionDeltaToIndex);
         std::cout << "...found " << outputData.positionDeltas.size() << " position deltas" << std::endl;
 
+        // Next, compute all of the average arrival delays from each path
+        // We do this in two steps - first we get all the values with the minimum, then we prepare for serialization by subtracting the minimum
+        std::cout << "Gathering average arrival delays..." << std::endl;
+
+        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, unsigned int>> rawGatherAverageArrivalDelays;
+        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, unsigned int>> rawReturnAverageArrivalDelays;
+        outputData.minimumNextPathLength = UINT_MAX;
+        gatherAveragePathArrivalDelays(trainingData.resourceToGatherPaths, rawGatherAverageArrivalDelays, outputData.minimumNextPathLength);
+        gatherAveragePathArrivalDelays(trainingData.resourceToReturnPaths, rawReturnAverageArrivalDelays, outputData.minimumNextPathLength);
+
+        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, uint8_t>> gatherAverageArrivalDelays;
+        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, uint8_t>> returnAverageArrivalDelays;
+        convertAverageArrivalDelays(rawGatherAverageArrivalDelays, gatherAverageArrivalDelays, outputData.minimumNextPathLength);
+        convertAverageArrivalDelays(rawReturnAverageArrivalDelays, returnAverageArrivalDelays, outputData.minimumNextPathLength);
+
+        std::cout << "...minimum arrival delay is " << outputData.minimumNextPathLength << std::endl;
+
         // Now transform the data
         std::cout << "Transforming gather data..." << std::endl;
-        transform(trainingData.resourceToGatherPaths, trainingData.resourceToReturnPaths, outputData.resourceToGatherPaths, positionDeltaToIndex);
+        transform(trainingData.resourceToGatherPaths, returnAverageArrivalDelays, outputData.resourceToGatherPaths, positionDeltaToIndex);
         std::cout << "...done!" << std::endl;
 
         std::cout << "Transforming return data..." << std::endl;
-        transform(trainingData.resourceToReturnPaths, trainingData.resourceToGatherPaths, outputData.resourceToReturnPaths, positionDeltaToIndex);
+        transform(trainingData.resourceToReturnPaths, gatherAverageArrivalDelays, outputData.resourceToReturnPaths, positionDeltaToIndex);
         std::cout << "...done!" << std::endl;
 
         // Finally serialize everything
