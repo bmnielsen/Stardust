@@ -163,7 +163,7 @@ namespace MiningOptimizationV2::Serialization
                 });
             };
 
-            ser.container(data.positionDeltas, 128, [&](S &s, std::pair<uint8_t, uint8_t> &v) {
+            ser.container(data.positionDeltas, 128, [&](S &s, std::pair<int8_t, int8_t> &v) {
                 s.value1b(v.first);
                 s.value1b(v.second);
             });

@@ -56,12 +56,12 @@ namespace MiningOptimizationTraining::DataTransformer
         template <typename ObservationType>
         void gatherPositionDeltas(const PositionAndVelocity &pos, // NOLINT(*-no-recursion)
                                   const std::vector<std::pair<PathNode<ObservationType>, uint32_t>> &nextNodes,
-                                  std::vector<std::pair<uint8_t, uint8_t>> &positionDeltas,
-                                  std::map<std::pair<uint8_t, uint8_t>, uint8_t> &positionDeltaToIndex)
+                                  std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
+                                  std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex)
         {
             for (const auto &[nextNode, _] : nextNodes)
             {
-                auto delta = std::make_pair((uint8_t)(nextNode.pos.x - pos.x), (uint8_t)(nextNode.pos.y - pos.y));
+                auto delta = std::make_pair((int8_t)(nextNode.pos.x - pos.x), (int8_t)(nextNode.pos.y - pos.y));
                 if (!positionDeltaToIndex.contains(delta))
                 {
                     ASSERT_GE(128, positionDeltas.size()) << "Positions delta exceeded limit";
@@ -76,8 +76,8 @@ namespace MiningOptimizationTraining::DataTransformer
 
         template <typename ObservationType>
         void gatherPositionDeltas(const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<ObservationType>>> &pathData,
-                                  std::vector<std::pair<uint8_t, uint8_t>> &positionDeltas,
-                                  std::map<std::pair<uint8_t, uint8_t>, uint8_t> &positionDeltaToIndex)
+                                  std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
+                                  std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex)
         {
             for (const auto &[_, rootNodes] : pathData)
             {
@@ -107,7 +107,10 @@ namespace MiningOptimizationTraining::DataTransformer
                         occurrenceOccumulator += occurrences;
                     }
 
-                    auto result = (unsigned int)std::round((double)delayAccumulator / (double)occurrenceOccumulator);
+                    auto result =
+                            (occurrenceOccumulator == 0)
+                            ? 0
+                            : ((unsigned int)std::round((double)delayAccumulator / (double)occurrenceOccumulator));
                     patchAverageArrivalDelays[pos] = result;
                     minAverageArrivalDelay = std::min(minAverageArrivalDelay, result);
                 }
@@ -138,9 +141,9 @@ namespace MiningOptimizationTraining::DataTransformer
 
         MiningOptimizationV2::PositionDeltaAndVelocity delta(const PositionAndVelocity &pos,
                                                              const PositionAndVelocity &next,
-                                                             const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &positionDeltaToIndex)
+                                                             const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex)
         {
-            auto diff = std::make_pair((uint8_t)(next.x - pos.x), (uint8_t)(next.y - pos.y));
+            auto diff = std::make_pair((int8_t)(next.x - pos.x), (int8_t)(next.y - pos.y));
             uint8_t packed = (positionDeltaToIndex.at(diff)) << 1;
             return {packed, next.heading, (int16_t)next.velocityX, (int16_t)next.velocityY};
         }
@@ -167,7 +170,7 @@ namespace MiningOptimizationTraining::DataTransformer
         std::vector<std::pair<MiningOptimizationV2::PathNode<OutputObservationType>, uint8_t>> convert( // NOLINT(*-no-recursion)
                 const PositionAndVelocity &pos,
                 const std::vector<std::pair<PathNode<TrainingObservationType>, uint32_t>> &nextNodes,
-                const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &positionDeltaToIndex,
+                const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
                 const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
             if (nextNodes.empty()) return {};
@@ -236,7 +239,7 @@ namespace MiningOptimizationTraining::DataTransformer
 
         template <typename TrainingObservationType, typename OutputObservationType>
         MiningOptimizationV2::Path<OutputObservationType> convert(const Path<TrainingObservationType> &rootNode,
-                                                                  const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &positionDeltaToIndex,
+                                                                  const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
                                                                   const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
             return {convert(rootNode.pos),
@@ -249,15 +252,15 @@ namespace MiningOptimizationTraining::DataTransformer
         template <typename TrainingObservationType, typename OutputObservationType>
         void transform(
                 const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<TrainingObservationType>>> &pathData,
-                const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, uint8_t>> &nextPathArrivalDelays,
+                std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, uint8_t>> &nextPathArrivalDelays,
                 std::unordered_map<TilePosition, std::unordered_map<MiningOptimizationV2::PositionAndVelocity,
                                                                     MiningOptimizationV2::Path<OutputObservationType>>> &outputData,
-                const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &positionDeltaToIndex)
+                const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex)
         {
             for (const auto &[tile, rootNodes] : pathData)
             {
                 // Compute the arrival delays for the next paths
-                auto &patchNextPathArrivalDelays = nextPathArrivalDelays.at(tile);
+                auto &patchNextPathArrivalDelays = nextPathArrivalDelays[tile];
 
                 // Convert the root nodes
                 auto &outputRootNodes = outputData[tile];
@@ -277,7 +280,7 @@ namespace MiningOptimizationTraining::DataTransformer
 
         // Start by finding all of the needed position deltas
         std::cout << "Building position delta map..." << std::endl;
-        std::map<std::pair<uint8_t, uint8_t>, uint8_t> positionDeltaToIndex;
+        std::map<std::pair<int8_t, int8_t>, uint8_t> positionDeltaToIndex;
         gatherPositionDeltas(trainingData.resourceToGatherPaths, outputData.positionDeltas, positionDeltaToIndex);
         gatherPositionDeltas(trainingData.resourceToReturnPaths, outputData.positionDeltas, positionDeltaToIndex);
         std::cout << "...found " << outputData.positionDeltas.size() << " position deltas" << std::endl;

@@ -13,7 +13,7 @@ namespace MiningOptimizationV2
         std::string mapHash;
 
         // To save on bits, we store position deltas as indices into this vector
-        std::vector<std::pair<uint8_t, uint8_t>> positionDeltas;
+        std::vector<std::pair<int8_t, int8_t>> positionDeltas;
 
         // To save on bits, we store next path lengths as an increment from the minimum path length for the map
         unsigned int minimumNextPathLength = 0;
@@ -25,6 +25,7 @@ namespace MiningOptimizationV2
         {
             mapHash = _mapHash;
             positionDeltas.clear();
+            minimumNextPathLength = 0;
             resourceToGatherPaths.clear();
             resourceToReturnPaths.clear();
         }

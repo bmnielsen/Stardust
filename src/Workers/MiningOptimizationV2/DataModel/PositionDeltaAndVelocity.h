@@ -42,6 +42,19 @@ namespace MiningOptimizationV2
             return (packed & 0b00000001) == 1;
         }
 
+        bool operator==(const PositionDeltaAndVelocity &other) const
+        {
+            // Packed data must match
+            if (packed != other.packed) return false;
+
+            // If heading and velocity don't matter, they are equal
+            if (!requiresHeadingAndVelocity()) return true;
+
+            // Otherwise we need to compare the heading and velocity also
+            return std::tie(heading, velocityX, velocityY) ==
+                   std::tie(other.heading, other.velocityX, other.velocityY);
+        }
+
         template <typename S>
         void serialize(S& s) {
             s.value1b(packed);
