@@ -157,8 +157,11 @@ namespace MiningOptimizationV2::Serialization
                 s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S& s, TilePosition& key, std::unordered_map<PositionAndVelocity, Path<T>>& v) {
                     s.object(key);
                     s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S& s, PositionAndVelocity& key, Path<T>& v) {
-                        s.object(key);
                         s.object(v, rootNodeSerializer);
+                        if constexpr (!serializing)
+                        {
+                            key = v.pos;
+                        }
                     });
                 });
             };
