@@ -47,6 +47,9 @@ namespace MiningOptimizationV2
             s.value2b(x);
             s.value2b(y);
             s.value1b(heading);
+
+            // We actually don't need to store the velocity for return path root nodes, since the worker is always stopped there
+            // But removing it actually made the compression worse, so there was no benefit and the code is messier
             s.value2b(velocityX);
             s.value2b(velocityY);
         }

@@ -106,11 +106,9 @@ namespace MiningOptimizationTraining::DataTransformer
                         delayAccumulator += delay * occurrences;
                         occurrenceOccumulator += occurrences;
                     }
+                    if (occurrenceOccumulator == 0) continue;
 
-                    auto result =
-                            (occurrenceOccumulator == 0)
-                            ? 0
-                            : ((unsigned int)std::round((double)delayAccumulator / (double)occurrenceOccumulator));
+                    auto result = ((unsigned int)std::round((double)delayAccumulator / (double)occurrenceOccumulator));
                     patchAverageArrivalDelays[pos] = result;
                     minAverageArrivalDelay = std::min(minAverageArrivalDelay, result);
                 }
