@@ -16,10 +16,10 @@ namespace MiningOptimization
         PositionDeltaAndVelocity pos;
 
         // The arrival observations from this node when the path is not changed by a later gather command
-        std::map<ObservationType, uint8_t> arrivalData;
+        std::vector<std::pair<ObservationType, uint8_t>> arrivalData;
 
         // The arrival observations when a resend takes effect here
-        std::map<ObservationType, uint8_t> arrivalDataAfterResend;
+        std::vector<std::pair<ObservationType, uint8_t>> arrivalDataAfterResend;
 
         // All next positions seen from this position when the path has not been changed by a resend
         // Will be empty on the last node before arrival at the patch

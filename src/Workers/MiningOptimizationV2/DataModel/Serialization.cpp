@@ -50,11 +50,11 @@ namespace MiningOptimization::Serialization
             {
                 std::function<void(S&, PathNode<T>&)> pathNodeSerializer;
 
-                auto nodeVectorSerializer = [&]()
+                auto customVectorSerializer = [&]()
                 {
                     if constexpr (serializing)
                     {
-                        return [&](S &s, std::vector<std::pair<PathNode<T>, uint8_t>> &vec)
+                        return [&]<typename U>(S &s, std::vector<std::pair<U, uint8_t>> &vec)
                         {
                             // If the vector is empty, just write a zero
                             if (vec.empty())
@@ -67,13 +67,20 @@ namespace MiningOptimization::Serialization
                             for (auto &[k, v] : vec)
                             {
                                 s.value1b(v);
-                                s.object(k, pathNodeSerializer);
+                                if constexpr (std::is_same_v<U, PathNode<T>>)
+                                {
+                                    s.object(k, pathNodeSerializer);
+                                }
+                                else
+                                {
+                                    s.object(k);
+                                }
                             }
                         };
                     }
                     else
                     {
-                        return [&](S &s, std::vector<std::pair<PathNode<T>, uint8_t>> &vec)
+                        return [&]<typename U>(S &s, std::vector<std::pair<U, uint8_t>> &vec)
                         {
                             uint8_t total = 0;
                             while (total < 255)
@@ -84,8 +91,17 @@ namespace MiningOptimization::Serialization
                                 // First item will be zero for an empty vector
                                 if (occurrenceRate == 0) return;
 
-                                auto &item = vec.emplace_back(PathNode<T>{}, occurrenceRate);
-                                s.object(item.first, pathNodeSerializer);
+                                U item;
+                                if constexpr (std::is_same_v<U, PathNode<T>>)
+                                {
+                                    s.object(item, pathNodeSerializer);
+                                }
+                                else
+                                {
+                                    s.object(item);
+                                }
+
+                                vec.emplace_back(std::move(item), occurrenceRate);
 
                                 total += occurrenceRate;
                             }
@@ -94,61 +110,17 @@ namespace MiningOptimization::Serialization
                     }
                 }();
 
-                auto arrivalDataSerializer = [&]()
-                {
-                    if constexpr (serializing)
-                    {
-                        return [&](S &s, std::map<T, uint8_t> &map)
-                        {
-                            // If the map is empty, just write a zero
-                            if (map.empty())
-                            {
-                                s.value1b(zero);
-                                return;
-                            }
-
-                            // Write the occurrences before the nodes
-                            for (auto &[k, v] : map)
-                            {
-                                s.value1b(v);
-                                s.object(k);
-                            }
-                        };
-                    }
-                    else
-                    {
-                        return [&](S &s, std::map<T, uint8_t> &map)
-                        {
-                            uint8_t total = 0;
-                            while (total < 255)
-                            {
-                                uint8_t occurrenceRate;
-                                s.value1b(occurrenceRate);
-
-                                // First item will be zero for an empty map
-                                if (occurrenceRate == 0) return;
-
-                                T item;
-                                s.object(item);
-                                map.emplace(std::move(item), occurrenceRate);
-
-                                total += occurrenceRate;
-                            }
-                        };
-                    }
-                }();
-
                 pathNodeSerializer = [&](S &s, PathNode<T>& value)
                 {
                     s.object(value.pos);
-                    s.object(value.arrivalData, arrivalDataSerializer);
-                    if (!value.arrivalData.empty()) s.object(value.arrivalDataAfterResend, arrivalDataSerializer);
-                    s.object(value.nextPositions, nodeVectorSerializer);
-                    if (!value.nextPositions.empty()) s.object(value.nextPositionsAfterResend, nodeVectorSerializer);
+                    s.object(value.arrivalData, customVectorSerializer);
+                    if (!value.arrivalData.empty()) s.object(value.arrivalDataAfterResend, customVectorSerializer);
+                    s.object(value.nextPositions, customVectorSerializer);
+                    if (!value.nextPositions.empty()) s.object(value.nextPositionsAfterResend, customVectorSerializer);
                 };
 
                 s.object(value.pos);
-                s.object(value.nextPositions, nodeVectorSerializer);
+                s.object(value.nextPositions, customVectorSerializer);
             };
 
             auto resourceToRootNodesSerializer = [&]<typename T>(

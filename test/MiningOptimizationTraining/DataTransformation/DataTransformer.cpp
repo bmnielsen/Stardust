@@ -199,24 +199,28 @@ namespace MiningOptimizationTraining::DataTransformer
         {
             if (nextNodes.empty()) return {};
 
-            auto convertArrivalData = [&](const std::map<TrainingObservationType, uint32_t> &observations) -> std::map<OutputObservationType, uint8_t>
+            auto convertArrivalData =
+                    [&](const std::map<TrainingObservationType, uint32_t> &observations) -> std::vector<std::pair<OutputObservationType, uint8_t>>
             {
                 if (observations.empty()) return {};
 
                 std::unique_ptr<uint32_t> totalArrivalOccurrences;
-                std::map<OutputObservationType, uint8_t> result;
+                std::vector<std::pair<OutputObservationType, uint8_t>> result;
                 for (const auto &[arrivalData, occurrences] : observations)
                 {
                     // Arrival data with different next path start positions may have the same next path length, causing them to become
                     // equal after conversion.
                     // We therefore take this into consideration and check if there is a preexisting match
                     auto converted = convert<TrainingObservationType, OutputObservationType>(arrivalData, nextPathArrivalDelays);
-                    auto it = result.find(converted);
+                    auto it = std::find_if(result.begin(), result.end(), [&converted](const std::pair<OutputObservationType, uint8_t> &item)
+                    {
+                        return item.first == converted;
+                    });
 
                     // No match; just emplace the new value
                     if (it == result.end())
                     {
-                        result.emplace(std::move(converted), computeOccurrenceRate(observations, totalArrivalOccurrences, occurrences));
+                        result.emplace_back(std::move(converted), computeOccurrenceRate(observations, totalArrivalOccurrences, occurrences));
                         continue;
                     }
 

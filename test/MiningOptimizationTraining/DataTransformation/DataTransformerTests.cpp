@@ -316,12 +316,42 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
     validateRoot(expectedRootPos2, {arrivalData5, arrivalData6, arrivalData7, arrivalData8}, 75);
 }
 
-TEST(DataTransformerTests, LoadVermeerData)
+TEST(DataTransformerTests, DeserializesCompactly)
 {
     MiningOptimization::MapData mapData;
     MiningOptimization::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
     MiningOptimization::Serialization::readMapData(mapData);
 
-    EXPECT_FALSE(mapData.resourceToGatherPaths.empty());
-    EXPECT_FALSE(mapData.resourceToReturnPaths.empty());
+    auto checkPathData = []<typename ObservationType>(
+            const std::unordered_map<TilePosition, std::unordered_map<MiningOptimization::PositionAndVelocity,
+                                                                      MiningOptimization::Path<ObservationType>>> &pathData)
+    {
+        std::function<void(const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>>&)> checkNextNodes;
+
+        checkNextNodes = [&checkNextNodes](const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>> &nextNodes)
+        {
+            EXPECT_EQ(nextNodes.capacity(), nextNodes.size());
+            for (const auto &[node, _] : nextNodes)
+            {
+                EXPECT_EQ(node.arrivalData.capacity(), node.arrivalData.size());
+                EXPECT_EQ(node.arrivalDataAfterResend.capacity(), node.arrivalDataAfterResend.size());
+
+                checkNextNodes(node.nextPositions);
+                checkNextNodes(node.nextPositionsAfterResend);
+            }
+        };
+
+        EXPECT_FALSE(pathData.empty());
+        for (const auto &[_, rootNodes] : pathData)
+        {
+            EXPECT_FALSE(rootNodes.empty());
+            for (const auto &[_, rootNode] : rootNodes)
+            {
+                checkNextNodes(rootNode.nextPositions);
+            }
+        }
+    };
+    checkPathData(mapData.resourceToGatherPaths);
+    checkPathData(mapData.resourceToReturnPaths);
+    EXPECT_EQ(mapData.positionDeltas.capacity(), mapData.positionDeltas.size());
 }
