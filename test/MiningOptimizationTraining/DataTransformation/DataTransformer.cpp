@@ -194,14 +194,37 @@ namespace MiningOptimizationTraining::DataTransformer
                     [&](const PathNode<TrainingObservationType> &node) // NOLINT(*-no-recursion)
                     -> MiningOptimizationV2::PathNode<OutputObservationType>
             {
-                // Assert that if non-resend data is unavailable, resend data is also unavailable
-                if (node.arrivalData.empty())
+                // Perform validations based on the node type to ensure we have the expected data
+                switch (node.type)
                 {
-                    EXPECT_TRUE(node.arrivalDataAfterResend.empty()) << "Empty arrivalData should mean empty arrivalDataAfterResend";
-                }
-                if (node.nextPositions.empty())
-                {
-                    EXPECT_TRUE(node.nextPositionsAfterResend.empty()) << "Empty nextPositions should mean empty nextPositionsAfterResend";
+                    case NodeType::Uninitialized:
+                        EXPECT_FALSE(true) << "There should not be uninitialized nodes in the training data";
+                        break;
+                    case NodeType::AfterExplorationWindow:
+                        EXPECT_TRUE(node.arrivalData.empty());
+                        EXPECT_TRUE(node.arrivalDataAfterResend.empty());
+                        EXPECT_TRUE(node.nextPositionsAfterResend.empty());
+                        break;
+                    case NodeType::StableNode:
+                    case NodeType::ResendUnavailable:
+                        EXPECT_FALSE(node.arrivalData.empty());
+                        EXPECT_TRUE(node.arrivalDataAfterResend.empty());
+                        EXPECT_FALSE(node.nextPositions.empty());
+                        EXPECT_TRUE(node.nextPositionsAfterResend.empty());
+                        break;
+                    case NodeType::PoorResendNode:
+                    case NodeType::FinalResendNode:
+                        EXPECT_FALSE(node.arrivalData.empty());
+                        EXPECT_FALSE(node.arrivalDataAfterResend.empty());
+                        EXPECT_FALSE(node.nextPositions.empty());
+                        EXPECT_TRUE(node.nextPositionsAfterResend.empty());
+                        break;
+                    case NodeType::NonfinalResendNode:
+                        EXPECT_FALSE(node.arrivalData.empty());
+                        EXPECT_FALSE(node.arrivalDataAfterResend.empty());
+                        EXPECT_FALSE(node.nextPositions.empty());
+                        EXPECT_FALSE(node.nextPositionsAfterResend.empty());
+                        break;
                 }
 
                 return {delta(pos, node.pos, positionDeltaToIndex),
