@@ -89,6 +89,7 @@ namespace MiningOptimization::Serialization
 
                                 total += occurrenceRate;
                             }
+                            vec.shrink_to_fit();
                         };
                     }
                 }();
@@ -170,6 +171,7 @@ namespace MiningOptimization::Serialization
                 s.value1b(v.first);
                 s.value1b(v.second);
             });
+            if constexpr (!serializing) data.positionDeltas.shrink_to_fit();
             ser.value4b(data.minimumNextPathLength);
             ser.object(data.resourceToGatherPaths, resourceToRootNodesSerializer);
             ser.object(data.resourceToReturnPaths, resourceToRootNodesSerializer);
