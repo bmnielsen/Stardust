@@ -18,7 +18,7 @@
 // - The vectors and maps with occurrence rates are serialized such that they don't need a separate size item
 // - We know we never have resend data if we don't have non-resend data
 // - We use maximum zstd compression
-namespace MiningOptimizationV2::Serialization
+namespace MiningOptimization::Serialization
 {
     namespace
     {

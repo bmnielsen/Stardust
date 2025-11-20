@@ -132,12 +132,12 @@ namespace MiningOptimizationTraining::DataTransformer
             }
         }
 
-        MiningOptimizationV2::PositionAndVelocity convert(const PositionAndVelocity &pos)
+        MiningOptimization::PositionAndVelocity convert(const PositionAndVelocity &pos)
         {
             return {pos.x, pos.y, pos.heading, (int16_t)pos.velocityX, (int16_t)pos.velocityY};
         }
 
-        MiningOptimizationV2::PositionDeltaAndVelocity delta(const PositionAndVelocity &pos,
+        MiningOptimization::PositionDeltaAndVelocity delta(const PositionAndVelocity &pos,
                                                              const PositionAndVelocity &next,
                                                              const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex)
         {
@@ -165,7 +165,7 @@ namespace MiningOptimizationTraining::DataTransformer
         }
 
         template <typename TrainingObservationType, typename OutputObservationType>
-        std::vector<std::pair<MiningOptimizationV2::PathNode<OutputObservationType>, uint8_t>> convert( // NOLINT(*-no-recursion)
+        std::vector<std::pair<MiningOptimization::PathNode<OutputObservationType>, uint8_t>> convert( // NOLINT(*-no-recursion)
                 const PositionAndVelocity &pos,
                 const std::vector<std::pair<PathNode<TrainingObservationType>, uint32_t>> &nextNodes,
                 const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
@@ -192,7 +192,7 @@ namespace MiningOptimizationTraining::DataTransformer
 
             auto convertNode =
                     [&](const PathNode<TrainingObservationType> &node) // NOLINT(*-no-recursion)
-                    -> MiningOptimizationV2::PathNode<OutputObservationType>
+                    -> MiningOptimization::PathNode<OutputObservationType>
             {
                 // Perform validations based on the node type to ensure we have the expected data
                 switch (node.type)
@@ -235,7 +235,7 @@ namespace MiningOptimizationTraining::DataTransformer
             };
 
             std::unique_ptr<uint32_t> totalNodeOccurrences;
-            std::vector<std::pair<MiningOptimizationV2::PathNode<OutputObservationType>, uint8_t>> result;
+            std::vector<std::pair<MiningOptimization::PathNode<OutputObservationType>, uint8_t>> result;
             result.reserve(nextNodes.size());
             for (const auto &[node, occurrences] : nextNodes)
             {
@@ -259,7 +259,7 @@ namespace MiningOptimizationTraining::DataTransformer
         }
 
         template <typename TrainingObservationType, typename OutputObservationType>
-        MiningOptimizationV2::Path<OutputObservationType> convert(const Path<TrainingObservationType> &rootNode,
+        MiningOptimization::Path<OutputObservationType> convert(const Path<TrainingObservationType> &rootNode,
                                                                   const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
                                                                   const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
@@ -274,8 +274,8 @@ namespace MiningOptimizationTraining::DataTransformer
         void transform(
                 const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<TrainingObservationType>>> &pathData,
                 std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, uint8_t>> &nextPathArrivalDelays,
-                std::unordered_map<TilePosition, std::unordered_map<MiningOptimizationV2::PositionAndVelocity,
-                                                                    MiningOptimizationV2::Path<OutputObservationType>>> &outputData,
+                std::unordered_map<TilePosition, std::unordered_map<MiningOptimization::PositionAndVelocity,
+                                                                    MiningOptimization::Path<OutputObservationType>>> &outputData,
                 const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex)
         {
             for (const auto &[tile, rootNodes] : pathData)
@@ -296,7 +296,7 @@ namespace MiningOptimizationTraining::DataTransformer
 
     void transform(const MapData &trainingData)
     {
-        MiningOptimizationV2::MapData outputData;
+        MiningOptimization::MapData outputData;
         outputData.mapHash = trainingData.mapHash;
 
         // Start by finding all of the needed position deltas
@@ -334,7 +334,7 @@ namespace MiningOptimizationTraining::DataTransformer
 
         // Finally serialize everything
         std::cout << "Serializing map data..." << std::endl;
-        MiningOptimizationV2::Serialization::writeMapData(outputData);
+        MiningOptimization::Serialization::writeMapData(outputData);
         std::cout << "...done!" << std::endl;
     }
 }

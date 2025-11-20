@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace MiningOptimizationV2
+namespace MiningOptimization
 {
     struct PositionAndVelocity
     {
@@ -57,9 +57,9 @@ namespace MiningOptimizationV2
 }
 
 template <>
-struct std::hash<MiningOptimizationV2::PositionAndVelocity>
+struct std::hash<MiningOptimization::PositionAndVelocity>
 {
-    std::size_t operator()(const MiningOptimizationV2::PositionAndVelocity& pos) const
+    std::size_t operator()(const MiningOptimization::PositionAndVelocity& pos) const
     {
         // As this is only intended for use in std::unordered_map, hash quality is not important, so we just use XOR
         uint32_t xy = (pos.x << 16) + pos.y;

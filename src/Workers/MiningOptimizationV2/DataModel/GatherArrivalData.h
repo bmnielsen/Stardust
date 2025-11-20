@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace MiningOptimizationV2
+namespace MiningOptimization
 {
     /*
      * Stores the arrival data we need to track for gather paths.

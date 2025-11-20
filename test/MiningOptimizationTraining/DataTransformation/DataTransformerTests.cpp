@@ -26,9 +26,9 @@ TEST(DataTransformerTests, PositionDeltaIndex)
 
     MiningOptimizationTraining::DataTransformer::transform(trainingData);
 
-    MiningOptimizationV2::MapData outputData;
-    MiningOptimizationV2::Serialization::setGameParameters("test");
-    MiningOptimizationV2::Serialization::readMapData(outputData);
+    MiningOptimization::MapData outputData;
+    MiningOptimization::Serialization::setGameParameters("test");
+    MiningOptimization::Serialization::readMapData(outputData);
 
     // Ensure the position deltas contain the expected values
     EXPECT_EQ(2, outputData.positionDeltas.size());
@@ -43,10 +43,10 @@ TEST(DataTransformerTests, PositionDeltaIndex)
     EXPECT_LT(pos3Index, 2);
 
     // Ensure the root node in the output data has the expected values
-    MiningOptimizationV2::PositionAndVelocity expectedRootPos(100, 100, 10, 10, 10);
-    MiningOptimizationV2::PositionDeltaAndVelocity expectedChildPos1((pos1And2Index << 1) + 1, 15, 15, -15);
-    MiningOptimizationV2::PositionDeltaAndVelocity expectedChildPos2((pos1And2Index << 1) + 1, 20, -20, 20);
-    MiningOptimizationV2::PositionDeltaAndVelocity expectedChildPos3((pos3Index << 1), 17, 58, -98); // heading and velocity don't matter here
+    MiningOptimization::PositionAndVelocity expectedRootPos(100, 100, 10, 10, 10);
+    MiningOptimization::PositionDeltaAndVelocity expectedChildPos1((pos1And2Index << 1) + 1, 15, 15, -15);
+    MiningOptimization::PositionDeltaAndVelocity expectedChildPos2((pos1And2Index << 1) + 1, 20, -20, 20);
+    MiningOptimization::PositionDeltaAndVelocity expectedChildPos3((pos3Index << 1), 17, 58, -98); // heading and velocity don't matter here
 
     auto &outputPatchData = outputData.resourceToGatherPaths[TilePosition(0, 0)];
     EXPECT_TRUE(outputPatchData.contains(expectedRootPos));
@@ -99,14 +99,14 @@ TEST(DataTransformerTests, OccurrenceRounding)
 
     MiningOptimizationTraining::DataTransformer::transform(trainingData);
 
-    MiningOptimizationV2::MapData outputData;
-    MiningOptimizationV2::Serialization::setGameParameters("test");
-    MiningOptimizationV2::Serialization::readMapData(outputData);
+    MiningOptimization::MapData outputData;
+    MiningOptimization::Serialization::setGameParameters("test");
+    MiningOptimization::Serialization::readMapData(outputData);
 
-    MiningOptimizationV2::PositionAndVelocity expectedRootPos(100, 100, 10, 10, 10);
+    MiningOptimization::PositionAndVelocity expectedRootPos(100, 100, 10, 10, 10);
 
     auto expectSum = [&](
-            const std::unordered_map<MiningOptimizationV2::PositionAndVelocity, MiningOptimizationV2::GatherPath> &data)
+            const std::unordered_map<MiningOptimization::PositionAndVelocity, MiningOptimization::GatherPath> &data)
     {
         EXPECT_TRUE(data.contains(expectedRootPos));
         unsigned int total = 0;
@@ -176,19 +176,19 @@ TEST(DataTransformerTests, GatherArrivalPacking)
 
     MiningOptimizationTraining::DataTransformer::transform(trainingData);
 
-    MiningOptimizationV2::MapData outputData;
-    MiningOptimizationV2::Serialization::setGameParameters("test");
-    MiningOptimizationV2::Serialization::readMapData(outputData);
+    MiningOptimization::MapData outputData;
+    MiningOptimization::Serialization::setGameParameters("test");
+    MiningOptimization::Serialization::readMapData(outputData);
 
     // Minimum next path length should be 45
     EXPECT_EQ(45, outputData.minimumNextPathLength);
 
-    MiningOptimizationV2::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10);
-    MiningOptimizationV2::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10);
+    MiningOptimization::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10);
+    MiningOptimization::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10);
 
     auto &outputPatchData = outputData.resourceToGatherPaths[TilePosition(0, 0)];
     auto validateRoot = [&](
-            MiningOptimizationV2::PositionAndVelocity rootPos,
+            MiningOptimization::PositionAndVelocity rootPos,
             const std::vector<MiningOptimizationTraining::GatherArrivalData> &expectedArrivalData,
             unsigned int expectedNextPathLength)
     {
@@ -274,19 +274,19 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
 
     MiningOptimizationTraining::DataTransformer::transform(trainingData);
 
-    MiningOptimizationV2::MapData outputData;
-    MiningOptimizationV2::Serialization::setGameParameters("test");
-    MiningOptimizationV2::Serialization::readMapData(outputData);
+    MiningOptimization::MapData outputData;
+    MiningOptimization::Serialization::setGameParameters("test");
+    MiningOptimization::Serialization::readMapData(outputData);
 
     // Minimum next path length should be 45
     EXPECT_EQ(45, outputData.minimumNextPathLength);
 
-    MiningOptimizationV2::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10);
-    MiningOptimizationV2::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10);
+    MiningOptimization::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10);
+    MiningOptimization::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10);
 
     auto &outputPatchData = outputData.resourceToReturnPaths[TilePosition(0, 0)];
     auto validateRoot = [&](
-            MiningOptimizationV2::PositionAndVelocity rootPos,
+            MiningOptimization::PositionAndVelocity rootPos,
             const std::vector<MiningOptimizationTraining::ReturnArrivalData> &expectedArrivalData,
             unsigned int expectedNextPathLength)
     {

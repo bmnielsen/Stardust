@@ -5,7 +5,7 @@
 #include "PositionAndVelocity.h"
 #include "PositionDeltaAndVelocity.h"
 
-namespace MiningOptimizationV2
+namespace MiningOptimization
 {
     // This structure stores a node in a path
     // The path may branch because of a resend taking effect at this position or because of subpixel instability in the path

@@ -1,6 +1,6 @@
 #include "ReturnArrivalData.h"
 
-namespace MiningOptimizationV2
+namespace MiningOptimization
 {
     std::ostream &operator<<(std::ostream &os, const ReturnExitSpeed &exitSpeed)
     {

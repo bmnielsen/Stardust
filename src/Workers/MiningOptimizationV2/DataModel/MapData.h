@@ -5,7 +5,7 @@
 #include "GatherArrivalData.h"
 #include "ReturnArrivalData.h"
 
-namespace MiningOptimizationV2
+namespace MiningOptimization
 {
     class MapData
     {

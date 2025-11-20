@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <algorithm>
 
-namespace MiningOptimizationV2
+namespace MiningOptimization
 {
     enum class ReturnExitSpeed:uint8_t
     {

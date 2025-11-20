@@ -2,7 +2,7 @@
 
 #include "MapData.h"
 
-namespace MiningOptimizationV2::Serialization
+namespace MiningOptimization::Serialization
 {
     // Allows setting the game parameters if using the data outside a game (like when doing post-processing on the data files)
     void setGameParameters(const std::string &mapHash);

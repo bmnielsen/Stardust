@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace MiningOptimizationV2
+namespace MiningOptimization
 {
     struct PositionDeltaAndVelocity
     {
