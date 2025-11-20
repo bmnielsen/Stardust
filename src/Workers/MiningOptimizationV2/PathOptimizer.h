@@ -10,7 +10,7 @@ namespace MiningOptimization
     class PathOptimizer
     {
     public:
-        PathOptimizer(const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<ObservationType>>> &pathData,
+        PathOptimizer(const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>>> &pathData,
                       const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
                       const unsigned int minimumNextPathLength)
                 : pathData(pathData)
@@ -18,10 +18,10 @@ namespace MiningOptimization
                 , minimumNextPathLength(minimumNextPathLength)
         {}
 
-        void optimize(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
+        void optimize(const MyWorker &worker, const MyUnit &depot, const Resource &resource) {}
 
     private:
-        const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<ObservationType>>> &pathData;
+        const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>>> &pathData;
         const std::vector<std::pair<int8_t, int8_t>> &positionDeltas;
         const unsigned int minimumNextPathLength;
     };

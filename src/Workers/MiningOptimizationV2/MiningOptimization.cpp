@@ -18,10 +18,10 @@ namespace MiningOptimization
         Serialization::setGameParameters(BWAPI::Broodwar->mapHash());
         Serialization::readMapData(mapData);
 
-        gatherOptimizer = std::make_unique<PathOptimizer<GatherArrivalData>>(mapData.resourceToGatherPaths,
+        gatherOptimizer = std::make_unique<PathOptimizer<GatherArrivalData>>(mapData.resourceToSerializedGatherPaths,
                                                                              mapData.positionDeltas,
                                                                              mapData.minimumNextPathLength);
-        returnOptimizer = std::make_unique<PathOptimizer<ReturnArrivalData>>(mapData.resourceToReturnPaths,
+        returnOptimizer = std::make_unique<PathOptimizer<ReturnArrivalData>>(mapData.resourceToSerializedReturnPaths,
                                                                              mapData.positionDeltas,
                                                                              mapData.minimumNextPathLength);
     }

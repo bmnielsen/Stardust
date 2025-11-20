@@ -2,6 +2,7 @@
 
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"
+#include "SerializedPath.h"
 #include "GatherArrivalData.h"
 #include "ReturnArrivalData.h"
 
@@ -18,16 +19,16 @@ namespace MiningOptimization
         // To save on bits, we store next path lengths as an increment from the minimum path length for the map
         unsigned int minimumNextPathLength = 0;
 
-        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPath>> resourceToGatherPaths;
-        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPath>> resourceToReturnPaths;
+        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<GatherArrivalData>>> resourceToSerializedGatherPaths;
+        std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ReturnArrivalData>>> resourceToSerializedReturnPaths;
 
         void clear(const std::string &_mapHash)
         {
             mapHash = _mapHash;
             positionDeltas.clear();
             minimumNextPathLength = 0;
-            resourceToGatherPaths.clear();
-            resourceToReturnPaths.clear();
+            resourceToSerializedGatherPaths.clear();
+            resourceToSerializedReturnPaths.clear();
         }
     };
 }

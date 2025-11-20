@@ -18,9 +18,9 @@ TEST(DataTransformerTests, PositionDeltaIndex)
             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
                     {rootPos, MiningOptimizationTraining::GatherPath{
                             rootPos,
-                            {{MiningOptimizationTraining::GatherPathNode{childPos1}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos2}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos3}, 1}}
+                            {{MiningOptimizationTraining::GatherPathNode{childPos1, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos2, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos3, MiningOptimizationTraining::NodeType::Test}, 1}}
                     }}
             });
 
@@ -48,13 +48,13 @@ TEST(DataTransformerTests, PositionDeltaIndex)
     MiningOptimization::PositionDeltaAndVelocity expectedChildPos2((pos1And2Index << 1) + 1, 20, -20, 20);
     MiningOptimization::PositionDeltaAndVelocity expectedChildPos3((pos3Index << 1), 17, 58, -98); // heading and velocity don't matter here
 
-    auto &outputPatchData = outputData.resourceToGatherPaths[TilePosition(0, 0)];
+    auto &outputPatchData = outputData.resourceToSerializedGatherPaths[TilePosition(0, 0)];
     EXPECT_TRUE(outputPatchData.contains(expectedRootPos));
     EXPECT_EQ(expectedRootPos, outputPatchData[expectedRootPos].pos);
-    EXPECT_EQ(3, outputPatchData[expectedRootPos].nextPositions.size());
-    EXPECT_EQ(expectedChildPos1, outputPatchData[expectedRootPos].nextPositions[0].first.pos);
-    EXPECT_EQ(expectedChildPos2, outputPatchData[expectedRootPos].nextPositions[1].first.pos);
-    EXPECT_EQ(expectedChildPos3, outputPatchData[expectedRootPos].nextPositions[2].first.pos);
+    EXPECT_EQ(3, outputPatchData[expectedRootPos].get().nextPositions.size());
+    EXPECT_EQ(expectedChildPos1, outputPatchData[expectedRootPos].get().nextPositions[0].first.pos);
+    EXPECT_EQ(expectedChildPos2, outputPatchData[expectedRootPos].get().nextPositions[1].first.pos);
+    EXPECT_EQ(expectedChildPos3, outputPatchData[expectedRootPos].get().nextPositions[2].first.pos);
 }
 
 TEST(DataTransformerTests, OccurrenceRounding)
@@ -76,10 +76,10 @@ TEST(DataTransformerTests, OccurrenceRounding)
             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
                     {rootPos, MiningOptimizationTraining::GatherPath{
                             rootPos,
-                            {{MiningOptimizationTraining::GatherPathNode{childPos1}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos2}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos3}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos4}, 1}}
+                            {{MiningOptimizationTraining::GatherPathNode{childPos1, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos2, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos3, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos4, MiningOptimizationTraining::NodeType::Test}, 1}}
                     }}
             });
     trainingData.resourceToGatherPaths.emplace(
@@ -87,13 +87,13 @@ TEST(DataTransformerTests, OccurrenceRounding)
             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
                     {rootPos, MiningOptimizationTraining::GatherPath{
                             rootPos,
-                            {{MiningOptimizationTraining::GatherPathNode{childPos1}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos2}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos3}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos4}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos5}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos6}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos7}, 1}}
+                            {{MiningOptimizationTraining::GatherPathNode{childPos1, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos2, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos3, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos4, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos5, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos6, MiningOptimizationTraining::NodeType::Test}, 1},
+                             {MiningOptimizationTraining::GatherPathNode{childPos7, MiningOptimizationTraining::NodeType::Test}, 1}}
                     }}
             });
 
@@ -106,19 +106,20 @@ TEST(DataTransformerTests, OccurrenceRounding)
     MiningOptimization::PositionAndVelocity expectedRootPos(100, 100, 10, 10, 10);
 
     auto expectSum = [&](
-            const std::unordered_map<MiningOptimization::PositionAndVelocity, MiningOptimization::GatherPath> &data)
+            const std::unordered_map<MiningOptimization::PositionAndVelocity,
+                                     MiningOptimization::SerializedPath<MiningOptimization::GatherArrivalData>> &data)
     {
         EXPECT_TRUE(data.contains(expectedRootPos));
         unsigned int total = 0;
-        for (const auto &[_, occurrenceRate] : data.at(expectedRootPos).nextPositions)
+        for (const auto &[_, occurrenceRate] : data.at(expectedRootPos).get().nextPositions)
         {
             total += (unsigned int)occurrenceRate;
         }
         EXPECT_EQ(255, total);
     };
 
-    expectSum(outputData.resourceToGatherPaths[TilePosition(0, 0)]);
-    expectSum(outputData.resourceToGatherPaths[TilePosition(1, 0)]);
+    expectSum(outputData.resourceToSerializedGatherPaths[TilePosition(0, 0)]);
+    expectSum(outputData.resourceToSerializedGatherPaths[TilePosition(1, 0)]);
 }
 
 TEST(DataTransformerTests, GatherArrivalPacking)
@@ -160,7 +161,7 @@ TEST(DataTransformerTests, GatherArrivalPacking)
                             rootPos1,
                             {{MiningOptimizationTraining::GatherPathNode{
                                 childPos,
-                                MiningOptimizationTraining::NodeType::StableNode,
+                                MiningOptimizationTraining::NodeType::Test,
                                 {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}}
                             }, 1}}
                     }},
@@ -168,7 +169,7 @@ TEST(DataTransformerTests, GatherArrivalPacking)
                             rootPos2,
                             {{MiningOptimizationTraining::GatherPathNode{
                                 childPos,
-                                MiningOptimizationTraining::NodeType::StableNode,
+                                MiningOptimizationTraining::NodeType::Test,
                                 {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}}
                             }, 1}}
                     }}
@@ -186,15 +187,16 @@ TEST(DataTransformerTests, GatherArrivalPacking)
     MiningOptimization::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10);
     MiningOptimization::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10);
 
-    auto &outputPatchData = outputData.resourceToGatherPaths[TilePosition(0, 0)];
+    auto &outputPatchData = outputData.resourceToSerializedGatherPaths[TilePosition(0, 0)];
     auto validateRoot = [&](
             MiningOptimization::PositionAndVelocity rootPos,
             const std::vector<MiningOptimizationTraining::GatherArrivalData> &expectedArrivalData,
             unsigned int expectedNextPathLength)
     {
         EXPECT_TRUE(outputPatchData.contains(rootPos));
-        EXPECT_EQ(1, outputPatchData[rootPos].nextPositions.size());
-        auto &nextPosition = outputPatchData[rootPos].nextPositions[0].first;
+        auto nextPositions = outputPatchData[rootPos].get().nextPositions;
+        EXPECT_EQ(1, nextPositions.size());
+        auto &nextPosition = nextPositions[0].first;
         EXPECT_EQ(expectedArrivalData.size(), nextPosition.arrivalData.size());
 
         for (const auto &expectedArrival : expectedArrivalData)
@@ -258,7 +260,7 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
                             rootPos1,
                             {{MiningOptimizationTraining::ReturnPathNode{
                                 childPos,
-                                MiningOptimizationTraining::NodeType::StableNode,
+                                MiningOptimizationTraining::NodeType::Test,
                                 {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}}
                             }, 1}}
                     }},
@@ -266,7 +268,7 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
                             rootPos2,
                             {{MiningOptimizationTraining::ReturnPathNode{
                                 childPos,
-                                MiningOptimizationTraining::NodeType::StableNode,
+                                MiningOptimizationTraining::NodeType::Test,
                                 {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}}
                             }, 1}}
                     }}
@@ -284,15 +286,16 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
     MiningOptimization::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10);
     MiningOptimization::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10);
 
-    auto &outputPatchData = outputData.resourceToReturnPaths[TilePosition(0, 0)];
+    auto &outputPatchData = outputData.resourceToSerializedReturnPaths[TilePosition(0, 0)];
     auto validateRoot = [&](
             MiningOptimization::PositionAndVelocity rootPos,
             const std::vector<MiningOptimizationTraining::ReturnArrivalData> &expectedArrivalData,
             unsigned int expectedNextPathLength)
     {
         EXPECT_TRUE(outputPatchData.contains(rootPos));
-        EXPECT_EQ(1, outputPatchData[rootPos].nextPositions.size());
-        auto &nextPosition = outputPatchData[rootPos].nextPositions[0].first;
+        auto nextPositions = outputPatchData[rootPos].get().nextPositions;
+        EXPECT_EQ(1, nextPositions.size());
+        auto &nextPosition = nextPositions[0].first;
         EXPECT_EQ(expectedArrivalData.size(), nextPosition.arrivalData.size());
 
         for (const auto &expectedArrival : expectedArrivalData)
@@ -324,7 +327,7 @@ TEST(DataTransformerTests, DeserializesCompactly)
 
     auto checkPathData = []<typename ObservationType>(
             const std::unordered_map<TilePosition, std::unordered_map<MiningOptimization::PositionAndVelocity,
-                                                                      MiningOptimization::Path<ObservationType>>> &pathData)
+                                                                      MiningOptimization::SerializedPath<ObservationType>>> &pathData)
     {
         std::function<void(const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>>&)> checkNextNodes;
 
@@ -347,11 +350,11 @@ TEST(DataTransformerTests, DeserializesCompactly)
             EXPECT_FALSE(rootNodes.empty());
             for (const auto &[_, rootNode] : rootNodes)
             {
-                checkNextNodes(rootNode.nextPositions);
+                checkNextNodes(rootNode.get().nextPositions);
             }
         }
     };
-    checkPathData(mapData.resourceToGatherPaths);
-    checkPathData(mapData.resourceToReturnPaths);
+    checkPathData(mapData.resourceToSerializedGatherPaths);
+    checkPathData(mapData.resourceToSerializedReturnPaths);
     EXPECT_EQ(mapData.positionDeltas.capacity(), mapData.positionDeltas.size());
 }

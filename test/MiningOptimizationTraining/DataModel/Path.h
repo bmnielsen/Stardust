@@ -14,6 +14,7 @@ namespace MiningOptimizationTraining
         NonfinalResendNode,         // A node where resends change the path, and additional resends may be sent later
         FinalResendNode,            // A node where resends change the path, but no additional resends may be sent
         ResendUnavailable,          // A node where resends cannot occur because of Unit_Busy or because it is too early in the path
+        Test,                       // Used in unit tests
     };
 
     // This structure stores a node in a path

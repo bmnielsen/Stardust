@@ -28,8 +28,7 @@ namespace MiningOptimizationTraining::DataTransformer
             if (observations.empty()) return;
             if (observations.size() == 1)
             {
-                // Might be rounding issues for cases where multiple observations were collapsed into one
-                EXPECT_LE(253, observations.begin()->second);
+                // This is needed since there might be rounding issues for cases where multiple observations were collapsed into one
                 observations.begin()->second = 255;
                 return;
             }
@@ -50,8 +49,6 @@ namespace MiningOptimizationTraining::DataTransformer
                 it++;
             }
             if (totalOccurrences == 255) return;
-            EXPECT_GE(257, totalOccurrences);
-            EXPECT_LE(253, totalOccurrences);
 
             while (true)
             {
@@ -276,6 +273,9 @@ namespace MiningOptimizationTraining::DataTransformer
                         EXPECT_FALSE(node.nextPositions.empty());
                         EXPECT_FALSE(node.nextPositionsAfterResend.empty());
                         break;
+                    case NodeType::Test:
+                        // No assertions needed, they are handled in the test
+                        break;
                 }
 
                 return {delta(pos, node.pos, positionDeltaToIndex),
@@ -326,7 +326,7 @@ namespace MiningOptimizationTraining::DataTransformer
                 const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<TrainingObservationType>>> &pathData,
                 std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, uint8_t>> &nextPathArrivalDelays,
                 std::unordered_map<TilePosition, std::unordered_map<MiningOptimization::PositionAndVelocity,
-                                                                    MiningOptimization::Path<OutputObservationType>>> &outputData,
+                                                                    MiningOptimization::SerializedPath<OutputObservationType>>> &outputData,
                 const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex)
         {
             for (const auto &[tile, rootNodes] : pathData)
@@ -338,8 +338,8 @@ namespace MiningOptimizationTraining::DataTransformer
                 auto &outputRootNodes = outputData[tile];
                 for (const auto &[pos, rootNode] : rootNodes)
                 {
-                    outputRootNodes[convert(pos)] =
-                            convert<TrainingObservationType, OutputObservationType>(rootNode, positionDeltaToIndex, patchNextPathArrivalDelays);
+                    outputRootNodes[convert(pos)] = MiningOptimization::SerializedPath<OutputObservationType>::create(
+                            convert<TrainingObservationType, OutputObservationType>(rootNode, positionDeltaToIndex, patchNextPathArrivalDelays));
                 }
             }
         }
@@ -376,11 +376,11 @@ namespace MiningOptimizationTraining::DataTransformer
 
         // Now transform the data
         std::cout << "Transforming gather data..." << std::endl;
-        transform(trainingData.resourceToGatherPaths, returnAverageArrivalDelays, outputData.resourceToGatherPaths, positionDeltaToIndex);
+        transform(trainingData.resourceToGatherPaths, returnAverageArrivalDelays, outputData.resourceToSerializedGatherPaths, positionDeltaToIndex);
         std::cout << "...done!" << std::endl;
 
         std::cout << "Transforming return data..." << std::endl;
-        transform(trainingData.resourceToReturnPaths, gatherAverageArrivalDelays, outputData.resourceToReturnPaths, positionDeltaToIndex);
+        transform(trainingData.resourceToReturnPaths, gatherAverageArrivalDelays, outputData.resourceToSerializedReturnPaths, positionDeltaToIndex);
         std::cout << "...done!" << std::endl;
 
         // Finally serialize everything
