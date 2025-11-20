@@ -315,3 +315,13 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
     validateRoot(expectedRootPos1, {arrivalData1, arrivalData2, arrivalData3, arrivalData4}, 45);
     validateRoot(expectedRootPos2, {arrivalData5, arrivalData6, arrivalData7, arrivalData8}, 75);
 }
+
+TEST(DataTransformerTests, LoadVermeerData)
+{
+    MiningOptimization::MapData mapData;
+    MiningOptimization::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
+    MiningOptimization::Serialization::readMapData(mapData);
+
+    EXPECT_FALSE(mapData.resourceToGatherPaths.empty());
+    EXPECT_FALSE(mapData.resourceToReturnPaths.empty());
+}

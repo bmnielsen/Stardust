@@ -25,7 +25,14 @@ namespace MiningOptimizationTraining::DataTransformer
         // Ensures that the total occurrence rate is 255
         void ensureOccurrenceRateTotal(auto &observations)
         {
-            if (observations.size() < 2) return;
+            if (observations.empty()) return;
+            if (observations.size() == 1)
+            {
+                // Might be rounding issues for cases where multiple observations were collapsed into one
+                EXPECT_LE(253, observations.begin()->second);
+                observations.begin()->second = 255;
+                return;
+            }
 
             // Get the total and check if it is 255, also tracking what the max occurrence count is and removing any with a 0 rate
             unsigned int totalOccurrences = 0;
@@ -43,13 +50,32 @@ namespace MiningOptimizationTraining::DataTransformer
                 it++;
             }
             if (totalOccurrences == 255) return;
+            EXPECT_GE(257, totalOccurrences);
+            EXPECT_LE(253, totalOccurrences);
 
-            // Increment or decrement the max occurrence count to make the total be 255
-            for (auto &[_, occurrences] : observations)
+            while (true)
             {
-                if (occurrences != maxOccurrences) continue;
-                occurrences += (255 - totalOccurrences);
-                return;
+                // Increment or decrement the max occurrence count
+                for (auto &[_, occurrences] : observations)
+                {
+                    if (occurrences != maxOccurrences) continue;
+                    if (totalOccurrences > 255)
+                    {
+                        occurrences--;
+                        totalOccurrences--;
+                    }
+                    else
+                    {
+                        occurrences++;
+                        totalOccurrences++;
+                    }
+                    break;
+                }
+                if (totalOccurrences == 255) return;
+
+                // Get the new max occurrence count
+                maxOccurrences = 0;
+                for (auto &[_, occurrences] : observations) maxOccurrences = std::max(maxOccurrences, occurrences);
             }
         }
 
@@ -181,8 +207,29 @@ namespace MiningOptimizationTraining::DataTransformer
                 std::map<OutputObservationType, uint8_t> result;
                 for (const auto &[arrivalData, occurrences] : observations)
                 {
-                    result.emplace(convert<TrainingObservationType, OutputObservationType>(arrivalData, nextPathArrivalDelays),
-                                   computeOccurrenceRate(observations, totalArrivalOccurrences, occurrences));
+                    // Arrival data with different next path start positions may have the same next path length, causing them to become
+                    // equal after conversion.
+                    // We therefore take this into consideration and check if there is a preexisting match
+                    auto converted = convert<TrainingObservationType, OutputObservationType>(arrivalData, nextPathArrivalDelays);
+                    auto it = result.find(converted);
+
+                    // No match; just emplace the new value
+                    if (it == result.end())
+                    {
+                        result.emplace(std::move(converted), computeOccurrenceRate(observations, totalArrivalOccurrences, occurrences));
+                        continue;
+                    }
+
+                    // There is a match, so get the occurrence rate and either add it or set to 255 if there would be an overflow
+                    auto occurrenceRate = computeOccurrenceRate(observations, totalArrivalOccurrences, occurrences);
+                    if ((unsigned int)it->second + (unsigned int)occurrenceRate > 255)
+                    {
+                        it->second = 255;
+                    }
+                    else
+                    {
+                        it->second += occurrenceRate;
+                    }
                 }
 
                 ensureOccurrenceRateTotal(result);
