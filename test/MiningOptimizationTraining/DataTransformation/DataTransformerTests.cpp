@@ -358,3 +358,53 @@ TEST(DataTransformerTests, DeserializesCompactly)
     checkPathData(mapData.resourceToSerializedReturnPaths);
     EXPECT_EQ(mapData.positionDeltas.capacity(), mapData.positionDeltas.size());
 }
+
+TEST(DataTransformerTests, OccurrenceVectorsAreSorted)
+{
+    MiningOptimization::MapData mapData;
+    MiningOptimization::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
+    MiningOptimization::Serialization::readMapData(mapData);
+
+    auto checkPathData = []<typename ObservationType>(
+            const std::unordered_map<TilePosition, std::unordered_map<MiningOptimization::PositionAndVelocity,
+                                                                      MiningOptimization::SerializedPath<ObservationType>>> &pathData)
+    {
+        auto checkOccurrences = [](auto &observations)
+        {
+            uint8_t last = 255;
+            for (const auto &[_, occurrences] : observations)
+            {
+                EXPECT_GE(last, occurrences);
+                last = occurrences;
+            }
+        };
+
+        std::function<void(const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>>&)> checkNextNodes;
+
+        checkNextNodes = [&](const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>> &nextNodes)
+        {
+            for (const auto &[node, _] : nextNodes)
+            {
+                checkOccurrences(node.arrivalData);
+                checkOccurrences(node.arrivalDataAfterResend);
+                checkOccurrences(node.nextPositions);
+                checkOccurrences(node.nextPositionsAfterResend);
+
+                checkNextNodes(node.nextPositions);
+                checkNextNodes(node.nextPositionsAfterResend);
+            }
+        };
+
+        EXPECT_FALSE(pathData.empty());
+        for (const auto &[_, rootNodes] : pathData)
+        {
+            EXPECT_FALSE(rootNodes.empty());
+            for (const auto &[_, rootNode] : rootNodes)
+            {
+                checkNextNodes(rootNode.get().nextPositions);
+            }
+        }
+    };
+    checkPathData(mapData.resourceToSerializedGatherPaths);
+    checkPathData(mapData.resourceToSerializedReturnPaths);
+}

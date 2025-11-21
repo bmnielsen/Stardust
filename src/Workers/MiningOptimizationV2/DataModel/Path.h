@@ -16,17 +16,21 @@ namespace MiningOptimization
         PositionDeltaAndVelocity pos;
 
         // The arrival observations from this node when the path is not changed by a later gather command
+        // Sorted from highest occurrence rate to lowest
         std::vector<std::pair<ObservationType, uint8_t>> arrivalData;
 
         // The arrival observations when a resend takes effect here
+        // Sorted from highest occurrence rate to lowest
         std::vector<std::pair<ObservationType, uint8_t>> arrivalDataAfterResend;
 
         // All next positions seen from this position when the path has not been changed by a resend
         // Will be empty on the last node before arrival at the patch
+        // Sorted from highest occurrence rate to lowest
         std::vector<std::pair<PathNode<ObservationType>, uint8_t>> nextPositions;
 
         // All next positions seen from this position after a resend takes effect at this node
         // Will be empty on any nodes where resends do not change the path or no additional resends are possible
+        // Sorted from highest occurrence rate to lowest
         std::vector<std::pair<PathNode<ObservationType>, uint8_t>> nextPositionsAfterResend;
     };
 

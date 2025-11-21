@@ -23,7 +23,7 @@ namespace MiningOptimizationTraining::DataTransformer
         }
 
         // Ensures that the total occurrence rate is 255
-        void ensureOccurrenceRateTotal(auto &observations)
+        void postProcessObservationsVector(auto &observations)
         {
             if (observations.empty()) return;
             if (observations.size() == 1)
@@ -35,7 +35,6 @@ namespace MiningOptimizationTraining::DataTransformer
 
             // Get the total and check if it is 255, also tracking what the max occurrence count is and removing any with a 0 rate
             unsigned int totalOccurrences = 0;
-            uint8_t maxOccurrences = 0;
             for (auto it = observations.begin(); it != observations.end(); )
             {
                 if (it->second == 0)
@@ -45,14 +44,15 @@ namespace MiningOptimizationTraining::DataTransformer
                 }
 
                 totalOccurrences += it->second;
-                maxOccurrences = std::max(maxOccurrences, it->second);
                 it++;
             }
-            if (totalOccurrences == 255) return;
-
-            while (true)
+            while (totalOccurrences != 255)
             {
-                // Increment or decrement the max occurrence count
+                // Get the max occurrences
+                uint8_t maxOccurrences = 0;
+                for (auto &[_, occurrences] : observations) maxOccurrences = std::max(maxOccurrences, occurrences);
+
+                // Increment or decrement the observation with the max occurrence count
                 for (auto &[_, occurrences] : observations)
                 {
                     if (occurrences != maxOccurrences) continue;
@@ -68,12 +68,12 @@ namespace MiningOptimizationTraining::DataTransformer
                     }
                     break;
                 }
-                if (totalOccurrences == 255) return;
-
-                // Get the new max occurrence count
-                maxOccurrences = 0;
-                for (auto &[_, occurrences] : observations) maxOccurrences = std::max(maxOccurrences, occurrences);
             }
+
+            std::sort(observations.begin(), observations.end(), [](const auto &a, const auto &b)
+            {
+                return a.second > b.second;
+            });
         }
 
         template <typename ObservationType>
@@ -233,7 +233,7 @@ namespace MiningOptimizationTraining::DataTransformer
                     }
                 }
 
-                ensureOccurrenceRateTotal(result);
+                postProcessObservationsVector(result);
 
                 return result;
             };
@@ -293,7 +293,7 @@ namespace MiningOptimizationTraining::DataTransformer
                 result.emplace_back(convertNode(node), computeOccurrenceRate(nextNodes, totalNodeOccurrences, occurrences));
             }
 
-            ensureOccurrenceRateTotal(result);
+            postProcessObservationsVector(result);
 
             // Flag the positions that need to include the heading and velocity to differentiate between nodes
             for (size_t i = 0; i < result.size(); i++)
