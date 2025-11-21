@@ -6,6 +6,7 @@
 #include "Map.h"
 #include "NoGoAreas.h"
 #include "MiningOptimization/WorkerMiningOptimization.h"
+#include "MiningOptimizationV2/MiningOptimization.h"
 #include "Boids.h"
 #include "Strategist.h"
 
@@ -891,6 +892,7 @@ namespace Workers
                                         if (myDepot)
                                         {
                                             WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
+                                            MiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
                                         }
                                     }
                                     continue;
@@ -918,6 +920,7 @@ namespace Workers
                             if (myDepot)
                             {
                                 WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
+                                MiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
                             }
                             continue;
                         }
@@ -969,6 +972,7 @@ namespace Workers
                         if (myDepot)
                         {
                             WorkerMiningOptimization::optimizeStartOfMining(worker, myDepot, mineralPatch);
+                            MiningOptimization::optimizeStartOfMining(worker, myDepot, mineralPatch);
                         }
                         continue;
                     }

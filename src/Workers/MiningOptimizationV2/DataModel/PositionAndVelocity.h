@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.h"
+#include "MyWorker.h"
 
 #include <cstdint>
 
@@ -28,6 +29,14 @@ namespace MiningOptimization
                 , heading(heading)
                 , velocityX(velocityX)
                 , velocityY(velocityY)
+        {}
+
+        PositionAndVelocity(const MyWorker &worker)
+                : x(worker->lastPosition.x)
+                , y(worker->lastPosition.y)
+                , heading(worker->BWHeading())
+                , velocityX(worker->BWVelocityX())
+                , velocityY(worker->BWVelocityY())
         {}
 
         bool operator==(const PositionAndVelocity &other) const

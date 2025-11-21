@@ -28,11 +28,11 @@ namespace MiningOptimization
 
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
-        gatherOptimizer->optimize(worker, depot, resource);
+        gatherOptimizer->forWorker(worker, depot, resource).optimize();
     }
 
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
-        returnOptimizer->optimize(worker, depot, resource);
+        returnOptimizer->forWorker(worker, depot, resource).optimize();
     }
 }

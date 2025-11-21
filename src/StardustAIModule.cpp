@@ -13,6 +13,7 @@
 #include "Units.h"
 #include "Workers.h"
 #include "MiningOptimization/WorkerMiningOptimization.h"
+#include "MiningOptimizationV2/MiningOptimization.h"
 #include "WorkerMiningInstrumentation.h"
 #include "Bullets.h"
 #include "Players.h"
@@ -106,6 +107,9 @@ void StardustAIModule::onStart()
 
     CombatSim::initialize();
     Timer::checkpoint("CombatSim::initialize");
+
+    MiningOptimization::initialize();
+    Timer::checkpoint("MiningOptimization::initialize");
 
     WorkerMiningOptimization::initialize();
     Timer::checkpoint("WorkerMiningOptimization::initialize");
