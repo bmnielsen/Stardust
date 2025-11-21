@@ -15,21 +15,6 @@ namespace MiningOptimization
         // The last frame this worker was optimized
         int lastProcessedFrame;
 
-        // The path being followed, if there is one
-        // As we store the paths in serialized form to save on memory, we keep the deserialized path here while we are using it.
-        std::unique_ptr<Path<ObservationType>> pathBeingFollowed;
-
-        // The expected path nodes the worker will visit
-        // For paths with resends this includes the path up until the node where the last resend takes effect
-        // For paths without resends this includes the path up to arrival
-        std::deque<PathNode<ObservationType>*> expectedPath;
-
-        // Frames on which we plan to issue a resend
-        std::set<int> plannedResendFrames;
-
-        // Frames on which we have issued a resend
-        std::set<int> executedResendFrames;
-
         // The expected frames the worker could arrive at the target with their occurrence rates
         std::vector<std::pair<int, int>> expectedArrivalFrameAndOccurrenceRate;
 
@@ -64,19 +49,24 @@ namespace MiningOptimization
                 , worker(std::move(worker))
                 , depot(std::move(depot))
                 , resource(std::move(resource))
+                , pathPlanned(false)
+                , previousNodeNextPositions(nullptr)
         {}
 
         void reset()
         {
             lastProcessedFrame = -2;
-            pathBeingFollowed.reset();
-            expectedPath.clear();
-            plannedResendFrames.clear();
-            executedResendFrames.clear();
             expectedArrivalFrameAndOccurrenceRate.clear();
             expectedPatchLockFrame = -1;
             actualPatchLockFrame = -1;
             expectedMiningStartFrame = -1;
+            pathPlanned = false;
+            plannedResendFrames.clear();
+            executedResendFrames.clear();
+            pathBeingFollowed.reset();
+            expectedPath.clear();
+            previousPosition.reset();
+            previousNodeNextPositions = nullptr;
         }
 
         bool matches(const MyUnit &_depot, const Resource &_resource)
@@ -89,6 +79,8 @@ namespace MiningOptimization
         void optimize();
 
     private:
+        /* References to the map mining optimization data relevant for this worker */
+
         const std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> &pathData;
         const std::vector<std::pair<int8_t, int8_t>> &positionDeltas;
         const unsigned int minimumNextPathLength;
@@ -96,6 +88,31 @@ namespace MiningOptimization
         MyWorker worker;
         MyUnit depot;
         Resource resource;
+
+        // Whether we have planned a path
+        bool pathPlanned;
+
+        // Frames on which we plan to issue a resend
+        std::set<int> plannedResendFrames;
+
+        // Frames on which we have issued a resend
+        std::set<int> executedResendFrames;
+
+        // The path being followed, if there is one
+        // As we store the paths in serialized form to save on memory, we keep the deserialized path here while we are using it.
+        std::unique_ptr<Path<ObservationType>> pathBeingFollowed;
+
+        // The expected path nodes the worker will visit
+        // For paths with resends this includes the path up until the node where the last resend takes effect
+        // For paths without resends this includes the path up to arrival
+        std::deque<PathNode<ObservationType>*> expectedPath;
+
+        // The worker's position on the previous frame
+        std::unique_ptr<PositionAndVelocity> previousPosition;
+
+        // The next positions from the previous path node in the path being followed
+        // Used if we lose the expected path and need to back up to see if we are following a different known branch
+        std::vector<std::pair<PathNode<ObservationType>, uint8_t>>* previousNodeNextPositions;
 
         /*
          * These methods are where the logic differs between gather and return paths. They are implemented in their own files for each
@@ -106,6 +123,8 @@ namespace MiningOptimization
         // has already completed its pathing.
         bool skipPathOptimization();
 
+        // Resends the relevant command (gather or return), returning whether it succeeded
+        // If the command didn't succeed, BWAPI's getLastError will reveal the reason for this
         bool issueResend();
     };
 }

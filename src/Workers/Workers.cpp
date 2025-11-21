@@ -20,6 +20,9 @@
 #define WARN_ON_NO_RESOURCE_DATA true
 #endif
 
+//#define PATHOPTIMIZER WorkerMiningOptimization
+#define PATHOPTIMIZER MiningOptimization
+
 namespace Workers
 {
     namespace
@@ -891,8 +894,7 @@ namespace Workers
                                         auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(closestBase->resourceDepot);
                                         if (myDepot)
                                         {
-                                            WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
-                                            MiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
+                                            PATHOPTIMIZER::optimizeReturnOfResource(worker, myDepot, mineralPatch);
                                         }
                                     }
                                     continue;
@@ -919,8 +921,7 @@ namespace Workers
                             auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(base->resourceDepot);
                             if (myDepot)
                             {
-                                WorkerMiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
-                                MiningOptimization::optimizeReturnOfResource(worker, myDepot, mineralPatch);
+                                PATHOPTIMIZER::optimizeReturnOfResource(worker, myDepot, mineralPatch);
                             }
                             continue;
                         }
@@ -971,8 +972,7 @@ namespace Workers
                         auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(base->resourceDepot);
                         if (myDepot)
                         {
-                            WorkerMiningOptimization::optimizeStartOfMining(worker, myDepot, mineralPatch);
-                            MiningOptimization::optimizeStartOfMining(worker, myDepot, mineralPatch);
+                            PATHOPTIMIZER::optimizeStartOfMining(worker, myDepot, mineralPatch);
                         }
                         continue;
                     }

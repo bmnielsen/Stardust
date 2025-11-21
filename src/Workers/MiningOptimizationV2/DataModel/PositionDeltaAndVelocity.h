@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.h"
+#include "PositionAndVelocity.h"
 
 #include <cstdint>
 
@@ -53,6 +54,25 @@ namespace MiningOptimization
             // Otherwise we need to compare the heading and velocity also
             return std::tie(heading, velocityX, velocityY) ==
                    std::tie(other.heading, other.velocityX, other.velocityY);
+        }
+
+        // Checks if this delta matches the delta between two positions
+        [[nodiscard]] bool matches(const PositionAndVelocity &start,
+                                   const PositionAndVelocity &end,
+                                   const std::vector<std::pair<int8_t, int8_t>> &positionDeltas) const
+        {
+            // Start by comparing the x and y deltas
+            const auto &delta = positionDeltas[positionDeltaIndex()];
+            if (delta.first != (int8_t)(end.x - start.x)) return false;
+            if (delta.second != (int8_t)(end.y - start.y)) return false;
+
+            // If we don't need to compare heading and velocity, there is a match
+            if (!requiresHeadingAndVelocity()) return true;
+
+            // Compare the heading and velocities to the end position
+            return (heading == end.heading)
+                   && (velocityX == end.velocityX)
+                   && (velocityY == end.velocityY);
         }
 
         template <typename S>
