@@ -1,5 +1,7 @@
 #include "SimulateGatherPathTester.h"
 
+#include "Geo.h"
+
 #include <random>
 
 namespace MiningOptimizationTraining
@@ -122,6 +124,16 @@ namespace MiningOptimizationTraining
                 Log::Get() << "ERROR: Worker not following expected path"
                            << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                 ASSERT_EQ(worker->getExactPosition(), expectedPath.front());
+            }
+            else if ((expectedPath.front().heading != Geo::BWHeading(worker->getAngle()))
+                || (expectedPath.front().velocityX != (int)std::round(worker->getVelocityX() * 256.0))
+                || (expectedPath.front().velocityY != (int)std::round(worker->getVelocityY() * 256.0)))
+            {
+                Log::Get() << "ERROR: Worker BWAPI heading or velocity is wrong"
+                           << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                ASSERT_EQ(expectedPath.front().heading, Geo::BWHeading(worker->getAngle()));
+                ASSERT_EQ(expectedPath.front().velocityX, (int)std::round(worker->getVelocityX() * 256.0));
+                ASSERT_EQ(expectedPath.front().velocityY, (int)std::round(worker->getVelocityY() * 256.0));
             }
 
             expectedPath.pop_front();
