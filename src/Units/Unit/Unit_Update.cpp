@@ -95,6 +95,10 @@ UnitImpl::UnitImpl(BWAPI::Unit unit)
         , predictedPositionsUpdated(false)
         , bwHeading(0)
         , bwHeadingUpdated(false)
+        , bwVelocityX(0)
+        , bwVelocityXUpdated(false)
+        , bwVelocityY(0)
+        , bwVelocityYUpdated(false)
         , bwSpeed(0)
         , bwSpeedUpdated(false)
         , lastHealth(unit->getHitPoints())
@@ -172,6 +176,8 @@ void UnitImpl::update(BWAPI::Unit unit)
     predictedPositionsUpdated = false;
 
     bwHeadingUpdated = false;
+    bwVelocityXUpdated = false;
+    bwVelocityYUpdated = false;
     bwSpeedUpdated = false;
 
     if (player->getRace() == BWAPI::Races::Terran && unit->isCompleted() && unit->getHitPoints() > lastHealth)

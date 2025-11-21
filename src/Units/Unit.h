@@ -82,6 +82,12 @@ public:
     mutable int bwHeading;
     mutable bool bwHeadingUpdated;
 
+    mutable int bwVelocityX;
+    mutable int bwVelocityXUpdated;
+
+    mutable int bwVelocityY;
+    mutable int bwVelocityYUpdated;
+
     mutable int bwSpeed;
     mutable bool bwSpeedUpdated;
 
@@ -133,6 +139,10 @@ public:
     [[nodiscard]] bool exists() const { return bwapiUnit != nullptr; };
 
     [[nodiscard]] int BWHeading() const;
+
+    [[nodiscard]] int BWVelocityX() const;
+
+    [[nodiscard]] int BWVelocityY() const;
 
     [[nodiscard]] int BWSpeed() const;
 

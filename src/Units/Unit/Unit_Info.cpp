@@ -28,6 +28,32 @@ int UnitImpl::BWHeading() const
     return bwHeading;
 }
 
+int UnitImpl::BWVelocityX() const
+{
+    if (!bwVelocityXUpdated)
+    {
+        // BWAPI takes the raw value (32 bit with 8 bit fractional) and divides it by 256 to make it a float
+        // This reverses the process so we get the raw value again
+        bwVelocityX = (int)(std::round(bwapiUnit->getVelocityX() * 256.0));
+        bwVelocityXUpdated = true;
+    }
+
+    return bwVelocityX;
+}
+
+int UnitImpl::BWVelocityY() const
+{
+    if (!bwVelocityYUpdated)
+    {
+        // BWAPI takes the raw value (32 bit with 8 bit fractional) and divides it by 256 to make it a float
+        // This reverses the process so we get the raw value again
+        bwVelocityY = (int)(std::round(bwapiUnit->getVelocityY() * 256.0));
+        bwVelocityYUpdated = true;
+    }
+
+    return bwVelocityY;
+}
+
 int UnitImpl::BWSpeed() const
 {
     if (!bwSpeedUpdated)
