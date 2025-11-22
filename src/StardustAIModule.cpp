@@ -155,6 +155,7 @@ void StardustAIModule::onEnd(bool isWinner)
 
     Opponent::gameEnd(isWinner);
     WorkerMiningOptimization::write();
+    MiningOptimization::gameEnd();
     CherryVis::gameEnd();
 }
 
@@ -277,6 +278,8 @@ void StardustAIModule::onFrame()
     // Updates the mining optimization data
     WorkerMiningOptimization::flushObservations();
     Timer::checkpoint("WorkerMiningOptimization::flushObservations");
+    MiningOptimization::update();
+    Timer::checkpoint("MiningOptimization::update");
 
 #if LOGGING_ENABLED
     auto enemyNatural = Map::getEnemyStartingNatural();

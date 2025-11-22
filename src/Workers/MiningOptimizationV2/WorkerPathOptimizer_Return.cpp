@@ -3,10 +3,32 @@
 namespace MiningOptimization
 {
     template <>
+    bool WorkerPathOptimizer<ReturnArrivalData>::isComplete()
+    {
+        return !worker->carryingResource;
+    }
+
+    template <>
+    void WorkerPathOptimizer<ReturnArrivalData>::setStartOfPathFlags()
+    {
+        // Started at the end of last path if the worker got minerals on the last frame
+        if (worker->carryingResource && worker->lastCarryingResourceChange == (currentFrame - 1))
+        {
+            setFlag(StatusFlags::StartedAtPreviousPathEnd);
+        }
+    }
+
+    template <>
     bool WorkerPathOptimizer<ReturnArrivalData>::skipPathOptimization()
     {
-        // For return, nothing is needed here since we follow the path right up until the worker delivers minerals and starts
-        // on its next gather path
+        // Skip the first frame where the worker is resetting its movement path after gaining the resource
+        if (worker->carryingResource
+            && worker->lastCarryingResourceChange == currentFrame
+            && worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision)
+        {
+            return true;
+        }
+
         return false;
     }
 

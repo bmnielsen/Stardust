@@ -1,5 +1,7 @@
 #include "WorkerPathOptimizer.h"
 
+#include "DebugFlag_MiningOptimization.h"
+
 namespace MiningOptimization
 {
     template <typename ObservationType>
@@ -8,7 +10,15 @@ namespace MiningOptimization
         if (skipPathOptimization()) return;
 
         // Reset if the worker hasn't been optimized last frame
-        if (lastProcessedFrame != (currentFrame - 1)) reset();
+        if (lastProcessedFrame != (currentFrame - 1))
+        {
+            reset();
+            setStartOfPathFlags();
+
+#if IS_OPENBW
+            startPosition = std::make_unique<BWAPI::ExactPosition>(worker->bwapiUnit->getExactPosition());
+#endif
+        }
         lastProcessedFrame = currentFrame;
 
         PositionAndVelocity currentPosition(worker);
@@ -20,9 +30,10 @@ namespace MiningOptimization
             auto it = pathData.find(currentPosition);
             if (it != pathData.end())
             {
+                setFlag(StatusFlags::CapturedPath);
                 pathBeingFollowed = std::make_unique<Path<ObservationType>>(it->second.get());
                 currentNodeNextPositions = &pathBeingFollowed->nextPositions;
-#if VERBOSE_MINING_LOGGING
+#if VERBOSE_PATH_LOGGING
                 CherryVis::log(worker->id) << "Captured path";
 #endif
             }
@@ -48,7 +59,7 @@ namespace MiningOptimization
                         ? &expectedNode.nextPositionsAfterResend
                         : &expectedNode.nextPositions;
                 expectedPath.pop_front();
-#if VERBOSE_MINING_LOGGING
+#if VERBOSE_PATH_LOGGING
                 CherryVis::log(worker->id) << "Following path";
 #endif
             }
@@ -71,7 +82,9 @@ namespace MiningOptimization
                     }
                 }
 
-#if VERBOSE_MINING_LOGGING
+                if (!currentNodeNextPositions) setFlag(StatusFlags::LostPath);
+
+#if VERBOSE_PATH_LOGGING
                 if (currentNodeNextPositions)
                 {
                     CherryVis::log(worker->id) << "Lost path; picked up alternative branch";
@@ -102,6 +115,21 @@ namespace MiningOptimization
                 nextPositions = &nextNode.nextPositions;
             }
 
+#if VERBOSE_PATH_LOGGING
+            std::ostringstream dbg;
+            std::string sep;
+            auto pos = currentPosition;
+            for (auto &node : expectedPath)
+            {
+                auto delta = positionDeltas[node->pos.positionDeltaIndex()];
+                pos.x += delta.first;
+                pos.y += delta.second;
+                dbg << sep << pos;
+                sep = ", ";
+            }
+            CherryVis::log(worker->id) << "Expected path: " << dbg.str();
+#endif
+
             pathPlanned = true;
         }
 
@@ -114,7 +142,7 @@ namespace MiningOptimization
             if (result)
             {
                 executedResendFrames.insert(currentFrame);
-#if VERBOSE_MINING_LOGGING
+#if VERBOSE_PATH_LOGGING
                 CherryVis::log(worker->id) << "Issued planned resend";
 #endif
             }
@@ -123,7 +151,7 @@ namespace MiningOptimization
                 // We couldn't issue the resend, so replan next frame
                 pathPlanned = false;
 
-#if VERBOSE_MINING_LOGGING
+#if VERBOSE_PATH_LOGGING
                 Log::Get() << "Failed to issue planned resend for " << worker->id << " @ " << worker->getTilePosition() << ": "
                            << BWAPI::Broodwar->getLastError();
                 CherryVis::log(worker->id) << "Failed to issue planned resend; last error " << BWAPI::Broodwar->getLastError();
@@ -135,6 +163,44 @@ namespace MiningOptimization
         previousPosition = std::make_unique<PositionAndVelocity>(std::move(currentPosition));
         previousNodeNextPositions = currentNodeNextPositions;
     }
+
+#if OUTPUT_STATISTICS
+    template <typename ObservationType>
+    void WorkerPathOptimizer<ObservationType>::updateStatistics(PathStatistics &pathStatistics)
+    {
+        // Only run this on the frame after the worker is stopped being optimized
+        if (lastProcessedFrame != (currentFrame - 1)) return;
+
+        // Ensure the path has been completed, as opposed to the worker just having been assigned to something else
+        if (!isComplete()) return;
+
+        // Ignore paths that didn't start at the expected position (patch, depot, or initial spawn position)
+        if (!hasFlag(StatusFlags::StartedAtPreviousPathEnd) && !hasFlag(StatusFlags::StartedAtInitialSpawnPosition)) return;
+
+        pathStatistics.count++;
+        if (hasFlag(StatusFlags::CapturedPath))
+        {
+            pathStatistics.withPath++;
+
+            if (!hasFlag(StatusFlags::LostPath))
+            {
+                pathStatistics.withPathFollowedToCompletion++;
+#if IS_OPENBW
+            }
+            else if (startPosition)
+            {
+                pathStatistics.startPositionsThatLostPath.insert(*startPosition);
+#endif
+            }
+#if IS_OPENBW
+        }
+        else if (startPosition)
+        {
+            pathStatistics.startPositionsMissingPath.insert(*startPosition);
+#endif
+        }
+    }
+#endif
 
     template class WorkerPathOptimizer<GatherArrivalData>;
     template class WorkerPathOptimizer<ReturnArrivalData>;

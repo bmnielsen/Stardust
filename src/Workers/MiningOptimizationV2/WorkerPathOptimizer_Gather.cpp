@@ -1,9 +1,35 @@
 #include "WorkerPathOptimizer.h"
 
+#include "Map.h"
 #include "Workers.h"
+
+#include "DebugFlag_MiningOptimization.h"
 
 namespace MiningOptimization
 {
+    template <>
+    bool WorkerPathOptimizer<GatherArrivalData>::isComplete()
+    {
+        return worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals
+            || worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals;
+    }
+
+    template <>
+    void WorkerPathOptimizer<GatherArrivalData>::setStartOfPathFlags()
+    {
+        // Started at the end of last path if the worker just delivered minerals
+        if (!worker->carryingResource && worker->lastCarryingResourceChange == currentFrame)
+        {
+            setFlag(StatusFlags::StartedAtPreviousPathEnd);
+        }
+
+        // Is at the initial spawn position if this is the start of the game
+        if (currentFrame <= 2 && worker->lastPosition == worker->spawnPosition)
+        {
+            setFlag(StatusFlags::StartedAtInitialSpawnPosition);
+        }
+    }
+
     template <>
     bool WorkerPathOptimizer<GatherArrivalData>::skipPathOptimization()
     {
@@ -49,7 +75,7 @@ namespace MiningOptimization
 
                     // TODO: Check if it matches expected frame
 
-#if VERBOSE_MINING_LOGGING
+#if VERBOSE_PATH_LOGGING
                     CherryVis::log(worker->id) << "Patch locked";
 #endif
                 }

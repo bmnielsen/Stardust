@@ -6,8 +6,15 @@
 
 namespace MiningOptimization
 {
-    // Loads the data files needed to optimize for a new game
+    // Called on game start; loads the required data files and initializes data structures
     void initialize();
+
+    // Called on each frame; performs bookkeeping on completed optimizations
+    // This is called after Workers has processed all of the workers and possible called one of the optimization methods.
+    void update();
+
+    // Called on game end; writes any relevant instrumentation data
+    void gameEnd();
 
     // Optimizes the start of mining
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);

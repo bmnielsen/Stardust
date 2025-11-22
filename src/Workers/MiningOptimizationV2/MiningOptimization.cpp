@@ -3,6 +3,12 @@
 #include "DataModel/Serialization.h"
 #include "PathOptimizer.h"
 
+#include "DebugFlag_MiningOptimization.h"
+
+#if OUTPUT_STATISTICS
+#include "PathStatistics.h"
+#endif
+
 namespace MiningOptimization
 {
     namespace
@@ -11,6 +17,11 @@ namespace MiningOptimization
 
         std::unique_ptr<PathOptimizer<GatherArrivalData>> gatherOptimizer;
         std::unique_ptr<PathOptimizer<ReturnArrivalData>> returnOptimizer;
+
+#if OUTPUT_STATISTICS
+        PathStatistics gatherPathStatistics;
+        PathStatistics returnPathStatistics;
+#endif
     }
 
     void initialize()
@@ -24,6 +35,38 @@ namespace MiningOptimization
         returnOptimizer = std::make_unique<PathOptimizer<ReturnArrivalData>>(mapData.resourceToSerializedReturnPaths,
                                                                              mapData.positionDeltas,
                                                                              mapData.minimumNextPathLength);
+    }
+
+    void update()
+    {
+        gatherOptimizer->clearDeadWorkers();
+        returnOptimizer->clearDeadWorkers();
+
+#if OUTPUT_STATISTICS
+        gatherOptimizer->updateStatistics(gatherPathStatistics);
+        returnOptimizer->updateStatistics(returnPathStatistics);
+#endif
+    }
+
+    void gameEnd()
+    {
+#if OUTPUT_STATISTICS
+        auto outputStatistics = [](const PathStatistics &pathStatistics)
+        {
+            if (pathStatistics.count == 0) return (std::string)"No Data";
+
+            std::ostringstream out;
+            out << std::fixed << std::setprecision(1)
+                << pathStatistics.count << " collections, "
+                << pathStatistics.withPath << " with path data"
+                << " (" << ((double)pathStatistics.withPath * 100.0 / (double)pathStatistics.count) << "%), "
+                << pathStatistics.withPathFollowedToCompletion << " with path followed to completion"
+                << " (" << ((double)pathStatistics.withPathFollowedToCompletion * 100.0 / (double)pathStatistics.count) << "%)";
+            return out.str();
+        };
+        Log::Get() << "Gather path statistics: " << outputStatistics(gatherPathStatistics);
+        Log::Get() << "Return path statistics: " << outputStatistics(returnPathStatistics);
+#endif
     }
 
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
