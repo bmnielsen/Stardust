@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Noncopyable.h"
+
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"
 #include "SerializedPath.h"
@@ -30,5 +32,8 @@ namespace MiningOptimization
             resourceToSerializedGatherPaths.clear();
             resourceToSerializedReturnPaths.clear();
         }
+
+        // Ensure we never copy map data
+        [[no_unique_address]] noncopyable _ = {};
     };
 }

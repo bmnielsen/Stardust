@@ -13,16 +13,15 @@ TEST(DataTransformerTests, PositionDeltaIndex)
     MiningOptimizationTraining::PositionAndVelocity childPos2(105, 100, 20, -20, 20);
     MiningOptimizationTraining::PositionAndVelocity childPos3(95, 100, 10, 10, 10);
 
-    trainingData.resourceToGatherPaths.emplace(
-            TilePosition(0, 0),
-            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
-                    {rootPos, MiningOptimizationTraining::GatherPath{
-                            rootPos,
-                            {{MiningOptimizationTraining::GatherPathNode{childPos1, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos2, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos3, MiningOptimizationTraining::NodeType::Test}, 1}}
-                    }}
-            });
+    MiningOptimizationTraining::GatherPath gatherPath{rootPos};
+    gatherPath.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos1, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos2, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos3, MiningOptimizationTraining::NodeType::Test}, 1);
+
+    std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> rootNodes;
+    rootNodes.emplace(rootPos, std::move(gatherPath));
+
+    trainingData.resourceToGatherPaths.emplace(TilePosition(0, 0), std::move(rootNodes));
 
     MiningOptimizationTraining::DataTransformer::transform(trainingData);
 
@@ -71,31 +70,30 @@ TEST(DataTransformerTests, OccurrenceRounding)
     MiningOptimizationTraining::PositionAndVelocity childPos6(102, 101, -16, 10, 10);
     MiningOptimizationTraining::PositionAndVelocity childPos7(103, 101, -16, 10, 10);
 
-    trainingData.resourceToGatherPaths.emplace(
-            TilePosition(0, 0),
-            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
-                    {rootPos, MiningOptimizationTraining::GatherPath{
-                            rootPos,
-                            {{MiningOptimizationTraining::GatherPathNode{childPos1, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos2, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos3, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos4, MiningOptimizationTraining::NodeType::Test}, 1}}
-                    }}
-            });
-    trainingData.resourceToGatherPaths.emplace(
-            TilePosition(1, 0),
-            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
-                    {rootPos, MiningOptimizationTraining::GatherPath{
-                            rootPos,
-                            {{MiningOptimizationTraining::GatherPathNode{childPos1, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos2, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos3, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos4, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos5, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos6, MiningOptimizationTraining::NodeType::Test}, 1},
-                             {MiningOptimizationTraining::GatherPathNode{childPos7, MiningOptimizationTraining::NodeType::Test}, 1}}
-                    }}
-            });
+    MiningOptimizationTraining::GatherPath gatherPath1{rootPos};
+    gatherPath1.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos1, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath1.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos2, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath1.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos3, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath1.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos4, MiningOptimizationTraining::NodeType::Test}, 1);
+
+    std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> rootNodes1;
+    rootNodes1.emplace(rootPos, std::move(gatherPath1));
+
+    trainingData.resourceToGatherPaths.emplace(TilePosition(0, 0), std::move(rootNodes1));
+
+    MiningOptimizationTraining::GatherPath gatherPath2{rootPos};
+    gatherPath2.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos1, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath2.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos2, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath2.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos3, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath2.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos4, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath2.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos5, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath2.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos6, MiningOptimizationTraining::NodeType::Test}, 1);
+    gatherPath2.nextPositions.emplace_back(MiningOptimizationTraining::GatherPathNode{childPos7, MiningOptimizationTraining::NodeType::Test}, 1);
+
+    std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> rootNodes2;
+    rootNodes2.emplace(rootPos, std::move(gatherPath2));
+
+    trainingData.resourceToGatherPaths.emplace(TilePosition(1, 0), std::move(rootNodes2));
 
     MiningOptimizationTraining::DataTransformer::transform(trainingData);
 
@@ -107,7 +105,7 @@ TEST(DataTransformerTests, OccurrenceRounding)
 
     auto expectSum = [&](
             const std::unordered_map<MiningOptimization::PositionAndVelocity,
-                                     MiningOptimization::SerializedPath<MiningOptimization::GatherArrivalData>> &data)
+                    MiningOptimization::SerializedPath<MiningOptimization::GatherArrivalData>> &data)
     {
         EXPECT_TRUE(data.contains(expectedRootPos));
         unsigned int total = 0;
@@ -130,18 +128,20 @@ TEST(DataTransformerTests, GatherArrivalPacking)
     // Set up the root node data for the return paths
     MiningOptimizationTraining::PositionAndVelocity rootPos1(100, 100, 10, 10, 10);
     MiningOptimizationTraining::PositionAndVelocity rootPos2(100, 101, 10, 10, 10);
-    trainingData.resourceToReturnPaths.emplace(
-            TilePosition(0, 0),
-            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::ReturnPath>{
-                    {rootPos1, MiningOptimizationTraining::ReturnPath{
-                            rootPos1, {}, 0, {},
-                            {{40, 1}, {50, 1}} // Average of 45
-                    }},
-                    {rootPos2, MiningOptimizationTraining::ReturnPath{
-                            rootPos2, {}, 0, {},
-                            {{70, 1}, {80, 1}} // Average of 75, tests that we can store something normally outside of 6 bits
-                    }}
-            });
+
+    MiningOptimizationTraining::ReturnPath returnPath1{
+            rootPos1, {}, 0, {},
+            {{40, 1}, {50, 1}} // Average of 45
+    };
+    MiningOptimizationTraining::ReturnPath returnPath2{
+            rootPos2, {}, 0, {},
+            {{70, 1}, {80, 1}} // Average of 75, tests that we can store something normally outside of 6 bits
+    };
+
+    std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::ReturnPath> returnRootNodes;
+    returnRootNodes.emplace(rootPos1, std::move(returnPath1));
+    returnRootNodes.emplace(rootPos2, std::move(returnPath2));
+    trainingData.resourceToReturnPaths.emplace(TilePosition(0, 0), std::move(returnRootNodes));
 
     // Set up the various arrival data we want to test
     MiningOptimizationTraining::PositionAndVelocity childPos(105, 100, 15, 15, -15);
@@ -154,35 +154,33 @@ TEST(DataTransformerTests, GatherArrivalPacking)
     MiningOptimizationTraining::GatherArrivalData arrivalData7((30U << 2) + 1, rootPos2);
     MiningOptimizationTraining::GatherArrivalData arrivalData8((40U << 2) + 0, rootPos2);
 
-    MiningOptimizationTraining::GatherPathNode testNextNode{
+    MiningOptimizationTraining::GatherPathNode gatherPathNode1{
             childPos,
-            MiningOptimizationTraining::NodeType::Test
-    };
+            MiningOptimizationTraining::NodeType::Test,
+            {},
+            {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}}};
+    gatherPathNode1.nextPositions.emplace_back(
+            MiningOptimizationTraining::GatherPathNode{childPos, MiningOptimizationTraining::NodeType::Test}, 1);
 
-    trainingData.resourceToGatherPaths.emplace(
-            TilePosition(0, 0),
-            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
-                    {rootPos1, MiningOptimizationTraining::GatherPath{
-                            rootPos1,
-                            {{MiningOptimizationTraining::GatherPathNode{
-                                childPos,
-                                MiningOptimizationTraining::NodeType::Test,
-                                {},
-                                {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}},
-                                {{testNextNode, 1}}
-                            }, 1}}
-                    }},
-                    {rootPos2, MiningOptimizationTraining::GatherPath{
-                            rootPos2,
-                            {{MiningOptimizationTraining::GatherPathNode{
-                                childPos,
-                                MiningOptimizationTraining::NodeType::Test,
-                                {},
-                                {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}},
-                                {{testNextNode, 1}}
-                            }, 1}}
-                    }}
-            });
+    MiningOptimizationTraining::GatherPath gatherPath1{rootPos1};
+    gatherPath1.nextPositions.emplace_back(std::move(gatherPathNode1), 1);
+
+    MiningOptimizationTraining::GatherPathNode gatherPathNode2{
+            childPos,
+            MiningOptimizationTraining::NodeType::Test,
+            {},
+            {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}}};
+    gatherPathNode2.nextPositions.emplace_back(
+            MiningOptimizationTraining::GatherPathNode{childPos, MiningOptimizationTraining::NodeType::Test}, 1);
+
+    MiningOptimizationTraining::GatherPath gatherPath2{rootPos2};
+    gatherPath2.nextPositions.emplace_back(std::move(gatherPathNode2), 1);
+
+    std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> rootNodes;
+    rootNodes.emplace(rootPos1, std::move(gatherPath1));
+    rootNodes.emplace(rootPos2, std::move(gatherPath2));
+
+    trainingData.resourceToGatherPaths.emplace(TilePosition(0, 0), std::move(rootNodes));
 
     MiningOptimizationTraining::DataTransformer::transform(trainingData);
 
@@ -238,18 +236,19 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
     // Set up the root node data for the gather paths
     MiningOptimizationTraining::PositionAndVelocity rootPos1(100, 100, 10, 10, 10);
     MiningOptimizationTraining::PositionAndVelocity rootPos2(100, 101, 10, 10, 10);
-    trainingData.resourceToGatherPaths.emplace(
-            TilePosition(0, 0),
-            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
-                    {rootPos1, MiningOptimizationTraining::GatherPath{
-                            rootPos1, {}, 0, {},
-                            {{40, 1}, {50, 1}} // Average of 45
-                    }},
-                    {rootPos2, MiningOptimizationTraining::GatherPath{
-                            rootPos2, {}, 0, {},
-                            {{70, 1}, {80, 1}} // Average of 75, tests that we can store something normally outside of 6 bits
-                    }}
-            });
+    MiningOptimizationTraining::GatherPath gatherPath1{
+            rootPos1, {}, 0, {},
+            {{40, 1}, {50, 1}} // Average of 45
+    };
+    MiningOptimizationTraining::GatherPath gatherPath2{
+            rootPos2, {}, 0, {},
+            {{70, 1}, {80, 1}} // Average of 75, tests that we can store something normally outside of 6 bits
+    };
+
+    std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> gatherRootNodes;
+    gatherRootNodes.emplace(rootPos1, std::move(gatherPath1));
+    gatherRootNodes.emplace(rootPos2, std::move(gatherPath2));
+    trainingData.resourceToGatherPaths.emplace(TilePosition(0, 0), std::move(gatherRootNodes));
 
     // Set up the various arrival data we want to test
     MiningOptimizationTraining::PositionAndVelocity childPos(105, 100, 15, 15, -15);
@@ -262,35 +261,33 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
     MiningOptimizationTraining::ReturnArrivalData arrivalData7((30U << 2) + 1, rootPos2);
     MiningOptimizationTraining::ReturnArrivalData arrivalData8((40U << 2) + 0, rootPos2);
 
-    MiningOptimizationTraining::ReturnPathNode testNextNode{
+    MiningOptimizationTraining::ReturnPathNode returnPathNode1{
             childPos,
-            MiningOptimizationTraining::NodeType::Test
-    };
+            MiningOptimizationTraining::NodeType::Test,
+            {},
+            {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}}};
+    returnPathNode1.nextPositions.emplace_back(
+            MiningOptimizationTraining::ReturnPathNode{childPos, MiningOptimizationTraining::NodeType::Test}, 1);
 
-    trainingData.resourceToReturnPaths.emplace(
-            TilePosition(0, 0),
-            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::ReturnPath>{
-                    {rootPos1, MiningOptimizationTraining::ReturnPath{
-                            rootPos1,
-                            {{MiningOptimizationTraining::ReturnPathNode{
-                                childPos,
-                                MiningOptimizationTraining::NodeType::Test,
-                                {},
-                                {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}},
-                                {{testNextNode, 1}}
-                            }, 1}}
-                    }},
-                    {rootPos2, MiningOptimizationTraining::ReturnPath{
-                            rootPos2,
-                            {{MiningOptimizationTraining::ReturnPathNode{
-                                childPos,
-                                MiningOptimizationTraining::NodeType::Test,
-                                {},
-                                {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}},
-                                {{testNextNode, 1}}
-                            }, 1}}
-                    }}
-            });
+    MiningOptimizationTraining::ReturnPath returnPath1{rootPos1};
+    returnPath1.nextPositions.emplace_back(std::move(returnPathNode1), 1);
+
+    MiningOptimizationTraining::ReturnPathNode returnPathNode2{
+            childPos,
+            MiningOptimizationTraining::NodeType::Test,
+            {},
+            {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}}};
+    returnPathNode2.nextPositions.emplace_back(
+            MiningOptimizationTraining::ReturnPathNode{childPos, MiningOptimizationTraining::NodeType::Test}, 1);
+
+    MiningOptimizationTraining::ReturnPath returnPath2{rootPos2};
+    returnPath2.nextPositions.emplace_back(std::move(returnPathNode2), 1);
+
+    std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::ReturnPath> rootNodes;
+    rootNodes.emplace(rootPos1, std::move(returnPath1));
+    rootNodes.emplace(rootPos2, std::move(returnPath2));
+
+    trainingData.resourceToReturnPaths.emplace(TilePosition(0, 0), std::move(rootNodes));
 
     MiningOptimizationTraining::DataTransformer::transform(trainingData);
 
@@ -345,9 +342,9 @@ TEST(DataTransformerTests, DeserializesCompactly)
 
     auto checkPathData = []<typename ObservationType>(
             const std::unordered_map<TilePosition, std::unordered_map<MiningOptimization::PositionAndVelocity,
-                                                                      MiningOptimization::SerializedPath<ObservationType>>> &pathData)
+                    MiningOptimization::SerializedPath<ObservationType>>> &pathData)
     {
-        std::function<void(const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>>&)> checkNextNodes;
+        std::function<void(const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>> &)> checkNextNodes;
 
         checkNextNodes = [&checkNextNodes](const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>> &nextNodes)
         {
@@ -384,7 +381,7 @@ TEST(DataTransformerTests, OccurrenceVectorsAreSorted)
 
     auto checkPathData = []<typename ObservationType>(
             const std::unordered_map<TilePosition, std::unordered_map<MiningOptimization::PositionAndVelocity,
-                                                                      MiningOptimization::SerializedPath<ObservationType>>> &pathData)
+                    MiningOptimization::SerializedPath<ObservationType>>> &pathData)
     {
         auto checkOccurrences = [](auto &observations)
         {
@@ -396,7 +393,7 @@ TEST(DataTransformerTests, OccurrenceVectorsAreSorted)
             }
         };
 
-        std::function<void(const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>>&)> checkNextNodes;
+        std::function<void(const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>> &)> checkNextNodes;
 
         checkNextNodes = [&](const std::vector<std::pair<MiningOptimization::PathNode<ObservationType>, uint8_t>> &nextNodes)
         {

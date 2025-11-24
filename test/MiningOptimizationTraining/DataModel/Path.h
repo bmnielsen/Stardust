@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Noncopyable.h"
+
 #include "BWTest.h"
 #include "PositionAndVelocity.h"
 
@@ -41,6 +43,9 @@ namespace MiningOptimizationTraining
         // All next positions seen from this position after a resend takes effect at this node
         // Will be empty on any nodes where resends do not change the path or no additional resends are possible
         std::vector<std::pair<PathNode<ObservationType>, uint32_t>> nextPositionsAfterResend;
+
+        // Ensure we never copy path nodes
+        [[no_unique_address]] noncopyable _ = {};
     };
 
     // Stores the root of a path
@@ -62,5 +67,8 @@ namespace MiningOptimizationTraining
         // Counters for our best arrival delays and their occurrences
         // Best arrival delay is whatever combination of resends gave the best result on a given exploration
         std::map<uint16_t, uint32_t> bestArrivalDelaysAndOccurrences;
+
+        // Ensure we never copy paths
+        [[no_unique_address]] noncopyable _ = {};
     };
 }

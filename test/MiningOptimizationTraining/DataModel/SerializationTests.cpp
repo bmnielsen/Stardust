@@ -19,11 +19,13 @@ namespace
     }
 
     MiningOptimizationTraining::GatherPath generateGatherPath(MiningOptimizationTraining::PositionAndVelocity &pos,
-                                                              MiningOptimizationTraining::GatherPathNode &nextNode)
+                                                              MiningOptimizationTraining::GatherPathNode nextNode)
     {
+        std::vector<std::pair<MiningOptimizationTraining::GatherPathNode, uint32_t>> nextPositions;
+        nextPositions.emplace_back(std::move(nextNode), nextNode.pos.x);
         return MiningOptimizationTraining::GatherPath{
             pos,
-            {{nextNode, nextNode.pos.x}}, // next positions
+            std::move(nextPositions),
             pos.x, // times explored
             {{pos.x + 5, pos.x + 5}}, // no resend delay and occurrences
             {{pos.x, pos.x}} // best delay and occurrences
@@ -94,26 +96,23 @@ TEST(SerializationTests, WriteAndReadBack)
         pos[i] = generateTestPosition(10 * (i+1));
         gatherObservations.push_back(generateGatherPathNode(pos[i]));
     }
-    gatherObservations[0].nextPositions.emplace_back(gatherObservations[1], gatherObservations[1].pos.x);
-    gatherObservations[0].nextPositions.emplace_back(gatherObservations[2], gatherObservations[2].pos.x);
-    gatherObservations[0].nextPositionsAfterResend.emplace_back(gatherObservations[3], gatherObservations[3].pos.x);
-    gatherObservations[0].nextPositionsAfterResend.emplace_back(gatherObservations[4], gatherObservations[4].pos.x);
-    gatherObservations[5].nextPositions.emplace_back(gatherObservations[6], gatherObservations[6].pos.x);
-    gatherObservations[5].nextPositionsAfterResend.emplace_back(gatherObservations[7], gatherObservations[7].pos.x);
+    gatherObservations[0].nextPositions.emplace_back(std::move(gatherObservations[1]), gatherObservations[1].pos.x);
+    gatherObservations[0].nextPositions.emplace_back(std::move(gatherObservations[2]), gatherObservations[2].pos.x);
+    gatherObservations[0].nextPositionsAfterResend.emplace_back(std::move(gatherObservations[3]), gatherObservations[3].pos.x);
+    gatherObservations[0].nextPositionsAfterResend.emplace_back(std::move(gatherObservations[4]), gatherObservations[4].pos.x);
+    gatherObservations[5].nextPositions.emplace_back(std::move(gatherObservations[6]), gatherObservations[6].pos.x);
+    gatherObservations[5].nextPositionsAfterResend.emplace_back(std::move(gatherObservations[7]), gatherObservations[7].pos.x);
+
+    std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> rootNodes1;
+    rootNodes1.emplace(pos[0], generateGatherPath(pos[0], std::move(gatherObservations[0])));
+    rootNodes1.emplace(pos[8], generateGatherPath(pos[8], std::move(gatherObservations[8])));
+    std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> rootNodes2;
+    rootNodes2.emplace(pos[5], generateGatherPath(pos[5], std::move(gatherObservations[5])));
 
     // Create the expected map data
     MiningOptimizationTraining::MapData expected;
-    expected.resourceToGatherPaths.emplace(
-            TilePosition(0, 0),
-            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
-                    {pos[0], generateGatherPath(pos[0], gatherObservations[0])},
-                    {pos[8], generateGatherPath(pos[8], gatherObservations[8])}
-            });
-    expected.resourceToGatherPaths.emplace(
-            TilePosition(1, 1),
-            std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
-                    {pos[5], generateGatherPath(pos[5], gatherObservations[8])}
-            });
+    expected.resourceToGatherPaths.emplace(TilePosition(0, 0), std::move(rootNodes1));
+    expected.resourceToGatherPaths.emplace(TilePosition(1, 1), std::move(rootNodes2));
 
     // Serialize the data
     MiningOptimizationTraining::Serialization::setGameParameters("test");

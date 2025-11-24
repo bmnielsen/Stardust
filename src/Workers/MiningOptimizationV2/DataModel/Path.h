@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.h"
+#include "Noncopyable.h"
 
 #include "PositionAndVelocity.h"
 #include "PositionDeltaAndVelocity.h"
@@ -32,6 +33,9 @@ namespace MiningOptimization
         // Will be empty on any nodes where resends do not change the path or no additional resends are possible
         // Sorted from highest occurrence rate to lowest
         std::vector<std::pair<PathNode<ObservationType>, uint8_t>> nextPositionsAfterResend;
+
+        // Ensure we never copy path nodes
+        [[no_unique_address]] noncopyable _ = {};
     };
 
     // Stores the root of a path
@@ -43,5 +47,8 @@ namespace MiningOptimization
 
         // All next positions seen from this node
         std::vector<std::pair<PathNode<ObservationType>, uint8_t>> nextPositions;
+
+        // Ensure we never copy paths
+        [[no_unique_address]] noncopyable _ = {};
     };
 }

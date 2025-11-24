@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Noncopyable.h"
+
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"
 #include "GatherArrivalData.h"
@@ -20,5 +22,8 @@ namespace MiningOptimizationTraining
             resourceToGatherPaths.clear();
             resourceToReturnPaths.clear();
         }
+
+        // Ensure we never copy map data
+        [[no_unique_address]] noncopyable _ = {};
     };
 }
