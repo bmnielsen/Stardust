@@ -249,7 +249,7 @@ namespace MiningOptimizationTraining::DataTransformer
                         EXPECT_FALSE(true) << "There should not be uninitialized nodes in the training data";
                         break;
                     case NodeType::AfterExplorationWindow:
-                        EXPECT_TRUE(node.arrivalData.empty());
+                        EXPECT_FALSE(node.arrivalData.empty());
                         EXPECT_TRUE(node.arrivalDataAfterResend.empty());
                         EXPECT_TRUE(node.nextPositionsAfterResend.empty());
                         break;
@@ -276,6 +276,18 @@ namespace MiningOptimizationTraining::DataTransformer
                     case NodeType::Test:
                         // No assertions needed, they are handled in the test
                         break;
+                }
+
+                // The arrival data is only needed when this is the final node
+                // We convert all of them here for simplicity, and they are then excluded for other nodes in the serialization
+                // To ensure data consistency we do some validations here
+                if (node.nextPositions.empty() && node.type != NodeType::Test)
+                {
+                    EXPECT_FALSE(node.arrivalData.empty());
+                    for (const auto &[arrivalData, _] : node.arrivalData)
+                    {
+                        EXPECT_EQ(1, arrivalData.arrivalDelay());
+                    }
                 }
 
                 return {delta(pos, node.pos, positionDeltaToIndex),

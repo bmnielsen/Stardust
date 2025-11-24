@@ -248,11 +248,8 @@ namespace MiningOptimizationTraining
                     }
 
                     // Make the observation on the node
-                    if (node->type != NodeType::AfterExplorationWindow)
-                    {
-                        arrivalData.setArrivalDelay(arrivalDelay);
-                        addArrivalObservation(node->arrivalData, arrivalData);
-                    }
+                    arrivalData.setArrivalDelay(arrivalDelay);
+                    addArrivalObservation(node->arrivalData, arrivalData);
 
                     // If a resend is relevant from the node, explore one level deeper
                     // We check stable nodes 3 times since we do see some false positives

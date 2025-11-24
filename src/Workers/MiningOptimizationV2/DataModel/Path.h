@@ -15,11 +15,11 @@ namespace MiningOptimization
         // The position delta, which includes velocity and heading when needed
         PositionDeltaAndVelocity pos;
 
-        // The arrival observations from this node when the path is not changed by a later gather command
-        // Sorted from highest occurrence rate to lowest
-        std::vector<std::pair<ObservationType, uint8_t>> arrivalData;
+        // The arrival observations on this node if it is the final node in the path, i.e. the node immediately before arrival
+        // Contains default data on all nodes where nextPositions is non-empty
+        std::vector<std::pair<ObservationType, uint8_t>> arrivalDataWhenFinalNode;
 
-        // The arrival observations when a resend takes effect here
+        // The arrival observations when a final resend takes effect here, meaning we don't track the rest of the path
         // Sorted from highest occurrence rate to lowest
         std::vector<std::pair<ObservationType, uint8_t>> arrivalDataAfterResend;
 

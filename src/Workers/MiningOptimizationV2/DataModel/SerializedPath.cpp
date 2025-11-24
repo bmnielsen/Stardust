@@ -15,8 +15,18 @@ namespace MiningOptimization
         void serializePath(S &ser, Path<ObservationType> &path)
         {
             std::function<void(S&, PathNode<ObservationType>&)> pathNodeSerializer;
+            auto resendArrivalDataSerializer = [](S &s, ObservationType &arrivalData)
+            {
+                s.value1b(arrivalData.arrivalDelay);
+                s.value1b(arrivalData.packed);
+            };
+            auto finalNodeArrivalDataSerializer = [](S &s, ObservationType &arrivalData)
+            {
+                arrivalData.arrivalDelay = 1;
+                s.value1b(arrivalData.packed);
+            };
 
-            auto customVectorSerializer = [&]()
+            auto customVectorSerializer = [&](const auto &itemSerializer)
             {
                 if constexpr (serializing)
                 {
@@ -33,14 +43,7 @@ namespace MiningOptimization
                         for (auto &[k, v] : vec)
                         {
                             s.value1b(v);
-                            if constexpr (std::is_same_v<U, PathNode<ObservationType>>)
-                            {
-                                s.object(k, pathNodeSerializer);
-                            }
-                            else
-                            {
-                                s.object(k);
-                            }
+                            s.object(k, itemSerializer);
                         }
                     };
                 }
@@ -58,15 +61,7 @@ namespace MiningOptimization
                             if (occurrenceRate == 0) return;
 
                             U item;
-                            if constexpr (std::is_same_v<U, PathNode<ObservationType>>)
-                            {
-                                s.object(item, pathNodeSerializer);
-                            }
-                            else
-                            {
-                                s.object(item);
-                            }
-
+                            s.object(item, itemSerializer);
                             vec.emplace_back(std::move(item), occurrenceRate);
 
                             total += occurrenceRate;
@@ -74,18 +69,37 @@ namespace MiningOptimization
                         vec.shrink_to_fit();
                     };
                 }
-            }();
+            };
 
             pathNodeSerializer = [&](S &s, PathNode<ObservationType>& value)
             {
                 s.object(value.pos);
-                s.object(value.arrivalData, customVectorSerializer);
-                if (!value.arrivalData.empty()) s.object(value.arrivalDataAfterResend, customVectorSerializer);
-                s.object(value.nextPositions, customVectorSerializer);
-                if (!value.nextPositions.empty()) s.object(value.nextPositionsAfterResend, customVectorSerializer);
+
+                // Final nodes (where there is arrival without the maximum number of available resends) have a subset of arrival data,
+                // where the arrival delay is not needed (since it is always 0 there)
+                // Final resend nodes have the arrival data after resend and no other data.
+                // All in between nodes have no arrival data, only next positions if resends are stable or unavailable, and next positions after
+                // resend if both are available.
+                // As intermediate nodes are the most common, we always write the nextPositions vector. If it is empty, we are at the final node
+                // and only need to write the subset of arrival data.
+                // If there are next positions, we also write the next positions after resend.
+                // If there are no next positions after resend, we write the arrival data after resend.
+                s.object(value.nextPositions, customVectorSerializer(pathNodeSerializer));
+                if (value.nextPositions.empty())
+                {
+                    s.object(value.arrivalDataWhenFinalNode, customVectorSerializer(finalNodeArrivalDataSerializer));
+                }
+                else
+                {
+                    s.object(value.nextPositionsAfterResend, customVectorSerializer(pathNodeSerializer));
+                    if (value.nextPositionsAfterResend.empty())
+                    {
+                        s.object(value.arrivalDataAfterResend, customVectorSerializer(resendArrivalDataSerializer));
+                    }
+                }
             };
 
-            ser.object(path.nextPositions, customVectorSerializer);
+            ser.object(path.nextPositions, customVectorSerializer(pathNodeSerializer));
         }
     }
 

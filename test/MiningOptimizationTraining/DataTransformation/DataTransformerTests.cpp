@@ -154,6 +154,11 @@ TEST(DataTransformerTests, GatherArrivalPacking)
     MiningOptimizationTraining::GatherArrivalData arrivalData7((30U << 2) + 1, rootPos2);
     MiningOptimizationTraining::GatherArrivalData arrivalData8((40U << 2) + 0, rootPos2);
 
+    MiningOptimizationTraining::GatherPathNode testNextNode{
+            childPos,
+            MiningOptimizationTraining::NodeType::Test
+    };
+
     trainingData.resourceToGatherPaths.emplace(
             TilePosition(0, 0),
             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath>{
@@ -162,7 +167,9 @@ TEST(DataTransformerTests, GatherArrivalPacking)
                             {{MiningOptimizationTraining::GatherPathNode{
                                 childPos,
                                 MiningOptimizationTraining::NodeType::Test,
-                                {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}}
+                                {},
+                                {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}},
+                                {{testNextNode, 1}}
                             }, 1}}
                     }},
                     {rootPos2, MiningOptimizationTraining::GatherPath{
@@ -170,7 +177,9 @@ TEST(DataTransformerTests, GatherArrivalPacking)
                             {{MiningOptimizationTraining::GatherPathNode{
                                 childPos,
                                 MiningOptimizationTraining::NodeType::Test,
-                                {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}}
+                                {},
+                                {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}},
+                                {{testNextNode, 1}}
                             }, 1}}
                     }}
             });
@@ -197,12 +206,12 @@ TEST(DataTransformerTests, GatherArrivalPacking)
         auto nextPositions = outputPatchData[rootPos].get().nextPositions;
         EXPECT_EQ(1, nextPositions.size());
         auto &nextPosition = nextPositions[0].first;
-        EXPECT_EQ(expectedArrivalData.size(), nextPosition.arrivalData.size());
+        EXPECT_EQ(expectedArrivalData.size(), nextPosition.arrivalDataAfterResend.size());
 
         for (const auto &expectedArrival : expectedArrivalData)
         {
             bool found = false;
-            for (const auto &[actualArrival, _] : nextPosition.arrivalData)
+            for (const auto &[actualArrival, _] : nextPosition.arrivalDataAfterResend)
             {
                 if (actualArrival.arrivalDelay == expectedArrival.arrivalDelay()
                     && actualArrival.facingTarget() == expectedArrival.facingTarget()
@@ -253,6 +262,11 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
     MiningOptimizationTraining::ReturnArrivalData arrivalData7((30U << 2) + 1, rootPos2);
     MiningOptimizationTraining::ReturnArrivalData arrivalData8((40U << 2) + 0, rootPos2);
 
+    MiningOptimizationTraining::ReturnPathNode testNextNode{
+            childPos,
+            MiningOptimizationTraining::NodeType::Test
+    };
+
     trainingData.resourceToReturnPaths.emplace(
             TilePosition(0, 0),
             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::ReturnPath>{
@@ -261,7 +275,9 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
                             {{MiningOptimizationTraining::ReturnPathNode{
                                 childPos,
                                 MiningOptimizationTraining::NodeType::Test,
-                                {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}}
+                                {},
+                                {{arrivalData1, 1}, {arrivalData2, 1}, {arrivalData3, 1}, {arrivalData4, 1}},
+                                {{testNextNode, 1}}
                             }, 1}}
                     }},
                     {rootPos2, MiningOptimizationTraining::ReturnPath{
@@ -269,7 +285,9 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
                             {{MiningOptimizationTraining::ReturnPathNode{
                                 childPos,
                                 MiningOptimizationTraining::NodeType::Test,
-                                {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}}
+                                {},
+                                {{arrivalData5, 1}, {arrivalData6, 1}, {arrivalData7, 1}, {arrivalData8, 1}},
+                                {{testNextNode, 1}}
                             }, 1}}
                     }}
             });
@@ -296,12 +314,12 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
         auto nextPositions = outputPatchData[rootPos].get().nextPositions;
         EXPECT_EQ(1, nextPositions.size());
         auto &nextPosition = nextPositions[0].first;
-        EXPECT_EQ(expectedArrivalData.size(), nextPosition.arrivalData.size());
+        EXPECT_EQ(expectedArrivalData.size(), nextPosition.arrivalDataAfterResend.size());
 
         for (const auto &expectedArrival : expectedArrivalData)
         {
             bool found = false;
-            for (const auto &[actualArrival, _] : nextPosition.arrivalData)
+            for (const auto &[actualArrival, _] : nextPosition.arrivalDataAfterResend)
             {
                 if (actualArrival.arrivalDelay == expectedArrival.arrivalDelay()
                     && (uint8_t)actualArrival.exitSpeed() == (uint8_t)expectedArrival.exitSpeed()
@@ -336,7 +354,6 @@ TEST(DataTransformerTests, DeserializesCompactly)
             EXPECT_EQ(nextNodes.capacity(), nextNodes.size());
             for (const auto &[node, _] : nextNodes)
             {
-                EXPECT_EQ(node.arrivalData.capacity(), node.arrivalData.size());
                 EXPECT_EQ(node.arrivalDataAfterResend.capacity(), node.arrivalDataAfterResend.size());
 
                 checkNextNodes(node.nextPositions);
@@ -385,7 +402,6 @@ TEST(DataTransformerTests, OccurrenceVectorsAreSorted)
         {
             for (const auto &[node, _] : nextNodes)
             {
-                checkOccurrences(node.arrivalData);
                 checkOccurrences(node.arrivalDataAfterResend);
                 checkOccurrences(node.nextPositions);
                 checkOccurrences(node.nextPositionsAfterResend);
