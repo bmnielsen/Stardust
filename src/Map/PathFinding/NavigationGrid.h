@@ -11,6 +11,11 @@ namespace NavigationGridGlobals
 class NavigationGrid
 {
 public:
+    NavigationGrid (const NavigationGrid&) = delete;
+    NavigationGrid &operator=(const NavigationGrid&) = delete;
+    NavigationGrid (NavigationGrid&&) = default;
+    NavigationGrid &operator=(NavigationGrid&&) = default;
+
     struct GridNode
     {
         unsigned short x;

@@ -7,6 +7,10 @@
 class StrategyEngine
 {
 public:
+    StrategyEngine (const StrategyEngine&) = delete;
+    StrategyEngine &operator=(const StrategyEngine&) = delete;
+
+    StrategyEngine() = default;
     virtual ~StrategyEngine() = default;
 
     virtual void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &opening) = 0;

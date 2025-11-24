@@ -43,6 +43,9 @@ public:
 
     virtual ~UnitCluster() = default;
 
+    UnitCluster (const UnitCluster&) = delete;
+    UnitCluster &operator=(const UnitCluster&) = delete;
+
     void absorbCluster(const std::shared_ptr<UnitCluster> &other, BWAPI::Position targetPosition);
 
     void addUnit(const MyUnit &unit);

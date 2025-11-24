@@ -14,6 +14,9 @@ typedef std::shared_ptr<ResourceImpl> Resource;
 class ResourceImpl : public std::enable_shared_from_this<ResourceImpl>
 {
 public:
+    ResourceImpl (const ResourceImpl&) = delete;
+    ResourceImpl &operator=(const ResourceImpl&) = delete;
+
     int id;
     bool isMinerals;
 

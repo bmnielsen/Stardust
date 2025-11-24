@@ -13,6 +13,10 @@
 class MapSpecificOverride
 {
 public:
+    MapSpecificOverride (const MapSpecificOverride&) = delete;
+    MapSpecificOverride &operator=(const MapSpecificOverride&) = delete;
+
+    MapSpecificOverride() = default;
     virtual ~MapSpecificOverride() = default;
 
     virtual bool hasMineralWalking() { return false; }

@@ -65,6 +65,9 @@ struct PlayStatus
 class Play
 {
 public:
+    Play (const Play&) = delete;
+    Play &operator=(const Play&) = delete;
+
     std::string label;
     PlayStatus status;
     std::map<BWAPI::UnitType, int> assignedIncompleteUnits;

@@ -52,6 +52,9 @@ public:
             , targetPosition(BWAPI::Positions::Invalid)
             , vanguardClusterDistToTargetPosition(INT_MAX) {}
 
+    Squad (const Squad&) = delete;
+    Squad &operator=(const Squad&) = delete;
+
 protected:
     BWAPI::Position targetPosition;
 
