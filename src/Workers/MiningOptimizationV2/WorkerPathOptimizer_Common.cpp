@@ -1,5 +1,7 @@
 #include "WorkerPathOptimizer.h"
 
+#include "Solver/Solver.h"
+
 #include "DebugFlag_MiningOptimization.h"
 
 namespace MiningOptimization
@@ -104,6 +106,11 @@ namespace MiningOptimization
         if (!pathPlanned && currentNodeNextPositions)
         {
             expectedPath.clear();
+
+            // TODO: Implement takeover logic
+
+            Solver<ObservationType> solver(currentPosition, *currentNodeNextPositions, executedResendFrames, currentFrame, worker->orderProcessTimer);
+            solver.execute();
 
             // TODO: Implement actual path planner
             // Temporary logic just assumes the most common no-resend path
