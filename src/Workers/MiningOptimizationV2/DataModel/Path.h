@@ -34,6 +34,11 @@ namespace MiningOptimization
         // Sorted from highest occurrence rate to lowest
         std::vector<std::pair<PathNode<ObservationType>, uint8_t>> nextPositionsAfterResend;
 
+        // Whether this is a stable resend node, where a resend taking effect does not change the path
+        // Both stable nodes and nodes outside the exploration window are stored without data in the resend vectors, so this boolean is needed to
+        // differentiate the two cases.
+        bool isStableResendNode = false;
+
         // Ensure we never copy path nodes
         [[no_unique_address]] noncopyable _ = {};
     };

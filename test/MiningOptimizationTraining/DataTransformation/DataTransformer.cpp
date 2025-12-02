@@ -235,6 +235,13 @@ namespace MiningOptimizationTraining::DataTransformer
 
                 postProcessObservationsVector(result);
 
+                // To store the resend viability bool, we borrow a bit where the first arrivalDataAfterResend item's occurrence rate would go
+                // Validate that this will never collide with an actual value
+                if (!result.empty())
+                {
+                    EXPECT_NE((uint8_t)1, result.begin()->second);
+                }
+
                 return result;
             };
 
@@ -294,7 +301,8 @@ namespace MiningOptimizationTraining::DataTransformer
                         convertArrivalData(node.arrivalData),
                         convertArrivalData(node.arrivalDataAfterResend),
                         convert<TrainingObservationType, OutputObservationType>(node.pos, node.nextPositions, positionDeltaToIndex, nextPathArrivalDelays),
-                        convert<TrainingObservationType, OutputObservationType>(node.pos, node.nextPositionsAfterResend, positionDeltaToIndex, nextPathArrivalDelays)};
+                        convert<TrainingObservationType, OutputObservationType>(node.pos, node.nextPositionsAfterResend, positionDeltaToIndex, nextPathArrivalDelays),
+                        node.type == NodeType::StableNode};
             };
 
             std::unique_ptr<uint32_t> totalNodeOccurrences;

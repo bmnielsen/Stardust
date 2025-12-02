@@ -10,6 +10,7 @@ namespace MiningOptimization
     namespace
     {
         uint8_t zero = 0;
+        uint8_t one = 1;
 
         template <bool serializing, typename S, typename ObservationType>
         void serializePath(S &ser, Path<ObservationType> &path)
@@ -26,16 +27,23 @@ namespace MiningOptimization
                 s.value1b(arrivalData.packed);
             };
 
-            auto customVectorSerializer = [&](const auto &itemSerializer)
+            auto customVectorSerializer = [&](const auto &itemSerializer, bool *extraPackedBool = nullptr)
             {
                 if constexpr (serializing)
                 {
-                    return [&]<typename U>(S &s, std::vector<std::pair<U, uint8_t>> &vec)
+                    return [&itemSerializer, extraPackedBool]<typename U>(S &s, std::vector<std::pair<U, uint8_t>> &vec)
                     {
-                        // If the vector is empty, just write a zero
+                        // If the vector is empty, write zero or one depending on whether we want to pack a bool
                         if (vec.empty())
                         {
-                            s.value1b(zero);
+                            if (extraPackedBool && *extraPackedBool)
+                            {
+                                s.value1b(one);
+                            }
+                            else
+                            {
+                                s.value1b(zero);
+                            }
                             return;
                         }
 
@@ -49,7 +57,7 @@ namespace MiningOptimization
                 }
                 else
                 {
-                    return [&]<typename U>(S &s, std::vector<std::pair<U, uint8_t>> &vec)
+                    return [&itemSerializer, extraPackedBool]<typename U>(S &s, std::vector<std::pair<U, uint8_t>> &vec)
                     {
                         uint8_t total = 0;
                         while (total < 255)
@@ -57,8 +65,15 @@ namespace MiningOptimization
                             uint8_t occurrenceRate;
                             s.value1b(occurrenceRate);
 
-                            // First item will be zero for an empty vector
+                            // A zero always indicates an empty vector
                             if (occurrenceRate == 0) return;
+
+                            // If there is a packed bool, a one in the first item indicates an empty vector with the packed bool set
+                            if (extraPackedBool && total == 0 && occurrenceRate == 1)
+                            {
+                                *extraPackedBool = true;
+                                return;
+                            }
 
                             U item;
                             s.object(item, itemSerializer);
@@ -84,6 +99,9 @@ namespace MiningOptimization
                 // and only need to write the subset of arrival data.
                 // If there are next positions, we also write the next positions after resend.
                 // If there are no next positions after resend, we write the arrival data after resend.
+                // The "isStableResendNode" boolean only has to be serialized when nextPositionsAfterResend and arrivalDataAfterResend are both
+                // empty, since stable nodes don't need those data. To serialize this efficiently, we borrow a bit in the first
+                // arrivalDataAfterResend occurrence rate, setting it to 1 to indicate an empty vector with this bool set.
                 s.object(value.nextPositions, customVectorSerializer(pathNodeSerializer));
                 if (value.nextPositions.empty())
                 {
@@ -94,7 +112,7 @@ namespace MiningOptimization
                     s.object(value.nextPositionsAfterResend, customVectorSerializer(pathNodeSerializer));
                     if (value.nextPositionsAfterResend.empty())
                     {
-                        s.object(value.arrivalDataAfterResend, customVectorSerializer(resendArrivalDataSerializer));
+                        s.object(value.arrivalDataAfterResend, customVectorSerializer(resendArrivalDataSerializer, &value.isStableResendNode));
                     }
                 }
             };
