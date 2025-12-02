@@ -109,7 +109,7 @@ namespace MiningOptimization
 
             // TODO: Implement takeover logic
 
-            Solver<ObservationType> solver(currentPosition, *currentNodeNextPositions, executedResendFrames, currentFrame, worker->orderProcessTimer);
+            Solver<ObservationType> solver(currentPosition, *currentNodeNextPositions, currentFrame, worker->orderProcessTimer);
             solver.execute();
 
             // TODO: Implement actual path planner

@@ -39,6 +39,17 @@ namespace MiningOptimization
         // differentiate the two cases.
         bool isStableResendNode = false;
 
+        // Returns a reference to the appropriate next positions vector depending on whether a resend is taking effect here or not.
+        const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &applicableNextPositions(int frame,
+                                                                                                  const auto &previousResendFrames) const
+        {
+            if (previousResendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
+            {
+                return nextPositionsAfterResend;
+            }
+            return nextPositions;
+        }
+
         // Ensure we never copy path nodes
         [[no_unique_address]] noncopyable _ = {};
     };
