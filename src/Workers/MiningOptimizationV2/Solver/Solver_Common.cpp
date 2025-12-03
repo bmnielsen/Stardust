@@ -63,16 +63,20 @@ namespace MiningOptimization
     }
 
     template <typename ObservationType>
-    SolverPathBranch Solver<ObservationType>::execute()
+    std::optional<SolverPathBranch> Solver<ObservationType>::execute()
     {
         SolverResends resends;
-        processNextNodes(initialNextPathNodes, startFrame, resends, workerOrderProcessTimerAtStartFrame);
-
-        return {};
+        auto result = processNextNodes(startPosition, initialNextPathNodes, startFrame, resends, workerOrderProcessTimerAtStartFrame);
+        if (result)
+        {
+            result->pathToNextBranch.push_front(startPosition);
+        }
+        return result;
     }
 
     template <typename ObservationType>
-    Solver<ObservationType>::NoResendArrivalDetails Solver<ObservationType>::processNextNodes( // NOLINT(*-no-recursion)
+    std::optional<SolverPathBranch> Solver<ObservationType>::processNextNodes( // NOLINT(*-no-recursion)
+            const PositionAndVelocity &pos,
             const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextNodes,
             int frame,
             SolverResends &resends,
@@ -81,59 +85,82 @@ namespace MiningOptimization
         int nextWorkerOrderProcessTimer = nextOrderProcessTimer(frame, workerOrderProcessTimer, resends.resendFrames);
 
         // Processes a node and returns its result
-        auto processNode = [&](const PathNode<ObservationType> &node) // NOLINT(*-no-recursion)
+        auto processNode =
+                [&](const PathNode<ObservationType> &node) -> std::optional<SolverPathBranch> // NOLINT(*-no-recursion)
         {
-            // Start by exploring the next nodes
-            auto noResendArrival = [&]()
+            // Compute the position corresponding to this node
+            auto here = node.pos.addTo(pos, positionDeltas);
+
+            // TODO: Check for patch lock and patch switch
+
+            // If we have reached the end of the path, create the new branch and populate it with the arrival data
+            auto &next = node.applicableNextPositions(frame, resends.resendFrames);
+            if (next.empty())
             {
-                // If this is not the final node, propagate forward and increment the arrival delays
-                if (!node.nextPositions.empty())
-                {
-                    auto resultRequiringArrivalAdjustment =
-                            processNextNodes(node.nextPositions, frame + 1, resends, nextWorkerOrderProcessTimer);
-                    for (auto &[arrivalDetails, _] : resultRequiringArrivalAdjustment)
-                    {
-                        arrivalDetails.arrivalData.arrivalDelay++;
-                    }
-                    return resultRequiringArrivalAdjustment;
-                }
+                SolverPathBranch result;
+                result.pathToNextBranch.emplace_front(std::move(here));
 
-                // This is the final node, so take the arrival data on the node and convert
-                Solver<ObservationType>::NoResendArrivalDetails arrivalDetailsAndProbabilities;
-                for (const auto &[arrivalData, arrivalOccurrences] : node.arrivalDataWhenFinalNode)
-                {
-                    arrivalDetailsAndProbabilities.emplace_back(ArrivalDetails{arrivalData, nextWorkerOrderProcessTimer},
-                                                                (double)arrivalOccurrences / 255.0);
-                }
-                return arrivalDetailsAndProbabilities;
-            }();
+                // TODO: Get arrival data and populate the data maps
+//                auto &arrivalData = node.applicableArrivalData(frame, resends.resendFrames);
 
-            // TODO: Consider resends
+                return result;
+            }
 
-            return noResendArrival;
+            // Get the result from not resending here
+            auto result = processNextNodes(here, next, frame + 1, resends, nextWorkerOrderProcessTimer);
+
+            // If there can be a resend, try it
+            auto resendViability = isResendViableHere(node, frame, resends);
+            if (resendViability.first)
+            {
+                // Add the resend frame
+                std::set<int> resendFrames = resends.resendFrames;
+                resendFrames.insert(frame);
+                SolverResends resendsHere{std::move(resendFrames), resendViability.second};
+
+                // Get the result
+                auto resendResult = processNextNodes(here, next, frame + 1, resendsHere, nextWorkerOrderProcessTimer);
+
+                // If the result is better, replace the existing one
+                // TODO
+                result = resendResult;
+            }
+
+            if (!result) return std::nullopt;
+
+            result->pathToNextBranch.emplace_front(std::move(here));
+            return result;
         };
 
+        // If the path doesn't branch here, we can just return the result for the single node
         if (nextNodes.size() == 1) return processNode(nextNodes.begin()->first);
 
-        Solver<ObservationType>::NoResendArrivalDetails arrivalDetailsAndProbabilities;
+        // The path branches, so we need to also branch the solve result
+        SolverPathBranch result;
         for (const auto &[node, occurrences] : nextNodes)
         {
             auto nodeResult = processNode(node);
+            if (!nodeResult) return std::nullopt;
 
             // Adjust the probabilities by this node's probability
             double nodeProbability = (double)occurrences / 255.0;
-            for (auto &[_, probability] : nodeResult)
+
+            auto addObservations = [&](const std::map<int, double> &source, std::map<int, double> &target)
             {
-                probability *= nodeProbability;
-            }
+                for (const auto &[value, probability] : source)
+                {
+                    target[value] += (probability * nodeProbability);
+                }
+            };
+            addObservations(nodeResult->arrivalFramesWithProbabilities, result.arrivalFramesWithProbabilities);
+            addObservations(nodeResult->actionFramesWithProbabilities, result.actionFramesWithProbabilities);
+            addObservations(nodeResult->delaysWithProbabilities, result.delaysWithProbabilities);
+            addObservations(nodeResult->patchLockFramesWithProbabilities, result.patchLockFramesWithProbabilities);
 
-            arrivalDetailsAndProbabilities.insert(arrivalDetailsAndProbabilities.end(),
-                                                  std::make_move_iterator(nodeResult.begin()),
-                                                  std::make_move_iterator(nodeResult.end()));
-
+            result.nextBranches.emplace_back(std::exchange(nodeResult, std::nullopt).value());
         }
 
-        return arrivalDetailsAndProbabilities;
+        return result;
     }
 
     template <typename ObservationType>

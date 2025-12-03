@@ -11,9 +11,12 @@ namespace MiningOptimization
     {
         uint16_t x;         // X pixel position, between 0 and 8191 for the default maximum map size of 256 tiles
         uint16_t y;         // Y pixel position, between 0 and 8191 for the default maximum map size of 256 tiles
+
         int8_t heading;     // The heading in BW representation (1/256th of a circle)
         int16_t velocityX;  // X velocity, in full BW precision, but cut down to 16 bit (since it is only -5 to +5 for workers, plus 8 bit fractional)
         int16_t velocityY;  // Y velocity, in full BW precision, but cut down to 16 bit (since it is only -5 to +5 for workers, plus 8 bit fractional)
+
+        bool ignoreHeadingAndVelocity; // Whether the heading and velocity are relevant for this position
 
         PositionAndVelocity()
                 : x(0)
@@ -21,32 +24,45 @@ namespace MiningOptimization
                 , heading(0)
                 , velocityX(0)
                 , velocityY(0)
+                , ignoreHeadingAndVelocity(false)
         {}
 
-        PositionAndVelocity(uint16_t x, uint16_t y, int8_t heading, int32_t velocityX, int32_t velocityY)
+        PositionAndVelocity(uint16_t x, uint16_t y, int8_t heading, int16_t velocityX, int16_t velocityY, bool ignoreHeadingAndVelocity)
                 : x(x)
                 , y(y)
                 , heading(heading)
                 , velocityX(velocityX)
                 , velocityY(velocityY)
+                , ignoreHeadingAndVelocity(ignoreHeadingAndVelocity)
         {}
 
-        PositionAndVelocity(const MyWorker &worker)
+        explicit PositionAndVelocity(const MyWorker &worker)
                 : x(worker->lastPosition.x)
                 , y(worker->lastPosition.y)
-                , heading(worker->BWHeading())
-                , velocityX(worker->BWVelocityX())
-                , velocityY(worker->BWVelocityY())
+                , heading((int8_t)worker->BWHeading())
+                , velocityX((int16_t)worker->BWVelocityX())
+                , velocityY((int16_t)worker->BWVelocityY())
+                , ignoreHeadingAndVelocity(false)
         {}
 
         bool operator==(const PositionAndVelocity &other) const
         {
+            if (ignoreHeadingAndVelocity || other.ignoreHeadingAndVelocity)
+            {
+                return std::tie(x, y) == std::tie(other.x, other.y);
+            }
+
             return std::tie(x, y, heading, velocityX, velocityY) ==
                    std::tie(other.x, other.y, other.heading, other.velocityX, other.velocityY);
         }
 
         bool operator<(const PositionAndVelocity &other) const
         {
+            if (ignoreHeadingAndVelocity || other.ignoreHeadingAndVelocity)
+            {
+                return std::tie(x, y) < std::tie(other.x, other.y);
+            }
+
             return std::tie(x, y, heading, velocityX, velocityY) <
                    std::tie(other.x, other.y, other.heading, other.velocityX, other.velocityY);
         }

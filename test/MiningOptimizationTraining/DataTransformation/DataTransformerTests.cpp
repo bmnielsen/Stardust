@@ -42,7 +42,7 @@ TEST(DataTransformerTests, PositionDeltaIndex)
     EXPECT_LT(pos3Index, 2);
 
     // Ensure the root node in the output data has the expected values
-    MiningOptimization::PositionAndVelocity expectedRootPos(100, 100, 10, 10, 10);
+    MiningOptimization::PositionAndVelocity expectedRootPos(100, 100, 10, 10, 10, false);
     MiningOptimization::PositionDeltaAndVelocity expectedChildPos1((pos1And2Index << 1) + 1, 15, 15, -15);
     MiningOptimization::PositionDeltaAndVelocity expectedChildPos2((pos1And2Index << 1) + 1, 20, -20, 20);
     MiningOptimization::PositionDeltaAndVelocity expectedChildPos3((pos3Index << 1), 17, 58, -98); // heading and velocity don't matter here
@@ -101,7 +101,7 @@ TEST(DataTransformerTests, OccurrenceRounding)
     MiningOptimization::Serialization::setGameParameters("test");
     MiningOptimization::Serialization::readMapData(outputData);
 
-    MiningOptimization::PositionAndVelocity expectedRootPos(100, 100, 10, 10, 10);
+    MiningOptimization::PositionAndVelocity expectedRootPos(100, 100, 10, 10, 10, false);
 
     auto expectSum = [&](
             const std::unordered_map<MiningOptimization::PositionAndVelocity,
@@ -191,8 +191,8 @@ TEST(DataTransformerTests, GatherArrivalPacking)
     // Minimum next path length should be 45
     EXPECT_EQ(45, outputData.minimumNextPathLength);
 
-    MiningOptimization::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10);
-    MiningOptimization::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10);
+    MiningOptimization::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10, false);
+    MiningOptimization::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10, false);
 
     auto &outputPatchData = outputData.resourceToSerializedGatherPaths[TilePosition(0, 0)];
     auto validateRoot = [&](
@@ -298,8 +298,8 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
     // Minimum next path length should be 45
     EXPECT_EQ(45, outputData.minimumNextPathLength);
 
-    MiningOptimization::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10);
-    MiningOptimization::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10);
+    MiningOptimization::PositionAndVelocity expectedRootPos1(100, 100, 10, 10, 10, false);
+    MiningOptimization::PositionAndVelocity expectedRootPos2(100, 101, 10, 10, 10, false);
 
     auto &outputPatchData = outputData.resourceToSerializedReturnPaths[TilePosition(0, 0)];
     auto validateRoot = [&](

@@ -75,6 +75,26 @@ namespace MiningOptimization
                    && (velocityY == end.velocityY);
         }
 
+        // Gets the position that results from adding this delta to a given position
+        [[nodiscard]] PositionAndVelocity addTo(const PositionAndVelocity &other,
+                                                const std::vector<std::pair<int8_t, int8_t>> &positionDeltas) const
+        {
+            const auto &delta = positionDeltas[positionDeltaIndex()];
+            if (requiresHeadingAndVelocity())
+            {
+                return PositionAndVelocity{
+                    (uint16_t)(other.x + (int8_t)delta.first),
+                    (uint16_t)(other.y + (int8_t)delta.second),
+                    heading, velocityX, velocityY, false
+                };
+            }
+            return PositionAndVelocity{
+                    (uint16_t)(other.x + (int8_t)delta.first),
+                    (uint16_t)(other.y + (int8_t)delta.second),
+                    0, 0, 0, true
+            };
+        }
+
         template <typename S>
         void serialize(S& s) {
             s.value1b(packed);

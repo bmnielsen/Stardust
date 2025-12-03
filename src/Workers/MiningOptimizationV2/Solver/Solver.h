@@ -38,18 +38,26 @@ namespace MiningOptimization
         std::map<int, double> arrivalFramesWithProbabilities;
 
         // The predicted "action frame" (transition to mining or delivery of resource)
-        // For cases where there is a predicted patch lock, this will either be the patch lock frame (if the patch lock happens after arrival)
-        // or the mining start frame if the patch lock happened before
+        // If there is a predicted patch lock that happens after arrival, this will be the patch lock frame.
+        // If there is a predicted patch lock that happens before arrival, this will be the frame where the worker arrives and has its order process
+        // timer reach zero.
         std::map<int, double> actionFramesWithProbabilities;
 
         // The predicted delays (not facing patch, collision); can be negative for returns with preserved speed
         std::map<int, double> delaysWithProbabilities;
+
+        // The predicted patch switch frames with probabilities
+        std::map<int, double> patchSwitchFramesWithProbabilities;
 
         // The predicted patch lock frames with probabilities
         // The probability here does not include the probability that patch locking is possible at the given frame, since this changes over time
         // as our predictions shift
         // If the solver does not think patch locking is possible, this will be empty
         std::map<int, double> patchLockFramesWithProbabilities;
+
+        // The expected next path lengths with probabilities
+        // This is not expected to be very exact, but can be used to nudge the worker towards picking paths that get it onto a better next path.
+        std::map<int, double> nextPathLengthWithProbabilities;
     };
 
     template <typename ObservationType>
@@ -57,11 +65,15 @@ namespace MiningOptimization
     {
     public:
         // Constructor used for single-worker gathering and return
-        Solver(const PositionAndVelocity &startPosition,
+        Solver(const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
+               const unsigned int minimumNextPathLength,
+               const PositionAndVelocity &startPosition,
                const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
                int startFrame,
                int workerOrderProcessTimerAtStartFrame)
-                : startPosition(startPosition)
+                : positionDeltas(positionDeltas)
+                , minimumNextPathLength(minimumNextPathLength)
+                , startPosition(startPosition)
                 , initialNextPathNodes(nextPathNodes)
                 , startFrame(startFrame)
                 , workerOrderProcessTimerAtStartFrame(workerOrderProcessTimerAtStartFrame)
@@ -70,13 +82,17 @@ namespace MiningOptimization
         {}
 
         // Constructor used for double-worker gathering
-        Solver(const PositionAndVelocity &startPosition,
+        Solver(const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
+               const unsigned int minimumNextPathLength,
+               const PositionAndVelocity &startPosition,
                const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
                int startFrame,
                int workerOrderProcessTimerAtStartFrame,
                int takeoverFrame,
                const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast)
-                : startPosition(startPosition)
+                : positionDeltas(positionDeltas)
+                , minimumNextPathLength(minimumNextPathLength)
+                , startPosition(startPosition)
                 , initialNextPathNodes(nextPathNodes)
                 , startFrame(startFrame)
                 , workerOrderProcessTimerAtStartFrame(workerOrderProcessTimerAtStartFrame)
@@ -84,9 +100,16 @@ namespace MiningOptimization
                 , otherPatchesForecast(otherPatchesForecast)
         {}
 
-        SolverPathBranch execute();
+        // Executes the solver
+        // Returns nullopt if no solution can be found
+        std::optional<SolverPathBranch> execute();
 
     private:
+        /* References to the map mining optimization data relevant for this solve */
+
+        const std::vector<std::pair<int8_t, int8_t>> &positionDeltas;
+        const unsigned int minimumNextPathLength;
+
         // The start position of this solver execution
         const PositionAndVelocity &startPosition;
 
@@ -106,17 +129,14 @@ namespace MiningOptimization
         // Only relevant for two-worker gather, otherwise it will be set to a default value
         const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast;
 
-        struct ArrivalDetails
-        {
-            ObservationType arrivalData;
-            int workerOrderProcessTimerAtArrival;
-        };
-        typedef std::vector<std::pair<ArrivalDetails, double>> NoResendArrivalDetails;
-
-        NoResendArrivalDetails processNextNodes(const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
-                                                int frame,
-                                                SolverResends &previousResends,
-                                                int workerOrderProcessTimer);
+        // Recursively process the given next nodes, returning the best solution for all paths below them
+        // Returns nullopt if no solution can be found
+        std::optional<SolverPathBranch> processNextNodes(
+                const PositionAndVelocity &pos,
+                const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
+                int frame,
+                SolverResends &previousResends,
+                int workerOrderProcessTimer);
 
         // Whether a resend is viable from the given node on the given frame with the given previous resend frames
         // A resend is viable if it can be issued and all possible resend nodes are either stable or have resend data available

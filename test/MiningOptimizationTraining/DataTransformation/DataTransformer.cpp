@@ -157,7 +157,7 @@ namespace MiningOptimizationTraining::DataTransformer
 
         MiningOptimization::PositionAndVelocity convert(const PositionAndVelocity &pos)
         {
-            return {pos.x, pos.y, pos.heading, (int16_t)pos.velocityX, (int16_t)pos.velocityY};
+            return {pos.x, pos.y, pos.heading, (int16_t)pos.velocityX, (int16_t)pos.velocityY, false};
         }
 
         MiningOptimization::PositionDeltaAndVelocity delta(const PositionAndVelocity &pos,
