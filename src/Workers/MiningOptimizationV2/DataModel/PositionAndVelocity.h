@@ -67,6 +67,11 @@ namespace MiningOptimization
                    std::tie(other.x, other.y, other.heading, other.velocityX, other.velocityY);
         }
 
+        operator BWAPI::Position() const
+        {
+            return {x, y};
+        }
+
         template <typename S>
         void serialize(S& s) {
             s.value2b(x);

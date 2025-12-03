@@ -7,7 +7,7 @@
 namespace MiningOptimization
 {
     template <>
-    bool Solver<GatherArrivalData>::canResendOnFrame(int frame, std::set<int> &previousResendFrames)
+    bool Solver<GatherArrivalData>::canResendOnFrame(int frame, const std::set<int> &previousResendFrames) const
     {
         // Resends cannot be sent LF+1 before an order process timer reset, as this puts the worker in a weird state
         if (OrderProcessTimer::isResetFrame(frame + BWAPI::Broodwar->getLatencyFrames() + 1)) return false;

@@ -1,8 +1,11 @@
 #include "Solver.h"
 
+#include "Geo.h"
 #include "OrderProcessTimer.h"
 
 #include "../DataModel/MapData.h"
+
+#define EPSILON 0.000001
 
 /*
  * This file contains the main logic for the path solver.
@@ -39,59 +42,100 @@ namespace MiningOptimization
 {
     namespace
     {
-        // Attempts to predict what the worker's order process timer will be on the next frame
-        int nextOrderProcessTimer(int simulationFrame, int currentOrderProcessTimer, const std::set<int> &resendFrames)
+        // Computes what the possible order process timer values are for a worker on the next frame
+        std::set<int> nextOrderProcessTimer(int simulationFrame, const std::set<int> &possibleCurrentValues, const std::set<int> &resendFrames)
         {
             // If there was a resend LF ago, treat the worker's order process timer as 10
             // In reality it is 0 for two frames, then 8, but for our logic there is no difference
             if (resendFrames.contains(simulationFrame + 1 - BWAPI::Broodwar->getLatencyFrames()))
             {
-                return 10;
+                return {10};
             }
 
-            // If we already don't know the worker's order process timer value, or the order process timers reset here, return -1
-            if (currentOrderProcessTimer == -1 || OrderProcessTimer::isResetFrame(simulationFrame + 1))
+            // When the order process timers reset, the values can be from 0 to 7 inclusive
+            if (OrderProcessTimer::isResetFrame(simulationFrame + 1))
             {
-                return -1;
+                return {0, 1, 2, 3, 4, 5, 6, 7};
             }
 
-            // Implement the cycle, decrementing and setting to 8 when past 0
-            int result = currentOrderProcessTimer - 1;
-            if (result < 0) result = 8;
+            // Run the order process timer cycle on each current value
+            std::set<int> result;
+            for (auto currentValue : possibleCurrentValues)
+            {
+                result.insert((currentValue == 0) ? 8 : (currentValue - 1));
+            }
             return result;
         }
     }
 
     template <typename ObservationType>
-    std::optional<SolverPathBranch> Solver<ObservationType>::execute()
+    SolverPathBranch Solver<ObservationType>::execute()
     {
-        SolverResends resends;
-        auto result = processNextNodes(startPosition, initialNextPathNodes, startFrame, resends, workerOrderProcessTimerAtStartFrame);
-        if (result)
+        // If we don't know the worker's order process timer value, we assume it can be any of the valid values
+        std::set<int> workerOrderProcessTimer;
+        if (workerOrderProcessTimerAtStartFrame == -1)
         {
-            result->pathToNextBranch.push_front(startPosition);
+            workerOrderProcessTimer = {0, 1, 2, 3, 4, 5, 6, 7, 8};
         }
+        else
+        {
+            workerOrderProcessTimer = {workerOrderProcessTimerAtStartFrame};
+        }
+
+        SolverResends resends;
+        auto result = processNextNodes(startPosition, initialNextPathNodes, startFrame, resends, workerOrderProcessTimer);
+        result.pathToNextBranch.push_front(startPosition);
         return result;
     }
 
     template <typename ObservationType>
-    std::optional<SolverPathBranch> Solver<ObservationType>::processNextNodes( // NOLINT(*-no-recursion)
+    SolverPathBranch Solver<ObservationType>::processNextNodes( // NOLINT(*-no-recursion)
             const PositionAndVelocity &pos,
             const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextNodes,
             int frame,
-            SolverResends &resends,
-            int workerOrderProcessTimer)
+            const SolverResends &resends,
+            const std::set<int> &workerOrderProcessTimer) const
     {
-        int nextWorkerOrderProcessTimer = nextOrderProcessTimer(frame, workerOrderProcessTimer, resends.resendFrames);
+        auto nextWorkerOrderProcessTimer = nextOrderProcessTimer(frame, workerOrderProcessTimer, resends.resendFrames);
 
         // Processes a node and returns its result
         auto processNode =
-                [&](const PathNode<ObservationType> &node) -> std::optional<SolverPathBranch> // NOLINT(*-no-recursion)
+                [&](const PathNode<ObservationType> &node) -> SolverPathBranch // NOLINT(*-no-recursion)
         {
             // Compute the position corresponding to this node
             auto here = node.pos.addTo(pos, positionDeltas);
 
-            // TODO: Check for patch lock and patch switch
+            // Adds patch lock and switch probabilities to the branch
+            // If evaluating a resend branch, we detect patch switches, but patch locks are no longer possible since they will be cleared by the
+            // resend
+            auto addPatchLockAndSwitchProbabilities = [&](SolverPathBranch &branch, bool canPatchLock)
+            {
+                // Not relevant if it is not gather takeover, the takeover frame has passed, or the worker can't have order process timer 0 here
+                if (takeoverFrame == -1 || takeoverFrame <= frame || !nextWorkerOrderProcessTimer.contains(0)) return;
+
+                // Patch locking and switching kicks in at 10 distance from the patch
+                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                    here,
+                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                    resource->center);
+                if (dist > 10) return;
+
+                // There is a possibility of patch lock or switch, so compute the probability based on our forecast
+                auto patchLockProbability = otherPatchesForecast.atFrame(frame);
+                auto patchSwitchProbability = 1.0 - patchLockProbability;
+                if (!canPatchLock) patchLockProbability = 0.0;
+
+                // The probability of each order process timer value occurring is equal
+                auto probabilityWorkerOrderProcessTimerIsZero = (1.0 / (double)nextWorkerOrderProcessTimer.size());
+
+                auto add = [&](std::map<int, double> &map, double probability)
+                {
+                    if (probability < EPSILON) return;
+                    map[frame] = probability * probabilityWorkerOrderProcessTimerIsZero;
+                };
+                add(branch.patchLockFramesWithProbabilities, patchLockProbability);
+                add(branch.patchSwitchFramesWithProbabilities, patchSwitchProbability);
+            };
 
             // If we have reached the end of the path, create the new branch and populate it with the arrival data
             auto &next = node.applicableNextPositions(frame, resends.resendFrames);
@@ -103,11 +147,14 @@ namespace MiningOptimization
                 // TODO: Get arrival data and populate the data maps
 //                auto &arrivalData = node.applicableArrivalData(frame, resends.resendFrames);
 
+                addPatchLockAndSwitchProbabilities(result, true);
+
                 return result;
             }
 
             // Get the result from not resending here
             auto result = processNextNodes(here, next, frame + 1, resends, nextWorkerOrderProcessTimer);
+            addPatchLockAndSwitchProbabilities(result, true);
 
             // If there can be a resend, try it
             auto resendViability = isResendViableHere(node, frame, resends);
@@ -120,15 +167,14 @@ namespace MiningOptimization
 
                 // Get the result
                 auto resendResult = processNextNodes(here, next, frame + 1, resendsHere, nextWorkerOrderProcessTimer);
+                addPatchLockAndSwitchProbabilities(resendResult, false);
 
                 // If the result is better, replace the existing one
                 // TODO
                 result = resendResult;
             }
 
-            if (!result) return std::nullopt;
-
-            result->pathToNextBranch.emplace_front(std::move(here));
+            result.pathToNextBranch.emplace_front(std::move(here));
             return result;
         };
 
@@ -140,7 +186,6 @@ namespace MiningOptimization
         for (const auto &[node, occurrences] : nextNodes)
         {
             auto nodeResult = processNode(node);
-            if (!nodeResult) return std::nullopt;
 
             // Adjust the probabilities by this node's probability
             double nodeProbability = (double)occurrences / 255.0;
@@ -152,12 +197,12 @@ namespace MiningOptimization
                     target[value] += (probability * nodeProbability);
                 }
             };
-            addObservations(nodeResult->arrivalFramesWithProbabilities, result.arrivalFramesWithProbabilities);
-            addObservations(nodeResult->actionFramesWithProbabilities, result.actionFramesWithProbabilities);
-            addObservations(nodeResult->delaysWithProbabilities, result.delaysWithProbabilities);
-            addObservations(nodeResult->patchLockFramesWithProbabilities, result.patchLockFramesWithProbabilities);
+            addObservations(nodeResult.arrivalFramesWithProbabilities, result.arrivalFramesWithProbabilities);
+            addObservations(nodeResult.actionFramesWithProbabilities, result.actionFramesWithProbabilities);
+            addObservations(nodeResult.delaysWithProbabilities, result.delaysWithProbabilities);
+            addObservations(nodeResult.patchLockFramesWithProbabilities, result.patchLockFramesWithProbabilities);
 
-            result.nextBranches.emplace_back(std::exchange(nodeResult, std::nullopt).value());
+            result.nextBranches.emplace_back(std::move(nodeResult));
         }
 
         return result;
@@ -165,7 +210,7 @@ namespace MiningOptimization
 
     template <typename ObservationType>
     std::pair<bool, bool> Solver<ObservationType>::isResendViableHere(
-            const PathNode<ObservationType> &node, int frame, SolverResends &previousResends)
+            const PathNode<ObservationType> &node, int frame, const SolverResends &previousResends) const
     {
         if (previousResends.isFinal) return {false, false};
 

@@ -5,7 +5,7 @@
 namespace MiningOptimization
 {
     template <>
-    bool Solver<ReturnArrivalData>::canResendOnFrame(int frame, std::set<int> &previousResendFrames)
+    bool Solver<ReturnArrivalData>::canResendOnFrame(int frame, const std::set<int> &previousResendFrames) const
     {
         // For return, there are no frame timing limitations
         return true;

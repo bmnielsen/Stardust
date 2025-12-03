@@ -111,6 +111,7 @@ namespace MiningOptimization
 
             Solver<ObservationType> solver(positionDeltas,
                                            minimumNextPathLength,
+                                           resource,
                                            currentPosition,
                                            *currentNodeNextPositions,
                                            currentFrame,

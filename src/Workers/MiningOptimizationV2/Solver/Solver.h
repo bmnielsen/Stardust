@@ -3,6 +3,8 @@
 #include "Resource.h"
 #include "../DataModel/Path.h"
 
+#define PATCH_LOCK_THRESHOLD 0.8
+
 namespace MiningOptimization
 {
     namespace {
@@ -67,12 +69,14 @@ namespace MiningOptimization
         // Constructor used for single-worker gathering and return
         Solver(const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
                const unsigned int minimumNextPathLength,
+               Resource resource,
                const PositionAndVelocity &startPosition,
                const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
                int startFrame,
                int workerOrderProcessTimerAtStartFrame)
                 : positionDeltas(positionDeltas)
                 , minimumNextPathLength(minimumNextPathLength)
+                , resource(std::move(resource))
                 , startPosition(startPosition)
                 , initialNextPathNodes(nextPathNodes)
                 , startFrame(startFrame)
@@ -84,6 +88,7 @@ namespace MiningOptimization
         // Constructor used for double-worker gathering
         Solver(const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
                const unsigned int minimumNextPathLength,
+               Resource resource,
                const PositionAndVelocity &startPosition,
                const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
                int startFrame,
@@ -92,6 +97,7 @@ namespace MiningOptimization
                const ResourceGatherProbabilityForecast &otherPatchesForecast)
                 : positionDeltas(positionDeltas)
                 , minimumNextPathLength(minimumNextPathLength)
+                , resource(std::move(resource))
                 , startPosition(startPosition)
                 , initialNextPathNodes(nextPathNodes)
                 , startFrame(startFrame)
@@ -101,14 +107,15 @@ namespace MiningOptimization
         {}
 
         // Executes the solver
-        // Returns nullopt if no solution can be found
-        std::optional<SolverPathBranch> execute();
+        SolverPathBranch execute();
 
     private:
         /* References to the map mining optimization data relevant for this solve */
 
         const std::vector<std::pair<int8_t, int8_t>> &positionDeltas;
         const unsigned int minimumNextPathLength;
+
+        Resource resource;
 
         // The start position of this solver execution
         const PositionAndVelocity &startPosition;
@@ -130,20 +137,19 @@ namespace MiningOptimization
         const ResourceGatherProbabilityForecast &otherPatchesForecast;
 
         // Recursively process the given next nodes, returning the best solution for all paths below them
-        // Returns nullopt if no solution can be found
-        std::optional<SolverPathBranch> processNextNodes(
+        SolverPathBranch processNextNodes(
                 const PositionAndVelocity &pos,
                 const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
                 int frame,
-                SolverResends &previousResends,
-                int workerOrderProcessTimer);
+                const SolverResends &previousResends,
+                const std::set<int> &workerOrderProcessTimer) const;
 
         // Whether a resend is viable from the given node on the given frame with the given previous resend frames
         // A resend is viable if it can be issued and all possible resend nodes are either stable or have resend data available
         // The second return value is whether the resend must be the final resend, and is only relevant if the first value is true
         std::pair<bool, bool> isResendViableHere(const PathNode<ObservationType> &node,
                                                  int frame,
-                                                 SolverResends &previousResends);
+                                                 const SolverResends &previousResends) const;
 
         /*
          * These methods are where the logic differs between gather and return paths. They are implemented in their own files for each
@@ -151,6 +157,6 @@ namespace MiningOptimization
          */
 
         // Checks if a resend can be sent on the given frame
-        bool canResendOnFrame(int frame, std::set<int> &previousResendFrames);
+        bool canResendOnFrame(int frame, const std::set<int> &previousResendFrames) const;
     };
 }
