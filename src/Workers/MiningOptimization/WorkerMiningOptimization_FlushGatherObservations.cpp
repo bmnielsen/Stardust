@@ -686,7 +686,7 @@ namespace WorkerMiningOptimization
             for (const auto &resource : base->mineralPatches())
             {
                 auto &forecast = resource->getAllOtherPatchesGatheredProbabilityForecast();
-                if (forecast[BWAPI::Broodwar->getLatencyFrames() + 10] >= PATCH_LOCK_THRESHOLD)
+                if (forecast.atFrame(currentFrame + BWAPI::Broodwar->getLatencyFrames() + 11) >= PATCH_LOCK_THRESHOLD)
                 {
                     resourcesWithAllOtherPredictedToBeMined.insert(resource);
 #if PATCHLOCKING_DEBUG_VERBOSE

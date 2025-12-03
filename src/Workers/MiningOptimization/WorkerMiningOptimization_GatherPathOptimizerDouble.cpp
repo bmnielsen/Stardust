@@ -67,15 +67,8 @@ namespace WorkerMiningOptimization
             return result;
         }
 
-        double otherPatchesForecastAtFrame(const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast, int frame)
-        {
-            int frameIdx = frame - currentFrame - 1;
-            if (frameIdx < 0 || frameIdx >= GATHER_FORECAST_FRAMES) return 0.0;
-            return otherPatchesForecast[frameIdx];
-        }
-
         bool isPatchSwitchPossible(const WorkerGatherStatus &workerStatus,
-                                   const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
+                                   const ResourceGatherProbabilityForecast &otherPatchesForecast,
                                    int simulationFrame,
                                    int orderProcessTimer,
                                    const PositionAndVelocity &pos)
@@ -89,7 +82,7 @@ namespace WorkerMiningOptimization
                                                 workerStatus.resource->center);
             if (dist > 10) return false;
 
-            if (otherPatchesForecastAtFrame(otherPatchesForecast, simulationFrame) < PATCH_LOCK_THRESHOLD)
+            if (otherPatchesForecast.atFrame(simulationFrame) < PATCH_LOCK_THRESHOLD)
             {
                 return true;
             }
@@ -262,7 +255,7 @@ namespace WorkerMiningOptimization
         }
 
         std::optional<std::pair<int, double>> evaluatePatchLock(const MyWorker &worker,
-                                                                const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
+                                                                const ResourceGatherProbabilityForecast &otherPatchesForecast,
                                                                 int lastResendFrame,
                                                                 int arrivalFrame)
         {
@@ -332,7 +325,7 @@ namespace WorkerMiningOptimization
             double probabilityAccumulator = 0.0;
             for (const auto &[frame, probability] : possibleFramesAndProbabilities)
             {
-                probabilityAccumulator += probability * otherPatchesForecastAtFrame(otherPatchesForecast, frame);
+                probabilityAccumulator += probability * otherPatchesForecast.atFrame(frame);
             }
             if (probabilityAccumulator < PATCH_LOCK_THRESHOLD)
             {
@@ -344,7 +337,7 @@ namespace WorkerMiningOptimization
         // Checks whether the worker is expected to patch lock, returning the last frame if it will
         template<typename T>
         std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus,
-                                             const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
+                                             const ResourceGatherProbabilityForecast &otherPatchesForecast,
                                              int resendFrame,
                                              const T &arrivalFramesAndOccurrenceRates)
         {
@@ -376,7 +369,7 @@ namespace WorkerMiningOptimization
         }
 
         std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus,
-                                             const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
+                                             const ResourceGatherProbabilityForecast &otherPatchesForecast,
                                              int simulationFrame,
                                              const GatherResendArrivalObservations &observations)
         {
@@ -392,7 +385,7 @@ namespace WorkerMiningOptimization
         }
 
         PositionEvaluation evaluateSecondResendPositions(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
-                                                         const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
+                                                         const ResourceGatherProbabilityForecast &otherPatchesForecast,
                                                          int firstResendFrame,
                                                          int simulationFrame,
                                                          int workerOrderProcessTimer,
@@ -573,7 +566,7 @@ namespace WorkerMiningOptimization
         }
 
         PositionEvaluation evaluatePosition(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
-                                            const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
+                                            const ResourceGatherProbabilityForecast &otherPatchesForecast,
                                             int simulationFrame,
                                             int workerOrderProcessTimer,
                                             GatherPositionObservations &positionMetadata)
@@ -950,7 +943,7 @@ namespace WorkerMiningOptimization
         auto &forecast = workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast();
         for (int frame = earliestArrivalFrame; frame < workerStatus.takeoverFrame; frame++)
         {
-            if (otherPatchesForecastAtFrame(forecast, frame) >= PATCH_LOCK_THRESHOLD)
+            if (forecast.atFrame(frame) >= PATCH_LOCK_THRESHOLD)
             {
 #if TAKEOVER_DEBUG
                 CherryVis::log(workerStatus.worker->id) << "Patch locking could be possible at frame " << frame << "; replanning";

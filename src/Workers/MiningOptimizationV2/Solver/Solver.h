@@ -6,7 +6,7 @@
 namespace MiningOptimization
 {
     namespace {
-        std::array<double, GATHER_FORECAST_FRAMES> emptyOtherPatchesForecast;
+        ResourceGatherProbabilityForecast emptyOtherPatchesForecast;
     }
 
     // Wrapper for the resend frames allowing us to also store some metadata
@@ -89,7 +89,7 @@ namespace MiningOptimization
                int startFrame,
                int workerOrderProcessTimerAtStartFrame,
                int takeoverFrame,
-               const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast)
+               const ResourceGatherProbabilityForecast &otherPatchesForecast)
                 : positionDeltas(positionDeltas)
                 , minimumNextPathLength(minimumNextPathLength)
                 , startPosition(startPosition)
@@ -127,7 +127,7 @@ namespace MiningOptimization
 
         // The forecast of whether all other patches will be gathered in the frames after the start frame
         // Only relevant for two-worker gather, otherwise it will be set to a default value
-        const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast;
+        const ResourceGatherProbabilityForecast &otherPatchesForecast;
 
         // Recursively process the given next nodes, returning the best solution for all paths below them
         // Returns nullopt if no solution can be found

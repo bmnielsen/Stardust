@@ -11,6 +11,13 @@
 #define DEBUG_SATURATION_DATA false
 #endif
 
+double ResourceGatherProbabilityForecast::atFrame(int frame) const
+{
+    int frameIdx = frame - currentFrame - 1;
+    if (frameIdx < 0 || frameIdx >= GATHER_FORECAST_FRAMES) return 0.0;
+    return forecast[frameIdx];
+}
+
 ResourceImpl::ResourceImpl(BWAPI::Unit unit)
     : id(unit->getID())
     , isMinerals(unit->getType().isMineralField())
@@ -21,10 +28,6 @@ ResourceImpl::ResourceImpl(BWAPI::Unit unit)
     , seenLastFrame(false)
     , destroyed(false)
     , bwapiUnit(unit)
-    , gatherProbabilityForecast({0.0})
-    , gatherProbabilityForecastUpdated(-2)
-    , allOtherPatchesGatheredProbabilityForecast({0.0})
-    , allOtherPatchesGatheredProbabilityForecastUpdated(-2)
 {}
 
 bool ResourceImpl::hasMyCompletedRefinery() const
@@ -99,23 +102,25 @@ int ResourceImpl::getDistance(BWAPI::UnitType otherType, BWAPI::Position otherCe
             otherCenter);
 }
 
-std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getAllOtherPatchesGatheredProbabilityForecast()
+ResourceGatherProbabilityForecast &ResourceImpl::getAllOtherPatchesGatheredProbabilityForecast()
 {
-    if (allOtherPatchesGatheredProbabilityForecastUpdated == currentFrame)
+    if (allOtherPatchesGatheredProbabilityForecast.frameLastUpdated == currentFrame)
     {
         return allOtherPatchesGatheredProbabilityForecast;
     }
 
+    auto &forecast = allOtherPatchesGatheredProbabilityForecast.forecast;
+
     // The probability of all other patches being mined at the start of a given frame is found by multiplying all of the other vectors together
-    std::fill(allOtherPatchesGatheredProbabilityForecast.begin(), allOtherPatchesGatheredProbabilityForecast.end(), 1.0);
+    std::fill(forecast.begin(), forecast.end(), 1.0);
     for (auto &patch : resourcesInSwitchPatchRange)
     {
         if (patch->destroyed) continue;
 
-        std::transform(allOtherPatchesGatheredProbabilityForecast.begin(),
-                       allOtherPatchesGatheredProbabilityForecast.end(),
-                       patch->getGatherProbabilityForecast().begin(),
-                       allOtherPatchesGatheredProbabilityForecast.begin(),
+        std::transform(forecast.begin(),
+                       forecast.end(),
+                       patch->getGatherProbabilityForecast().forecast.begin(),
+                       forecast.begin(),
                        std::multiplies<>{});
     }
 
@@ -129,7 +134,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getAllOtherPatchesGath
     // for planning (because of latency), this shouldn't be an issue.
     for (int i = 1; i < GATHER_FORECAST_FRAMES; i++)
     {
-        allOtherPatchesGatheredProbabilityForecast[i] *= allOtherPatchesGatheredProbabilityForecast[i - 1];
+        forecast[i] *= forecast[i - 1];
     }
 
 #if DEBUG_SATURATION_DATA
@@ -138,24 +143,26 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getAllOtherPatchesGath
     std::string sep;
     for (int i = 0; i < std::min(10, GATHER_FORECAST_FRAMES); i++)
     {
-        debug << sep << allOtherPatchesGatheredProbabilityForecast[i];
+        debug << sep << forecast[i];
         sep = ", ";
     }
     CherryVis::log(id) << debug.str();
 #endif
 
-    allOtherPatchesGatheredProbabilityForecastUpdated = currentFrame;
+    allOtherPatchesGatheredProbabilityForecast.frameLastUpdated = currentFrame;
     return allOtherPatchesGatheredProbabilityForecast;
 }
 
-std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityForecast()
+ResourceGatherProbabilityForecast &ResourceImpl::getGatherProbabilityForecast()
 {
-    if (gatherProbabilityForecastUpdated == currentFrame)
+    if (gatherProbabilityForecast.frameLastUpdated == currentFrame)
     {
         return gatherProbabilityForecast;
     }
 
-    auto returner = [&]() -> std::array<double, GATHER_FORECAST_FRAMES>&
+    auto &forecast = gatherProbabilityForecast.forecast;
+
+    auto returner = [&]() -> ResourceGatherProbabilityForecast&
     {
 #if DEBUG_SATURATION_DATA
         std::ostringstream debug;
@@ -163,13 +170,13 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         std::string sep;
         for (int i = 0; i < std::min(10, GATHER_FORECAST_FRAMES); i++)
         {
-            debug << sep << gatherProbabilityForecast[i];
+            debug << sep << forecast[i];
             sep = ", ";
         }
         CherryVis::log(id) << debug.str();
 #endif
 
-        gatherProbabilityForecastUpdated = currentFrame;
+        gatherProbabilityForecast.frameLastUpdated = currentFrame;
         return gatherProbabilityForecast;
     };
 
@@ -211,12 +218,12 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     if (nextMiningWorker && nextMiningWorker->lastTransitionedToWaitForMineralsOrder == currentFrame
         && !OrderProcessTimer::isResetFrame())
     {
-        std::fill(gatherProbabilityForecast.begin(), gatherProbabilityForecast.end(), 1.0);
+        std::fill(forecast.begin(), forecast.end(), 1.0);
         return returner();
     }
 
     // Start with zeroes
-    std::fill(gatherProbabilityForecast.begin(), gatherProbabilityForecast.end(), 0.0);
+    std::fill(forecast.begin(), forecast.end(), 0.0);
 
     // If there is a mining worker, fill in its data
     if (miningWorker)
@@ -225,7 +232,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         // the patch as occupied for the entire forecast horizon and call it a day
         if (miningWorker->lastStartedMining < miningWorker->lastTransitionedToMiningOrder)
         {
-            std::fill(gatherProbabilityForecast.begin(), gatherProbabilityForecast.end(), 1.0);
+            std::fill(forecast.begin(), forecast.end(), 1.0);
             return returner();
         }
 
@@ -249,7 +256,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
             // Fill the array up to the earliest end frame to indicate that the patch is definitely being mined until that point
             if (earliestMiningEndFrame > currentFrame)
             {
-                std::fill_n(gatherProbabilityForecast.begin(), std::min(earliestMiningEndFrame - currentFrame - 1, GATHER_FORECAST_FRAMES), 1.0);
+                std::fill_n(forecast.begin(), std::min(earliestMiningEndFrame - currentFrame - 1, GATHER_FORECAST_FRAMES), 1.0);
             }
             else
             {
@@ -264,12 +271,12 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
                 int arrayIdx = earliestMiningEndFrame + i - currentFrame - 1;
                 if (arrayIdx >= GATHER_FORECAST_FRAMES) break;
 
-                gatherProbabilityForecast[arrayIdx] = 1.0 - ((double)(i + 1) / (double)possibleOrderProcessTimerValues);
+                forecast[arrayIdx] = 1.0 - ((double)(i + 1) / (double)possibleOrderProcessTimerValues);
             }
         }
         else
         {
-            std::fill_n(gatherProbabilityForecast.begin(), std::min(miningEndFrame - currentFrame - 1, GATHER_FORECAST_FRAMES), 1.0);
+            std::fill_n(forecast.begin(), std::min(miningEndFrame - currentFrame - 1, GATHER_FORECAST_FRAMES), 1.0);
         }
     }
 
@@ -287,7 +294,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     }
 
     // Save the probability for the next frame from the currently mining worker
-    double miningWorkerNextFrameProbability = gatherProbabilityForecast[0];
+    double miningWorkerNextFrameProbability = forecast[0];
 
     // Two worker takeover case
     if (gatherStatus->takeoverFrame != -1)
@@ -309,15 +316,15 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
 
             // Start by filling the 1s from the frame after the patch lock frame
             int frameAfterLockIndex = std::max(patchLockFrame - currentFrame, 0);
-            std::fill_n(gatherProbabilityForecast.begin() + frameAfterLockIndex, GATHER_FORECAST_FRAMES - frameAfterLockIndex, 1.0);
+            std::fill_n(forecast.begin() + frameAfterLockIndex, GATHER_FORECAST_FRAMES - frameAfterLockIndex, 1.0);
 
             // If we are in the situation where the mining worker might finish on the patch lock frame, and the next worker has its orders processed
             // first, the probability for that frame becomes the probability that the mining worker was mining on the previous frame
             if (frameAfterLockIndex > 0 && miningWorker && nextMiningWorker->orderProcessIndex > miningWorker->orderProcessIndex)
             {
-                gatherProbabilityForecast[frameAfterLockIndex - 1] = (frameAfterLockIndex == 1)
+                forecast[frameAfterLockIndex - 1] = (frameAfterLockIndex == 1)
                                                                      ? 1.0
-                                                                     : gatherProbabilityForecast[frameAfterLockIndex - 2];
+                                                                     : forecast[frameAfterLockIndex - 2];
             }
             return returner();
         }
@@ -328,7 +335,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
             // If the expected mining start frame is at or before the current frame, we guessed wrong and don't write any data
             int miningStartIndex = gatherStatus->expectedMiningStartFrame - currentFrame - 1;
 
-            std::fill_n(gatherProbabilityForecast.begin() + miningStartIndex, GATHER_FORECAST_FRAMES - miningStartIndex, 1.0);
+            std::fill_n(forecast.begin() + miningStartIndex, GATHER_FORECAST_FRAMES - miningStartIndex, 1.0);
         }
 
         return returner();
@@ -527,7 +534,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     // If there is only one expected arrival frame, we can write directly into the result array
     if (gatherStatus->expectedArrivalFrameAndOccurrenceRate.size() == 1)
     {
-        processArrivalFrame(gatherStatus->expectedArrivalFrameAndOccurrenceRate.begin()->first, 1.0, gatherProbabilityForecast);
+        processArrivalFrame(gatherStatus->expectedArrivalFrameAndOccurrenceRate.begin()->first, 1.0, forecast);
     }
     else
     {
@@ -536,17 +543,17 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
         {
             std::array<double, GATHER_FORECAST_FRAMES> thisForecast = {0.0};
             processArrivalFrame(arrivalFrame, (double)occurrenceRate / 255.0, thisForecast);
-            std::transform(gatherProbabilityForecast.begin(),
-                           gatherProbabilityForecast.end(),
+            std::transform(forecast.begin(),
+                           forecast.end(),
                            thisForecast.begin(),
-                           gatherProbabilityForecast.begin(),
+                           forecast.begin(),
                            std::plus<>{});
         }
 
         // Clamp the values at 1.0
-        std::transform(gatherProbabilityForecast.begin(),
-                       gatherProbabilityForecast.end(),
-                       gatherProbabilityForecast.begin(),
+        std::transform(forecast.begin(),
+                       forecast.end(),
+                       forecast.begin(),
                        [](double d)
                        { return std::min(d, 1.0); });
     }
@@ -554,7 +561,7 @@ std::array<double, GATHER_FORECAST_FRAMES> &ResourceImpl::getGatherProbabilityFo
     // We know the next mining worker won't be mining next frame if it isn't in WaitForMinerals
     if (nextMiningWorker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals)
     {
-        gatherProbabilityForecast[0] = miningWorkerNextFrameProbability;
+        forecast[0] = miningWorkerNextFrameProbability;
     }
 
     return returner();
