@@ -55,6 +55,8 @@ namespace MiningOptimization
         const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &applicableNextPositions(int frame,
                                                                                                   const std::set<int> &previousResendFrames) const
         {
+            if (isStableResendNode) return nextPositions;
+
             if (previousResendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
             {
                 return nextPositionsAfterResend;

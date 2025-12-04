@@ -42,27 +42,61 @@ namespace MiningOptimization
 {
     namespace
     {
-        // Computes what the possible order process timer values are for a worker on the next frame
-        std::set<int> nextOrderProcessTimer(int simulationFrame, const std::set<int> &possibleCurrentValues, const std::set<int> &resendFrames)
+        // Computes what the possible order process timer values are for a worker in a given number of frames
+        template <typename ObservationType>
+        std::set<int> orderProcessTimerInFuture(int startFrame, // NOLINT(*-no-recursion)
+                                                const std::set<int> &possibleStartingValues,
+                                                const std::set<int> &resendFrames,
+                                                unsigned int framesInFuture)
         {
-            // If there was a resend LF ago, treat the worker's order process timer as 10
-            // In reality it is 0 for two frames, then 8, but for our logic there is no difference
-            if (resendFrames.contains(simulationFrame + 1 - BWAPI::Broodwar->getLatencyFrames()))
+            if (framesInFuture == 0) return possibleStartingValues;
+
+            // If there is a resend frame within the window, reset the order process timer value accordingly
+            // For gather, the worker's timer goes to 0 for two frames, then 8. But as the worker can't actually start mining at either of the
+            // intermediate frames, we can just treat the value as 10 on the first frame and everything works out.
+            // For return, it is similar, but without the extra frame, so we use 9 instead.
+            for (auto resendFrame : resendFrames)
             {
-                return {10};
+                int frameResendTakesEffect = resendFrame + BWAPI::Broodwar->getLatencyFrames();
+                if (frameResendTakesEffect > startFrame && frameResendTakesEffect <= (startFrame + framesInFuture))
+                {
+                    constexpr int valueAfterResend = []()
+                    {
+                        if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+                        {
+                            return 10;
+                        }
+                        else
+                        {
+                            return 9;
+                        }
+                    }();
+
+                    // Call recursively to allow a later resend frame to override
+                    return orderProcessTimerInFuture<ObservationType>(frameResendTakesEffect,
+                                                                      {valueAfterResend},
+                                                                      resendFrames,
+                                                                      framesInFuture - (frameResendTakesEffect - startFrame));
+                }
             }
 
-            // When the order process timers reset, the values can be from 0 to 7 inclusive
-            if (OrderProcessTimer::isResetFrame(simulationFrame + 1))
+            // If there is a reset frame within the window, the values can be from 0 to 7 inclusive from that frame
+            int framesToNextReset = OrderProcessTimer::framesToNextReset(startFrame + 1);
+            if (framesToNextReset < framesInFuture)
             {
-                return {0, 1, 2, 3, 4, 5, 6, 7};
+                return orderProcessTimerInFuture<ObservationType>(startFrame + framesToNextReset + 1,
+                                                                  {0, 1, 2, 3, 4, 5, 6, 7},
+                                                                  {},
+                                                                  framesInFuture - framesToNextReset - 1);
             }
 
-            // Run the order process timer cycle on each current value
+            // Nothing has happened that would interfere with the normal cycle, so run it on all the values
             std::set<int> result;
-            for (auto currentValue : possibleCurrentValues)
+            for (auto startingValue : possibleStartingValues)
             {
-                result.insert((currentValue == 0) ? 8 : (currentValue - 1));
+                startingValue -= (int)framesInFuture;
+                while (startingValue < 0) startingValue += 9;
+                result.insert(startingValue);
             }
             return result;
         }
@@ -83,7 +117,7 @@ namespace MiningOptimization
         }
 
         SolverResends resends;
-        auto result = processNextNodes(startPosition, initialNextPathNodes, startFrame, resends, workerOrderProcessTimer);
+        auto result = processNextNodes(startPosition, initialNextPathNodes, startFrame + 1, resends, workerOrderProcessTimer);
         result.pathToNextBranch.push_front(startPosition);
         return result;
     }
@@ -96,14 +130,20 @@ namespace MiningOptimization
             const SolverResends &resends,
             const std::set<int> &workerOrderProcessTimer) const
     {
-        auto nextWorkerOrderProcessTimer = nextOrderProcessTimer(frame, workerOrderProcessTimer, resends.resendFrames);
+        auto nextWorkerOrderProcessTimer =
+                orderProcessTimerInFuture<ObservationType>(frame, workerOrderProcessTimer, resends.resendFrames, 1);
 
         // Processes a node and returns its result
         auto processNode =
                 [&](const PathNode<ObservationType> &node) -> SolverPathBranch // NOLINT(*-no-recursion)
         {
-            // Compute the position corresponding to this node
+            // Compute the position corresponding to this node and define the helper that adds it to a result
             auto here = node.pos.addTo(pos, positionDeltas);
+            auto addPositionTo = [&](SolverPathBranch &result) -> SolverPathBranch&
+            {
+                result.pathToNextBranch.emplace_front(std::move(here));
+                return result;
+            };
 
             // Adds patch lock and switch probabilities to the branch
             // If evaluating a resend branch, we detect patch switches, but patch locks are no longer possible since they will be cleared by the
@@ -142,14 +182,91 @@ namespace MiningOptimization
             if (next.empty())
             {
                 SolverPathBranch result;
-                result.pathToNextBranch.emplace_front(std::move(here));
 
-                // TODO: Get arrival data and populate the data maps
-//                auto &arrivalData = node.applicableArrivalData(frame, resends.resendFrames);
+                auto addArrivalData = [&](const ObservationType &arrivalData, double probability)
+                {
+                    // The arrival frame is given by the delay here
+                    int arrivalFrame = frame + arrivalData.arrivalDelay;
+                    result.arrivalFramesWithProbabilities[arrivalFrame] += probability;
+
+                    // Compute the possible order process timer values at arrival, taking pending resends into account
+                    auto possibleOrderProcessTimerValuesAtArrival =
+                            (arrivalData.arrivalDelay == 1)
+                            ? nextWorkerOrderProcessTimer
+                            : orderProcessTimerInFuture<ObservationType>(frame,
+                                                                         workerOrderProcessTimer,
+                                                                         resends.resendFrames,
+                                                                         arrivalData.arrivalDelay);
+
+                    // Now use this data to compute when the action (mining start or resource delivery) will occur
+                    // As the action will occur once the order process timer reaches 0, in the simple case we can just add the order process timer
+                    // value to the arrival frame and get the action frame.
+                    // However, the order process timer might reset after arrival. In this case, there will be 8 additional possible order process
+                    // timer values to consider.
+                    // Note that in normal situations, we will not have a set of possible values coming into this block and find a reset while
+                    // waiting, since usually the reason for having a set of possible values is that there has already been a reset. However we need
+                    // to handle it since we technically can run the solver without knowing the unit's initial order process timer value (like for
+                    // a spawned unit).
+
+                    // TODO: Consider the takeover frame? Or will that be handled elsewhere?
+
+                    // Get the number of frames from the arrival frame to the next order process timer reset
+                    // We do not include resets at the arrival frame itself, as these have already been considered when computing the possible values
+                    int orderProcessTimerResetAfterArrival = OrderProcessTimer::framesToNextReset(arrivalFrame + 1) + 1;
+
+                    // Loop through the possible values
+                    // As the set is sorted, we know we will handle the values before the reset first
+                    int handledValuesBeforeReset = 0;
+                    for (int orderProcessTimerValue : possibleOrderProcessTimerValuesAtArrival)
+                    {
+                        if (orderProcessTimerValue < orderProcessTimerResetAfterArrival)
+                        {
+                            result.actionFramesWithProbabilities[arrivalFrame + orderProcessTimerValue] +=
+                                    (probability * (1.0 / (double)possibleOrderProcessTimerValuesAtArrival.size()));
+                            handledValuesBeforeReset++;
+                            continue;
+                        }
+
+                        // A reset has occurred before all values were considered
+                        // We now have to consider the possible values 0 to 7 from the reset frame
+                        // Their probability is the probability we made it to the reset frame times the probability of each value (1/8)
+                        double resetValueProbability =
+                                ((1.0 - ((double)handledValuesBeforeReset / (double)possibleOrderProcessTimerValuesAtArrival.size())) / 8.0)
+                                * probability;
+                        for (int resetOrderProcessTimerValue = 0; resetOrderProcessTimerValue <= 7; resetOrderProcessTimerValue++)
+                        {
+                            result.actionFramesWithProbabilities[arrivalFrame + orderProcessTimerResetAfterArrival + resetOrderProcessTimerValue]
+                                += resetValueProbability;
+                        }
+                    }
+
+                    result.delaysWithProbabilities[arrivalData.delayAfterAction()] += probability;
+                    result.nextPathLengthWithProbabilities[arrivalData.nextPathLength(minimumNextPathLength)] += probability;
+                };
+
+                // Process the arrival data, weighting by probability if there are unstable results
+                auto &arrivalDataAndOccurrenceRates = node.applicableArrivalData(frame, resends.resendFrames);
+
+#if LOGGING_ENABLED
+                if (arrivalDataAndOccurrenceRates.empty())
+                {
+                    Log::Get() << "ERROR: Empty arrival data at leaf node in path solver";
+                }
+#endif
+
+                for (const auto &[arrivalData, occurrenceRate] : arrivalDataAndOccurrenceRates)
+                {
+                    addArrivalData(arrivalData, (double)occurrenceRate / 255.0);
+                }
 
                 addPatchLockAndSwitchProbabilities(result, true);
 
-                return result;
+                if (result.nextPathLengthWithProbabilities.empty())
+                {
+                    Log::Get() << "here";
+                }
+
+                return addPositionTo(result);
             }
 
             // Get the result from not resending here
@@ -158,24 +275,58 @@ namespace MiningOptimization
 
             // If there can be a resend, try it
             auto resendViability = isResendViableHere(node, frame, resends);
-            if (resendViability.first)
+            if (!resendViability.first) return addPositionTo(result);
+
+            // Add the resend frame
+            std::set<int> resendFrames = resends.resendFrames;
+            resendFrames.insert(frame);
+            SolverResends resendsHere{std::move(resendFrames), resendViability.second};
+
+            // Get the result
+            auto resendResult = processNextNodes(here, next, frame + 1, resendsHere, nextWorkerOrderProcessTimer);
+            resendResult.resendFramesOnThisBranch.insert(frame);
+            addPatchLockAndSwitchProbabilities(resendResult, false);
+
+            // Score the two results and return the best one
+            auto scoreResult = [](const SolverPathBranch &result)
             {
-                // Add the resend frame
-                std::set<int> resendFrames = resends.resendFrames;
-                resendFrames.insert(frame);
-                SolverResends resendsHere{std::move(resendFrames), resendViability.second};
+                auto mapAverage = [](const std::map<int, double> &map)
+                {
+#if LOGGING_ENABLED
+                    double test = 0.0;
+                    for (const auto &[_, probability] : map) test += probability;
+                    if (test < (1.0 - EPSILON) || test > (1.0 + EPSILON))
+                    {
+                        Log::Get() << "ERROR: Probabilities don't sum to 1; actual value is " << test;
+                    }
+#endif
 
-                // Get the result
-                auto resendResult = processNextNodes(here, next, frame + 1, resendsHere, nextWorkerOrderProcessTimer);
-                addPatchLockAndSwitchProbabilities(resendResult, false);
+                    double result = 0.0;
+                    for (const auto &[value, probability] : map)
+                    {
+                        result += (double)value * probability;
+                    }
+                    return result;
+                };
 
-                // If the result is better, replace the existing one
-                // TODO
-                result = resendResult;
+                // Start with the action frame
+                double score = mapAverage(result.actionFramesWithProbabilities);
+
+                // Add the delays
+                score += mapAverage(result.delaysWithProbabilities);
+
+                // TODO: Consider patch locking and switching
+
+                // Add a tenth of the next path length
+                score += 0.1 * mapAverage(result.nextPathLengthWithProbabilities);
+
+                return score;
+            };
+            if (scoreResult(result) <= scoreResult(resendResult))
+            {
+                return addPositionTo(result);
             }
-
-            result.pathToNextBranch.emplace_front(std::move(here));
-            return result;
+            return addPositionTo(resendResult);
         };
 
         // If the path doesn't branch here, we can just return the result for the single node
@@ -183,12 +334,12 @@ namespace MiningOptimization
 
         // The path branches, so we need to also branch the solve result
         SolverPathBranch result;
-        for (const auto &[node, occurrences] : nextNodes)
+        for (const auto &[node, occurrenceRate] : nextNodes)
         {
             auto nodeResult = processNode(node);
 
             // Adjust the probabilities by this node's probability
-            double nodeProbability = (double)occurrences / 255.0;
+            double nodeProbability = (double)occurrenceRate / 255.0;
 
             auto addObservations = [&](const std::map<int, double> &source, std::map<int, double> &target)
             {
@@ -201,6 +352,8 @@ namespace MiningOptimization
             addObservations(nodeResult.actionFramesWithProbabilities, result.actionFramesWithProbabilities);
             addObservations(nodeResult.delaysWithProbabilities, result.delaysWithProbabilities);
             addObservations(nodeResult.patchLockFramesWithProbabilities, result.patchLockFramesWithProbabilities);
+            addObservations(nodeResult.patchSwitchFramesWithProbabilities, result.patchSwitchFramesWithProbabilities);
+            addObservations(nodeResult.nextPathLengthWithProbabilities, result.nextPathLengthWithProbabilities);
 
             result.nextBranches.emplace_back(std::move(nodeResult));
         }

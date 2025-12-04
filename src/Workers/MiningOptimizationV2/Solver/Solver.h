@@ -40,9 +40,8 @@ namespace MiningOptimization
         std::map<int, double> arrivalFramesWithProbabilities;
 
         // The predicted "action frame" (transition to mining or delivery of resource)
-        // If there is a predicted patch lock that happens after arrival, this will be the patch lock frame.
-        // If there is a predicted patch lock that happens before arrival, this will be the frame where the worker arrives and has its order process
-        // timer reach zero.
+        // For takeover this does not respect the actual takeover frame - it is simply the frame after arrival where the worker's order process
+        // timer reaches zero (weighted by probability if the order process timer value is not precisely known)
         std::map<int, double> actionFramesWithProbabilities;
 
         // The predicted delays (not facing patch, collision); can be negative for returns with preserved speed

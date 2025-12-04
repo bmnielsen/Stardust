@@ -47,6 +47,25 @@ namespace MiningOptimization
             return (ReturnExitSpeed)(packed & 0b00000011);
         }
 
+        // Gets the delay at this arrival after the resources are delivered:
+        // - Collision incurs 9 frames of delay
+        // - Medium exit speed gives 2 frames of bonus
+        // - High exit speed gives 4 frames of bonus
+        [[nodiscard]] int delayAfterAction() const
+        {
+            switch (exitSpeed())
+            {
+                case ReturnExitSpeed::Collision:
+                    return 9;
+                case ReturnExitSpeed::Low:
+                    return 0;
+                case ReturnExitSpeed::Medium:
+                    return -2;
+                case ReturnExitSpeed::High:
+                    return -4;
+            }
+        }
+
         bool operator==(const ReturnArrivalData &other) const
         {
             return std::tie(arrivalDelay, packed) == std::tie(other.arrivalDelay, other.packed);

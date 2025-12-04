@@ -43,6 +43,14 @@ namespace MiningOptimization
             return (packed & 0b00000010) == 0b00000010;
         }
 
+        // Gets the delay at this arrival after the transition to mining:
+        // - 9 frames if the worker isn't facing the target (spends an order process timer cycle turning to face the patch)
+        // - 9 frames if the worker collides with the patch after completing mining
+        [[nodiscard]] int delayAfterAction() const
+        {
+            return (collision() ? 9 : 0) + (!facingTarget() ? 9 : 0);
+        }
+
         bool operator==(const GatherArrivalData &other) const
         {
             return std::tie(arrivalDelay, packed) == std::tie(other.arrivalDelay, other.packed);
