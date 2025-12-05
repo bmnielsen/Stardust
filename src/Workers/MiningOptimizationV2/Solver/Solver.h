@@ -70,14 +70,14 @@ namespace MiningOptimization
                const unsigned int minimumNextPathLength,
                Resource resource,
                const PositionAndVelocity &startPosition,
-               const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
+               const Path<ObservationType> &path,
                int startFrame,
                int workerOrderProcessTimerAtStartFrame)
                 : positionDeltas(positionDeltas)
                 , minimumNextPathLength(minimumNextPathLength)
                 , resource(std::move(resource))
                 , startPosition(startPosition)
-                , initialNextPathNodes(nextPathNodes)
+                , path(path)
                 , startFrame(startFrame)
                 , workerOrderProcessTimerAtStartFrame(workerOrderProcessTimerAtStartFrame)
                 , takeoverFrame(-1)
@@ -89,7 +89,7 @@ namespace MiningOptimization
                const unsigned int minimumNextPathLength,
                Resource resource,
                const PositionAndVelocity &startPosition,
-               const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
+               const Path<ObservationType> &path,
                int startFrame,
                int workerOrderProcessTimerAtStartFrame,
                int takeoverFrame,
@@ -98,7 +98,7 @@ namespace MiningOptimization
                 , minimumNextPathLength(minimumNextPathLength)
                 , resource(std::move(resource))
                 , startPosition(startPosition)
-                , initialNextPathNodes(nextPathNodes)
+                , path(path)
                 , startFrame(startFrame)
                 , workerOrderProcessTimerAtStartFrame(workerOrderProcessTimerAtStartFrame)
                 , takeoverFrame(takeoverFrame)
@@ -119,8 +119,8 @@ namespace MiningOptimization
         // The start position of this solver execution
         const PositionAndVelocity &startPosition;
 
-        // The next path nodes and their weights from the start position
-        const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &initialNextPathNodes;
+        // The path
+        const Path<ObservationType> &path;
 
         // The start frame of this solver execution
         int startFrame;

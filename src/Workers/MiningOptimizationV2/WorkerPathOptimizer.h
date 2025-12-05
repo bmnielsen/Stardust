@@ -3,6 +3,7 @@
 #include "MyWorker.h"
 #include "Resource.h"
 #include "DataModel/MapData.h"
+#include "Solver/Solver.h"
 
 #include "DebugFlag_MiningOptimization.h"
 
@@ -27,23 +28,8 @@ namespace MiningOptimization
         // The last frame this worker was optimized
         int lastProcessedFrame;
 
-        // The expected frames the worker could arrive at the target with their occurrence rates
-        std::vector<std::pair<int, int>> expectedArrivalFrameAndOccurrenceRate;
-
-        // The frame at which the worker is expected to lock to the patch
-        // If the worker is not expected to lock to the patch, this will be -1
-        // Only applicable when taking over from another worker
-        int expectedPatchLockFrame;
-
-        // Same as the above, but the actual frame after patch lock has occurred
+        // The actual frame after patch lock has occurred, or -1 if the worker hasn't patch locked
         int actualPatchLockFrame;
-
-        // The frame this worker is expected to start mining
-        // Not relevant if the worker has an expected patch lock frame, since the mining start frame then depends on the
-        // worker being taken over from
-        // If the expected mining start frame is unknown, this will be -1
-        // Only applicable when taking over from another worker
-        int expectedMiningStartFrame;
 
         WorkerPathOptimizer(const std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> &pathData,
                             const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
@@ -52,9 +38,7 @@ namespace MiningOptimization
                             MyUnit depot,
                             Resource resource)
                 : lastProcessedFrame(-2)
-                , expectedPatchLockFrame(-1)
                 , actualPatchLockFrame(-1)
-                , expectedMiningStartFrame(-1)
                 , pathData(pathData)
                 , positionDeltas(positionDeltas)
                 , minimumNextPathLength(minimumNextPathLength)
@@ -62,26 +46,19 @@ namespace MiningOptimization
                 , depot(std::move(depot))
                 , resource(std::move(resource))
                 , statusFlags(0)
-                , pathPlanned(false)
-                , previousNodeNextPositions(nullptr)
         {}
 
         void reset()
         {
             lastProcessedFrame = -2;
-            expectedArrivalFrameAndOccurrenceRate.clear();
-            expectedPatchLockFrame = -1;
             actualPatchLockFrame = -1;
-            expectedMiningStartFrame = -1;
             statusFlags = 0;
-            pathPlanned = false;
-            plannedResendFrames.clear();
             executedResendFrames.clear();
+#if IS_OPENBW
             startPosition.reset();
+#endif
             pathBeingFollowed.reset();
-            expectedPath.clear();
-            previousPosition.reset();
-            previousNodeNextPositions = nullptr;
+            expectedPath.reset();
         }
 
         bool matches(const MyUnit &_depot, const Resource &_resource)
@@ -123,12 +100,6 @@ namespace MiningOptimization
         // Status flags
         unsigned int statusFlags;
 
-        // Whether we have planned a path
-        bool pathPlanned;
-
-        // Frames on which we plan to issue a resend
-        std::set<int> plannedResendFrames;
-
         // Frames on which we have issued a resend
         std::set<int> executedResendFrames;
 
@@ -141,17 +112,14 @@ namespace MiningOptimization
         // As we store the paths in serialized form to save on memory, we keep the deserialized path here while we are using it.
         std::unique_ptr<Path<ObservationType>> pathBeingFollowed;
 
-        // The expected path nodes the worker will visit
-        // For paths with resends this includes the path up until the node where the last resend takes effect
-        // For paths without resends this includes the path up to arrival
-        std::deque<PathNode<ObservationType>*> expectedPath;
+        // The expected path tree the worker will visit, returned from the solver
+        std::unique_ptr<SolverPathBranch> expectedPath;
 
-        // The worker's position on the previous frame
-        std::unique_ptr<PositionAndVelocity> previousPosition;
-
-        // The next positions from the previous path node in the path being followed
-        // Used if we lose the expected path and need to back up to see if we are following a different known branch
-        std::vector<std::pair<PathNode<ObservationType>, uint8_t>>* previousNodeNextPositions;
+        void resetPath()
+        {
+            pathBeingFollowed.reset();
+            expectedPath.reset();
+        }
 
         /*
          * These methods are where the logic differs between gather and return paths. They are implemented in their own files for each

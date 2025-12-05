@@ -117,7 +117,7 @@ namespace MiningOptimization
         }
 
         SolverResends resends;
-        auto result = processNextNodes(startPosition, initialNextPathNodes, startFrame + 1, resends, workerOrderProcessTimer);
+        auto result = processNextNodes(startPosition, path.nextPositions, startFrame + 1, resends, workerOrderProcessTimer);
         result.pathToNextBranch.push_front(startPosition);
         return result;
     }
