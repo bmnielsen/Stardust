@@ -42,7 +42,7 @@ namespace MiningOptimization
                                            *pathBeingFollowed,
                                            currentFrame,
                                            worker->orderProcessTimer);
-            expectedPath = std::make_unique<SolverPathBranch>(solver.execute());
+            expectedPath = std::make_unique<SolverResult>(solver.execute());
 
 #if VERBOSE_PATH_LOGGING
             CherryVis::log(worker->id) << "Captured path and ran solver";
@@ -105,7 +105,7 @@ namespace MiningOptimization
                 {
                     foundNextBranch = true;
                     candidate.pathToNextBranch.pop_front();
-                    expectedPath = std::make_unique<SolverPathBranch>(std::move(candidate));
+                    expectedPath = std::make_unique<SolverResult>(std::move(candidate));
                     break;
                 }
             }

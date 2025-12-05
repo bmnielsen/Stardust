@@ -113,7 +113,7 @@ namespace MiningOptimization
         std::unique_ptr<Path<ObservationType>> pathBeingFollowed;
 
         // The expected path tree the worker will visit, returned from the solver
-        std::unique_ptr<SolverPathBranch> expectedPath;
+        std::unique_ptr<SolverResult> expectedPath;
 
         void resetPath()
         {

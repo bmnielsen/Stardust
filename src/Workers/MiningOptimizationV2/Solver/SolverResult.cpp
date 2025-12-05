@@ -1,0 +1,31 @@
+#include "SolverResult.h"
+
+#define EPSILON 0.000001
+
+namespace MiningOptimization
+{
+    double SolverResult::mapAverage(const std::map<int, double> &map)
+    {
+#if LOGGING_ENABLED
+        double sum = probabilitySum(map);
+        if (sum < (1.0 - EPSILON) || sum > (1.0 + EPSILON))
+        {
+            Log::Get() << "ERROR: Probabilities don't sum to 1; actual value is " << sum;
+        }
+#endif
+
+        double result = 0.0;
+        for (const auto &[value, probability] : map)
+        {
+            result += (double)value * probability;
+        }
+        return result;
+    }
+
+    double SolverResult::probabilitySum(const std::map<int, double> &map)
+    {
+        double result = 0.0;
+        for (const auto &[_, probability] : map) result += probability;
+        return result;
+    }
+}

@@ -103,7 +103,7 @@ namespace MiningOptimization
     }
 
     template <typename ObservationType>
-    SolverPathBranch Solver<ObservationType>::execute()
+    SolverResult Solver<ObservationType>::execute()
     {
         // If we don't know the worker's order process timer value, we assume it can be any of the valid values
         std::set<int> workerOrderProcessTimer;
@@ -123,7 +123,7 @@ namespace MiningOptimization
     }
 
     template <typename ObservationType>
-    SolverPathBranch Solver<ObservationType>::processNextNodes( // NOLINT(*-no-recursion)
+    SolverResult Solver<ObservationType>::processNextNodes( // NOLINT(*-no-recursion)
             const PositionAndVelocity &pos,
             const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextNodes,
             int frame,
@@ -135,11 +135,11 @@ namespace MiningOptimization
 
         // Processes a node and returns its result
         auto processNode =
-                [&](const PathNode<ObservationType> &node) -> SolverPathBranch // NOLINT(*-no-recursion)
+                [&](const PathNode<ObservationType> &node) -> SolverResult // NOLINT(*-no-recursion)
         {
             // Compute the position corresponding to this node and define the helper that adds it to a result
             auto here = node.pos.addTo(pos, positionDeltas);
-            auto addPositionTo = [&](SolverPathBranch &result) -> SolverPathBranch&
+            auto addPositionTo = [&](SolverResult &result) -> SolverResult&
             {
                 result.pathToNextBranch.emplace_front(std::move(here));
                 return result;
@@ -148,7 +148,7 @@ namespace MiningOptimization
             // Adds patch lock and switch probabilities to the branch
             // If evaluating a resend branch, we detect patch switches, but patch locks are no longer possible since they will be cleared by the
             // resend
-            auto addPatchLockAndSwitchProbabilities = [&](SolverPathBranch &branch, bool canPatchLock)
+            auto addPatchLockAndSwitchProbabilities = [&](SolverResult &branch, bool canPatchLock)
             {
                 // Not relevant if it is not gather takeover, the takeover frame has passed, or the worker can't have order process timer 0 here
                 if (takeoverFrame == -1 || takeoverFrame <= frame || !nextWorkerOrderProcessTimer.contains(0)) return;
@@ -181,7 +181,7 @@ namespace MiningOptimization
             auto &next = node.applicableNextPositions(frame, resends.resendFrames);
             if (next.empty())
             {
-                SolverPathBranch result;
+                SolverResult result;
 
                 auto addArrivalData = [&](const ObservationType &arrivalData, double probability)
                 {
@@ -261,12 +261,7 @@ namespace MiningOptimization
 
                 addPatchLockAndSwitchProbabilities(result, true);
 
-                if (result.nextPathLengthWithProbabilities.empty())
-                {
-                    Log::Get() << "here";
-                }
-
-                return addPositionTo(result);
+                return std::move(addPositionTo(result));
             }
 
             // Get the result from not resending here
@@ -275,7 +270,7 @@ namespace MiningOptimization
 
             // If there can be a resend, try it
             auto resendViability = isResendViableHere(node, frame, resends);
-            if (!resendViability.first) return addPositionTo(result);
+            if (!resendViability.first) return std::move(addPositionTo(result));
 
             // Add the resend frame
             std::set<int> resendFrames = resends.resendFrames;
@@ -288,52 +283,33 @@ namespace MiningOptimization
             addPatchLockAndSwitchProbabilities(resendResult, false);
 
             // Score the two results and return the best one
-            auto scoreResult = [](const SolverPathBranch &result)
+            auto scoreResult = [](const SolverResult &result)
             {
-                auto mapAverage = [](const std::map<int, double> &map)
-                {
-#if LOGGING_ENABLED
-                    double test = 0.0;
-                    for (const auto &[_, probability] : map) test += probability;
-                    if (test < (1.0 - EPSILON) || test > (1.0 + EPSILON))
-                    {
-                        Log::Get() << "ERROR: Probabilities don't sum to 1; actual value is " << test;
-                    }
-#endif
-
-                    double result = 0.0;
-                    for (const auto &[value, probability] : map)
-                    {
-                        result += (double)value * probability;
-                    }
-                    return result;
-                };
-
                 // Start with the action frame
-                double score = mapAverage(result.actionFramesWithProbabilities);
+                double score = SolverResult::mapAverage(result.actionFramesWithProbabilities);
 
                 // Add the delays
-                score += mapAverage(result.delaysWithProbabilities);
+                score += SolverResult::mapAverage(result.delaysWithProbabilities);
 
                 // TODO: Consider patch locking and switching
 
                 // Add a tenth of the next path length
-                score += 0.1 * mapAverage(result.nextPathLengthWithProbabilities);
+                score += 0.1 * SolverResult::mapAverage(result.nextPathLengthWithProbabilities);
 
                 return score;
             };
             if (scoreResult(result) <= scoreResult(resendResult))
             {
-                return addPositionTo(result);
+                return std::move(addPositionTo(result));
             }
-            return addPositionTo(resendResult);
+            return std::move(addPositionTo(resendResult));
         };
 
         // If the path doesn't branch here, we can just return the result for the single node
         if (nextNodes.size() == 1) return processNode(nextNodes.begin()->first);
 
         // The path branches, so we need to also branch the solve result
-        SolverPathBranch result;
+        SolverResult result;
         for (const auto &[node, occurrenceRate] : nextNodes)
         {
             auto nodeResult = processNode(node);
