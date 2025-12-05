@@ -45,7 +45,7 @@ namespace MiningOptimization
             expectedPath = std::make_unique<SolverResult>(solver.execute());
 
 #if VERBOSE_PATH_LOGGING
-            CherryVis::log(worker->id) << "Captured path and ran solver";
+            CherryVis::log(worker->id) << "Captured path and ran solver; predicted frames:\n" << expectedPath->framePredictions();
 #endif
         }
 
@@ -65,7 +65,6 @@ namespace MiningOptimization
         // Check if we have reached the end of the path
         if (expectedPath->pathToNextBranch.empty() && expectedPath->nextBranches.empty())
         {
-            resetPath();
             return;
         }
 
@@ -106,6 +105,11 @@ namespace MiningOptimization
                     foundNextBranch = true;
                     candidate.pathToNextBranch.pop_front();
                     expectedPath = std::make_unique<SolverResult>(std::move(candidate));
+
+#if VERBOSE_PATH_LOGGING
+                    CherryVis::log(worker->id) << "Captured next branch; predicted frames\n" << expectedPath->framePredictions();
+#endif
+
                     break;
                 }
             }

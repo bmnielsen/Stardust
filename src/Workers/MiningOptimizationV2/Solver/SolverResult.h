@@ -46,6 +46,9 @@ namespace MiningOptimization
         // This is not expected to be very exact, but can be used to nudge the worker towards picking paths that get it onto a better next path.
         std::map<int, double> nextPathLengthWithProbabilities;
 
+        // Formats the frame predictions as a string
+        [[nodiscard]] std::string framePredictions() const;
+
         // Computes the average value of the map, weighting each value by its probability.
         // This method assumes the probabilities sum up to 1 (which is the case for the maps not related to patch locking)
         static double mapAverage(const std::map<int, double> &map);
