@@ -68,7 +68,7 @@ namespace MiningOptimization
         {}
 
         // Executes the solver
-        SolverResult execute();
+        SolverResult<ObservationType> execute();
 
     private:
         /* References to the map mining optimization data relevant for this solve */
@@ -98,7 +98,7 @@ namespace MiningOptimization
         const ResourceGatherProbabilityForecast &otherPatchesForecast;
 
         // Recursively process the given next nodes, returning the best solution for all paths below them
-        SolverResult processNextNodes(
+        SolverResult<ObservationType> processNextNodes(
                 const PositionAndVelocity &pos,
                 const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
                 int frame,

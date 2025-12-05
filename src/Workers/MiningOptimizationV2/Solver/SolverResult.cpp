@@ -1,10 +1,13 @@
 #include "SolverResult.h"
 
+#include "../DataModel/MapData.h"
+
 #define EPSILON 0.000001
 
 namespace MiningOptimization
 {
-    std::string SolverResult::framePredictions() const
+    template <typename ObservationType>
+    std::string SolverResult<ObservationType>::framePredictions() const
     {
         auto handleMap = [](const std::map<int, double> &map)
         {
@@ -33,7 +36,8 @@ namespace MiningOptimization
         return out.str();
     }
 
-    double SolverResult::mapAverage(const std::map<int, double> &map)
+    template <typename ObservationType>
+    double SolverResult<ObservationType>::mapAverage(const std::map<int, double> &map)
     {
 #if LOGGING_ENABLED
         double sum = probabilitySum(map);
@@ -51,10 +55,14 @@ namespace MiningOptimization
         return result;
     }
 
-    double SolverResult::probabilitySum(const std::map<int, double> &map)
+    template <typename ObservationType>
+    double SolverResult<ObservationType>::probabilitySum(const std::map<int, double> &map)
     {
         double result = 0.0;
         for (const auto &[_, probability] : map) result += probability;
         return result;
     }
+
+    template struct SolverResult<GatherArrivalData>;
+    template struct SolverResult<ReturnArrivalData>;
 }

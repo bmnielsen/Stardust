@@ -103,7 +103,7 @@ namespace MiningOptimization
     }
 
     template <typename ObservationType>
-    SolverResult Solver<ObservationType>::execute()
+    SolverResult<ObservationType> Solver<ObservationType>::execute()
     {
         // If we don't know the worker's order process timer value, we assume it can be any of the valid values
         std::set<int> workerOrderProcessTimer;
@@ -119,11 +119,12 @@ namespace MiningOptimization
         SolverResends resends;
         auto result = processNextNodes(startPosition, path.nextPositions, startFrame + 1, resends, workerOrderProcessTimer);
         result.pathToNextBranch.push_front(startPosition);
+        result.pathNodesToNextBranch.push_front(nullptr); // This should otherwise be the root node, but we know we don't need to use it again
         return result;
     }
 
     template <typename ObservationType>
-    SolverResult Solver<ObservationType>::processNextNodes( // NOLINT(*-no-recursion)
+    SolverResult<ObservationType> Solver<ObservationType>::processNextNodes( // NOLINT(*-no-recursion)
             const PositionAndVelocity &pos,
             const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextNodes,
             int frame,
@@ -135,20 +136,21 @@ namespace MiningOptimization
 
         // Processes a node and returns its result
         auto processNode =
-                [&](const PathNode<ObservationType> &node) -> SolverResult // NOLINT(*-no-recursion)
+                [&](const PathNode<ObservationType> &node) -> SolverResult<ObservationType> // NOLINT(*-no-recursion)
         {
             // Compute the position corresponding to this node and define the helper that adds it to a result
             auto here = node.pos.addTo(pos, positionDeltas);
-            auto addPositionTo = [&](SolverResult &result) -> SolverResult&
+            auto addPositionTo = [&](SolverResult<ObservationType> &result) -> SolverResult<ObservationType>&
             {
                 result.pathToNextBranch.emplace_front(std::move(here));
+                result.pathNodesToNextBranch.push_front(&node);
                 return result;
             };
 
             // Adds patch lock and switch probabilities to the branch
             // If evaluating a resend branch, we detect patch switches, but patch locks are no longer possible since they will be cleared by the
             // resend
-            auto addPatchLockAndSwitchProbabilities = [&](SolverResult &branch, bool canPatchLock)
+            auto addPatchLockAndSwitchProbabilities = [&](SolverResult<ObservationType> &branch, bool canPatchLock)
             {
                 // Not relevant if it is not gather takeover, the takeover frame has passed, or the worker can't have order process timer 0 here
                 if (takeoverFrame == -1 || takeoverFrame <= frame || !nextWorkerOrderProcessTimer.contains(0)) return;
@@ -181,7 +183,7 @@ namespace MiningOptimization
             auto &next = node.applicableNextPositions(frame, resends.resendFrames);
             if (next.empty())
             {
-                SolverResult result;
+                SolverResult<ObservationType> result;
 
                 auto addArrivalData = [&](const ObservationType &arrivalData, double probability)
                 {
@@ -283,18 +285,18 @@ namespace MiningOptimization
             addPatchLockAndSwitchProbabilities(resendResult, false);
 
             // Score the two results and return the best one
-            auto scoreResult = [](const SolverResult &result)
+            auto scoreResult = [](const SolverResult<ObservationType> &result)
             {
                 // Start with the action frame
-                double score = SolverResult::mapAverage(result.actionFramesWithProbabilities);
+                double score = SolverResult<ObservationType>::mapAverage(result.actionFramesWithProbabilities);
 
                 // Add the delays
-                score += SolverResult::mapAverage(result.delaysWithProbabilities);
+                score += SolverResult<ObservationType>::mapAverage(result.delaysWithProbabilities);
 
                 // TODO: Consider patch locking and switching
 
                 // Add a tenth of the next path length
-                score += 0.1 * SolverResult::mapAverage(result.nextPathLengthWithProbabilities);
+                score += 0.1 * SolverResult<ObservationType>::mapAverage(result.nextPathLengthWithProbabilities);
 
                 return score;
             };
@@ -309,7 +311,7 @@ namespace MiningOptimization
         if (nextNodes.size() == 1) return processNode(nextNodes.begin()->first);
 
         // The path branches, so we need to also branch the solve result
-        SolverResult result;
+        SolverResult<ObservationType> result;
         for (const auto &[node, occurrenceRate] : nextNodes)
         {
             auto nodeResult = processNode(node);
