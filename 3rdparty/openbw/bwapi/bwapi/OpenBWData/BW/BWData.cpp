@@ -2474,7 +2474,16 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
     }
 
     // Remove duplicated positions at the end of the path, these are the positions while the worker was waiting to gather or deliver
-    while (positions.size() > 1 && *(positions.rbegin()) == *(positions.rbegin() + 1))
+    // We only consider the x and y position and heading, since the worker might have some residual velocity that has no effect
+    auto positionsEqualExcludingVelocity =
+            [](const Unit::exactPosition &first, const Unit::exactPosition &second)
+    {
+        if (std::get<0>(first) != std::get<0>(second)) return false;
+        if (std::get<1>(first) != std::get<1>(second)) return false;
+        if (std::get<2>(first) != std::get<2>(second)) return false;
+        return true;
+    };
+    while (positions.size() > 1 && positionsEqualExcludingVelocity(*(positions.rbegin()), (*(positions.rbegin() + 1))))
     {
         positions.pop_back();
     }
