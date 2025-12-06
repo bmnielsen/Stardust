@@ -253,9 +253,10 @@ namespace BWAPI
     return bwunit.getOrderProcessTimer();
   }
 
-  std::optional<std::tuple<std::vector<ExactPosition>, ExactPosition, uint64_t>> UnitImpl::simulateGatherPath(const std::set<int> &resendFrames) const
+  std::optional<std::tuple<std::vector<ExactPosition>, ExactPosition, uint64_t>> UnitImpl::simulateGatherPath(
+          const std::set<int> &resendFrames, int orderProcessTimerOverride) const
   {
-    auto result = bwunit.simulateGatherPath(resendFrames);
+    auto result = bwunit.simulateGatherPath(resendFrames, orderProcessTimerOverride);
     if (!result.has_value()) return std::nullopt;
 
     // Convert the positions to the BWAPI object
