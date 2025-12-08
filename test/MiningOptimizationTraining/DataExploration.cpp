@@ -181,3 +181,41 @@ TEST(DataExploration, Vermeer)
 {
     explore(Maps::GetOne("Vermeer")->openbwHash);
 }
+
+TEST(DataExploration, CheckSpecificPath)
+{
+    MiningOptimizationTraining::MapData data;
+    MiningOptimizationTraining::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
+    MiningOptimizationTraining::Serialization::readMapData(data);
+
+    PositionAndVelocity startPos{
+            56320/256,95232/256,-95,0,0
+    };
+    auto &path = data.resourceToReturnPaths.at(TilePosition(5, 12)).at(startPos);
+
+    PositionAndVelocity resendPos{
+            56366/256,80216/256,2,0,-1280
+    };
+    auto current = &path.nextPositions;
+    while (current)
+    {
+        if (current->empty())
+        {
+            std::cout << "Path end" << std::endl;
+            return;
+        }
+        if (current->size() > 1)
+        {
+            std::cout << "Unstable path" << std::endl;
+            return;
+        }
+
+        auto &node = current->begin()->first;
+        if (node.pos == resendPos)
+        {
+            std::cout << "Found it" << std::endl;
+            return;
+        }
+        current = &node.nextPositions;
+    }
+}

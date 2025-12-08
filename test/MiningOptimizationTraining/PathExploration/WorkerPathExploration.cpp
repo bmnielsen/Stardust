@@ -226,6 +226,8 @@ namespace MiningOptimizationTraining
                 // Loop through the path, creating and updating nodes as needed
                 for (auto positionIt = simulatedPath.begin(); positionIt != simulatedPath.end(); positionIt++)
                 {
+                    frame++;
+
                     auto &position = *positionIt;
                     auto node = getNextPathNode(*nextPositions, position, true);
                     currentPosition = position;
@@ -259,7 +261,7 @@ namespace MiningOptimizationTraining
                         std::set<int> nextResendFrames = resendFrames;
                         nextResendFrames.insert(frame);
                         explorePath(explorePath,
-                                    frame + 1,
+                                    frame,
                                     currentPosition,
                                     &node->nextPositionsAfterResend,
                                     std::move(nextResendFrames),
@@ -276,7 +278,6 @@ namespace MiningOptimizationTraining
                     }
 
                     nextPositions = &node->nextPositions;
-                    frame++;
                 }
 
                 // Add the result if we did not resend after this node
