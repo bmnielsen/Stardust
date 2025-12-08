@@ -2356,7 +2356,7 @@ int Unit::getOrderProcessTimer() const
 // Returns no value if the unit doesn't have a valid gather-related order or the path gets stuck somewhere.
 // The method is only intended for use with a single worker mining a patch, there may be unintended results if taking over from another worker.
 std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, uint64_t>>
-    Unit::simulateGatherPath(const std::set<int> &resendFrames, int orderProcessTimerOverride) const
+    Unit::simulateGatherPath(const std::set<int> &resendFrames) const
 {
     // Validate the unit has a target
     if (!u->order_target.unit) return std::nullopt;
@@ -2419,7 +2419,7 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
     bwgame::state_copier<true>(impl->st, state_copy)();
     openbwapi_functions<bwgame::state_functions> funcs_copy(impl->vars, state_copy);
 
-    // Get the unit pointer in the state copy and set its order process timer if we want to override it
+    // Get the unit pointer in the state copy
     auto unit = funcs_copy.get_unit(u->index);
 
     // Create the order target to use for reissuing commands
@@ -2431,11 +2431,6 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
     // Does not update any other units, bullets, triggers, etc.
     auto nextFrame = [&]()
     {
-        if (orderProcessTimerOverride != -1 && state_copy.current_frame == (impl->st.current_frame + 1))
-        {
-            unit->order_process_timer = orderProcessTimerOverride;
-        }
-
         state_copy.current_frame++;
 
         if (funcs_copy.us_hidden(unit))

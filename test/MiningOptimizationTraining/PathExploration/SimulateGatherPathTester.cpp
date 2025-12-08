@@ -78,52 +78,6 @@ namespace MiningOptimizationTraining
             expectedPath.assign(noResendPath.begin(), noResendPath.end());
             setArrivalData(*noResendPathResult);
 
-            // Validate that the above path is the same regardless of order process timer
-            for (int orderProcessTimer = 0; orderProcessTimer <= 8; orderProcessTimer++)
-            {
-                auto differentOrderProcessTimerResult = worker->simulateGatherPath({}, orderProcessTimer);
-                if (!differentOrderProcessTimerResult.has_value())
-                {
-                    Log::Get() << "WARNING: Worker could not plan path with different order process timer value"
-                               << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                    return;
-                }
-
-                // Check that the paths are the same
-                [&]()
-                {
-                    auto &path = std::get<0>(*differentOrderProcessTimerResult);
-                    auto firstIt = path.begin();
-                    auto secondIt = expectedPath.begin();
-                    while (firstIt != path.end() && secondIt != expectedPath.end())
-                    {
-                        if (*firstIt != *secondIt)
-                        {
-                            Log::Get() << "WARNING: Paths diverge between default and order timer " << orderProcessTimer
-                                       << " @ " << std::distance(path.begin(), firstIt)
-                                       << "; new " << *firstIt
-                                       << "; old " << *secondIt
-                                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                            return;
-                        }
-                        firstIt++;
-                        secondIt++;
-                    }
-                    if (firstIt != path.end())
-                    {
-                        Log::Get() << "WARNING: Paths diverge between default and order timer " << orderProcessTimer
-                                   << "; additional position(s) on new path"
-                                   << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                    }
-                    if (secondIt != expectedPath.end())
-                    {
-                        Log::Get() << "WARNING: Paths diverge between default and order timer " << orderProcessTimer
-                                   << "; additional position(s) on old path"
-                                   << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                    }
-                }();
-            }
-
             // Pick the resend frames
             int arrivalFrame = currentFrame + (int)noResendPath.size();
             auto &chosenCombination = chooseResendCombination(arrivalFrame);

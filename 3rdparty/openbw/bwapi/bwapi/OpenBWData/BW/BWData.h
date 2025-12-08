@@ -427,8 +427,7 @@ struct Unit {
   typedef std::tuple<uint32_t, uint32_t, int8_t, int32_t, int32_t> exactPosition;
   exactPosition getExactPosition() const;
   int getOrderProcessTimer() const;
-  std::optional<std::tuple<std::vector<exactPosition>, exactPosition, uint64_t>> simulateGatherPath(
-          const std::set<int> &resendFrames, int orderProcessTimerOverride = -1) const;
+  std::optional<std::tuple<std::vector<exactPosition>, exactPosition, uint64_t>> simulateGatherPath(const std::set<int> &resendFrames) const;
 };
 
 struct Bullet {
