@@ -9,6 +9,9 @@ namespace MiningOptimizationTraining
     template <typename WorkerStatusType>
     class SingleWorkerModule : public PathExplorationModule<WorkerStatusType>
     {
+    public:
+        explicit SingleWorkerModule(BWAPI::TilePosition patchTile) : PathExplorationModule<WorkerStatusType>(), patchTile(patchTile) {}
+
     protected:
         using PathExplorationModule<WorkerStatusType>::workerStatuses;
         using PathExplorationModule<WorkerStatusType>::mapData;
@@ -44,7 +47,15 @@ namespace MiningOptimizationTraining
                 if (!depot) return false;
 
                 // Find the patch
-                auto patch = (*Map::getMyMain()->mineralPatches().begin())->getBwapiUnitIfVisible();
+                BWAPI::Unit patch = nullptr;
+                for (auto &mineralPatch : Map::getMyMain()->mineralPatches())
+                {
+                    if (mineralPatch->tile == patchTile)
+                    {
+                        patch = mineralPatch->getBwapiUnitIfVisible();
+                        break;
+                    }
+                }
                 if (!patch) return false;
 
                 // Initialize
@@ -54,5 +65,8 @@ namespace MiningOptimizationTraining
 
             return true;
         }
+
+    private:
+        BWAPI::TilePosition patchTile;
     };
 }

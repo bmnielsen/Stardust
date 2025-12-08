@@ -20,12 +20,12 @@ namespace
         test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
     }
 
-    bool runSingleWorkerTest(BWTest &test)
+    bool runSingleWorkerTest(BWTest &test, BWAPI::TilePosition patchTile)
     {
         initializeTest(test);
         test.myModule = [&]()
         {
-            return new MiningOptimizationTraining::SingleWorkerModule<MiningOptimizationTraining::WorkerPathExploration>();
+            return new MiningOptimizationTraining::SingleWorkerModule<MiningOptimizationTraining::WorkerPathExploration>(patchTile);
         };
         test.frameLimit = 10000;
 
@@ -75,7 +75,7 @@ TEST(PathExploration, VermeerSingleWorker)
 {
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    runSingleWorkerTest(test);
+    runSingleWorkerTest(test, BWAPI::TilePosition(5, 12));
 }
 
 TEST(PathExploration, VermeerSingleWorkerContinuous)
@@ -84,7 +84,7 @@ TEST(PathExploration, VermeerSingleWorkerContinuous)
     {
         BWTest test;
         test.map = Maps::GetOne("Vermeer");
-        if (runSingleWorkerTest(test)) return;
+        if (runSingleWorkerTest(test, BWAPI::TilePosition(5, 12))) return;
     }
 }
 
