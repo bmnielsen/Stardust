@@ -2421,7 +2421,6 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
 
     // Get the unit pointer in the state copy and set its order process timer if we want to override it
     auto unit = funcs_copy.get_unit(u->index);
-    if (orderProcessTimerOverride != -1) unit->order_process_timer = orderProcessTimerOverride;
 
     // Create the order target to use for reissuing commands
     // We capture this now in case it changes later
@@ -2432,7 +2431,13 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
     // Does not update any other units, bullets, triggers, etc.
     auto nextFrame = [&]()
     {
+        if (orderProcessTimerOverride != -1 && state_copy.current_frame == (impl->st.current_frame + 1))
+        {
+            unit->order_process_timer = orderProcessTimerOverride;
+        }
+
         state_copy.current_frame++;
+
         if (funcs_copy.us_hidden(unit))
         {
             funcs_copy.update_hidden_unit(unit);
