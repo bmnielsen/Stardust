@@ -51,7 +51,7 @@ namespace MiningOptimization
         // - Collision incurs 9 frames of delay
         // - Medium exit speed gives 2 frames of bonus
         // - High exit speed gives 4 frames of bonus
-        [[nodiscard]] int delayAfterAction() const
+        [[nodiscard]] int delayAfterAction(bool isOrderProcessTimerZero) const
         {
             switch (exitSpeed())
             {
@@ -60,9 +60,9 @@ namespace MiningOptimization
                 case ReturnExitSpeed::Low:
                     return 0;
                 case ReturnExitSpeed::Medium:
-                    return -2;
+                    return isOrderProcessTimerZero ? -2 : 0;
                 case ReturnExitSpeed::High:
-                    return -4;
+                    return isOrderProcessTimerZero ? -4 : 0;
             }
         }
 

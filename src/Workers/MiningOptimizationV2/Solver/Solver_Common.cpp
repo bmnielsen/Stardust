@@ -253,7 +253,14 @@ namespace MiningOptimization
                         }
                     }
 
-                    result.delaysWithProbabilities[arrivalData.delayAfterAction()] += probability;
+                    // For computing the delay, we pass whether the order process timer is zero at arrival
+                    // This is used in the return arrival data to determine whether speed can be maintained or not
+                    // We could go further and map this to probabilities, but this is already an edge case based on order process timer resets
+                    // so I don't see it being worth the additional complexity
+                    bool isOrderProcessTimerZero = (possibleOrderProcessTimerValuesAtArrival.size() == 1
+                            && possibleOrderProcessTimerValuesAtArrival.contains(0));
+                    result.delaysWithProbabilities[arrivalData.delayAfterAction(isOrderProcessTimerZero)] += probability;
+
                     result.nextPathLengthWithProbabilities[arrivalData.nextPathLength(minimumNextPathLength)] += probability;
                 };
 
