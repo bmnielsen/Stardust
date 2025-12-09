@@ -81,7 +81,6 @@ namespace MiningOptimization
 
                             total += occurrenceRate;
                         }
-                        vec.shrink_to_fit();
                     };
                 }
             };
