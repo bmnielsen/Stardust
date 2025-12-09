@@ -36,6 +36,9 @@ include_directories(${STARDUST_TEST_INCLUDES})
 file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 list(FILTER SRC_FILES EXCLUDE REGEX ".*3rdparty.*")
 
+# Uncomment this to disable optimizations on a specific file while debugging something
+#SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/PathExploration/WorkerPathExploration.cpp PROPERTIES COMPILE_FLAGS -O0)
+
 add_executable(tests ${SRC_FILES})
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
