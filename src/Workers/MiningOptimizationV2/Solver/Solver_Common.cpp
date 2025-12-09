@@ -131,6 +131,8 @@ namespace MiningOptimization
             const SolverResends &resends,
             const std::set<int> &workerOrderProcessTimer) const
     {
+        // The order process timer provided to this method is the value at the start of the frame
+        // This computes the value at the start of the next frame
         auto nextWorkerOrderProcessTimer =
                 orderProcessTimerInFuture<ObservationType>(frame, workerOrderProcessTimer, resends.resendFrames, 1);
 
@@ -153,7 +155,7 @@ namespace MiningOptimization
             auto addPatchLockAndSwitchProbabilities = [&](SolverResult<ObservationType> &branch, bool canPatchLock)
             {
                 // Not relevant if it is not gather takeover, the takeover frame has passed, or the worker can't have order process timer 0 here
-                if (takeoverFrame == -1 || takeoverFrame <= frame || !nextWorkerOrderProcessTimer.contains(0)) return;
+                if (takeoverFrame == -1 || takeoverFrame <= frame || !workerOrderProcessTimer.contains(0)) return;
 
                 // Patch locking and switching kicks in at 10 distance from the patch
                 auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
@@ -168,7 +170,7 @@ namespace MiningOptimization
                 if (!canPatchLock) patchLockProbability = 0.0;
 
                 // The probability of each order process timer value occurring is equal
-                auto probabilityWorkerOrderProcessTimerIsZero = (1.0 / (double)nextWorkerOrderProcessTimer.size());
+                auto probabilityWorkerOrderProcessTimerIsZero = (1.0 / (double)workerOrderProcessTimer.size());
 
                 auto add = [&](std::map<int, double> &map, double probability)
                 {
@@ -192,13 +194,22 @@ namespace MiningOptimization
                     result.arrivalFramesWithProbabilities[arrivalFrame] += probability;
 
                     // Compute the possible order process timer values at arrival, taking pending resends into account
-                    auto possibleOrderProcessTimerValuesAtArrival =
-                            (arrivalData.arrivalDelay == 1)
-                            ? nextWorkerOrderProcessTimer
-                            : orderProcessTimerInFuture<ObservationType>(frame,
-                                                                         workerOrderProcessTimer,
-                                                                         resends.resendFrames,
-                                                                         arrivalData.arrivalDelay);
+                    std::set<int> possibleOrderProcessTimerValuesAtArrival;
+                    if (arrivalData.arrivalDelay == 1)
+                    {
+                        possibleOrderProcessTimerValuesAtArrival = workerOrderProcessTimer;
+                    }
+                    else if (arrivalData.arrivalDelay == 2)
+                    {
+                        possibleOrderProcessTimerValuesAtArrival = nextWorkerOrderProcessTimer;
+                    }
+                    else
+                    {
+                        possibleOrderProcessTimerValuesAtArrival = orderProcessTimerInFuture<ObservationType>(frame,
+                                                                                                              workerOrderProcessTimer,
+                                                                                                              resends.resendFrames,
+                                                                                                              arrivalData.arrivalDelay - 1);
+                    }
 
                     // Now use this data to compute when the action (mining start or resource delivery) will occur
                     // As the action will occur once the order process timer reaches 0, in the simple case we can just add the order process timer
