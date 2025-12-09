@@ -20,9 +20,6 @@
 #define WARN_ON_NO_RESOURCE_DATA true
 #endif
 
-//#define PATHOPTIMIZER WorkerMiningOptimization
-#define PATHOPTIMIZER MiningOptimization
-
 namespace Workers
 {
     namespace

@@ -4,6 +4,11 @@
 #include "Base.h"
 #include "MyWorker.h"
 
+// This toggles between the old and new mining optimization logic
+
+//#define PATHOPTIMIZER WorkerMiningOptimization
+#define PATHOPTIMIZER MiningOptimization
+
 namespace Workers
 {
     void initialize();

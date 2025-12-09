@@ -108,11 +108,8 @@ void StardustAIModule::onStart()
     CombatSim::initialize();
     Timer::checkpoint("CombatSim::initialize");
 
-    MiningOptimization::initialize();
+    PATHOPTIMIZER::initialize();
     Timer::checkpoint("MiningOptimization::initialize");
-
-    WorkerMiningOptimization::initialize();
-    Timer::checkpoint("WorkerMiningOptimization::initialize");
 
     WorkerMiningInstrumentation::initialize();
     Timer::checkpoint("WorkerMiningInstrumentation::initialize");
@@ -154,8 +151,7 @@ void StardustAIModule::onEnd(bool isWinner)
 #endif
 
     Opponent::gameEnd(isWinner);
-    WorkerMiningOptimization::write();
-    MiningOptimization::gameEnd();
+    PATHOPTIMIZER::gameEnd();
     CherryVis::gameEnd();
 }
 
@@ -276,9 +272,7 @@ void StardustAIModule::onFrame()
     Timer::checkpoint("Units::issueOrders");
 
     // Updates the mining optimization data
-    WorkerMiningOptimization::flushObservations();
-    Timer::checkpoint("WorkerMiningOptimization::flushObservations");
-    MiningOptimization::update();
+    PATHOPTIMIZER::update();
     Timer::checkpoint("MiningOptimization::update");
 
 #if LOGGING_ENABLED

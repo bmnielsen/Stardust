@@ -31,9 +31,9 @@ namespace WorkerMiningOptimization
 {
     void initialize();
 
-    void flushObservations();
+    void update();
 
-    void write();
+    void gameEnd();
 
     // Optimizes the start of mining
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);

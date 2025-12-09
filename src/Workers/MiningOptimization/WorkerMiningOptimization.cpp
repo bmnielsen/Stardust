@@ -76,13 +76,13 @@ namespace WorkerMiningOptimization
         }
     }
 
-    void flushObservations()
+    void update()
     {
         flushGatherObservations(workerGatherStatuses);
         flushReturnObservations(workerReturnStatuses);
     }
 
-    void write()
+    void gameEnd()
     {
 #if WRITE_DATA_FILES
         if (exploring)
