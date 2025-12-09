@@ -226,14 +226,17 @@ namespace MiningOptimizationTraining
                 // Loop through the path, creating and updating nodes as needed
                 for (auto positionIt = simulatedPath.begin(); positionIt != simulatedPath.end(); positionIt++)
                 {
+                    // The arrival delay is the distance to the last position node, which is the arrival position
+                    auto arrivalDelay = std::distance(positionIt, simulatedPath.end()) - 1;
+
+                    // We skip adding the last position, since we don't need it for optimization
+                    if (arrivalDelay == 0) break;
+
                     frame++;
 
                     auto &position = *positionIt;
                     auto node = getNextPathNode(*nextPositions, position, true);
                     currentPosition = position;
-
-                    // The arrival delay is the distance to the last position node, which is the arrival position
-                    auto arrivalDelay = std::distance(positionIt, simulatedPath.end());
 
                     // For new nodes, set the type if we can already determine it here
                     if (node->type == NodeType::Uninitialized)
