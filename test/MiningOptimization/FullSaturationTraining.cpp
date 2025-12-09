@@ -405,9 +405,9 @@ namespace
             {
                 if (workersPerPatch == 1)
                 {
-                    return TestResult{e.singleWorkerRotationTime, e.singleWorkerMiningPercentage, e.collisionRate * 100.0};
+                    return TestResult{e.singleWorkerRotationTime, e.singleWorkerMiningPercentage, e.gatherCollisionRate * 100.0};
                 }
-                return TestResult{e.doubleWorkerRotationTime, e.doubleWorkerMiningPercentage, e.collisionRate * 100.0};
+                return TestResult{e.doubleWorkerRotationTime, e.doubleWorkerMiningPercentage, e.gatherCollisionRate * 100.0};
             };
 
             if (observationTraining)

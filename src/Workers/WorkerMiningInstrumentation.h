@@ -12,7 +12,9 @@ namespace WorkerMiningInstrumentation
         double singleWorkerMiningPercentage;
         double doubleWorkerRotationTime;
         double doubleWorkerMiningPercentage;
-        double collisionRate;
+        double gatherCollisionRate;
+        double returnCollisionRate;
+        double facingPatchRate;
 
         friend std::ostream & operator << (std::ostream &os, const Efficiency &obj)
         {
@@ -39,9 +41,11 @@ namespace WorkerMiningInstrumentation
                 add("Double mining %", obj.doubleWorkerMiningPercentage);
             }
 
-            if (obj.collisionRate > 0.01)
+            if (obj.singleWorkerMiningPercentage > 0.01 || obj.doubleWorkerMiningPercentage > 0.01)
             {
-                add("Collision %", (obj.collisionRate * 100.0));
+                add("Gather collision %", (obj.gatherCollisionRate * 100.0));
+                add("Return collision %", (obj.returnCollisionRate * 100.0));
+                add("Facing patch %", (obj.facingPatchRate * 100.0));
             }
 
             os << buffer.str();
@@ -54,8 +58,6 @@ namespace WorkerMiningInstrumentation
     void update();
 
     void writeInstrumentation();
-
-    void trackCollisionObservation(const Resource &patch, bool collision);
 
     std::map<Resource, Efficiency> getEfficiencyByPatch(int fromFrame = -1, int toFrame = -1);
 

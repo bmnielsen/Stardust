@@ -20,6 +20,7 @@
 #define LOG_TWOPATCH_TAKEOVER_ERRORS false
 #define LOG_INEFFICIENCIES false
 #define DRAW_INEFFICIENCIES false
+#define LOG_NOTFACINGPATCH false
 #endif
 
 namespace WorkerMiningInstrumentation
@@ -27,6 +28,9 @@ namespace WorkerMiningInstrumentation
     namespace
     {
     #if TRACK_MINING_EFFICIENCY
+        // Indirection to the Workers::mineralsAndAssignedWorkers function allowing it to be overridden by tests
+        std::function<std::map<Resource, std::set<MyWorker>> &()> getMineralsAndAssignedWorkers = Workers::mineralsAndAssignedWorkers;
+
         // This map records statistics of mining efficiency for each patch
         // At each frame a resource has at least one worker assigned to it, a value is written:
         // 0 = one worker assigned, worker is moving to minerals
@@ -42,20 +46,34 @@ namespace WorkerMiningInstrumentation
         // 14 = two workers assigned, both workers are moving to minerals
         std::map<Resource, std::vector<std::tuple<int, int, int>>> resourceToMiningStatus;
 
-        // All collision observations for each patch
-        std::map<Resource, std::vector<std::pair<int, bool>>> resourceToCollisionObservations;
-
         // Map storing alerts for each patch, so we can show them for a while
         std::map<Resource, std::pair<int, std::string>> patchToAlert;
-
-        // Indirection to the Workers::mineralsAndAssignedWorkers function allowing it to be overridden by tests
-        std::function<std::map<Resource, std::set<MyWorker>> &()> getMineralsAndAssignedWorkers = Workers::mineralsAndAssignedWorkers;
 
         // Frame when we gathered the 50th mineral
         int fiftiethMineralFrame;
 
         // Frames when we reached each 1000 of minerals gathered
         std::vector<int> thousandMineralFrames;
+
+        // This status is used for identifying some conditions that require observing the worker over several frames:
+        // - Whether the worker wasn't facing the patch prior to mining
+        // - Whether the worker collided with the patch or depot after mining
+        struct WorkerStatus
+        {
+            int lastUpdated = -2;
+            int preminingFrameCounter = 0;
+            std::vector<BWAPI::Position> startOfPathHistory;
+        };
+        std::map<MyWorker, WorkerStatus> workersToStatus;
+
+        // All gather collision observations for each patch
+        std::map<Resource, std::vector<std::pair<int, bool>>> resourceToGatherCollisionObservations;
+
+        // All return collision observations for each patch
+        std::map<Resource, std::vector<std::pair<int, bool>>> resourceToReturnCollisionObservations;
+
+        // All facing patch observations for each patch
+        std::map<Resource, std::vector<std::pair<int, bool>>> resourceToFacingPatchObservations;
 
         struct PatchData
         {
@@ -159,18 +177,38 @@ namespace WorkerMiningInstrumentation
             addPatchData(patchData, patch, miningStatus, 10, {11, 12, 13, 14}, fromFrame, toFrame, trackAllRotationTimes);
         }
 
-        void addCollisionData(unsigned long &collisions, unsigned long &nonCollisions, const Resource &patch, int fromFrame, int toFrame)
+        void addObservationMapData(unsigned int &trueObservations,
+                        unsigned int &falseObservations,
+                        const std::map<Resource, std::vector<std::pair<int, bool>>> &data,
+                        const Resource &patch,
+                        int fromFrame,
+                        int toFrame)
         {
-            for (const auto &[frame, collision] : resourceToCollisionObservations[patch])
+            auto it = data.find(patch);
+            if (it == data.end()) return;
+
+            for (const auto &[frame, value] : it->second)
             {
                 if (fromFrame != -1 && frame < fromFrame) continue;
                 if (toFrame != -1 && frame >= toFrame) continue;
 
-                (collision ? collisions : nonCollisions)++;
+                (value ? trueObservations : falseObservations)++;
             }
         }
 
-        Efficiency computeEfficiency(const PatchData &sgl, const PatchData &dbl, unsigned long collisions, unsigned long nonCollisions)
+        double computeObservationRate(unsigned int trueObservations, unsigned int falseObservations)
+        {
+            unsigned int totalObservations = trueObservations + falseObservations;
+            if (totalObservations == 0) return 0.0;
+
+            return (double)trueObservations / (double)totalObservations;
+        }
+
+        Efficiency computeEfficiency(const PatchData &sgl,
+                                     const PatchData &dbl,
+                                     double gatherCollisionRate,
+                                     double returnCollisionRate,
+                                     double facingPatchRate)
         {
             auto computeMiningPercentage = [](const PatchData &pd)
             {
@@ -179,14 +217,14 @@ namespace WorkerMiningInstrumentation
                 return 100.0 * (double)pd.framesMined / (double)(pd.framesMined + pd.framesNotMined);
             };
 
-            unsigned long collisionObservations = collisions + nonCollisions;
-
             return Efficiency{
                     (sgl.rotationCount == 0) ? 0.0 : ((double)sgl.totalRotationFrames / (double)sgl.rotationCount),
                     computeMiningPercentage(sgl),
                     (dbl.rotationCount == 0) ? 0.0 : ((double)dbl.totalRotationFrames / (double)dbl.rotationCount),
                     computeMiningPercentage(dbl),
-                    (collisionObservations == 0) ? +.0 : ((double)collisions / (double)collisionObservations),
+                    gatherCollisionRate,
+                    returnCollisionRate,
+                    facingPatchRate
             };
         }
     #endif
@@ -213,14 +251,18 @@ namespace WorkerMiningInstrumentation
     void initialize(const std::function<std::map<Resource, std::set<MyWorker>> &()> &getMineralsAndAssignedWorkersOverride)
     {
 #if TRACK_MINING_EFFICIENCY
-        resourceToMiningStatus.clear();
-        patchToAlert.clear();
         if (getMineralsAndAssignedWorkersOverride)
         {
             getMineralsAndAssignedWorkers = getMineralsAndAssignedWorkersOverride;
         }
+        resourceToMiningStatus.clear();
+        patchToAlert.clear();
         fiftiethMineralFrame = -1;
         thousandMineralFrames.clear();
+        workersToStatus.clear();
+        resourceToGatherCollisionObservations.clear();
+        resourceToReturnCollisionObservations.clear();
+        resourceToFacingPatchObservations.clear();
 #endif
 
 #if TRACK_RESOURCE_FORECAST_ACCURACY
@@ -278,6 +320,80 @@ namespace WorkerMiningInstrumentation
                 continue;
             }
             auto &depot = closestBase->resourceDepot;
+
+            // Update the worker status in certain situations
+            for (auto &worker : workers)
+            {
+                auto &status = workersToStatus[worker];
+                if (status.lastUpdated != (currentFrame - 1))
+                {
+                    status.preminingFrameCounter = 0;
+                    status.startOfPathHistory.clear();
+                }
+
+                // Check if the premining phase takes too long, and record this as a not facing patch
+                // By "premining" we mean when the worker has transitioned to MiningMinerals but the order timer hasn't started counting down yet
+                if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                {
+                    // This check also succeeds when the worker is finished mining, but we don't care since the data will be cleared anyway
+                    if (worker->bwapiUnit->getOrderTimer() == 0)
+                    {
+                        status.preminingFrameCounter++;
+                        status.lastUpdated = currentFrame;
+                    }
+
+                    // Check the counter when the order timer starts counting down
+                    if (worker->bwapiUnit->getOrderTimer() == 75)
+                    {
+#if LOG_NOTFACINGPATCH
+                        if (status.preminingFrameCounter > 1)
+                        {
+                            Log::Get() << "Not facing patch"
+                                       << "; worker " << worker->id << " @ " << worker->getTilePosition();
+                        }
+#endif
+
+                        // The worker was facing the patch if there was at most one frame of delay
+                        resourceToFacingPatchObservations[patch].emplace_back(currentFrame, (status.preminingFrameCounter <= 1));
+                        status.lastUpdated = currentFrame;
+                    }
+                }
+
+                // If we have recently gained or delivered minerals, track the path and check for collisions
+                if ((currentFrame - worker->lastCarryingResourceChange) < 14)
+                {
+                    status.startOfPathHistory.push_back(worker->lastPosition);
+                    status.lastUpdated = currentFrame;
+
+                    if ((currentFrame - worker->lastCarryingResourceChange) == 13)
+                    {
+                        // TODO: Skip if there was a command sent in the meantime
+
+                        // Go through the history and check if the worker stalled (stayed in the same position) for more than 7 frames
+                        int stallFrames = 0;
+                        int maxStallFrames = 0;
+                        for (auto it = status.startOfPathHistory.begin() + 1; it != status.startOfPathHistory.end(); it++)
+                        {
+                            if ((*it) == (*(it - 1)))
+                            {
+                                stallFrames++;
+                                if (stallFrames > maxStallFrames)
+                                {
+                                    maxStallFrames = stallFrames;
+                                }
+                            }
+                            else
+                            {
+                                stallFrames = 0;
+                            }
+                        }
+                        bool collision = (maxStallFrames > 7);
+                        (worker->carryingResource
+                            ? resourceToGatherCollisionObservations
+                            : resourceToReturnCollisionObservations)[patch].emplace_back(currentFrame, collision);
+                    }
+                }
+            }
 
             auto &miningStatus = resourceToMiningStatus[patch];
 
@@ -708,11 +824,6 @@ namespace WorkerMiningInstrumentation
 #endif
     }
 
-    void trackCollisionObservation(const Resource &patch, bool collision)
-    {
-        resourceToCollisionObservations[patch].emplace_back(currentFrame, collision);
-    }
-
     std::map<Resource, Efficiency> getEfficiencyByPatch(int fromFrame, int toFrame)
     {
         std::map<Resource, Efficiency> result;
@@ -721,14 +832,25 @@ namespace WorkerMiningInstrumentation
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
             PatchData sgl, dbl;
-            unsigned long collisions = 0;
-            unsigned long nonCollisions = 0;
-
             addSinglePatchData(sgl, patch, miningStatus, fromFrame, toFrame);
             addDoublePatchData(dbl, patch, miningStatus, fromFrame, toFrame);
-            addCollisionData(collisions, nonCollisions, patch, fromFrame, toFrame);
 
-            result[patch] = computeEfficiency(sgl, dbl, collisions, nonCollisions);
+            unsigned int gatherCollisions = 0;
+            unsigned int gatherNonCollisions = 0;
+            unsigned int returnCollisions = 0;
+            unsigned int returnNonCollisions = 0;
+            unsigned int facingPatch = 0;
+            unsigned int notFacingPatch = 0;
+            addObservationMapData(gatherCollisions, gatherNonCollisions, resourceToGatherCollisionObservations, patch, fromFrame, toFrame);
+            addObservationMapData(returnCollisions, returnNonCollisions, resourceToReturnCollisionObservations, patch, fromFrame, toFrame);
+            addObservationMapData(facingPatch, notFacingPatch, resourceToFacingPatchObservations, patch, fromFrame, toFrame);
+
+            result[patch] = computeEfficiency(
+                    sgl,
+                    dbl,
+                    computeObservationRate(gatherCollisions, gatherNonCollisions),
+                    computeObservationRate(returnCollisions, returnNonCollisions),
+                    computeObservationRate(facingPatch, notFacingPatch));
         }
 #endif
 
@@ -739,19 +861,31 @@ namespace WorkerMiningInstrumentation
     {
 #if TRACK_MINING_EFFICIENCY
         PatchData sgl, dbl;
-        unsigned long collisions = 0;
-        unsigned long nonCollisions = 0;
+        unsigned int gatherCollisions = 0;
+        unsigned int gatherNonCollisions = 0;
+        unsigned int returnCollisions = 0;
+        unsigned int returnNonCollisions = 0;
+        unsigned int facingPatch = 0;
+        unsigned int notFacingPatch = 0;
 
         for (auto &[patch, miningStatus] : resourceToMiningStatus)
         {
             addSinglePatchData(sgl, patch, miningStatus, fromFrame, toFrame);
             addDoublePatchData(dbl, patch, miningStatus, fromFrame, toFrame);
-            addCollisionData(collisions, nonCollisions, patch, fromFrame, toFrame);
+
+            addObservationMapData(gatherCollisions, gatherNonCollisions, resourceToGatherCollisionObservations, patch, fromFrame, toFrame);
+            addObservationMapData(returnCollisions, returnNonCollisions, resourceToReturnCollisionObservations, patch, fromFrame, toFrame);
+            addObservationMapData(facingPatch, notFacingPatch, resourceToFacingPatchObservations, patch, fromFrame, toFrame);
         }
 
-        return computeEfficiency(sgl, dbl, collisions, nonCollisions);
+        return computeEfficiency(
+                sgl,
+                dbl,
+                computeObservationRate(gatherCollisions, gatherNonCollisions),
+                computeObservationRate(returnCollisions, returnNonCollisions),
+                computeObservationRate(facingPatch, notFacingPatch));
 #else
-        return Efficiency{0.0,0.0,0.0,0.0};
+        return Efficiency{0.0,0.0,0.0,0.0,0.0,0.0};
 #endif
     }
 

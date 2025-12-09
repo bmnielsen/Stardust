@@ -311,7 +311,6 @@ namespace WorkerMiningOptimization
             // There is a collision if the worker is at the patch and isn't moving
             bool collision = (miningWorker.resource->getDistance(miningWorker.worker) == 0
                     && (currentFrame - miningWorker.worker->frameLastMoved) > 2);
-            WorkerMiningInstrumentation::trackCollisionObservation(miningWorker.resource, collision);
 
 #if OPTIMALPOSITIONS_DEBUG
             if (collision)
