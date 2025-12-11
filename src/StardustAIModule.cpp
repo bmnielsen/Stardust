@@ -12,8 +12,7 @@
 #include "General.h"
 #include "Units.h"
 #include "Workers.h"
-#include "MiningOptimization/WorkerMiningOptimization.h"
-#include "MiningOptimizationV2/MiningOptimization.h"
+#include "WorkerGatherOptimizer.h"
 #include "WorkerMiningInstrumentation.h"
 #include "Bullets.h"
 #include "Players.h"
@@ -108,7 +107,7 @@ void StardustAIModule::onStart()
     CombatSim::initialize();
     Timer::checkpoint("CombatSim::initialize");
 
-    PATHOPTIMIZER::initialize();
+    WORKERGATHEROPTIMIZER::initialize();
     Timer::checkpoint("MiningOptimization::initialize");
 
     WorkerMiningInstrumentation::initialize();
@@ -151,7 +150,7 @@ void StardustAIModule::onEnd(bool isWinner)
 #endif
 
     Opponent::gameEnd(isWinner);
-    PATHOPTIMIZER::gameEnd();
+    WORKERGATHEROPTIMIZER::gameEnd();
     CherryVis::gameEnd();
 }
 
@@ -272,7 +271,7 @@ void StardustAIModule::onFrame()
     Timer::checkpoint("Units::issueOrders");
 
     // Updates the mining optimization data
-    PATHOPTIMIZER::update();
+    WORKERGATHEROPTIMIZER::update();
     Timer::checkpoint("MiningOptimization::update");
 
 #if LOGGING_ENABLED
