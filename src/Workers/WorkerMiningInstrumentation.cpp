@@ -20,7 +20,7 @@
 #define LOG_TWOPATCH_TAKEOVER_ERRORS false
 #define LOG_INEFFICIENCIES false
 #define DRAW_INEFFICIENCIES false
-#define LOG_NOTFACINGPATCH false
+#define LOG_NOTFACINGPATCH true
 #endif
 
 namespace WorkerMiningInstrumentation
@@ -61,6 +61,7 @@ namespace WorkerMiningInstrumentation
         struct WorkerStatus
         {
             int lastUpdated = -2;
+            int miningStartFrame = -2;
             int preminingFrameCounter = 0;
             std::vector<BWAPI::Position> startOfPathHistory;
         };
@@ -327,6 +328,7 @@ namespace WorkerMiningInstrumentation
                 auto &status = workersToStatus[worker];
                 if (status.lastUpdated != (currentFrame - 1))
                 {
+                    status.miningStartFrame = -2;
                     status.preminingFrameCounter = 0;
                     status.startOfPathHistory.clear();
                 }
@@ -335,6 +337,11 @@ namespace WorkerMiningInstrumentation
                 // By "premining" we mean when the worker has transitioned to MiningMinerals but the order timer hasn't started counting down yet
                 if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
                 {
+                    if (status.miningStartFrame == -2)
+                    {
+                        status.miningStartFrame = currentFrame;
+                    }
+
                     // This check also succeeds when the worker is finished mining, but we don't care since the data will be cleared anyway
                     if (worker->bwapiUnit->getOrderTimer() == 0)
                     {
@@ -343,7 +350,9 @@ namespace WorkerMiningInstrumentation
                     }
 
                     // Check the counter when the order timer starts counting down
-                    if (worker->bwapiUnit->getOrderTimer() == 75)
+                    // However skip it if there was an order process timer reset exactly on the mining start frame, as this can also add a delay
+                    if (worker->bwapiUnit->getOrderTimer() == 75 &&
+                        !OrderProcessTimer::isResetFrame(status.miningStartFrame))
                     {
 #if LOG_NOTFACINGPATCH
                         if (status.preminingFrameCounter > 1)
