@@ -16,5 +16,12 @@ namespace MiningOptimization
         return !previousResendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames());
     }
 
+    template <>
+    int Solver<GatherArrivalData>::transitionFramesToAction() const
+    {
+        // For gather, there is one transition frame while the worker is in WaitForMinerals
+        return 1;
+    }
+
     template class Solver<GatherArrivalData>;
 }

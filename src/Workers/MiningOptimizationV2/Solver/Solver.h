@@ -119,5 +119,8 @@ namespace MiningOptimization
 
         // Checks if a resend can be sent on the given frame
         [[nodiscard]] bool canResendOnFrame(int frame, const std::set<int> &previousResendFrames) const;
+
+        // How many frames it takes to transition to the action
+        int transitionFramesToAction() const;
     };
 }

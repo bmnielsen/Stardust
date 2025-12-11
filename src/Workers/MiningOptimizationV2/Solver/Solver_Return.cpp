@@ -11,5 +11,12 @@ namespace MiningOptimization
         return true;
     }
 
+    template <>
+    int Solver<ReturnArrivalData>::transitionFramesToAction() const
+    {
+        // Delivery has no transition frame, it just delivers as soon as the order process timer is 0 after arrival
+        return 0;
+    }
+
     template class Solver<ReturnArrivalData>;
 }

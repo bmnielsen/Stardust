@@ -224,17 +224,21 @@ namespace MiningOptimization
                     // TODO: Consider the takeover frame? Or will that be handled elsewhere?
 
                     // Get the number of frames from the arrival frame to the next order process timer reset
-                    // We do not include resets at the arrival frame itself, as these have already been considered when computing the possible values
-                    int orderProcessTimerResetAfterArrival = OrderProcessTimer::framesToNextReset(arrivalFrame + 1) + 1;
+                    int orderProcessTimerResetAfterArrival = OrderProcessTimer::framesToNextReset(arrivalFrame);
+
+                    // On gather there is an extra frame of delay between arrival and mining (the WaitForMinerals frame)
+                    int transitionFrames = transitionFramesToAction();
 
                     // Loop through the possible values
                     // As the set is sorted, we know we will handle the values before the reset first
                     int handledValuesBeforeReset = 0;
                     for (int orderProcessTimerValue : possibleOrderProcessTimerValuesAtArrival)
                     {
-                        if (orderProcessTimerValue < orderProcessTimerResetAfterArrival)
+                        int actionDelay = orderProcessTimerValue + transitionFrames;
+
+                        if (actionDelay < orderProcessTimerResetAfterArrival)
                         {
-                            result.actionFramesWithProbabilities[arrivalFrame + orderProcessTimerValue] +=
+                            result.actionFramesWithProbabilities[arrivalFrame + actionDelay] +=
                                     (probability * (1.0 / (double)possibleOrderProcessTimerValuesAtArrival.size()));
                             handledValuesBeforeReset++;
                             continue;
@@ -248,7 +252,7 @@ namespace MiningOptimization
                                 * probability;
                         for (int resetOrderProcessTimerValue = 0; resetOrderProcessTimerValue <= 7; resetOrderProcessTimerValue++)
                         {
-                            result.actionFramesWithProbabilities[arrivalFrame + orderProcessTimerResetAfterArrival + resetOrderProcessTimerValue]
+                            result.actionFramesWithProbabilities[arrivalFrame + actionDelay + resetOrderProcessTimerValue]
                                 += resetValueProbability;
                         }
                     }
