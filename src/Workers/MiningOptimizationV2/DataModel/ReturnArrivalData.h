@@ -47,24 +47,13 @@ namespace MiningOptimization
             return (ReturnExitSpeed)(packed & 0b00000011);
         }
 
-        // Gets the delay at this arrival after the resources are delivered:
-        // - Collision incurs 9 frames of delay
-        // - Medium exit speed gives 2 frames of bonus
-        // - High exit speed gives 4 frames of bonus
-        [[nodiscard]] int delayAfterAction(bool isOrderProcessTimerZero) const
-        {
-            switch (exitSpeed())
-            {
-                case ReturnExitSpeed::Collision:
-                    return 9;
-                case ReturnExitSpeed::Low:
-                    return 0;
-                case ReturnExitSpeed::Medium:
-                    return isOrderProcessTimerZero ? -2 : 0;
-                case ReturnExitSpeed::High:
-                    return isOrderProcessTimerZero ? -4 : 0;
-            }
-        }
+        // Adds the delay after the return to the given map
+        // If the order process timer at arrival is 0, the delay is allowed to be negative if speed is kept
+        // Otherwise only collisions are considered
+        void addDelayAfterAction(std::map<int, double> &delaysWithProbabilities,
+                                 int orderProcessTimerAtArrival,
+                                 int actionFrame,
+                                 double baseProbability) const;
 
         bool operator==(const ReturnArrivalData &other) const
         {

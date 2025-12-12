@@ -224,7 +224,7 @@ namespace MiningOptimization
                     // TODO: Consider the takeover frame? Or will that be handled elsewhere?
 
                     // Get the number of frames from the arrival frame to the next order process timer reset
-                    int orderProcessTimerResetAfterArrival = OrderProcessTimer::framesToNextReset(arrivalFrame);
+                    int orderProcessTimerResetAfterArrival = OrderProcessTimer::framesToNextReset(arrivalFrame) + 1;
 
                     // On gather there is an extra frame of delay between arrival and mining (the WaitForMinerals frame)
                     int transitionFrames = transitionFramesToAction();
@@ -238,8 +238,12 @@ namespace MiningOptimization
 
                         if (actionDelay < orderProcessTimerResetAfterArrival)
                         {
-                            result.actionFramesWithProbabilities[arrivalFrame + actionDelay] +=
-                                    (probability * (1.0 / (double)possibleOrderProcessTimerValuesAtArrival.size()));
+                            double probabilityHere = (probability * (1.0 / (double)possibleOrderProcessTimerValuesAtArrival.size()));
+                            result.actionFramesWithProbabilities[arrivalFrame + actionDelay] += probabilityHere;
+                            arrivalData.addDelayAfterAction(result.delaysWithProbabilities,
+                                                            orderProcessTimerValue,
+                                                            arrivalFrame + actionDelay,
+                                                            probabilityHere);
                             handledValuesBeforeReset++;
                             continue;
                         }
@@ -254,16 +258,12 @@ namespace MiningOptimization
                         {
                             result.actionFramesWithProbabilities[arrivalFrame + actionDelay + resetOrderProcessTimerValue]
                                 += resetValueProbability;
+                            arrivalData.addDelayAfterAction(result.delaysWithProbabilities,
+                                                            orderProcessTimerValue,
+                                                            arrivalFrame + actionDelay + resetOrderProcessTimerValue,
+                                                            resetValueProbability);
                         }
                     }
-
-                    // For computing the delay, we pass whether the order process timer is zero at arrival
-                    // This is used in the return arrival data to determine whether speed can be maintained or not
-                    // We could go further and map this to probabilities, but this is already an edge case based on order process timer resets
-                    // so I don't see it being worth the additional complexity
-                    bool isOrderProcessTimerZero = (possibleOrderProcessTimerValuesAtArrival.size() == 1
-                            && possibleOrderProcessTimerValuesAtArrival.contains(0));
-                    result.delaysWithProbabilities[arrivalData.delayAfterAction(isOrderProcessTimerZero)] += probability;
 
                     result.nextPathLengthWithProbabilities[arrivalData.nextPathLength(minimumNextPathLength)] += probability;
                 };
@@ -312,8 +312,12 @@ namespace MiningOptimization
                 // Start with the action frame
                 double score = SolverResult<ObservationType>::mapAverage(result.actionFramesWithProbabilities);
 
-                // Add the delays
-                score += SolverResult<ObservationType>::mapAverage(result.delaysWithProbabilities);
+                // Add the delays, but weight them ever so slightly more than the base score
+                // The rationale is that if we have otherwise equal results, we'd prefer not to have the delay
+                // TODO: Test and consider making this more sophisticated - we actually don't really care about collision delays,
+                //       but facing patch and mining start delays keep the patch busy for longer, which can be good or bad depending
+                //       on whether another worker is waiting to mine or not
+                score += (SolverResult<ObservationType>::mapAverage(result.delaysWithProbabilities) * 1.001);
 
                 // TODO: Consider patch locking and switching
 
@@ -395,6 +399,7 @@ namespace MiningOptimization
 
                         // For stable resend nodes, it only makes sense to resend there if it is the final resend, except in the case where we
                         // are resending to avoid patch switching on the order process timer reset frame
+                        // TODO: Check if the reset frame is being detected correctly here
                         if (takeoverFrame != -1 && OrderProcessTimer::isResetFrame(nextFrame)) anyNonFinalResends = true;
                     }
                     else

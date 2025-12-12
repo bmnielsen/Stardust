@@ -33,6 +33,7 @@ namespace MiningOptimization
         std::ostringstream out;
         out << "Arrival frames: " << handleMap(arrivalFramesWithProbabilities);
         out << "\nAction frames: " << handleMap(actionFramesWithProbabilities);
+        out << "\nPost-action delays: " << handleMap(delaysWithProbabilities);
         return out.str();
     }
 

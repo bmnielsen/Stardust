@@ -43,13 +43,17 @@ namespace MiningOptimization
             return (packed & 0b00000010) == 0b00000010;
         }
 
-        // Gets the delay at this arrival after the transition to mining:
-        // - 9 frames if the worker isn't facing the target (spends an order process timer cycle turning to face the patch)
-        // - 9 frames if the worker collides with the patch after completing mining
-        [[nodiscard]] int delayAfterAction(bool isOrderProcessTimerZero) const
-        {
-            return (collision() ? 9 : 0) + (!facingTarget() ? 9 : 0);
-        }
+        // Adds the delay after mining start to the given map
+        // Possible delays for gather:
+        // - Not facing patch when transitioning to mine incurs an order process timer cycle of delay for the worker to turn
+        // - A collision after mining completion incurs an order process timer cycle of delay for the worker to resolve the collision
+        // - An order process timer reset during the transition to mining incurs a delay before the mining timer starts counting down
+        // The two first points can be shortened or lengthened if there is an order process timer reset during the delay, but this is such an
+        // extreme edge case that we don't consider it.
+        void addDelayAfterAction(std::map<int, double> &delaysWithProbabilities,
+                                 int orderProcessTimerAtArrival,
+                                 int actionFrame,
+                                 double baseProbability) const;
 
         bool operator==(const GatherArrivalData &other) const
         {
