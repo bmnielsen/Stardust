@@ -114,7 +114,21 @@ void MyUnitImpl::rightClick(BWAPI::Unit target)
         }
     }
 
-    issuedOrderThisFrame = bwapiUnit->rightClick(target);
+    auto result = bwapiUnit->rightClick(target);
+
+    if (result)
+    {
+        issuedOrderThisFrame = true;
+        if (target->getType().isMineralField())
+        {
+            gatherCommandFrames.insert(currentFrame);
+        }
+        else if (target->getType().isResourceDepot())
+        {
+            returnCommandFrames.insert(currentFrame);
+        }
+    }
+
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Order: Right-click " << target->getType() << " @ " << BWAPI::WalkPosition(target->getPosition());
@@ -168,7 +182,11 @@ bool MyWorkerImpl::returnCargo()
     }
 
     auto result = bwapiUnit->returnCargo();
-    issuedOrderThisFrame |= result;
+    if (result)
+    {
+        issuedOrderThisFrame = true;
+        returnCommandFrames.insert(currentFrame);
+    }
 
 #if DEBUG_UNIT_ORDERS
     CherryVis::log(id) << "Order: Return cargo";

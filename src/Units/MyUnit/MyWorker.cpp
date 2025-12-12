@@ -8,6 +8,11 @@
 
 #include "DebugFlag_UnitOrders.h"
 
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define DEBUG_ORDERPROCESSTIMER false
+#define VALIDATE_ORDERPROCESSTIMER true
+#endif
+
 namespace
 {
 //    BWAPI::Position perpendicularPosition(BWAPI::Position myPosition,
@@ -91,13 +96,16 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     verticalSpeed8b = to8bSpeed(unit->getVelocityY());
     heading8b = to8bHeading(unit->getAngle());
 
-    // Set order process timer for gathering workers
+    // Set the order process timer for gathering workers
+
+    auto isResetFrame = OrderProcessTimer::isResetFrame();
+
     // We know the order process timer is 0 when the worker starts mining, finishes mining, and delivers the resource
     if (carryingResource != (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas()))
     {
         carryingResource = (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas());
         lastCarryingResourceChange = currentFrame;
-        if (!OrderProcessTimer::isResetFrame())
+        if (!isResetFrame)
         {
             orderProcessTimer = 0;
         }
@@ -108,7 +116,7 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
         if (previousOrder != BWAPI::Orders::MiningMinerals)
         {
             lastTransitionedToMiningOrder = currentFrame;
-            if (!OrderProcessTimer::isResetFrame())
+            if (!isResetFrame)
             {
                 orderProcessTimer = 0;
             }
@@ -118,16 +126,24 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
         if (bwapiUnit->getOrderTimer() == 75)
         {
             lastStartedMining = currentFrame;
-            if (lastTransitionedToMiningOrder == currentFrame || !OrderProcessTimer::isResetFrame())
+
+            // First case here covers patch lock, where it overrides a reset
+            if (lastTransitionedToMiningOrder == currentFrame || !isResetFrame)
             {
                 orderProcessTimer = 8;
             }
         }
     }
-    else if (gatherCommandFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+    else if ((gatherCommandFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()) && !isResetFrame)
+          || gatherCommandFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames() - 1)
+          || (returnCommandFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames()) && !isResetFrame))
     {
-        // Actually it stays at 0 for a couple of frames while the command gets worked out, but we don't care about that in practice
-        orderProcessTimer = 10;
+        orderProcessTimer = 0;
+    }
+    else if ((gatherCommandFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames() - 2) && !isResetFrame)
+          || returnCommandFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames() - 1))
+    {
+        orderProcessTimer = 8;
     }
     else if (bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals && previousOrder != BWAPI::Orders::WaitForMinerals)
     {
@@ -138,6 +154,60 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
         }
     }
 
+    // Update the possible order process timer values
+    // If the order process timer is known, set it directly
+    if (orderProcessTimer != -1)
+    {
+        possibleOrderProcessTimerValues = {orderProcessTimer};
+    }
+    else if (OrderProcessTimer::isResetFrame())
+    {
+        // The order process timer has just been reset this frame, so there are 8 possible values
+        // Since the order process timer is decremented after the reset, only the value of 7 is excluded
+        possibleOrderProcessTimerValues = {0, 1, 2, 3, 4, 5, 6, 8};
+    }
+    else
+    {
+        // Run the order process timer cycle on each value
+        std::multiset<int> newPossibleOrderProcessTimerValues;
+        for (auto value : possibleOrderProcessTimerValues)
+        {
+            if (value == 0)
+            {
+                newPossibleOrderProcessTimerValues.insert(8);
+            }
+            else
+            {
+                newPossibleOrderProcessTimerValues.insert(value - 1);
+            }
+        }
+        possibleOrderProcessTimerValues = std::move(newPossibleOrderProcessTimerValues);
+    }
+
+#if DEBUG_ORDERPROCESSTIMER || VALIDATE_ORDERPROCESSTIMER
+    std::ostringstream values;
+    std::string sep;
+    for (auto value : possibleOrderProcessTimerValues)
+    {
+        values << sep << value;
+        sep = ",";
+    }
+#if DEBUG_ORDERPROCESSTIMER
+    CherryVis::log(id) << "Timer: actual=" << bwapiUnit->getOrderProcessTimer() << "; predicted=[" << values.str() << "]";
+#endif
+
+#if VALIDATE_ORDERPROCESSTIMER
+    if (orderProcessTimer < 9 && !possibleOrderProcessTimerValues.empty())
+    {
+        if (!possibleOrderProcessTimerValues.contains(bwapiUnit->getOrderProcessTimer()))
+        {
+            Log::Get() << "Order process timer wrong, " << bwapiUnit->getOrderProcessTimer() << " not in [" << values.str() << "]"
+                       << "; worker " << id << " @ " << getTilePosition();
+        }
+    }
+#endif
+#endif
+    
     previousOrder = bwapiUnit->getOrder();
 }
 

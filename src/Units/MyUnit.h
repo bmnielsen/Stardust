@@ -101,6 +101,8 @@ public:
 protected:
     bool issuedOrderThisFrame;
     std::deque<BWAPI::UnitCommand> recentCommands;           // Commands issued in last LF
+    std::set<int> gatherCommandFrames;
+    std::set<int> returnCommandFrames;
 
     struct MoveCommand
     {
