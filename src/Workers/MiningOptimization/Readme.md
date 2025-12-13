@@ -160,18 +160,24 @@ A worker will stop completely while waiting at the depot to return its cargo. Ho
 
 A frame in BW with BWAPI is executed in this order:
 
-1. BW starts a new frame; BWAPI takes over the process via a DLL hook
-2. BWAPI reads the game memory to update all of its data about units, bullets, etc.
-3. BWAPI allows the AI to do its thing (by signalling a client bot to process the frame or invoking the AIModule event callbacks in a module bot)
-4. BWAPI issues any remaining buffered commands and does some bookkeeping
-5. BWAPI returns from its hook, allowing BW to do its processing of the frame
-6. BW's engine runs and updates the game state
+1. BW starts a new frame
+2. Queued commands are processed, which can change unit orders and the order process timer
+3. BWAPI takes over the process via a DLL hook
+4. BWAPI reads the game memory to update all of its data about units, bullets, etc.
+5. BWAPI allows the AI to do its thing (by signalling a client bot to process the frame or invoking the AIModule event callbacks in a module bot)
+6. BWAPI issues any remaining buffered commands and does some bookkeeping
+7. BWAPI returns from its hook, allowing BW to do its processing of the frame
+8. BW's engine runs and updates the game state
 
-This can cause some confusion when viewing a replay in CherryVis and comparing it to data logged by the bot, since they are seeing the game data at different points in the above cycle: CherryVis will show the state after step 6, while the bot on the same frame saw the engine data from the end of the previous frame.
+This can cause some confusion when viewing a replay in CherryVis and comparing it to data logged by the bot, since they are seeing the game data at different points in the above cycle: CherryVis will show the state after step 8, while the bot on the same frame saw the engine data from the end of the previous frame.
 
 This makes it very easy to make off-by-one frame timing errors when working on things like mining timings.
 
 Stardust already keeps its own frame timer in an attempt to not get too confused by pauses, so to hopefully simplify things, it is initialized to run one tick behind BWAPI's frame timer. So when looking at a frame in CherryVis, the frame labels from the bot will match the frame with the engine data the bot's behaviour was based on. Frame numbers in the CherryVis data files are likewise decremented. This breaks down if there is pausing, but as this doesn't happen in games with CherryVis instrumentation, this isn't an issue.
+
+One specific case where there still is misalignment is when looking at the order process timer of a unit on the frame a command takes effect. The
+order process timer is set to 0 at step 2 above, prior to the bot gaining control, so the bot state will not actually completely match the game state
+from the previous frame.
 
 ## A note of caution about order process timer timing
 
