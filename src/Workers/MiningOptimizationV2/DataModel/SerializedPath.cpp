@@ -18,13 +18,18 @@ namespace MiningOptimization
             std::function<void(S&, PathNode<ObservationType>&)> pathNodeSerializer;
             auto resendArrivalDataSerializer = [](S &s, ObservationType &arrivalData)
             {
-                s.value1b(arrivalData.arrivalDelay);
                 s.value1b(arrivalData.packed);
+#if USE_NEXT_PATH_LENGTHS
+                s.value1b(arrivalData.nextPathLengthDelta);
+#endif
             };
             auto finalNodeArrivalDataSerializer = [](S &s, ObservationType &arrivalData)
             {
-                arrivalData.arrivalDelay = 1;
                 s.value1b(arrivalData.packed);
+#if USE_NEXT_PATH_LENGTHS
+                // TODO: If this gets enabled again, pack the data like we used to so we don't have to include the arrival delay here
+                s.value1b(arrivalData.nextPathLengthDelta);
+#endif
             };
 
             auto customVectorSerializer = [&](const auto &itemSerializer, bool *extraPackedBool = nullptr)

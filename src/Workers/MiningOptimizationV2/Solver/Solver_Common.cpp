@@ -1,24 +1,12 @@
 #include "Solver.h"
 
+#include "../MiningOptimizationConfiguration.h"
 #include "Geo.h"
 #include "OrderProcessTimer.h"
 
 #include "../DataModel/MapData.h"
 
 #define EPSILON 0.000001
-
-// Defines how much we weight the estimated length of the next path in the scoring of a planned path
-// We don't want to give it too much weight, since the data we have is averaged over many different situations, but on the other hand we want to
-// make sure we nudge the worker onto a better cycle if it is at a local minima
-// TODO: It currently seems like this has a random-like effect (some patches are improved, some are worsened) so more investigation is needed
-// Results on testing with single worker on Vermeer:
-// 0.0: 154.01
-// 0.1: 154.04
-// 0.2: 154.33
-// 0.4: 154.17
-// 0.5: 154.02
-// 0.6: 154.34
-#define NEXT_PATH_WEIGHT 0.0
 
 /*
  * This file contains the main logic for the path solver.
@@ -157,7 +145,7 @@ namespace MiningOptimization
                 auto addArrivalData = [&](const ObservationType &arrivalData, double probability)
                 {
                     // The arrival frame is given by the delay here
-                    int arrivalFrame = nextFrame + arrivalData.arrivalDelay;
+                    int arrivalFrame = nextFrame + arrivalData.arrivalDelay();
                     result.arrivalFramesWithProbabilities[arrivalFrame] += probability;
 
                     // Compute the possible order process timer values at arrival, taking pending resends into account
@@ -165,7 +153,7 @@ namespace MiningOptimization
                             orderProcessTimerInFuture<ObservationType>(nextFrame,
                                                                        workerOrderProcessTimer,
                                                                        resends.resendFrames,
-                                                                       arrivalData.arrivalDelay);
+                                                                       arrivalData.arrivalDelay());
 
                     // Now use this data to compute when the action (mining start or resource delivery) will occur
                     // As the action will occur once the order process timer reaches 0, in the simple case we can just add the order process timer
@@ -221,7 +209,9 @@ namespace MiningOptimization
                         }
                     }
 
+#if USE_NEXT_PATH_LENGTHS
                     result.nextPathLengthWithProbabilities[arrivalData.nextPathLength(minimumNextPathLength)] += probability;
+#endif
                 };
 
                 // Process the arrival data, weighting by probability if there are unstable results
@@ -281,8 +271,9 @@ namespace MiningOptimization
 
                 // TODO: Consider patch locking and switching
 
-                // Add a tenth of the next path length
-                score += NEXT_PATH_WEIGHT * SolverResult<ObservationType>::mapAverage(result.nextPathLengthWithProbabilities);
+#if USE_NEXT_PATH_LENGTHS
+                score += NEXT_PATH_LENGTH_WEIGHT * SolverResult<ObservationType>::mapAverage(result.nextPathLengthWithProbabilities);
+#endif
 
                 return score;
             };
@@ -317,7 +308,9 @@ namespace MiningOptimization
             addObservations(nodeResult.delaysWithProbabilities, result.delaysWithProbabilities);
             addObservations(nodeResult.patchLockFramesWithProbabilities, result.patchLockFramesWithProbabilities);
             addObservations(nodeResult.patchSwitchFramesWithProbabilities, result.patchSwitchFramesWithProbabilities);
+#if USE_NEXT_PATH_LENGTHS
             addObservations(nodeResult.nextPathLengthWithProbabilities, result.nextPathLengthWithProbabilities);
+#endif
 
             result.nextBranches.emplace_back(std::move(nodeResult));
         }

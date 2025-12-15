@@ -3,6 +3,7 @@
 #include "Common.h"
 #include "Noncopyable.h"
 
+#include "../MiningOptimizationConfiguration.h"
 #include "../DataModel/PositionAndVelocity.h"
 #include "../DataModel/Path.h"
 
@@ -47,9 +48,11 @@ namespace MiningOptimization
         // If the solver does not think patch locking is possible, this will be empty
         std::map<int, double> patchLockFramesWithProbabilities;
 
+#if USE_NEXT_PATH_LENGTHS
         // The expected next path lengths with probabilities
         // This is not expected to be very exact, but can be used to nudge the worker towards picking paths that get it onto a better next path.
         std::map<int, double> nextPathLengthWithProbabilities;
+#endif
 
         // Formats the frame predictions as a string
         [[nodiscard]] std::string framePredictions() const;

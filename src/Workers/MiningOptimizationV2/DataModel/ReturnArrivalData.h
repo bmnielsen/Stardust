@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../MiningOptimizationConfiguration.h"
 #include "PositionAndVelocity.h"
 #include "Path.h"
 
@@ -30,14 +31,13 @@ namespace MiningOptimization
      */
     struct ReturnArrivalData
     {
-        uint8_t arrivalDelay = UINT8_MAX;
         uint8_t packed = UINT8_MAX;
 
-        // The length of the gather path from the end position of this arrival
-        [[nodiscard]] unsigned int nextPathLength(uint8_t minimumNextPathLength) const
+        // The number of frames to arrival at the target
+        [[nodiscard]] unsigned int arrivalDelay() const
         {
-            // Next path length is stored in the upper 6 bits, so shift two right and add the minimum value
-            return (unsigned int)(packed >> 2) + minimumNextPathLength;
+            // Delay is stored in the upper 6 bits, so shift two right and return
+            return packed >> 2;
         }
 
         // The exit speed of the worker from the depot back towards the patch
@@ -47,6 +47,37 @@ namespace MiningOptimization
             return (ReturnExitSpeed)(packed & 0b00000011);
         }
 
+#if USE_NEXT_PATH_LENGTHS
+        uint8_t nextPathLengthDelta = UINT8_MAX;
+
+        // The length of the gather path from the end position of this arrival
+        [[nodiscard]] unsigned int nextPathLength(uint8_t minimumNextPathLength) const
+        {
+            // Next path length is stored in the upper 6 bits, so shift two right and add the minimum value
+            return (unsigned int)nextPathLengthDelta + minimumNextPathLength;
+        }
+
+        bool operator==(const ReturnArrivalData &other) const
+        {
+            return std::tie(packed, nextPathLengthDelta) == std::tie(other.packed, other.nextPathLengthDelta);
+        }
+
+        bool operator<(const ReturnArrivalData &other) const
+        {
+            return std::tie(packed, nextPathLengthDelta) < std::tie(other.packed, other.nextPathLengthDelta);
+        }
+#else
+        bool operator==(const ReturnArrivalData &other) const
+        {
+            return packed == other.packed;
+        }
+
+        bool operator<(const ReturnArrivalData &other) const
+        {
+            return packed < other.packed;
+        }
+#endif
+
         // Adds the delay after the return to the given map
         // If the order process timer at arrival is 0, the delay is allowed to be negative if speed is kept
         // Otherwise only collisions are considered
@@ -55,25 +86,18 @@ namespace MiningOptimization
                                  int actionFrame,
                                  double baseProbability) const;
 
-        bool operator==(const ReturnArrivalData &other) const
-        {
-            return std::tie(arrivalDelay, packed) == std::tie(other.arrivalDelay, other.packed);
-        }
-
-        bool operator<(const ReturnArrivalData &other) const
-        {
-            return std::tie(arrivalDelay, packed) < std::tie(other.arrivalDelay, other.packed);
-        }
-
         template <typename S>
         void serialize(S& s) {
-            s.value1b(arrivalDelay);
             s.value1b(packed);
+
+#if USE_NEXT_PATH_LENGTHS
+            s.value1b(nextPathLengthDelta);
+#endif
         }
 
         friend std::ostream& operator<< (std::ostream& os, const ReturnArrivalData& data)
         {
-            os << data.arrivalDelay;
+            os << data.arrivalDelay();
             switch (data.exitSpeed())
             {
                 case ReturnExitSpeed::Collision:

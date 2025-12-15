@@ -173,18 +173,19 @@ namespace MiningOptimizationTraining::DataTransformer
         OutputObservationType convert(const TrainingObservationType &arrivalData,
                                       const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
-            // Start by looking up the next path arrival delay, defaulting to the max value if it isn't found
-            auto it = nextPathArrivalDelays.find(arrivalData.nextPathStartPosition);
-            uint8_t nextPathArrivalDelay = (it == nextPathArrivalDelays.end()) ? 63 : it->second;
-
-            // Now pack the next path arrival delay with whatever is already packed in the arrival data
+            // Pack the arrival delay with whatever is already packed in the arrival data
             // For gather this is the collision and facing patch, for return this is the exit speed
-            uint8_t packed = (nextPathArrivalDelay << 2) + (arrivalData.packed & 0b00000011);
+            uint8_t packed = (std::min(arrivalData.arrivalDelay(), 63U) << 2) + (arrivalData.packed & 0b00000011);
 
-            // Validate the arrival delay can fit in 8 bits
-            EXPECT_LE(arrivalData.arrivalDelay(), 255) << "Arrival delay does not fit in 8 bits";
+#if USE_NEXT_PATH_LENGTHS
+            // Look up the next path arrival delay, defaulting to the max value if it isn't found
+            auto it = nextPathArrivalDelays.find(arrivalData.nextPathStartPosition);
+            uint8_t nextPathArrivalDelay = (it == nextPathArrivalDelays.end()) ? 255 : (std::min(it->second, (uint8_t)255U));
 
-            return {(uint8_t)arrivalData.arrivalDelay(), packed};
+            return {packed, nextPathArrivalDelay};
+#else
+            return {packed};
+#endif
         }
 
         template <typename TrainingObservationType, typename OutputObservationType>

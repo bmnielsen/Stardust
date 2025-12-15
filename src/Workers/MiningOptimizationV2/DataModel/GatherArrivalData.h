@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../MiningOptimizationConfiguration.h"
 #include "Path.h"
 
 #include <cstdint>
@@ -19,14 +20,13 @@ namespace MiningOptimization
      */
     struct GatherArrivalData
     {
-        uint8_t arrivalDelay = UINT8_MAX;
         uint8_t packed = UINT8_MAX;
 
-        // The length of the return path from the end position of this arrival
-        [[nodiscard]] unsigned int nextPathLength(uint8_t minimumNextPathLength) const
+        // The number of frames to arrival at the target
+        [[nodiscard]] unsigned int arrivalDelay() const
         {
-            // Next path length is stored in the upper 6 bits, so shift two right and add the minimum value
-            return (unsigned int)(packed >> 2) + minimumNextPathLength;
+            // Delay is stored in the upper 6 bits, so shift two right and return
+            return packed >> 2;
         }
 
         // Whether the worker is facing its target at arrival
@@ -43,6 +43,37 @@ namespace MiningOptimization
             return (packed & 0b00000010) == 0b00000010;
         }
 
+#if USE_NEXT_PATH_LENGTHS
+        uint8_t nextPathLengthDelta = UINT8_MAX;
+
+        // The length of the return path from the end position of this arrival
+        [[nodiscard]] unsigned int nextPathLength(uint8_t minimumNextPathLength) const
+        {
+            // Next path length is stored in the upper 6 bits, so shift two right and add the minimum value
+            return (unsigned int)nextPathLengthDelta + minimumNextPathLength;
+        }
+
+        bool operator==(const GatherArrivalData &other) const
+        {
+            return std::tie(packed, nextPathLengthDelta) == std::tie(other.packed, other.nextPathLengthDelta);
+        }
+
+        bool operator<(const GatherArrivalData &other) const
+        {
+            return std::tie(packed, nextPathLengthDelta) < std::tie(other.packed, other.nextPathLengthDelta);
+        }
+#else
+        bool operator==(const GatherArrivalData &other) const
+        {
+            return packed == other.packed;
+        }
+
+        bool operator<(const GatherArrivalData &other) const
+        {
+            return packed < other.packed;
+        }
+#endif
+
         // Adds the delay after mining start to the given map
         // Possible delays for gather:
         // - Not facing patch when transitioning to mine incurs an order process timer cycle of delay for the worker to turn
@@ -55,25 +86,18 @@ namespace MiningOptimization
                                  int actionFrame,
                                  double baseProbability) const;
 
-        bool operator==(const GatherArrivalData &other) const
-        {
-            return std::tie(arrivalDelay, packed) == std::tie(other.arrivalDelay, other.packed);
-        }
-
-        bool operator<(const GatherArrivalData &other) const
-        {
-            return std::tie(arrivalDelay, packed) < std::tie(other.arrivalDelay, other.packed);
-        }
-
         template <typename S>
         void serialize(S& s) {
-            s.value1b(arrivalDelay);
             s.value1b(packed);
+
+#if USE_NEXT_PATH_LENGTHS
+            s.value1b(nextPathLengthDelta);
+#endif
         }
 
         friend std::ostream& operator<< (std::ostream& os, const GatherArrivalData& data)
         {
-            os << data.arrivalDelay;
+            os << data.arrivalDelay();
             if (!data.facingTarget())
             {
                 os << "[!f]";

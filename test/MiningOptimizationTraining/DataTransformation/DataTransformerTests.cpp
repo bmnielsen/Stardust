@@ -211,10 +211,13 @@ TEST(DataTransformerTests, GatherArrivalPacking)
             bool found = false;
             for (const auto &[actualArrival, _] : nextPosition.arrivalDataAfterResend)
             {
-                if (actualArrival.arrivalDelay == expectedArrival.arrivalDelay()
+                if (actualArrival.arrivalDelay() == expectedArrival.arrivalDelay()
                     && actualArrival.facingTarget() == expectedArrival.facingTarget()
                     && actualArrival.collision() == expectedArrival.collision()
-                    && actualArrival.nextPathLength(outputData.minimumNextPathLength) == expectedNextPathLength)
+#if USE_NEXT_PATH_LENGTHS
+                    && actualArrival.nextPathLength(outputData.minimumNextPathLength) == expectedNextPathLength
+#endif
+                    )
                 {
                     found = true;
                     break;
@@ -318,9 +321,12 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
             bool found = false;
             for (const auto &[actualArrival, _] : nextPosition.arrivalDataAfterResend)
             {
-                if (actualArrival.arrivalDelay == expectedArrival.arrivalDelay()
+                if (actualArrival.arrivalDelay() == expectedArrival.arrivalDelay()
                     && (uint8_t)actualArrival.exitSpeed() == (uint8_t)expectedArrival.exitSpeed()
-                    && actualArrival.nextPathLength(outputData.minimumNextPathLength) == expectedNextPathLength)
+#if USE_NEXT_PATH_LENGTHS
+                    && actualArrival.nextPathLength(outputData.minimumNextPathLength) == expectedNextPathLength
+#endif
+                    )
                 {
                     found = true;
                     break;
