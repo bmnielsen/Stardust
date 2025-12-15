@@ -7,6 +7,19 @@
 
 #define EPSILON 0.000001
 
+// Defines how much we weight the estimated length of the next path in the scoring of a planned path
+// We don't want to give it too much weight, since the data we have is averaged over many different situations, but on the other hand we want to
+// make sure we nudge the worker onto a better cycle if it is at a local minima
+// TODO: It currently seems like this has a random-like effect (some patches are improved, some are worsened) so more investigation is needed
+// Results on testing with single worker on Vermeer:
+// 0.0: 154.01
+// 0.1: 154.04
+// 0.2: 154.33
+// 0.4: 154.17
+// 0.5: 154.02
+// 0.6: 154.34
+#define NEXT_PATH_WEIGHT 0.0
+
 /*
  * This file contains the main logic for the path solver.
  *
@@ -322,7 +335,7 @@ namespace MiningOptimization
                 // TODO: Consider patch locking and switching
 
                 // Add a tenth of the next path length
-                score += 0.1 * SolverResult<ObservationType>::mapAverage(result.nextPathLengthWithProbabilities);
+                score += NEXT_PATH_WEIGHT * SolverResult<ObservationType>::mapAverage(result.nextPathLengthWithProbabilities);
 
                 return score;
             };
