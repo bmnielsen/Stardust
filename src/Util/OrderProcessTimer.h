@@ -1,5 +1,7 @@
 #pragma once
 
+#include <set>
+
 extern int currentFrame;
 
 namespace OrderProcessTimer
@@ -41,4 +43,12 @@ namespace OrderProcessTimer
     // Computes the order process timer a unit will have at a frame delta compared to the current frame
     // Returns -1 if the order process timer cannot be predicted because of a reset
     int unitOrderProcessTimerAtDelta(int unitOrderProcessTimer, int frameDelta);
+
+    // Takes a set of possible order process timer values at a start frame and returns the set of possible values after a delta
+    // For this method, the values are considered at the start of a frame
+    std::multiset<int> atStartOfFrameAtDelta(int startFrame,
+                                             const std::multiset<int> &possibleStartingValues,
+                                             const std::set<int> &gatherCommandFrames,
+                                             const std::set<int> &returnCommandFrames,
+                                             unsigned int frameDelta);
 }

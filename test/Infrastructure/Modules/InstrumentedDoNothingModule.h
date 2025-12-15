@@ -26,6 +26,8 @@ public:
         Log::SetOutputToConsole(true);
         CherryVis::initialize();
 
+        CherryVis::setBoardValue("dummy", "yes"); // just setting it so we write the cvis file and don't get errors in the frontend
+
         if (includeInfoModules)
         {
             Units::initialize();
