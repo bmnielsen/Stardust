@@ -189,7 +189,7 @@ namespace WorkerMiningOptimization
             if (deltaToFirstResend == BWAPI::Broodwar->getLatencyFrames()) return nextPositionsEvaluation;
 
             // We can't send a command LF+1 frames before an order process timer reset
-            if (OrderProcessTimer::framesToNextReset(commandFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+            if (OrderProcessTimer::framesToNextReset(commandFrame + 1) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // If we want to try this position and it is better than the current best, return this
             int probableDeltaToBenchmark = firstResend.probableDeltaToBenchmark();
@@ -266,7 +266,7 @@ namespace WorkerMiningOptimization
             // We can't send a command LF+1 frames before an order process timer reset
             // Note that this is actually ok in cases where there is a second resend later, but we can't always trust that this will happen
             // if we discover a new path branch
-            if (OrderProcessTimer::framesToNextReset(commandFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+            if (OrderProcessTimer::framesToNextReset(commandFrame + 1) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // Now evaluate this position using the second resend metadata
             auto evaluationHere = evaluateSecondResendPositions(commandFrame,
@@ -333,11 +333,11 @@ namespace WorkerMiningOptimization
             double orderProcessTimerDelay = 4.5;
             int framesToNormalPathArrival = BWAPI::Broodwar->getLatencyFrames() + 10 - positionMetadata.probableDeltaToBenchmark();
             int orderProcessTimerAtArrival =
-                    OrderProcessTimer::unitOrderProcessTimerAtDelta(workerStatus.worker->orderProcessTimer, framesToNormalPathArrival);
+                    OrderProcessTimer::unitOrderProcessTimerAtDelta(currentFrame + 1, workerStatus.worker->orderProcessTimer, framesToNormalPathArrival);
             if (orderProcessTimerAtArrival != -1)
             {
                 // The order timer might reset between arrival and mining start, so adjust for this
-                if (OrderProcessTimer::previousResetFrame(currentFrame + framesToNormalPathArrival + 1) > currentFrame)
+                if (OrderProcessTimer::previousResetFrame(currentFrame + framesToNormalPathArrival + 2) > currentFrame)
                 {
                     orderProcessTimerDelay = (double)(orderProcessTimerAtArrival + 4);
                 }

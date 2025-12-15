@@ -123,7 +123,7 @@ namespace WorkerMiningOptimization
         }
 
         // Check for order process timer resets that will affect start of mining
-        int framesToNextReset = OrderProcessTimer::framesToNextReset(commandFrame + BWAPI::Broodwar->getLatencyFrames() + 1);
+        int framesToNextReset = OrderProcessTimer::framesToNextReset(commandFrame + BWAPI::Broodwar->getLatencyFrames() + 2);
         if (framesToNextReset < (11 + arrivalDelay))
         {
             // A reset will happen before the worker arrives at the patch

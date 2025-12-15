@@ -58,7 +58,7 @@ namespace WorkerMiningOptimization
                 // Really it sets to 0 for two frames while the worker recomputes its path, but for our logic we don't care
                 return 10;
             }
-            if (currentOrderProcessTimer == -1 || OrderProcessTimer::isResetFrame(simulationFrame + 1))
+            if (currentOrderProcessTimer == -1 || OrderProcessTimer::isResetFrame(simulationFrame + 2))
             {
                 return -1;
             }
@@ -265,13 +265,13 @@ namespace WorkerMiningOptimization
             {
                 // Not sure if we will ever evaluate a no-resend approach, but including this in case we want to at some point
                 orderProcessTimerAtArrival =
-                        OrderProcessTimer::unitOrderProcessTimerAtDelta(worker->orderProcessTimer, arrivalFrame - currentFrame - 1);
+                        OrderProcessTimer::unitOrderProcessTimerAtDelta(currentFrame + 1, worker->orderProcessTimer, arrivalFrame - currentFrame - 1);
             }
             else
             {
                 int commandFrame = lastResendFrame + BWAPI::Broodwar->getLatencyFrames();
                 orderProcessTimerAtArrival =
-                        OrderProcessTimer::unitOrderProcessTimerAtDelta(commandFrame, 10, arrivalFrame - commandFrame - 1);
+                        OrderProcessTimer::unitOrderProcessTimerAtDelta(commandFrame + 1, 10, arrivalFrame - commandFrame - 1);
             }
 
             // There are four possibilities we need to consider:
@@ -290,13 +290,13 @@ namespace WorkerMiningOptimization
             std::vector<std::pair<int, double>> possibleFramesAndProbabilities;
             if (orderProcessTimerAtArrival != -1)
             {
-                if (OrderProcessTimer::unitOrderProcessTimerAtDelta(arrivalFrame - 1, orderProcessTimerAtArrival, orderProcessTimerAtArrival) == 0)
+                if (OrderProcessTimer::unitOrderProcessTimerAtDelta(arrivalFrame, orderProcessTimerAtArrival, orderProcessTimerAtArrival) == 0)
                 {
                     possibleFramesAndProbabilities.emplace_back(arrivalFrame + orderProcessTimerAtArrival, 1.0);
                 }
                 else
                 {
-                    int resetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame);
+                    int resetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame + 1);
                     for (int frame = resetFrame; frame <= (resetFrame + 7); frame++)
                     {
                         possibleFramesAndProbabilities.emplace_back(frame, 1.0 / 8.0);
@@ -305,7 +305,7 @@ namespace WorkerMiningOptimization
             }
             else
             {
-                int resetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame);
+                int resetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame + 1);
                 for (int frame = arrivalFrame; frame <= (arrivalFrame + 8); frame++)
                 {
                     if (frame == resetFrame)
@@ -491,11 +491,11 @@ namespace WorkerMiningOptimization
             if (deltaToFirstResend == BWAPI::Broodwar->getLatencyFrames()) return nextPositionsEvaluation;
 
             // We can't send a command LF+1 frames before an order process timer reset
-            if (OrderProcessTimer::framesToNextReset(simulationFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+            if (OrderProcessTimer::framesToNextReset(simulationFrame + 1) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // Avoid frames that could block commands needed for takeover, either for reset frame or takeover frame
             // TODO: Figure out if any of this needs to be adjusted to take patch locking into consideration
-            int orderTimerResetFrame = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame);
+            int orderTimerResetFrame = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame + 1);
             if (orderTimerResetFrame == workerStatus.takeoverFrame) orderTimerResetFrame -= 150;
 
             int commandFrameForTakeOver = workerStatus.takeoverFrame - 11 - BWAPI::Broodwar->getLatencyFrames();
@@ -524,7 +524,7 @@ namespace WorkerMiningOptimization
             // TODO: It is presumably also ok if we reach the patch before the reset, but we would have to consider Unit_Busy timings
             if (patchLockFrameDelta < 0)
             {
-                int nextResetFrame = OrderProcessTimer::nextResetFrame(simulationFrame);
+                int nextResetFrame = OrderProcessTimer::nextResetFrame(simulationFrame + 1);
                 if (nextResetFrame < workerStatus.takeoverFrame && nextResetFrame != (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
                 {
                     return nextPositionsEvaluation;
@@ -643,7 +643,7 @@ namespace WorkerMiningOptimization
             // We can't send a command LF+1 frames before an order process timer reset
             // Note that this is actually ok in cases where there is a second resend later, but we can't always trust that this will happen
             // if we discover a new path branch
-            if (OrderProcessTimer::framesToNextReset(simulationFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
+            if (OrderProcessTimer::framesToNextReset(simulationFrame + 1) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
             // Now evaluate this position using the second resend metadata
             auto evaluationHere = evaluateSecondResendPositions(workerStatus,

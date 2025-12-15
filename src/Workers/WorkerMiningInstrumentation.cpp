@@ -350,9 +350,9 @@ namespace WorkerMiningInstrumentation
                     }
 
                     // Check the counter when the order timer starts counting down
-                    // However skip it if there was an order process timer reset exactly on the mining start frame, as this can also add a delay
+                    // However skip it if there was an order process timer reset exactly after the mining start frame, as this can also add a delay
                     if (worker->bwapiUnit->getOrderTimer() == 75 &&
-                        !OrderProcessTimer::isResetFrame(status.miningStartFrame))
+                        !OrderProcessTimer::isResetFrame(status.miningStartFrame + 1))
                     {
 #if LOG_NOTFACINGPATCH
                         if (status.preminingFrameCounter > 1)
@@ -663,7 +663,7 @@ namespace WorkerMiningInstrumentation
                     // Single worker waiting too long to mine
                     if (currentFrames > 1)
                     {
-                        int orderTimerResetBeforeArrival = OrderProcessTimer::framesToPreviousReset(currentFrame - currentFrames);
+                        int orderTimerResetBeforeArrival = OrderProcessTimer::framesToPreviousReset(currentFrame - currentFrames + 1);
                         if (orderTimerResetBeforeArrival > 11)
                         {
                             inefficiency = "start-mining-wait-no-reset";
@@ -712,7 +712,7 @@ namespace WorkerMiningInstrumentation
                     bool extraFrame = (currentStatus == 13);
                     int miningStart = extraData;
 
-                    int resetFrameAfterMiningStart = OrderProcessTimer::framesToNextReset(miningStart);
+                    int resetFrameAfterMiningStart = OrderProcessTimer::framesToNextReset(miningStart + 1);
                     int miningEnd = currentFrame - currentFrames - (previousStatus == 11 ? previousFrames : 0) + 1;
 
                     int expectedWaitingFrames;

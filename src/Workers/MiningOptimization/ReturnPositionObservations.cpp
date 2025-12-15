@@ -97,7 +97,7 @@ namespace WorkerMiningOptimization
         // Compute the order process timer at arrival
         // This takes order process timer resets into account
         int orderProcessTimerAtArrival = OrderProcessTimer::unitOrderProcessTimerAtDelta(
-                knownOrderProcessTimerFrame, knownOrderProcessTimer, arrivalFrame - knownOrderProcessTimerFrame - 1);
+                knownOrderProcessTimerFrame + 1, knownOrderProcessTimer, arrivalFrame - knownOrderProcessTimerFrame - 1);
 
         // If we don't know what the order process timer will be at arrival, compute an average delay considering the different exit timings
         // depending on whether the delivery happens at arrival or not
@@ -105,7 +105,7 @@ namespace WorkerMiningOptimization
         {
             // If the arrival frame is a reset frame, this changes the math slightly as there are only 8 possible reset values
             double delayAfterArrival;
-            if (OrderProcessTimer::isResetFrame(arrivalFrame))
+            if (OrderProcessTimer::isResetFrame(arrivalFrame + 1))
             {
                 delayAfterArrival =
                         (deliveryAtArrivalSpeeds.expectedDeltaToNormal() + 28.0 + (7.0 * deliveryAfterArrivalSpeeds.expectedDeltaToNormal())) / 8.0;
@@ -123,7 +123,7 @@ namespace WorkerMiningOptimization
         int deliveryFrame = arrivalFrame + orderProcessTimerAtArrival;
 
         // Handle the case where the order process timer resets between arrival and expected delivery
-        int nextResetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame);
+        int nextResetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame + 1);
         if (nextResetFrame <= deliveryFrame)
         {
             // Average will be 3.5 frames of delay after the reset

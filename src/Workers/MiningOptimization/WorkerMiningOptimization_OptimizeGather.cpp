@@ -112,7 +112,7 @@ namespace WorkerMiningOptimization
                 workerStatus.takeoverFrame = otherWorker->lastStartedMining + 81 + addedFrame;
 
                 // Compute the frame of the order timer reset prior to the takeover frame
-                int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame - addedFrame);
+                int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame - addedFrame + 1);
                 if (previousOrderTimerReset == (workerStatus.takeoverFrame - addedFrame)) previousOrderTimerReset -= 150;
 
                 // If the order timer reset during mining, adjust our take over frame
@@ -265,7 +265,7 @@ namespace WorkerMiningOptimization
                         // - We have finished following a path, but will reach it early enough that we need to avoid patch switching
 
                         // Compute the frame of the order timer reset prior to the take over frame
-                        int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(takeoverFrame);
+                        int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(takeoverFrame + 1);
                         if (previousOrderTimerReset == takeoverFrame) previousOrderTimerReset -= 150;
 
                         // Now compute when we need to issue mining commands
@@ -476,8 +476,8 @@ namespace WorkerMiningOptimization
                                     int lastSafeResendFrame = workerStatus.passed10DistancePosition;
                                     int atRangeFrame = lastSafeResendFrame + BWAPI::Broodwar->getLatencyFrames();
                                     int additionalSafeFrames = std::min(
-                                            OrderProcessTimer::unitOrderProcessTimerAtDelta(worker->orderProcessTimer, atRangeFrame - currentFrame),
-                                            OrderProcessTimer::nextResetFrame(atRangeFrame));
+                                            OrderProcessTimer::unitOrderProcessTimerAtDelta(currentFrame + 1, worker->orderProcessTimer, atRangeFrame - currentFrame),
+                                            OrderProcessTimer::nextResetFrame(atRangeFrame + 1));
                                     if (additionalSafeFrames != -1)
                                     {
                                         lastSafeResendFrame += additionalSafeFrames;

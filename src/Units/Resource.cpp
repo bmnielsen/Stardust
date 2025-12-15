@@ -216,7 +216,7 @@ ResourceGatherProbabilityForecast &ResourceImpl::getGatherProbabilityForecast()
 
     // If the next mining worker is actively transitioning to mining, we can just write 1s for the entire forecast horizon
     if (nextMiningWorker && nextMiningWorker->lastTransitionedToWaitForMineralsOrder == currentFrame
-        && !OrderProcessTimer::isResetFrame())
+        && !OrderProcessTimer::isResetFrame(currentFrame + 1))
     {
         std::fill(forecast.begin(), forecast.end(), 1.0);
         return returner();
@@ -240,7 +240,7 @@ ResourceGatherProbabilityForecast &ResourceImpl::getGatherProbabilityForecast()
         int miningEndFrame = miningWorker->lastStartedMining + 81;
 
         // If there was an order timer reset after the start of mining, the worker may end mining between frame 74 and 81
-        int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(miningEndFrame - 1);
+        int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(miningEndFrame);
         if (previousOrderTimerReset >= miningWorker->lastStartedMining)
         {
             int earliestMiningEndFrame = miningWorker->lastStartedMining + 75;
@@ -385,8 +385,9 @@ ResourceGatherProbabilityForecast &ResourceImpl::getGatherProbabilityForecast()
 #endif
         }
 
+        // TODO: Revisit this math after the updates to OrderProcessTimer logic
         auto orderProcessTimerAtArrival = OrderProcessTimer::unitOrderProcessTimerAtDelta(
-                frameWithKnownOrderProcessTimer,
+                frameWithKnownOrderProcessTimer + 1,
                 knownOrderProcessTimerValue,
                 deltaToArrivalFrame - 1);
 
@@ -464,7 +465,7 @@ ResourceGatherProbabilityForecast &ResourceImpl::getGatherProbabilityForecast()
         // We consider both cases by looking at the mining probability we have computed beforehand.
 
         // First compute the index in the forecast array where the reset happens
-        int orderTimerResetIndex = OrderProcessTimer::nextResetFrame(arrivalFrame) - currentFrame;
+        int orderTimerResetIndex = OrderProcessTimer::nextResetFrame(arrivalFrame + 1) - currentFrame;
         if (orderTimerResetIndex >= GATHER_FORECAST_FRAMES) return; // reset is outside of forecast horizon
 
         // Get the probability that the worker will already have started mining at the reset
@@ -524,7 +525,7 @@ ResourceGatherProbabilityForecast &ResourceImpl::getGatherProbabilityForecast()
 #if DEBUG_SATURATION_DATA
         CherryVis::log(nextMiningWorker->id) << "Order timer reset after arrival"
                                                  << "; arrivalFrame=" << arrivalFrame
-                                                 << "; resetFrame=" << OrderProcessTimer::nextResetFrame(arrivalFrame)
+                                                 << "; resetFrame=" << OrderProcessTimer::nextResetFrame(arrivalFrame + 1)
                                                  << "; possibleOrderProcessTimerValues=" << possibleOrderProcessTimerValues
                                                  << "; miningProbabilityAtReset=" << miningProbabilityAtReset
                                                  << "; waitForMineralsProbabilityAtReset=" << waitForMineralsProbabilityAtReset;
