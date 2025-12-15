@@ -13,10 +13,10 @@ namespace MiningOptimization
         int baseDelay = (collision() ? 9 : 0) + (!facingTarget() ? 9 : 0);
 
         // For gather, the "action frame" is the frame that the worker transitions to MiningMinerals
-        // If the order timer resets on this frame, we need to adjust the probabilities
+        // There is an extra delay if the order timer resets on the frame after this, which is when the mining timer starts counting down
 
         // If there is no order timer reset, just proceed normally
-        if (!OrderProcessTimer::isResetFrame(actionFrame))
+        if (!OrderProcessTimer::isResetFrame(actionFrame + 1))
         {
             delaysWithProbabilities[baseDelay] += baseProbability;
             return;

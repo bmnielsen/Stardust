@@ -56,81 +56,39 @@ namespace MiningOptimization
     namespace
     {
         // Computes what the possible order process timer values are for a worker in a given number of frames
+        // The order process timer values in this method are the values at the start of the given frame
         template <typename ObservationType>
-        std::set<int> orderProcessTimerInFuture(int startFrame, // NOLINT(*-no-recursion)
-                                                const std::set<int> &possibleStartingValues,
-                                                const std::set<int> &resendFrames,
-                                                unsigned int framesInFuture)
+        std::multiset<int> orderProcessTimerInFuture(int startFrame, // NOLINT(*-no-recursion)
+                                                     const std::multiset<int> &possibleStartingValues,
+                                                     const std::set<int> &resendFrames,
+                                                     unsigned int framesInFuture)
         {
-            if (framesInFuture == 0) return possibleStartingValues;
-
-            // If there is a resend frame within the window, reset the order process timer value accordingly
-            // For gather, the worker's timer goes to 0 for two frames, then 8. But as the worker can't actually start mining at either of the
-            // intermediate frames, we can just treat the value as 10 on the first frame and everything works out.
-            // For return, it is similar, but without the extra frame, so we use 9 instead.
-            for (auto resendFrame : resendFrames)
+            if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
             {
-                int frameResendTakesEffect = resendFrame + BWAPI::Broodwar->getLatencyFrames();
-                if (frameResendTakesEffect > startFrame && frameResendTakesEffect <= (startFrame + framesInFuture))
-                {
-                    constexpr int valueAfterResend = []()
-                    {
-                        if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
-                        {
-                            return 10;
-                        }
-                        else
-                        {
-                            return 9;
-                        }
-                    }();
-
-                    // Call recursively to allow a later resend frame to override
-                    return orderProcessTimerInFuture<ObservationType>(frameResendTakesEffect,
-                                                                      {valueAfterResend},
-                                                                      resendFrames,
-                                                                      framesInFuture - (frameResendTakesEffect - startFrame));
-                }
+                return OrderProcessTimer::atStartOfFrameAtDelta(startFrame, possibleStartingValues, resendFrames, {}, framesInFuture);
             }
-
-            // If there is a reset frame within the window, the values can be from 0 to 7 inclusive from that frame
-            int framesToNextReset = OrderProcessTimer::framesToNextReset(startFrame + 1);
-            if (framesToNextReset < framesInFuture)
+            else
             {
-                return orderProcessTimerInFuture<ObservationType>(startFrame + framesToNextReset + 1,
-                                                                  {0, 1, 2, 3, 4, 5, 6, 7},
-                                                                  {},
-                                                                  framesInFuture - framesToNextReset - 1);
+                return OrderProcessTimer::atStartOfFrameAtDelta(startFrame, possibleStartingValues, {}, resendFrames, framesInFuture);
             }
-
-            // Nothing has happened that would interfere with the normal cycle, so run it on all the values
-            std::set<int> result;
-            for (auto startingValue : possibleStartingValues)
-            {
-                startingValue -= (int)framesInFuture;
-                while (startingValue < 0) startingValue += 9;
-                result.insert(startingValue);
-            }
-            return result;
         }
     }
 
     template <typename ObservationType>
     SolverResult<ObservationType> Solver<ObservationType>::execute()
     {
-        // If we don't know the worker's order process timer value, we assume it can be any of the valid values
-        std::set<int> workerOrderProcessTimer;
-        if (workerOrderProcessTimerAtStartFrame == -1)
+        // The possible order process timer frames we get as input to the solver are the values at the end of the start frame
+        // During the solver logic, we want to know the possible values just before the worker's orders are processed, which may be different
+        // from the values at the end of the previous frame if there has been a resend or an order process timer reset
+        auto workerOrderProcessTimer = possibleWorkerOrderProcessTimerValuesAtStartFrame;
+        if (OrderProcessTimer::isResetFrame(startFrame + 1))
         {
-            workerOrderProcessTimer = {0, 1, 2, 3, 4, 5, 6, 7, 8};
-        }
-        else
-        {
-            workerOrderProcessTimer = {workerOrderProcessTimerAtStartFrame};
+            workerOrderProcessTimer = {0, 1, 2, 3, 4, 5, 6, 7};
         }
 
         SolverResends resends;
-        auto result = processNextNodes(startPosition, path.nextPositions, startFrame + 1, resends, workerOrderProcessTimer);
+        auto result =
+                processNextNodes(startPosition, path.nextPositions, startFrame + 1, resends, workerOrderProcessTimer);
         result.pathToNextBranch.push_front(startPosition);
         result.pathNodesToNextBranch.push_front(nullptr); // This should otherwise be the root node, but we know we don't need to use it again
         return result;
@@ -140,15 +98,10 @@ namespace MiningOptimization
     SolverResult<ObservationType> Solver<ObservationType>::processNextNodes( // NOLINT(*-no-recursion)
             const PositionAndVelocity &pos,
             const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextNodes,
-            int frame,
+            int nextFrame,
             const SolverResends &resends,
-            const std::set<int> &workerOrderProcessTimer) const
+            const std::multiset<int> &workerOrderProcessTimer) const
     {
-        // The order process timer provided to this method is the value at the start of the frame
-        // This computes the value at the start of the next frame
-        auto nextWorkerOrderProcessTimer =
-                orderProcessTimerInFuture<ObservationType>(frame, workerOrderProcessTimer, resends.resendFrames, 1);
-
         // Processes a node and returns its result
         auto processNode =
                 [&](const PathNode<ObservationType> &node) -> SolverResult<ObservationType> // NOLINT(*-no-recursion)
@@ -168,7 +121,8 @@ namespace MiningOptimization
             auto addPatchLockAndSwitchProbabilities = [&](SolverResult<ObservationType> &branch, bool canPatchLock)
             {
                 // Not relevant if it is not gather takeover, the takeover frame has passed, or the worker can't have order process timer 0 here
-                if (takeoverFrame == -1 || takeoverFrame <= frame || !workerOrderProcessTimer.contains(0)) return;
+                // TODO: Might need to exclude when the order process timer is 0 because of a resend kicking in
+                if (takeoverFrame == -1 || takeoverFrame <= nextFrame || !workerOrderProcessTimer.contains(0)) return;
 
                 // Patch locking and switching kicks in at 10 distance from the patch
                 auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
@@ -178,7 +132,7 @@ namespace MiningOptimization
                 if (dist > 10) return;
 
                 // There is a possibility of patch lock or switch, so compute the probability based on our forecast
-                auto patchLockProbability = otherPatchesForecast.atFrame(frame);
+                auto patchLockProbability = otherPatchesForecast.atFrame(nextFrame);
                 auto patchSwitchProbability = 1.0 - patchLockProbability;
                 if (!canPatchLock) patchLockProbability = 0.0;
 
@@ -188,14 +142,14 @@ namespace MiningOptimization
                 auto add = [&](std::map<int, double> &map, double probability)
                 {
                     if (probability < EPSILON) return;
-                    map[frame] = probability * probabilityWorkerOrderProcessTimerIsZero;
+                    map[nextFrame] = probability * probabilityWorkerOrderProcessTimerIsZero;
                 };
                 add(branch.patchLockFramesWithProbabilities, patchLockProbability);
                 add(branch.patchSwitchFramesWithProbabilities, patchSwitchProbability);
             };
 
             // If we have reached the end of the path, create the new branch and populate it with the arrival data
-            auto &next = node.applicableNextPositions(frame, resends.resendFrames);
+            auto &next = node.applicableNextPositions(nextFrame, resends.resendFrames);
             if (next.empty())
             {
                 SolverResult<ObservationType> result;
@@ -203,26 +157,15 @@ namespace MiningOptimization
                 auto addArrivalData = [&](const ObservationType &arrivalData, double probability)
                 {
                     // The arrival frame is given by the delay here
-                    int arrivalFrame = frame + arrivalData.arrivalDelay;
+                    int arrivalFrame = nextFrame + arrivalData.arrivalDelay;
                     result.arrivalFramesWithProbabilities[arrivalFrame] += probability;
 
                     // Compute the possible order process timer values at arrival, taking pending resends into account
-                    std::set<int> possibleOrderProcessTimerValuesAtArrival;
-                    if (arrivalData.arrivalDelay == 1)
-                    {
-                        possibleOrderProcessTimerValuesAtArrival = workerOrderProcessTimer;
-                    }
-                    else if (arrivalData.arrivalDelay == 2)
-                    {
-                        possibleOrderProcessTimerValuesAtArrival = nextWorkerOrderProcessTimer;
-                    }
-                    else
-                    {
-                        possibleOrderProcessTimerValuesAtArrival = orderProcessTimerInFuture<ObservationType>(frame,
-                                                                                                              workerOrderProcessTimer,
-                                                                                                              resends.resendFrames,
-                                                                                                              arrivalData.arrivalDelay - 1);
-                    }
+                    auto possibleOrderProcessTimerValuesAtArrival =
+                            orderProcessTimerInFuture<ObservationType>(nextFrame,
+                                                                       workerOrderProcessTimer,
+                                                                       resends.resendFrames,
+                                                                       arrivalData.arrivalDelay);
 
                     // Now use this data to compute when the action (mining start or resource delivery) will occur
                     // As the action will occur once the order process timer reaches 0, in the simple case we can just add the order process timer
@@ -237,7 +180,8 @@ namespace MiningOptimization
                     // TODO: Consider the takeover frame? Or will that be handled elsewhere?
 
                     // Get the number of frames from the arrival frame to the next order process timer reset
-                    int orderProcessTimerResetAfterArrival = OrderProcessTimer::framesToNextReset(arrivalFrame) + 1;
+                    // We do not consider resets at the arrival frame itself, since this is already handled
+                    int orderProcessTimerResetAfterArrival = OrderProcessTimer::framesToNextReset(arrivalFrame + 1) + 1;
 
                     // On gather there is an extra frame of delay between arrival and mining (the WaitForMinerals frame)
                     int transitionFrames = transitionFramesToAction();
@@ -248,7 +192,6 @@ namespace MiningOptimization
                     for (int orderProcessTimerValue : possibleOrderProcessTimerValuesAtArrival)
                     {
                         int actionDelay = orderProcessTimerValue + transitionFrames;
-
                         if (actionDelay < orderProcessTimerResetAfterArrival)
                         {
                             double probabilityHere = (probability * (1.0 / (double)possibleOrderProcessTimerValuesAtArrival.size()));
@@ -269,11 +212,11 @@ namespace MiningOptimization
                                 * probability;
                         for (int resetOrderProcessTimerValue = 0; resetOrderProcessTimerValue <= 7; resetOrderProcessTimerValue++)
                         {
-                            result.actionFramesWithProbabilities[arrivalFrame + actionDelay + resetOrderProcessTimerValue]
+                            result.actionFramesWithProbabilities[arrivalFrame + orderProcessTimerResetAfterArrival + resetOrderProcessTimerValue]
                                 += resetValueProbability;
                             arrivalData.addDelayAfterAction(result.delaysWithProbabilities,
                                                             orderProcessTimerValue,
-                                                            arrivalFrame + actionDelay + resetOrderProcessTimerValue,
+                                                            arrivalFrame + orderProcessTimerResetAfterArrival + resetOrderProcessTimerValue,
                                                             resetValueProbability);
                         }
                     }
@@ -282,7 +225,7 @@ namespace MiningOptimization
                 };
 
                 // Process the arrival data, weighting by probability if there are unstable results
-                auto &arrivalDataAndOccurrenceRates = node.applicableArrivalData(frame, resends.resendFrames);
+                auto &arrivalDataAndOccurrenceRates = node.applicableArrivalData(nextFrame, resends.resendFrames);
 
 #if LOGGING_ENABLED
                 if (arrivalDataAndOccurrenceRates.empty())
@@ -301,22 +244,26 @@ namespace MiningOptimization
                 return std::move(addPositionTo(result));
             }
 
+            // Compute the order process timer values at the start of the next frame
+            auto nextWorkerOrderProcessTimer =
+                    orderProcessTimerInFuture<ObservationType>(nextFrame, workerOrderProcessTimer, resends.resendFrames, 1);
+
             // Get the result from not resending here
-            auto result = processNextNodes(here, next, frame + 1, resends, nextWorkerOrderProcessTimer);
+            auto result = processNextNodes(here, next, nextFrame + 1, resends, nextWorkerOrderProcessTimer);
             addPatchLockAndSwitchProbabilities(result, true);
 
             // If there can be a resend, try it
-            auto resendViability = isResendViableHere(node, frame, resends);
+            auto resendViability = isResendViableHere(node, nextFrame, resends);
             if (!resendViability.first) return std::move(addPositionTo(result));
 
             // Add the resend frame
             std::set<int> resendFrames = resends.resendFrames;
-            resendFrames.insert(frame);
+            resendFrames.insert(nextFrame);
             SolverResends resendsHere{std::move(resendFrames), resendViability.second};
 
             // Get the result
-            auto resendResult = processNextNodes(here, next, frame + 1, resendsHere, nextWorkerOrderProcessTimer);
-            resendResult.resendFramesOnThisBranch.insert(frame);
+            auto resendResult = processNextNodes(here, next, nextFrame + 1, resendsHere, nextWorkerOrderProcessTimer);
+            resendResult.resendFramesOnThisBranch.insert(nextFrame);
             addPatchLockAndSwitchProbabilities(resendResult, false);
 
             // Score the two results and return the best one
@@ -412,8 +359,7 @@ namespace MiningOptimization
 
                         // For stable resend nodes, it only makes sense to resend there if it is the final resend, except in the case where we
                         // are resending to avoid patch switching on the order process timer reset frame
-                        // TODO: Check if the reset frame is being detected correctly here
-                        if (takeoverFrame != -1 && OrderProcessTimer::isResetFrame(nextFrame)) anyNonFinalResends = true;
+                        if (takeoverFrame != -1 && OrderProcessTimer::isResetFrame(nextFrame + 1)) anyNonFinalResends = true;
                     }
                     else
                     {

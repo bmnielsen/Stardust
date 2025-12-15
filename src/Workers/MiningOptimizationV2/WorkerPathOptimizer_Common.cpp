@@ -41,7 +41,7 @@ namespace MiningOptimization
                                            currentPosition,
                                            *pathBeingFollowed,
                                            currentFrame,
-                                           worker->orderProcessTimer);
+                                           worker->possibleOrderProcessTimerValues);
             expectedPath = std::make_unique<SolverResult<ObservationType>>(solver.execute());
 
 #if VERBOSE_PATH_LOGGING

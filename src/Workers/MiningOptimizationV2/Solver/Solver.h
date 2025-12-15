@@ -34,17 +34,22 @@ namespace MiningOptimization
                const PositionAndVelocity &startPosition,
                const Path<ObservationType> &path,
                int startFrame,
-               int workerOrderProcessTimerAtStartFrame)
+               std::multiset<int> _possibleWorkerOrderProcessTimerValuesAtStartFrame)
                 : positionDeltas(positionDeltas)
                 , minimumNextPathLength(minimumNextPathLength)
                 , resource(std::move(resource))
                 , startPosition(startPosition)
                 , path(path)
                 , startFrame(startFrame)
-                , workerOrderProcessTimerAtStartFrame(workerOrderProcessTimerAtStartFrame)
+                , possibleWorkerOrderProcessTimerValuesAtStartFrame(std::move(_possibleWorkerOrderProcessTimerValuesAtStartFrame))
                 , takeoverFrame(-1)
                 , otherPatchesForecast(emptyOtherPatchesForecast)
-        {}
+        {
+            if (possibleWorkerOrderProcessTimerValuesAtStartFrame.empty())
+            {
+                possibleWorkerOrderProcessTimerValuesAtStartFrame = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+            }
+        }
 
         // Constructor used for double-worker gathering
         Solver(const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
@@ -53,7 +58,7 @@ namespace MiningOptimization
                const PositionAndVelocity &startPosition,
                const Path<ObservationType> &path,
                int startFrame,
-               int workerOrderProcessTimerAtStartFrame,
+               std::multiset<int> _possibleWorkerOrderProcessTimerValuesAtStartFrame,
                int takeoverFrame,
                const ResourceGatherProbabilityForecast &otherPatchesForecast)
                 : positionDeltas(positionDeltas)
@@ -62,10 +67,15 @@ namespace MiningOptimization
                 , startPosition(startPosition)
                 , path(path)
                 , startFrame(startFrame)
-                , workerOrderProcessTimerAtStartFrame(workerOrderProcessTimerAtStartFrame)
+                , possibleWorkerOrderProcessTimerValuesAtStartFrame(std::move(_possibleWorkerOrderProcessTimerValuesAtStartFrame))
                 , takeoverFrame(takeoverFrame)
                 , otherPatchesForecast(otherPatchesForecast)
-        {}
+        {
+            if (possibleWorkerOrderProcessTimerValuesAtStartFrame.empty())
+            {
+                possibleWorkerOrderProcessTimerValuesAtStartFrame = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+            }
+        }
 
         // Executes the solver
         SolverResult<ObservationType> execute();
@@ -87,8 +97,9 @@ namespace MiningOptimization
         // The start frame of this solver execution
         int startFrame;
 
-        // The worker's order process timer value at the start frame, or -1 if this is unknown
-        int workerOrderProcessTimerAtStartFrame;
+        // The worker's possible order process timer value at the end of the start frame
+        // May be empty if the order process timer values are completely unknown
+        std::multiset<int> possibleWorkerOrderProcessTimerValuesAtStartFrame;
 
         // The frame when this worker is guaranteed to be able to take over from another worker, or -1 if this is a single-worker or return case
         int takeoverFrame;
@@ -103,7 +114,7 @@ namespace MiningOptimization
                 const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
                 int frame,
                 const SolverResends &previousResends,
-                const std::set<int> &workerOrderProcessTimer) const;
+                const std::multiset<int> &workerOrderProcessTimer) const;
 
         // Whether a resend is viable from the given node on the given frame with the given previous resend frames
         // A resend is viable if it can be issued and all possible resend nodes are either stable or have resend data available
