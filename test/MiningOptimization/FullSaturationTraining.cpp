@@ -63,6 +63,7 @@ namespace
                                      unsigned int workersPerPatch,
                                      unsigned int cannons,
                                      bool onlyOneWorker,
+                                     bool onlyOneBase,
                                      bool measureOnly,
                                      unsigned int iterations = 1,
                                      bool patchResults = false,
@@ -326,6 +327,7 @@ namespace
 
                         nextWorker:;
                     }
+                    if (onlyOneBase) break;
                 }
             }
             else if (BWAPI::Broodwar->getFrameCount() % 10000 == 23)
@@ -346,6 +348,7 @@ namespace
                     });
 
                     baseMineralPatches[base] = patches;
+                    if (onlyOneBase) break;
                 }
 
                 // Sort the workers by location so we get stable behaviour across runs
@@ -469,14 +472,15 @@ namespace
                                  unsigned int cannons,
                                  bool onlyOneWorker = false,
                                  bool measureOnly = false,
-                                 bool patchResults = false)
+                                 bool patchResults = false,
+                                 bool onlyOneBase = false)
     {
 #if !INSTRUMENTATION_ENABLED
-        return runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly, 1, patchResults);
+        return runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, onlyOneBase, measureOnly, 1, patchResults);
 #else
         for (int i=0; i<10; i++)
         {
-            auto result = runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, measureOnly, 1, patchResults);
+            auto result = runEfficiencyTestImpl(test, workersPerPatch, cannons, onlyOneWorker, onlyOneBase, measureOnly, 1, patchResults);
             if (result.rotationTime > 0.0001) return result;
         }
 
@@ -487,7 +491,7 @@ namespace
 
     TestResult runTestSuite(BWTest &test, unsigned int workersPerPatch, int cannons, bool measureOnly = false)
     {
-        if (!measureOnly) runEfficiencyTestImpl(test, workersPerPatch, cannons, false, false, 25);
+        if (!measureOnly) runEfficiencyTestImpl(test, workersPerPatch, cannons, false, false, false, 25);
         return runEfficiencyTest(test, workersPerPatch, cannons, false, true);
     }
 
@@ -615,7 +619,7 @@ TEST(FullSaturationTraining, ChupungRyeongSingleTwoIterations)
     BWTest test;
     test.map = Maps::GetOne("Chupung");
     test.randomSeed = 42;
-    auto sgl = runEfficiencyTestImpl(test, 1, 0, false, false, 2);
+    auto sgl = runEfficiencyTestImpl(test, 1, 0, false, false, false, 2);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
         << "Overall efficiency: " << std::endl
         << "Single: " << sgl << std::endl;
@@ -886,7 +890,7 @@ TEST(FullSaturationTraining, EclipseDouble)
     BWTest test;
     test.map = Maps::GetOne("Eclipse");
     test.randomSeed = 42;
-    auto dbl = runEfficiencyTestImpl(test, 2, 0, false, false, 3);
+    auto dbl = runEfficiencyTestImpl(test, 2, 0, false, false, false, 3);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
               << "Double: " << dbl << std::endl;
@@ -1020,7 +1024,18 @@ TEST(FullSaturationTraining, VermeerSingleMeasure)
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
     test.randomSeed = 42;
-    auto sgl = runEfficiencyTest(test, 1, 0, false, true, false);
+    auto sgl = runEfficiencyTest(test, 1, 0, false, true, true);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl;
+}
+
+TEST(FullSaturationTraining, VermeerSingleMeasureOneBase)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 0, false, true, true, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << std::endl;
@@ -1076,12 +1091,12 @@ TEST(FullSaturationTraining, VermeerObservations)
         BWTest test;
         test.map = Maps::GetOne("VermeerSE_2.1");
         test.randomSeed = 42;
-        runEfficiencyTestImpl(test, 1, 0, false, false, 10, false, true);
-        runEfficiencyTestImpl(test, 1, 1, false, false, 10, false, true);
-        runEfficiencyTestImpl(test, 1, 2, false, false, 10, false, true);
-        runEfficiencyTestImpl(test, 2, 0, false, false, 10, false, true);
-        runEfficiencyTestImpl(test, 2, 1, false, false, 10, false, true);
-        runEfficiencyTestImpl(test, 2, 2, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 1, 0, false, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 1, 1, false, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 1, 2, false, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 2, 0, false, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 2, 1, false, false, false, 10, false, true);
+        runEfficiencyTestImpl(test, 2, 2, false, false, false, 10, false, true);
     }
 }
 
@@ -1162,12 +1177,12 @@ TEST(FullSaturationTraining, AllSSCAITObservations)
         Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
         {
             test.randomSeed = 42;
-            runEfficiencyTestImpl(test, 1, 0, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 1, 1, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 1, 2, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 2, 0, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 2, 1, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 2, 2, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 0, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 1, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 2, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 0, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 1, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 2, false, false, false, 10, false, true);
         });
     }
 }
@@ -1187,12 +1202,12 @@ TEST(FullSaturationTraining, AllAIIDE2025Observations)
         Maps::RunOnEach(Maps::Get("aiide2025"), [&](BWTest test)
         {
             test.randomSeed = 42;
-            runEfficiencyTestImpl(test, 1, 0, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 1, 1, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 1, 2, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 2, 0, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 2, 1, false, false, 10, false, true);
-            runEfficiencyTestImpl(test, 2, 2, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 0, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 1, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 1, 2, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 0, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 1, false, false, false, 10, false, true);
+            runEfficiencyTestImpl(test, 2, 2, false, false, false, 10, false, true);
         });
     }
 }
