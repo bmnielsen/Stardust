@@ -35,6 +35,11 @@ namespace MiningOptimization
         returnOptimizer = std::make_unique<PathOptimizer<ReturnArrivalData>>(mapData.resourceToSerializedReturnPaths,
                                                                              mapData.positionDeltas,
                                                                              mapData.minimumNextPathLength);
+
+#if OUTPUT_STATISTICS
+        gatherPathStatistics.reset();
+        returnPathStatistics.reset();
+#endif
     }
 
     void update()
@@ -61,7 +66,11 @@ namespace MiningOptimization
                 << pathStatistics.withPath << " with path data"
                 << " (" << ((double)pathStatistics.withPath * 100.0 / (double)pathStatistics.count) << "%), "
                 << pathStatistics.withPathFollowedToCompletion << " with path followed to completion"
-                << " (" << ((double)pathStatistics.withPathFollowedToCompletion * 100.0 / (double)pathStatistics.count) << "%)";
+                << " (" << ((double)pathStatistics.withPathFollowedToCompletion * 100.0 / (double)pathStatistics.count) << "%), "
+                << pathStatistics.withExpectedArrivalFrame << " with expected arrival frame"
+                << " (" << ((double)pathStatistics.withExpectedArrivalFrame * 100.0 / (double)pathStatistics.count) << "%), "
+                << pathStatistics.withExpectedActionFrame << " with expected action frame"
+                << " (" << ((double)pathStatistics.withExpectedActionFrame * 100.0 / (double)pathStatistics.count) << "%)";
             return out.str();
         };
         Log::Get() << "Gather path statistics: " << outputStatistics(gatherPathStatistics);

@@ -174,6 +174,34 @@ namespace MiningOptimization
 
             if (!hasFlag(StatusFlags::LostPath))
             {
+                // If we still have a captured path, compare the actual arrival and action frames to the expected
+                if (expectedPath)
+                {
+                    int actualArrivalFrame = worker->frameLastMoved;
+                    int actualActionFrame = currentFrame;
+                    if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) actualActionFrame++;
+
+                    if (expectedPath->arrivalFramesWithProbabilities.contains(actualArrivalFrame)) pathStatistics.withExpectedArrivalFrame++;
+                    if (expectedPath->actionFramesWithProbabilities.contains(actualActionFrame)) pathStatistics.withExpectedActionFrame++;
+
+                    if (!expectedPath->arrivalFramesWithProbabilities.contains(actualArrivalFrame)
+                        && !expectedPath->actionFramesWithProbabilities.contains(actualActionFrame))
+                    {
+                        CherryVis::log(worker->id) << "Unexpected arrival and action frame";
+                    }
+                    else if (!expectedPath->arrivalFramesWithProbabilities.contains(actualArrivalFrame))
+                    {
+                        CherryVis::log(worker->id) << "Unexpected arrival frame but expected action frame";
+                    }
+                    else if (!expectedPath->actionFramesWithProbabilities.contains(actualActionFrame))
+                    {
+                        CherryVis::log(worker->id) << "Unexpected action frame but expected arrival frame";
+                        Log::Get() << "WARNING: Unexpected action frame with expected arrival frame"
+                                   << " (" << ((worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) ? "gather" : "return") << ")"
+                                   << "; worker " << worker->id << " @ " << worker->getTilePosition();
+                    }
+                }
+
                 pathStatistics.withPathFollowedToCompletion++;
 #if IS_OPENBW
             }
