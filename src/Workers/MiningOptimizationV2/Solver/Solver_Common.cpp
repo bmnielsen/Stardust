@@ -194,17 +194,24 @@ namespace MiningOptimization
 
                         // A reset has occurred before all values were considered
                         // We now have to consider the possible values 0 to 7 from the reset frame
+
                         // Their probability is the probability we made it to the reset frame times the probability of each value (1/8)
                         double resetValueProbability =
                                 ((1.0 - ((double)handledValuesBeforeReset / (double)possibleOrderProcessTimerValuesAtArrival.size())) / 8.0)
                                 * probability;
+
+                        // The delay from the arrival frame will be the delta to the timer reset, plus the transition frame if it hasn't already
+                        // happened, plus the value the order process timer resets to
+                        actionDelay = orderProcessTimerResetAfterArrival
+                                + ((actionDelay == orderProcessTimerResetAfterArrival) ? 0 : transitionFrames);
+
                         for (int resetOrderProcessTimerValue = 0; resetOrderProcessTimerValue <= 7; resetOrderProcessTimerValue++)
                         {
-                            result.actionFramesWithProbabilities[arrivalFrame + orderProcessTimerResetAfterArrival + resetOrderProcessTimerValue]
+                            result.actionFramesWithProbabilities[arrivalFrame + actionDelay + resetOrderProcessTimerValue]
                                 += resetValueProbability;
                             arrivalData.addDelayAfterAction(result.delaysWithProbabilities,
                                                             orderProcessTimerValue,
-                                                            arrivalFrame + orderProcessTimerResetAfterArrival + resetOrderProcessTimerValue,
+                                                            arrivalFrame + actionDelay + resetOrderProcessTimerValue,
                                                             resetValueProbability);
                         }
                     }
