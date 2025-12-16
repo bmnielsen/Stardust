@@ -6,7 +6,16 @@
 #define EPSILON 0.0001
 
 // The number of times the most-explored path (gather and return) should be explored for us to consider a patch "finished"
-#define EXPLORATION_GOAL 100
+#define EXPLORATION_GOAL 150
+
+// How the score of a path is weighted based on the difference between its arrival delay and the best one
+
+// This weighting is an exponential function that roughly doubles the score at 4 frames and multiplies by 10 at 10 frames
+//#define EXPLORATION_SCORING_FACTOR 0.4f * std::pow(3.5f, (float)arrivalDelayDelta / 4.0f) + 0.6f
+
+// This weighting doubles the score every 4 frames
+#define EXPLORATION_SCORING_FACTOR (1.0f + ((float)arrivalDelayDelta / 4.0f))
+
 
 namespace MiningOptimizationTraining
 {
@@ -321,14 +330,13 @@ namespace MiningOptimizationTraining
 
             // Now choose the next path start node we want to explore
             // Our scoring function is to take the times explored and weight it by the difference between the arrival delay and the best arrival delay
-            // The weighting is done through an exponential function that roughly doubles the score at 4 frames and multiplies by 10 at 10 frames
             auto bestScore = (float)UINT32_MAX;
             unsigned int bestDelayDelta = UINT_MAX;
             for (auto &result : results)
             {
                 float score = 1 + getTimesExplored(nextPathRootNodes, PositionAndVelocity(result.nextPathStartPosition));
                 unsigned int arrivalDelayDelta = (result.arrivalDelay.first + result.arrivalDelay.second) - bestArrivalDelay;
-                score *= 0.4f * std::pow(3.5f, (float)arrivalDelayDelta / 4.0f) + 0.6f;
+                score *= EXPLORATION_SCORING_FACTOR;
 
                 if (score < (bestScore - EPSILON) || (score < (bestScore + EPSILON) && arrivalDelayDelta < bestDelayDelta))
                 {
