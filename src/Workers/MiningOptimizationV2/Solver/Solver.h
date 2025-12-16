@@ -5,8 +5,6 @@
 
 #include "SolverResult.h"
 
-#define PATCH_LOCK_THRESHOLD 0.8
-
 namespace MiningOptimization
 {
     namespace {
