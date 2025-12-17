@@ -71,6 +71,19 @@ namespace MiningOptimization
                 << " (" << ((double)pathStatistics.withExpectedArrivalFrame * 100.0 / (double)pathStatistics.count) << "%), "
                 << pathStatistics.withExpectedActionFrame << " with expected action frame"
                 << " (" << ((double)pathStatistics.withExpectedActionFrame * 100.0 / (double)pathStatistics.count) << "%)";
+            if (pathStatistics.withTakeover > 0)
+            {
+                out << ", " << pathStatistics.withTakeover << " takeover collections, "
+                    << pathStatistics.patchSwitches << " with patch switch"
+                    << " (" << ((double)pathStatistics.patchSwitches * 100.0 / (double)pathStatistics.withTakeover) << "%), "
+                    << pathStatistics.withPlannedPatchLock << " with planned patch lock"
+                    << " (" << ((double)pathStatistics.withPlannedPatchLock * 100.0 / (double)pathStatistics.withTakeover) << "%)";
+                if (pathStatistics.withPlannedPatchLock > 0)
+                {
+                    out << ", " << pathStatistics.withExpectedPatchLockFrame << " with expected patch lock frame"
+                        << " (" << ((double)pathStatistics.withExpectedPatchLockFrame * 100.0 / (double)pathStatistics.withPlannedPatchLock) << "%)";
+                }
+            }
             return out.str();
         };
         Log::Get() << "Gather path statistics: " << outputStatistics(gatherPathStatistics);

@@ -23,6 +23,37 @@ namespace MiningOptimization
         }
         lastProcessedFrame = currentFrame;
 
+        updatePath();
+
+        // Send a planned resend for this frame
+        if (expectedPath && expectedPath->resendFramesOnThisBranch.contains(currentFrame))
+        {
+            auto result = issueResend();
+            if (result)
+            {
+                executedResendFrames.insert(currentFrame);
+#if VERBOSE_PATH_LOGGING
+                CherryVis::log(worker->id) << "Issued planned resend";
+#endif
+            }
+            else
+            {
+                // We couldn't issue the resend, so bail out
+                expectedPath.reset();
+                pathBeingFollowed.reset();
+
+#if VERBOSE_PATH_LOGGING
+                Log::Get() << "Failed to issue planned resend for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                           << BWAPI::Broodwar->getLastError();
+                CherryVis::log(worker->id) << "Failed to issue planned resend; last error " << BWAPI::Broodwar->getLastError();
+#endif
+            }
+        }
+    }
+
+    template <typename ObservationType>
+    void WorkerPathOptimizer<ObservationType>::updatePath()
+    {
         PositionAndVelocity currentPosition(worker);
 
         // Extract the path when we reach a root node
@@ -127,31 +158,6 @@ namespace MiningOptimization
                 return;
             }
         }
-
-        // Send a planned resend for this frame
-        if (expectedPath->resendFramesOnThisBranch.contains(currentFrame))
-        {
-            auto result = issueResend();
-            if (result)
-            {
-                executedResendFrames.insert(currentFrame);
-#if VERBOSE_PATH_LOGGING
-                CherryVis::log(worker->id) << "Issued planned resend";
-#endif
-            }
-            else
-            {
-                // We couldn't issue the resend, so bail out
-                expectedPath.reset();
-                pathBeingFollowed.reset();
-
-#if VERBOSE_PATH_LOGGING
-                Log::Get() << "Failed to issue planned resend for " << worker->id << " @ " << worker->getTilePosition() << ": "
-                           << BWAPI::Broodwar->getLastError();
-                CherryVis::log(worker->id) << "Failed to issue planned resend; last error " << BWAPI::Broodwar->getLastError();
-#endif
-            }
-        }
     }
 
 #if OUTPUT_STATISTICS
@@ -168,6 +174,27 @@ namespace MiningOptimization
         if (!hasFlag(StatusFlags::StartedAtPreviousPathEnd) && !hasFlag(StatusFlags::StartedAtInitialSpawnPosition)) return;
 
         pathStatistics.count++;
+
+        if (hasFlag(StatusFlags::GatherTakeover))
+        {
+            pathStatistics.withTakeover++;
+
+            if (hasFlag(StatusFlags::SwitchedPatch))
+            {
+                pathStatistics.patchSwitches++;
+            }
+            else if (!hasFlag(StatusFlags::LostPath) && expectedPath
+                    && SolverResult<ObservationType>::probabilitySum(expectedPath->patchLockFramesWithProbabilities) > PATCH_LOCK_THRESHOLD)
+            {
+                pathStatistics.withPlannedPatchLock++;
+
+                if (actualPatchLockFrame != -1 && expectedPath->patchLockFramesWithProbabilities.contains(actualPatchLockFrame))
+                {
+                    pathStatistics.withExpectedPatchLockFrame++;
+                }
+            }
+        }
+
         if (hasFlag(StatusFlags::CapturedPath))
         {
             pathStatistics.withPath++;

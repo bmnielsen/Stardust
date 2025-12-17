@@ -22,7 +22,9 @@ namespace MiningOptimization
             CapturedPath                    = 1 << 0,
             LostPath                        = 1 << 1,
             StartedAtPreviousPathEnd        = 1 << 2,
-            StartedAtInitialSpawnPosition   = 1 << 3
+            StartedAtInitialSpawnPosition   = 1 << 3,
+            GatherTakeover                  = 1 << 4,
+            SwitchedPatch                   = 1 << 5,
         };
 
         // The last frame this worker was optimized
@@ -120,6 +122,9 @@ namespace MiningOptimization
             pathBeingFollowed.reset();
             expectedPath.reset();
         }
+
+        // Captures and follows a path, if possible
+        void updatePath();
 
         /*
          * These methods are where the logic differs between gather and return paths. They are implemented in their own files for each

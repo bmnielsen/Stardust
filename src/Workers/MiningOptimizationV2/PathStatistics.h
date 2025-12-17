@@ -9,6 +9,12 @@ namespace MiningOptimization
         // The count of total gathers or returns
         unsigned int count;
 
+        // The count of gathers with worker takeover
+        unsigned int withTakeover;
+
+        // The number of times there was a patch switch
+        unsigned int patchSwitches;
+
         // The subset of the above that had any path data
         unsigned int withPath;
 
@@ -21,6 +27,12 @@ namespace MiningOptimization
         // The subset of the paths followed to completion where the actual action frame matched one of the expected values
         unsigned int withExpectedActionFrame;
 
+        // The subset of paths followed to completion where there was a planned patch lock
+        unsigned int withPlannedPatchLock;
+
+        // The subset of the paths followed to completion where the actual patch lock frame matched one of the expected values
+        unsigned int withExpectedPatchLockFrame;
+
 #if IS_OPENBW
         // Set of start positions where we had no path data at all
         std::set<BWAPI::ExactPosition> startPositionsMissingPath;
@@ -32,10 +44,14 @@ namespace MiningOptimization
         void reset()
         {
             count = 0;
+            withTakeover = 0;
+            patchSwitches = 0;
             withPath = 0;
             withPathFollowedToCompletion = 0;
             withExpectedArrivalFrame = 0;
             withExpectedActionFrame = 0;
+            withPlannedPatchLock = 0;
+            withExpectedPatchLockFrame = 0;
 #if IS_OPENBW
             startPositionsMissingPath.clear();
             startPositionsThatLostPath.clear();

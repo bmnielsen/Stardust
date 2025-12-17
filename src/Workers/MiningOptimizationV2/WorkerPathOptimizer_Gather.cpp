@@ -1,6 +1,5 @@
 #include "WorkerPathOptimizer.h"
 
-#include "Map.h"
 #include "Workers.h"
 
 #include "DebugFlag_MiningOptimization.h"
@@ -56,9 +55,12 @@ namespace MiningOptimization
             CherryVis::log(worker->id) << "targeting different patch; resending order";
 #endif
             // There could be a Unit_Busy failure here, but we will pick up next frame that the command hasn't been issued
-            worker->gather(resourceBwapiUnit);
-
-            // TODO: Update relevant pathing status
+            if (worker->gather(resourceBwapiUnit))
+            {
+                executedResendFrames.insert(currentFrame);
+            }
+            setFlag(StatusFlags::SwitchedPatch);
+            resetPath();
             return true;
         }
 
@@ -72,8 +74,6 @@ namespace MiningOptimization
                 if (otherWorker && otherWorker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
                 {
                     actualPatchLockFrame = currentFrame;
-
-                    // TODO: Check if it matches expected frame
 
 #if VERBOSE_PATH_LOGGING
                     CherryVis::log(worker->id) << "Patch locked";
