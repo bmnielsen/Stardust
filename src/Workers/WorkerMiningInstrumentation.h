@@ -19,7 +19,7 @@ namespace WorkerMiningInstrumentation
         friend std::ostream & operator << (std::ostream &os, const Efficiency &obj)
         {
             std::ostringstream buffer;
-            buffer << std::fixed << std::setprecision(1);
+            buffer << std::fixed << std::setprecision(2);
 
             std::string sep;
             auto add = [&](const std::string &label, double value)

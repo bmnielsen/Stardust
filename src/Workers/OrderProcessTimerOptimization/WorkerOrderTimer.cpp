@@ -145,6 +145,18 @@ namespace WorkerOrderTimer
 
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
+        auto resourceBwapiUnit = resource->getBwapiUnitIfVisible();
+        if (!resourceBwapiUnit) return;
+
+        // Mineral locking
+        if (worker->bwapiUnit->getOrderTarget() && worker->bwapiUnit->getOrderTarget()->getResources()
+            && worker->bwapiUnit->getOrderTarget() != resourceBwapiUnit
+            && worker->lastCommandFrame < (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+        {
+            worker->gather(resourceBwapiUnit);
+            return;
+        }
+
         // Break out early if the distance is larger than we need to worry about
         auto dist = resource->getDistance(worker);
         if (dist > 100) return;
