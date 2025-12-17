@@ -118,6 +118,9 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
             lastTransitionedToMiningOrder = currentFrame;
             if (!isResetFrame)
             {
+                // There is one exception to this: in the case where the worker has patch locked, but hasn't rotated completely towards the patch
+                // yet, its order timer will go to 8 instead of 0. This happens exceptionally rarely and isn't trivial to detect, so we just accept
+                // that the order timer is off by one in this case.
                 orderProcessTimer = 0;
             }
         }
@@ -145,12 +148,24 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     {
         orderProcessTimer = 8;
     }
-    else if (bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals && previousOrder != BWAPI::Orders::WaitForMinerals)
+    else if (bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
     {
-        lastTransitionedToWaitForMineralsOrder = currentFrame;
-        if (!OrderProcessTimer::isResetFrame())
+        if (previousOrder != BWAPI::Orders::WaitForMinerals)
         {
-            orderProcessTimer = 0;
+            // On first frame the order process timer stays at 0
+            lastTransitionedToWaitForMineralsOrder = currentFrame;
+            if (!OrderProcessTimer::isResetFrame())
+            {
+                orderProcessTimer = 0;
+            }
+        }
+        else if (lastTransitionedToWaitForMineralsOrder == (currentFrame - 1))
+        {
+            // Second frame indicates patch locking has just occurred, in which case the order process timer also stays at 0 for one additional frame
+            if (!OrderProcessTimer::isResetFrame())
+            {
+                orderProcessTimer = 0;
+            }
         }
     }
 

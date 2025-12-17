@@ -1046,7 +1046,18 @@ TEST(FullSaturationTraining, VermeerDoubleMeasure)
     BWTest test;
     test.map = Maps::GetOne("VermeerSE_2.1");
     test.randomSeed = 42;
-    auto sgl = runEfficiencyTest(test, 2, 0, false, true, true);
+    auto sgl = runEfficiencyTest(test, 2, 0, false, true, false);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl;
+}
+
+TEST(FullSaturationTraining, VermeerDoubleMeasureOneBase)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 2, 0, false, true, false, true);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << std::endl;
