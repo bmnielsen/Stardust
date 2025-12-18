@@ -148,12 +148,28 @@ namespace MiningOptimization
                     int arrivalFrame = nextFrame + arrivalData.arrivalDelay();
                     result.arrivalFramesWithProbabilities[arrivalFrame] += probability;
 
+                    // On gather there is an extra frame of delay between arrival and mining (the WaitForMinerals frame)
+                    int transitionFrames = transitionFramesToAction();
+
                     // Compute the possible order process timer values at arrival, taking pending resends into account
                     auto possibleOrderProcessTimerValuesAtArrival =
                             orderProcessTimerInFuture<ObservationType>(nextFrame,
                                                                        workerOrderProcessTimer,
                                                                        resends.resendFrames,
                                                                        arrivalData.arrivalDelay());
+
+                    // If there was a recent resend, override the order process timer value to simulate the fact that a 0 value won't actually take
+                    // effect here
+                    if (possibleOrderProcessTimerValuesAtArrival.size() == 1 && possibleOrderProcessTimerValuesAtArrival.contains(0))
+                    {
+                        for (int i = 0; i <= transitionFrames; i++)
+                        {
+                            if (resends.resendFrames.contains(arrivalFrame - BWAPI::Broodwar->getLatencyFrames() - i - 1))
+                            {
+                                possibleOrderProcessTimerValuesAtArrival = {8 + i + transitionFrames};
+                            }
+                        }
+                    }
 
                     // Now use this data to compute when the action (mining start or resource delivery) will occur
                     // As the action will occur once the order process timer reaches 0, in the simple case we can just add the order process timer
@@ -170,9 +186,6 @@ namespace MiningOptimization
                     // Get the number of frames from the arrival frame to the next order process timer reset
                     // We do not consider resets at the arrival frame itself, since this is already handled
                     int orderProcessTimerResetAfterArrival = OrderProcessTimer::framesToNextReset(arrivalFrame + 1) + 1;
-
-                    // On gather there is an extra frame of delay between arrival and mining (the WaitForMinerals frame)
-                    int transitionFrames = transitionFramesToAction();
 
                     // Loop through the possible values
                     // As the set is sorted, we know we will handle the values before the reset first

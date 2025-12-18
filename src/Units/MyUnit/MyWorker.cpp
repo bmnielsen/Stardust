@@ -99,6 +99,7 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     // Set the order process timer for gathering workers
 
     auto isResetFrame = OrderProcessTimer::isResetFrame();
+    bool specialPatchLockUnknownCase = false;
 
     // We know the order process timer is 0 when the worker starts mining, finishes mining, and delivers the resource
     if (carryingResource != (bwapiUnit->isCarryingMinerals() || bwapiUnit->isCarryingGas()))
@@ -166,6 +167,13 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
             {
                 orderProcessTimer = 0;
             }
+            else
+            {
+                // If there is a reset frame on the second WaitForMinerals frame, we get a state where the extra zero frame is deferred by the
+                // reset. Since we have no way of knowing when the extra frame will happen, we set the possible values to all 9 to indicate we
+                // don't actually know anything about the value
+                specialPatchLockUnknownCase = true;
+            }
         }
     }
 
@@ -179,7 +187,15 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     {
         // The order process timer has just been reset this frame, so there are 8 possible values
         // Since the order process timer is decremented after the reset, only the value of 7 is excluded
-        possibleOrderProcessTimerValues = {0, 1, 2, 3, 4, 5, 6, 8};
+        // Exception is in the special patch lock case described above
+        if (specialPatchLockUnknownCase)
+        {
+            possibleOrderProcessTimerValues = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+        }
+        else
+        {
+            possibleOrderProcessTimerValues = {0, 1, 2, 3, 4, 5, 6, 8};
+        }
     }
     else
     {

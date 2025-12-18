@@ -20,7 +20,7 @@
 #define LOG_TWOPATCH_TAKEOVER_ERRORS false
 #define LOG_INEFFICIENCIES false
 #define DRAW_INEFFICIENCIES false
-#define LOG_NOTFACINGPATCH true
+#define LOG_NOTFACINGPATCH false
 #endif
 
 namespace WorkerMiningInstrumentation
