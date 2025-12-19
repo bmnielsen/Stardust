@@ -183,22 +183,30 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     {
         possibleOrderProcessTimerValues = {orderProcessTimer};
     }
-    else if (OrderProcessTimer::isResetFrame())
-    {
-        // The order process timer has just been reset this frame, so there are 8 possible values
-        // Since the order process timer is decremented after the reset, only the value of 7 is excluded
-        // Exception is in the special patch lock case described above
-        if (specialPatchLockUnknownCase)
-        {
-            possibleOrderProcessTimerValues = {0, 1, 2, 3, 4, 5, 6, 7, 8};
-        }
-        else
-        {
-            possibleOrderProcessTimerValues = {0, 1, 2, 3, 4, 5, 6, 8};
-        }
-    }
     else
     {
+        // If this is a reset frame, start by setting the possible values to what they were after the reset (but before the worker's orders were
+        // processed)
+        if (OrderProcessTimer::isResetFrame())
+        {
+            possibleOrderProcessTimerValues = {0, 1, 2, 3, 4, 5, 6, 7};
+
+            // Exception for the special patch lock case described above, where we add on the final possible value
+            if (specialPatchLockUnknownCase)
+            {
+                possibleOrderProcessTimerValues.insert(8);
+            }
+        }
+
+        // We can exclude the order timer having been zero on this frame if we know the worker's order wasn't processed
+        // Currently we are only tracking this for end of mining, since it is trivial to compute based on the worker's current state
+        // We could also do it for states like waiting to transition to mine or transition to WaitForMinerals, but we don't have a solid use case for
+        // them right now
+        if (possibleOrderProcessTimerValues.contains(0) && bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals && bwapiUnit->getOrderTimer() == 0)
+        {
+            possibleOrderProcessTimerValues.erase(0);
+        }
+
         // Run the order process timer cycle on each value
         std::multiset<int> newPossibleOrderProcessTimerValues;
         for (auto value : possibleOrderProcessTimerValues)
