@@ -6,7 +6,7 @@ TEST(GatherArrivalDataTests, TestPackingOfValidValues)
 {
     auto testCase = [](unsigned int arrivalDelay, bool facingTarget, bool collision)
     {
-        auto test = MiningOptimizationTraining::GatherArrivalData::create(arrivalDelay, facingTarget, collision, {});
+        auto test = MiningOptimizationTraining::GatherArrivalData::create(arrivalDelay, facingTarget, collision, 0, {});
         EXPECT_EQ(arrivalDelay, test.arrivalDelay());
         EXPECT_EQ(facingTarget, test.facingTarget());
         EXPECT_EQ(collision, test.collision());
@@ -26,7 +26,7 @@ TEST(GatherArrivalDataTests, TestClampingOfExtremeValues)
     auto testCase =
             [](unsigned int arrivalDelay, unsigned int clampedArrivalDelay, bool facingTarget, bool collision)
             {
-                auto test = MiningOptimizationTraining::GatherArrivalData::create(arrivalDelay, facingTarget, collision, {});
+                auto test = MiningOptimizationTraining::GatherArrivalData::create(arrivalDelay, facingTarget, collision, 0, {});
                 EXPECT_EQ(clampedArrivalDelay, test.arrivalDelay());
                 EXPECT_EQ(facingTarget, test.facingTarget());
                 EXPECT_EQ(collision, test.collision());
@@ -47,7 +47,7 @@ TEST(GatherArrivalDataTests, TestSetArrivalDelay)
     auto testCase = [](
             unsigned int oldArrivalDelay, unsigned int newArrivalDelay, bool facingTarget, bool collision)
     {
-        auto test = MiningOptimizationTraining::GatherArrivalData::create(oldArrivalDelay, facingTarget, collision, {});
+        auto test = MiningOptimizationTraining::GatherArrivalData::create(oldArrivalDelay, facingTarget, collision, 0, {});
         EXPECT_EQ(oldArrivalDelay, test.arrivalDelay());
         EXPECT_EQ(facingTarget, test.facingTarget());
         EXPECT_EQ(collision, test.collision());

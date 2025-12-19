@@ -17,6 +17,7 @@ namespace MiningOptimizationTraining
      * Arrival delay: the number of frames to arrival at the target
      * Facing target: whether the worker is facing its target at arrival
      * Collision: whether there was a collision when the worker leaves the target again
+     * Ten distance delta: the delta (counted from the end of the path) to the first position within 10 distance of the patch
      * Return path start position: the position and velocity of the worker at the start of the return path
      *
      * We patch the collision and facing target data into the arrival delay, since we don't need the full 16 bits.
@@ -24,6 +25,7 @@ namespace MiningOptimizationTraining
     struct GatherArrivalData
     {
         uint16_t packed = UINT16_MAX;
+        uint8_t tenDistanceDelta = UINT8_MAX;
         PositionAndVelocity nextPathStartPosition;
 
         // The number of frames to arrival at the target
@@ -58,12 +60,14 @@ namespace MiningOptimizationTraining
 
         bool operator==(const GatherArrivalData &other) const
         {
-            return std::tie(packed, nextPathStartPosition) == std::tie(other.packed, other.nextPathStartPosition);
+            return std::tie(packed, tenDistanceDelta, nextPathStartPosition) ==
+                std::tie(other.packed, other.tenDistanceDelta, other.nextPathStartPosition);
         }
 
         bool operator<(const GatherArrivalData &other) const
         {
-            return std::tie(packed, nextPathStartPosition) < std::tie(other.packed, other.nextPathStartPosition);
+            return std::tie(packed, tenDistanceDelta, nextPathStartPosition) <
+                std::tie(other.packed, other.tenDistanceDelta, other.nextPathStartPosition);
         }
 
         // Calculates the full delay from the start of the path to when mining will start, assuming no order process timer resets occur, along
@@ -91,6 +95,7 @@ namespace MiningOptimizationTraining
         static GatherArrivalData create(unsigned int arrivalDelay,
                                         bool facingTarget,
                                         bool collision,
+                                        uint8_t tenDistanceDelta,
                                         const PositionAndVelocity &nextPathStartPosition)
         {
             // Arrival delay values outside the range of 14 bits are clamped
@@ -106,7 +111,7 @@ namespace MiningOptimizationTraining
             // We set the second-lowest bit if there is a collision
             if (collision) packed |= 0b00000010;
 
-            return GatherArrivalData{packed, nextPathStartPosition};
+            return GatherArrivalData{packed, tenDistanceDelta, nextPathStartPosition};
         }
 
         // Populates the members of the struct, except arrivalDelay, from simulated path data
@@ -123,12 +128,29 @@ namespace MiningOptimizationTraining
             auto angleDiff = Geo::BWAngleDiff(finalWorkerPosition.heading, Geo::BWDirection(vectorToPatch));
             bool facingTarget = (angleDiff <= 2 * BWAPI::UnitTypes::Protoss_Probe.turnRadius());
 
-            return create(positionHistory.size(), facingTarget, std::get<2>(simulatedPath) == 0, PositionAndVelocity{std::get<1>(simulatedPath)});
+            // Find the index of the first position that is 10 distance from the patch
+            int i = 0;
+            for (auto it = positionHistory.rbegin(); it != positionHistory.rend(); it++)
+            {
+                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                    it->pos(),
+                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                    patch->getPosition());
+                if (dist > 10) break;
+                i++;
+            }
+
+            return create(positionHistory.size(),
+                          facingTarget,
+                          std::get<2>(simulatedPath) == 0,
+                          (uint8_t)std::min(i, 255),
+                          PositionAndVelocity{std::get<1>(simulatedPath)});
         }
 
         template <typename S>
         void serialize(S& s) {
             s.value2b(packed);
+            s.value1b(tenDistanceDelta);
             s.object(nextPathStartPosition);
         }
 
@@ -150,14 +172,14 @@ namespace MiningOptimizationTraining
     typedef Path<GatherArrivalData> GatherPath;
     typedef PathNode<GatherArrivalData> GatherPathNode;
 }
-
-namespace std {
-    template <> struct hash<MiningOptimizationTraining::GatherArrivalData>
-    {
-        size_t operator()(const MiningOptimizationTraining::GatherArrivalData& data) const
-        {
-            // As this is only intended for use in std::unordered_map, hash quality is not important
-            return data.packed ^ std::hash<MiningOptimizationTraining::PositionAndVelocity>()(data.nextPathStartPosition);
-        }
-    };
-}
+//
+//namespace std {
+//    template <> struct hash<MiningOptimizationTraining::GatherArrivalData>
+//    {
+//        size_t operator()(const MiningOptimizationTraining::GatherArrivalData& data) const
+//        {
+//            // As this is only intended for use in std::unordered_map, hash quality is not important
+//            return data.packed ^ std::hash<MiningOptimizationTraining::PositionAndVelocity>()(data.nextPathStartPosition);
+//        }
+//    };
+//}

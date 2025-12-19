@@ -145,14 +145,14 @@ TEST(DataTransformerTests, GatherArrivalPacking)
 
     // Set up the various arrival data we want to test
     MiningOptimizationTraining::PositionAndVelocity childPos(105, 100, 15, 15, -15);
-    MiningOptimizationTraining::GatherArrivalData arrivalData1((255U << 2) + 3, rootPos1);
-    MiningOptimizationTraining::GatherArrivalData arrivalData2((255U << 2) + 2, rootPos1);
-    MiningOptimizationTraining::GatherArrivalData arrivalData3((255U << 2) + 1, rootPos1);
-    MiningOptimizationTraining::GatherArrivalData arrivalData4((255U << 2) + 0, rootPos1);
-    MiningOptimizationTraining::GatherArrivalData arrivalData5((10U << 2) + 3, rootPos2);
-    MiningOptimizationTraining::GatherArrivalData arrivalData6((20U << 2) + 2, rootPos2);
-    MiningOptimizationTraining::GatherArrivalData arrivalData7((30U << 2) + 1, rootPos2);
-    MiningOptimizationTraining::GatherArrivalData arrivalData8((40U << 2) + 0, rootPos2);
+    MiningOptimizationTraining::GatherArrivalData arrivalData1((255U << 2) + 3, 0, rootPos1);
+    MiningOptimizationTraining::GatherArrivalData arrivalData2((255U << 2) + 2, 0, rootPos1);
+    MiningOptimizationTraining::GatherArrivalData arrivalData3((255U << 2) + 1, 0, rootPos1);
+    MiningOptimizationTraining::GatherArrivalData arrivalData4((255U << 2) + 0, 0, rootPos1);
+    MiningOptimizationTraining::GatherArrivalData arrivalData5((10U << 2) + 3, 0, rootPos2);
+    MiningOptimizationTraining::GatherArrivalData arrivalData6((20U << 2) + 2, 0, rootPos2);
+    MiningOptimizationTraining::GatherArrivalData arrivalData7((30U << 2) + 1, 0, rootPos2);
+    MiningOptimizationTraining::GatherArrivalData arrivalData8((40U << 2) + 0, 0, rootPos2);
 
     MiningOptimizationTraining::GatherPathNode gatherPathNode1{
             childPos,

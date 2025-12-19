@@ -219,3 +219,46 @@ TEST(DataExploration, CheckSpecificPath)
         current = &node.nextPositions;
     }
 }
+
+TEST(DataExploration, DeltasToTenDistance)
+{
+    MiningOptimizationTraining::MapData data;
+    MiningOptimizationTraining::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
+    MiningOptimizationTraining::Serialization::readMapData(data);
+
+    std::map<uint8_t, unsigned long> result;
+
+    auto processArrivalData = [&](const std::map<GatherArrivalData, uint32_t> &arrivalDataMap)
+    {
+        for (const auto &arrivalData : arrivalDataMap)
+        {
+            result[arrivalData.first.tenDistanceDelta]++;
+        }
+    };
+
+    std::function<void(const std::vector<std::pair<PathNode<GatherArrivalData>, uint32_t>>&)> processNextNodes;
+    processNextNodes = [&](const std::vector<std::pair<PathNode<GatherArrivalData>, uint32_t>> &nextNodes)
+    {
+        for (const auto &node : nextNodes)
+        {
+            processArrivalData(node.first.arrivalData);
+            processArrivalData(node.first.arrivalDataAfterResend);
+
+            processNextNodes(node.first.nextPositions);
+            processNextNodes(node.first.nextPositionsAfterResend);
+        }
+    };
+
+    for (const auto &[_, gatherPaths] : data.resourceToGatherPaths)
+    {
+        for (const auto &[_, gatherPath] : gatherPaths)
+        {
+            processNextNodes(gatherPath.nextPositions);
+        }
+    }
+
+    for (const auto &[delta, occurrences] : result)
+    {
+        std::cout << (unsigned int)delta << ": " << occurrences << std::endl;
+    }
+}
