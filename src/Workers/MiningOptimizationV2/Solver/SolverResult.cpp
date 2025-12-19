@@ -1,6 +1,7 @@
 #include "SolverResult.h"
 
 #include "../DataModel/MapData.h"
+#include "LogFormattingUtil.h"
 
 #define EPSILON 0.000001
 
@@ -9,31 +10,10 @@ namespace MiningOptimization
     template <typename ObservationType>
     std::string SolverResult<ObservationType>::framePredictions() const
     {
-        auto handleMap = [](const std::map<int, double> &map)
-        {
-            // Sort by descending probability
-            std::vector<std::pair<int, double>> values(map.begin(), map.end());
-            std::sort(values.begin(), values.end(), [&](const std::pair<int, double> &a, const std::pair<int, double> &b) -> bool
-            {
-                return a.second > b.second;
-            });
-
-            // Output the top three
-            std::ostringstream out;
-            out << std::fixed << std::setprecision(2);
-            std::string sep;
-            for (auto it = values.begin(); it != values.end() && std::distance(values.begin(), it) < 3; it++)
-            {
-                out << sep << it->first << " (" << (it->second * 100.0) << "%)";
-                sep = ", ";
-            }
-            return out.str();
-        };
-
         std::ostringstream out;
-        out << "Arrival frames: " << handleMap(arrivalFramesWithProbabilities);
-        out << "\nAction frames: " << handleMap(actionFramesWithProbabilities);
-        out << "\nPost-action delays: " << handleMap(delaysWithProbabilities);
+        out << "Arrival frames: " << LogFormattingUtil::formatProbabilityMap(arrivalFramesWithProbabilities);
+        out << "\nAction frames: " << LogFormattingUtil::formatProbabilityMap(actionFramesWithProbabilities);
+        out << "\nPost-action delays: " << LogFormattingUtil::formatProbabilityMap(delaysWithProbabilities);
         return out.str();
     }
 

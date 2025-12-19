@@ -12,4 +12,7 @@
 // Logs pathing-related data for each worker, like when they acquire a path and what they have planned to execute
 #define VERBOSE_PATH_LOGGING true
 
+// Logs information related to gather takeover
+#define VERBOSE_TAKEOVER_LOGGING true
+
 #endif

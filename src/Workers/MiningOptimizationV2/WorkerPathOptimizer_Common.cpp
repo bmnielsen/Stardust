@@ -23,6 +23,9 @@ namespace MiningOptimization
         }
         lastProcessedFrame = currentFrame;
 
+        // Initialize the takeover frames as needed
+        initializeGatherTakeover();
+
         updatePath();
 
         // Send a planned resend for this frame

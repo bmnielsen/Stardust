@@ -33,6 +33,11 @@ namespace MiningOptimization
     }
 
     template <>
+    void WorkerPathOptimizer<ReturnArrivalData>::initializeGatherTakeover()
+    {
+    }
+
+    template <>
     bool WorkerPathOptimizer<ReturnArrivalData>::issueResend()
     {
         return worker->returnCargo();
