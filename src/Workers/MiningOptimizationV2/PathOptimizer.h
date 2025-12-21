@@ -17,12 +17,10 @@ namespace MiningOptimization
     class PathOptimizer
     {
     public:
-        PathOptimizer(const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>>> &pathData,
-                      const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
-                      const unsigned int minimumNextPathLength)
-                : pathData(pathData)
-                , positionDeltas(positionDeltas)
-                , minimumNextPathLength(minimumNextPathLength)
+        PathOptimizer(const MapData &mapData,
+                      const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>>> &pathData)
+                : mapData(mapData)
+                , pathData(pathData)
         {}
 
         WorkerPathOptimizer<ObservationType> &forWorker(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
@@ -34,7 +32,7 @@ namespace MiningOptimization
 
                 auto patchTile = TilePosition::fromBWAPI(resource->tile);
                 auto &patchPathData = pathData.contains(patchTile) ? pathData.at(patchTile) : emptyWorkerPathData;
-                auto item = WorkerPathOptimizer<ObservationType>{patchPathData, positionDeltas, minimumNextPathLength, worker, depot, resource};
+                auto item = WorkerPathOptimizer<ObservationType>{mapData, patchPathData, worker, depot, resource};
                 it = workers.emplace(worker, std::move(item)).first;
             }
             return it->second;
@@ -63,9 +61,8 @@ namespace MiningOptimization
 #endif
 
     private:
+        const MapData &mapData;
         const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>>> &pathData;
-        const std::vector<std::pair<int8_t, int8_t>> &positionDeltas;
-        const unsigned int minimumNextPathLength;
 
         std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> emptyWorkerPathData;
 

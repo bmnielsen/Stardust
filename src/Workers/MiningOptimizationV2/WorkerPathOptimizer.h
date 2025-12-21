@@ -33,17 +33,15 @@ namespace MiningOptimization
         // The actual frame after patch lock has occurred, or -1 if the worker hasn't patch locked
         int actualPatchLockFrame;
 
-        WorkerPathOptimizer(const std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> &pathData,
-                            const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
-                            const unsigned int minimumNextPathLength,
+        WorkerPathOptimizer(const MapData &mapData,
+                            const std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> &pathData,
                             MyWorker worker,
                             MyUnit depot,
                             Resource resource)
                 : lastProcessedFrame(-2)
                 , actualPatchLockFrame(-1)
+                , mapData(mapData)
                 , pathData(pathData)
-                , positionDeltas(positionDeltas)
-                , minimumNextPathLength(minimumNextPathLength)
                 , worker(std::move(worker))
                 , depot(std::move(depot))
                 , resource(std::move(resource))
@@ -98,9 +96,8 @@ namespace MiningOptimization
     private:
         /* References to the map mining optimization data relevant for this worker */
 
+        const MapData &mapData;
         const std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> &pathData;
-        const std::vector<std::pair<int8_t, int8_t>> &positionDeltas;
-        const unsigned int minimumNextPathLength;
 
         MyWorker worker;
         MyUnit depot;

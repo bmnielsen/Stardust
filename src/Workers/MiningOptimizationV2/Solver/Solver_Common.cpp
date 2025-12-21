@@ -95,7 +95,7 @@ namespace MiningOptimization
                 [&](const PathNode<ObservationType> &node) -> SolverResult<ObservationType> // NOLINT(*-no-recursion)
         {
             // Compute the position corresponding to this node and define the helper that adds it to a result
-            auto here = node.pos.addTo(pos, positionDeltas);
+            auto here = node.pos.addTo(pos, mapData.positionDeltas);
             auto addPositionTo = [&](SolverResult<ObservationType> &result) -> SolverResult<ObservationType>&
             {
                 result.pathToNextBranch.emplace_front(std::move(here));
@@ -230,7 +230,7 @@ namespace MiningOptimization
                     }
 
 #if USE_NEXT_PATH_LENGTHS
-                    result.nextPathLengthWithProbabilities[arrivalData.nextPathLength(minimumNextPathLength)] += probability;
+                    result.nextPathLengthWithProbabilities[arrivalData.nextPathLength(mapData.minimumNextPathLength)] += probability;
 #endif
                 };
 
@@ -246,7 +246,7 @@ namespace MiningOptimization
 
                 for (const auto &[arrivalData, occurrenceRate] : arrivalDataAndOccurrenceRates)
                 {
-                    addArrivalData(arrivalData, (double)occurrenceRate / 255.0);
+                    addArrivalData(arrivalData, mapData.occurrenceRateToProbability(occurrenceRate));
                 }
 
                 addPatchLockAndSwitchProbabilities(result, true);
@@ -314,7 +314,7 @@ namespace MiningOptimization
             auto nodeResult = processNode(node);
 
             // Adjust the probabilities by this node's probability
-            double nodeProbability = (double)occurrenceRate / 255.0;
+            double nodeProbability = mapData.occurrenceRateToProbability(occurrenceRate);
 
             auto addObservations = [&](const std::map<int, double> &source, std::map<int, double> &target)
             {

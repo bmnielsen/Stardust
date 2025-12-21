@@ -113,7 +113,7 @@ TEST(DataTransformerTests, OccurrenceRounding)
         {
             total += (unsigned int)occurrenceRate;
         }
-        EXPECT_EQ(255, total);
+        EXPECT_EQ(OCCURRENCE_SCALE, total);
     };
 
     expectSum(outputData.resourceToSerializedGatherPaths[TilePosition(0, 0)]);
@@ -391,7 +391,7 @@ TEST(DataTransformerTests, OccurrenceVectorsAreSorted)
     {
         auto checkOccurrences = [](auto &observations)
         {
-            uint8_t last = 255;
+            uint8_t last = OCCURRENCE_SCALE;
             for (const auto &[_, occurrences] : observations)
             {
                 EXPECT_GE(last, occurrences);

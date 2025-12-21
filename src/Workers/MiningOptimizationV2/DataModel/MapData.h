@@ -8,6 +8,8 @@
 #include "GatherArrivalData.h"
 #include "ReturnArrivalData.h"
 
+#define OCCURRENCE_SCALE 127
+
 namespace MiningOptimization
 {
     class MapData
@@ -31,6 +33,11 @@ namespace MiningOptimization
             minimumNextPathLength = 0;
             resourceToSerializedGatherPaths.clear();
             resourceToSerializedReturnPaths.clear();
+        }
+
+        static double occurrenceRateToProbability(uint8_t occurrenceRate)
+        {
+            return (double)occurrenceRate / (double)OCCURRENCE_SCALE;
         }
 
         // Ensure we never copy map data

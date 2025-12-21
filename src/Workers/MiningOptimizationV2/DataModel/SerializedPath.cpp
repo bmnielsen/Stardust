@@ -1,6 +1,5 @@
 #include "SerializedPath.h"
-#include "GatherArrivalData.h"
-#include "ReturnArrivalData.h"
+#include "MapData.h"
 
 #include <bitsery/adapter/buffer.h>
 #include <bitsery/traits/vector.h>
@@ -65,7 +64,7 @@ namespace MiningOptimization
                     return [&itemSerializer, extraPackedBool]<typename U>(S &s, std::vector<std::pair<U, uint8_t>> &vec)
                     {
                         uint8_t total = 0;
-                        while (total < 255)
+                        while (total < OCCURRENCE_SCALE)
                         {
                             uint8_t occurrenceRate;
                             s.value1b(occurrenceRate);

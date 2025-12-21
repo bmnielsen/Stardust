@@ -69,8 +69,7 @@ namespace MiningOptimization
             setFlag(StatusFlags::CapturedPath);
             pathBeingFollowed = std::make_unique<Path<ObservationType>>(it->second.get());
 
-            Solver<ObservationType> solver(positionDeltas,
-                                           minimumNextPathLength,
+            Solver<ObservationType> solver(mapData,
                                            resource,
                                            currentPosition,
                                            *pathBeingFollowed,

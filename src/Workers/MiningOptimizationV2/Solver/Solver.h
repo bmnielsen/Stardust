@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Resource.h"
+#include "../DataModel/MapData.h"
 #include "../DataModel/Path.h"
 
 #include "SolverResult.h"
@@ -26,15 +27,13 @@ namespace MiningOptimization
     {
     public:
         // Constructor used for single-worker gathering and return
-        Solver(const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
-               const unsigned int minimumNextPathLength,
+        Solver(const MapData &mapData,
                Resource resource,
                const PositionAndVelocity &startPosition,
                const Path<ObservationType> &path,
                int startFrame,
                std::multiset<int> _possibleWorkerOrderProcessTimerValuesAtStartFrame)
-                : positionDeltas(positionDeltas)
-                , minimumNextPathLength(minimumNextPathLength)
+                : mapData(mapData)
                 , resource(std::move(resource))
                 , startPosition(startPosition)
                 , path(path)
@@ -50,8 +49,7 @@ namespace MiningOptimization
         }
 
         // Constructor used for double-worker gathering
-        Solver(const std::vector<std::pair<int8_t, int8_t>> &positionDeltas,
-               const unsigned int minimumNextPathLength,
+        Solver(const MapData &mapData,
                Resource resource,
                const PositionAndVelocity &startPosition,
                const Path<ObservationType> &path,
@@ -59,8 +57,7 @@ namespace MiningOptimization
                std::multiset<int> _possibleWorkerOrderProcessTimerValuesAtStartFrame,
                int takeoverFrame,
                const ResourceGatherProbabilityForecast &otherPatchesForecast)
-                : positionDeltas(positionDeltas)
-                , minimumNextPathLength(minimumNextPathLength)
+                : mapData(mapData)
                 , resource(std::move(resource))
                 , startPosition(startPosition)
                 , path(path)
@@ -79,10 +76,8 @@ namespace MiningOptimization
         SolverResult<ObservationType> execute();
 
     private:
-        /* References to the map mining optimization data relevant for this solve */
-
-        const std::vector<std::pair<int8_t, int8_t>> &positionDeltas;
-        const unsigned int minimumNextPathLength;
+        // We keep a reference to the map data so we can interpret some of the data correctly
+        const MapData &mapData;
 
         Resource resource;
 

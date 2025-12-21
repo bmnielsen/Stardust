@@ -17,9 +17,9 @@ namespace MiningOptimizationTraining::DataTransformer
 
         uint8_t computeOccurrenceRate(const auto &observations, std::unique_ptr<uint32_t> &totalOccurrences, uint32_t occurrences)
         {
-            if (observations.size() == 1) return 255;
+            if (observations.size() == 1) return OCCURRENCE_SCALE;
             if (!totalOccurrences) totalOccurrences = std::make_unique<uint32_t>(getTotalOccurrences(observations));
-            return (uint8_t)(std::round(255.0 * ((double)occurrences / (double)(*totalOccurrences))));
+            return (uint8_t)(std::round((double)OCCURRENCE_SCALE * ((double)occurrences / (double)(*totalOccurrences))));
         }
 
         // Ensures that the total occurrence rate is 255
@@ -29,7 +29,7 @@ namespace MiningOptimizationTraining::DataTransformer
             if (observations.size() == 1)
             {
                 // This is needed since there might be rounding issues for cases where multiple observations were collapsed into one
-                observations.begin()->second = 255;
+                observations.begin()->second = OCCURRENCE_SCALE;
                 return;
             }
 
@@ -46,7 +46,7 @@ namespace MiningOptimizationTraining::DataTransformer
                 totalOccurrences += it->second;
                 it++;
             }
-            while (totalOccurrences != 255)
+            while (totalOccurrences != OCCURRENCE_SCALE)
             {
                 // Get the max occurrences
                 uint8_t maxOccurrences = 0;
@@ -56,7 +56,7 @@ namespace MiningOptimizationTraining::DataTransformer
                 for (auto &[_, occurrences] : observations)
                 {
                     if (occurrences != maxOccurrences) continue;
-                    if (totalOccurrences > 255)
+                    if (totalOccurrences > OCCURRENCE_SCALE)
                     {
                         occurrences--;
                         totalOccurrences--;
@@ -222,11 +222,11 @@ namespace MiningOptimizationTraining::DataTransformer
                         continue;
                     }
 
-                    // There is a match, so get the occurrence rate and either add it or set to 255 if there would be an overflow
+                    // There is a match, so get the occurrence rate and either add it or set to max if there would be an overflow
                     auto occurrenceRate = computeOccurrenceRate(observations, totalArrivalOccurrences, occurrences);
-                    if ((unsigned int)it->second + (unsigned int)occurrenceRate > 255)
+                    if ((unsigned int)it->second + (unsigned int)occurrenceRate > OCCURRENCE_SCALE)
                     {
-                        it->second = 255;
+                        it->second = OCCURRENCE_SCALE;
                     }
                     else
                     {
