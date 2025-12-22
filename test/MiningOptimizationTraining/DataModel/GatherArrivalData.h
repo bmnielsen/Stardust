@@ -28,6 +28,9 @@ namespace MiningOptimizationTraining
         uint8_t tenDistanceDelta = UINT8_MAX;
         PositionAndVelocity nextPathStartPosition;
 
+        // This is intentionally not included in the key, since we assume it will not change for the same arrival delay
+        mutable uint8_t resendAlwaysArrivesDelta = UINT8_MAX;
+
         // The number of frames to arrival at the target
         [[nodiscard]] unsigned int arrivalDelay() const
         {
@@ -152,6 +155,7 @@ namespace MiningOptimizationTraining
             s.value2b(packed);
             s.value1b(tenDistanceDelta);
             s.object(nextPathStartPosition);
+            s.value1b(resendAlwaysArrivesDelta);
         }
 
         friend std::ostream& operator<< (std::ostream& os, const GatherArrivalData& data)
@@ -172,14 +176,3 @@ namespace MiningOptimizationTraining
     typedef Path<GatherArrivalData> GatherPath;
     typedef PathNode<GatherArrivalData> GatherPathNode;
 }
-//
-//namespace std {
-//    template <> struct hash<MiningOptimizationTraining::GatherArrivalData>
-//    {
-//        size_t operator()(const MiningOptimizationTraining::GatherArrivalData& data) const
-//        {
-//            // As this is only intended for use in std::unordered_map, hash quality is not important
-//            return data.packed ^ std::hash<MiningOptimizationTraining::PositionAndVelocity>()(data.nextPathStartPosition);
-//        }
-//    };
-//}

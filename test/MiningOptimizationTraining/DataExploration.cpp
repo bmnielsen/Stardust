@@ -220,19 +220,23 @@ TEST(DataExploration, CheckSpecificPath)
     }
 }
 
-TEST(DataExploration, DeltasToTenDistance)
+TEST(DataExploration, DeltasToTenDistanceAndResendAlwaysArrives)
 {
     MiningOptimizationTraining::MapData data;
     MiningOptimizationTraining::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
     MiningOptimizationTraining::Serialization::readMapData(data);
 
-    std::map<uint8_t, unsigned long> result;
+    std::map<uint8_t, unsigned long> tenDistanceResult;
+    std::map<uint8_t, unsigned long> resendAlwaysArrivesResult;
+    std::map<std::pair<uint8_t, uint8_t>, unsigned long> combinedResult;
 
     auto processArrivalData = [&](const std::map<GatherArrivalData, uint32_t> &arrivalDataMap)
     {
         for (const auto &arrivalData : arrivalDataMap)
         {
-            result[arrivalData.first.tenDistanceDelta]++;
+            tenDistanceResult[arrivalData.first.tenDistanceDelta]++;
+            resendAlwaysArrivesResult[arrivalData.first.resendAlwaysArrivesDelta]++;
+            combinedResult[std::make_pair(arrivalData.first.tenDistanceDelta, arrivalData.first.resendAlwaysArrivesDelta)]++;
         }
     };
 
@@ -241,8 +245,11 @@ TEST(DataExploration, DeltasToTenDistance)
     {
         for (const auto &node : nextNodes)
         {
-            processArrivalData(node.first.arrivalData);
-            processArrivalData(node.first.arrivalDataAfterResend);
+            // This is only relevant for final resend nodes
+            if (node.first.nextPositionsAfterResend.empty() && node.first.type != NodeType::PoorResendNode)
+            {
+                processArrivalData(node.first.arrivalDataAfterResend);
+            }
 
             processNextNodes(node.first.nextPositions);
             processNextNodes(node.first.nextPositionsAfterResend);
@@ -257,8 +264,33 @@ TEST(DataExploration, DeltasToTenDistance)
         }
     }
 
-    for (const auto &[delta, occurrences] : result)
+    auto outMap = [](const std::map<uint8_t, unsigned long> &result)
     {
-        std::cout << (unsigned int)delta << ": " << occurrences << std::endl;
+        for (const auto &[delta, occurrences] : result)
+        {
+            std::cout << (unsigned int)delta << ": " << occurrences << std::endl;
+        }
+    };
+    std::cout << "Ten distance:" << std::endl;
+    outMap(tenDistanceResult);
+    std::cout << "Resend always arrives:" << std::endl;
+    outMap(resendAlwaysArrivesResult);
+
+    std::vector<std::pair<std::pair<uint8_t, uint8_t>, unsigned long>> sortedCombinedResults;
+    sortedCombinedResults.reserve(combinedResult.size());
+    for (const auto &item : combinedResult)
+    {
+        sortedCombinedResults.emplace_back(item);
+    }
+    std::sort(sortedCombinedResults.begin(), sortedCombinedResults.end(), [](const std::pair<std::pair<uint8_t, uint8_t>, unsigned long> &first,
+                                                                             const std::pair<std::pair<uint8_t, uint8_t>, unsigned long> &second){
+        return second.second < first.second;
+    });
+    std::cout << "Combined:" << std::endl;
+    int i = 0;
+    for (const auto &[pair, occurrences] : sortedCombinedResults)
+    {
+        std::cout << i << ": (" << (unsigned int)pair.first << "," << (unsigned int)pair.second << "): " << occurrences << std::endl;
+        i++;
     }
 }

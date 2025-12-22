@@ -185,14 +185,3 @@ namespace MiningOptimizationTraining
     typedef Path<ReturnArrivalData> ReturnPath;
     typedef PathNode<ReturnArrivalData> ReturnPathNode;
 }
-
-namespace std {
-    template <> struct hash<MiningOptimizationTraining::ReturnArrivalData>
-    {
-        size_t operator()(const MiningOptimizationTraining::ReturnArrivalData& data) const
-        {
-            // As this is only intended for use in std::unordered_map, hash quality is not important
-            return data.packed ^ std::hash<MiningOptimizationTraining::PositionAndVelocity>()(data.nextPathStartPosition);
-        }
-    };
-}

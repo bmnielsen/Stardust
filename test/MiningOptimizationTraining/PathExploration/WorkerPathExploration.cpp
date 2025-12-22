@@ -73,7 +73,9 @@ namespace MiningOptimizationTraining
 
         // Adds an arrival observation to the given observations map
         template <typename ObservationType>
-        void addArrivalObservation(std::map<ObservationType, uint32_t> &observations, const ObservationType &arrivalData)
+        const ObservationType& addArrivalObservation(std::map<ObservationType, uint32_t> &observations,
+                                                     const ObservationType &arrivalData,
+                                                     uint32_t *occurrences = nullptr)
         {
             auto dataIt = observations.find(arrivalData);
             if (dataIt == observations.end())
@@ -82,6 +84,10 @@ namespace MiningOptimizationTraining
             }
 
             if (getTotalOccurrences(observations) < UINT32_MAX) dataIt->second++;
+
+            if (occurrences) *occurrences = dataIt->second;
+
+            return dataIt->first;
         }
 
         // Gets the number of times a root node has been explored
@@ -222,12 +228,48 @@ namespace MiningOptimizationTraining
                     }
 
                     // Make the resend observation on the resend node
-                    addArrivalObservation(resendNode->arrivalDataAfterResend, arrivalData);
+                    uint32_t arrivalDataOccurrences;
+                    auto &savedArrivalData = addArrivalObservation(resendNode->arrivalDataAfterResend, arrivalData, &arrivalDataOccurrences);
 
                     // Jump out unless we need to explore more resends from here
                     if (resendNode->type != NodeType::NonfinalResendNode)
                     {
-                        if (resendNode->type != NodeType::PoorResendNode) addResult();
+                        if (resendNode->type != NodeType::PoorResendNode)
+                        {
+                            // For gather paths, compute resendAlwaysArrivesDelta the first three times
+                            if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+                            {
+                                if (arrivalDataOccurrences <= 3)
+                                {
+                                    uint8_t successfulDelta = 0;
+                                    for (int lastResendFrame = frame + simulatedPath.size() - 1; lastResendFrame > frame; lastResendFrame--)
+                                    {
+                                        if (resendFrames.contains(lastResendFrame - BWAPI::Broodwar->getLatencyFrames()))
+                                        {
+                                            continue;
+                                        }
+
+                                        resendFrames.insert(lastResendFrame);
+                                        auto result = worker->simulateGatherPath(resendFrames);
+                                        resendFrames.erase(lastResendFrame);
+
+                                        if (!result.has_value())
+                                        {
+                                            Log::Get() << "ERROR: Path could not be simulated"
+                                                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                                            return;
+                                        }
+
+                                        auto size = std::get<0>(*result).size();
+                                        if (size > 11) break;
+                                        successfulDelta++;
+                                    }
+                                    savedArrivalData.resendAlwaysArrivesDelta = std::min(savedArrivalData.resendAlwaysArrivesDelta, successfulDelta);
+                                }
+                            }
+
+                            addResult();
+                        }
                         return;
                     }
                 }
