@@ -239,7 +239,7 @@ namespace MiningOptimizationTraining
                             // For gather paths, compute resendAlwaysArrivesDelta the first three times
                             if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
                             {
-                                if (arrivalDataOccurrences <= 3)
+                                if (arrivalDataOccurrences == 1)
                                 {
                                     uint8_t successfulDelta = 0;
                                     for (int lastResendFrame = frame + simulatedPath.size() - 1; lastResendFrame > frame; lastResendFrame--)
@@ -264,7 +264,7 @@ namespace MiningOptimizationTraining
                                         if (size > 11) break;
                                         successfulDelta++;
                                     }
-                                    savedArrivalData.resendAlwaysArrivesDelta = std::min(savedArrivalData.resendAlwaysArrivesDelta, successfulDelta);
+                                    savedArrivalData.resendAlwaysArrivesDelta = successfulDelta;
                                 }
                             }
 
