@@ -18,7 +18,14 @@ namespace MiningOptimization
         std::string mapHash;
 
         // To save on bits, we store position deltas as indices into this vector
+        // The vector is guaranteed to have a maximum size of 128
+        // The zero element (delta of 0,0) is always at index 0 in the vector
         std::vector<std::pair<int8_t, int8_t>> positionDeltas;
+
+        // To save on bits, we store the ten distance and resend always arrives deltas as indices into this vector
+        // Both could be packed as independent 4-bit numbers into one byte, but testing has shown there is a weak correlation between the two values,
+        // allowing us to pack more data into one byte by treating them together
+        std::vector<std::pair<int8_t, int8_t>> tenDistanceAndResendAlwaysArrives;
 
         // To save on bits, we store next path lengths as an increment from the minimum path length for the map
         unsigned int minimumNextPathLength = 0;

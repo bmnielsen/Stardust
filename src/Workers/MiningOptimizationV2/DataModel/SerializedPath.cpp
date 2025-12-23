@@ -18,6 +18,10 @@ namespace MiningOptimization
             auto resendArrivalDataSerializer = [](S &s, ObservationType &arrivalData)
             {
                 s.value1b(arrivalData.packed);
+                if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+                {
+                    s.value1b(arrivalData.tenDistanceAndResendAlwaysArrivesIndex);
+                }
 #if USE_NEXT_PATH_LENGTHS
                 s.value1b(arrivalData.nextPathLengthDelta);
 #endif

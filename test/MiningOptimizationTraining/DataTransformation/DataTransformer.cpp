@@ -111,6 +111,39 @@ namespace MiningOptimizationTraining::DataTransformer
             }
         }
 
+        void gatherTenDistanceAndResendAlwaysArrives( // NOLINT(*-no-recursion)
+                const std::vector<std::pair<PathNode<GatherArrivalData>, uint32_t>> &nextNodes,
+                std::map<std::pair<int8_t, int8_t>, unsigned long> &tenDistanceAndResendAlwaysArrivesToOccurrences)
+        {
+            for (const auto &[nextNode, _] : nextNodes)
+            {
+                if (nextNode.type == NodeType::FinalResendNode)
+                {
+                    for (const auto &[arrivalData, _] : nextNode.arrivalDataAfterResend)
+                    {
+                        if (arrivalData.tenDistanceDelta == UINT8_MAX || arrivalData.resendAlwaysArrivesDelta == UINT8_MAX) continue;
+                        tenDistanceAndResendAlwaysArrivesToOccurrences[{arrivalData.tenDistanceDelta, arrivalData.resendAlwaysArrivesDelta}]++;
+                    }
+                }
+
+                gatherTenDistanceAndResendAlwaysArrives(nextNode.nextPositions, tenDistanceAndResendAlwaysArrivesToOccurrences);
+                gatherTenDistanceAndResendAlwaysArrives(nextNode.nextPositionsAfterResend, tenDistanceAndResendAlwaysArrivesToOccurrences);
+            }
+        }
+
+        void gatherTenDistanceAndResendAlwaysArrives(
+                const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<GatherArrivalData>>> &pathData,
+                std::map<std::pair<int8_t, int8_t>, unsigned long> &tenDistanceAndResendAlwaysArrivesToOccurrences)
+        {
+            for (const auto &[_, rootNodes] : pathData)
+            {
+                for (const auto &[_, rootNode] : rootNodes)
+                {
+                    gatherTenDistanceAndResendAlwaysArrives(rootNode.nextPositions, tenDistanceAndResendAlwaysArrivesToOccurrences);
+                }
+            }
+        }
+
         template <typename ObservationType>
         void gatherAveragePathArrivalDelays(
                 const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, Path<ObservationType>>> &pathData,
@@ -189,10 +222,36 @@ namespace MiningOptimizationTraining::DataTransformer
         }
 
         template <typename TrainingObservationType, typename OutputObservationType>
+        OutputObservationType convert(const TrainingObservationType &arrivalData,
+                                      const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
+                                      const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
+        {
+            return convert<TrainingObservationType, OutputObservationType>(arrivalData, nextPathArrivalDelays);
+        }
+
+        template <>
+        MiningOptimization::GatherArrivalData convert(const GatherArrivalData &arrivalData,
+                                                      const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
+                                                      const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
+        {
+            auto result = convert<GatherArrivalData, MiningOptimization::GatherArrivalData>(arrivalData, nextPathArrivalDelays);
+
+            auto it = tenDistanceAndResendAlwaysArrivesToIndex.find(
+                    {arrivalData.tenDistanceDelta, arrivalData.resendAlwaysArrivesDelta});
+            if (it != tenDistanceAndResendAlwaysArrivesToIndex.end())
+            {
+                result.tenDistanceAndResendAlwaysArrivesIndex = it->second;
+            }
+
+            return result;
+        }
+
+        template <typename TrainingObservationType, typename OutputObservationType>
         std::vector<std::pair<MiningOptimization::PathNode<OutputObservationType>, uint8_t>> convert( // NOLINT(*-no-recursion)
                 const PositionAndVelocity &pos,
                 const std::vector<std::pair<PathNode<TrainingObservationType>, uint32_t>> &nextNodes,
                 const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
+                const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
                 const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
             if (nextNodes.empty()) return {};
@@ -209,7 +268,9 @@ namespace MiningOptimizationTraining::DataTransformer
                     // Arrival data with different next path start positions may have the same next path length, causing them to become
                     // equal after conversion.
                     // We therefore take this into consideration and check if there is a preexisting match
-                    auto converted = convert<TrainingObservationType, OutputObservationType>(arrivalData, nextPathArrivalDelays);
+                    auto converted = convert<TrainingObservationType, OutputObservationType>(arrivalData,
+                                                                                             tenDistanceAndResendAlwaysArrivesToIndex,
+                                                                                             nextPathArrivalDelays);
                     auto it = std::find_if(result.begin(), result.end(), [&converted](const std::pair<OutputObservationType, uint8_t> &item)
                     {
                         return item.first == converted;
@@ -298,11 +359,22 @@ namespace MiningOptimizationTraining::DataTransformer
                     }
                 }
 
-                return {delta(pos, node.pos, positionDeltaToIndex),
+                return {
+                        delta(pos, node.pos, positionDeltaToIndex),
                         convertArrivalData(node.arrivalData),
                         convertArrivalData(node.arrivalDataAfterResend),
-                        convert<TrainingObservationType, OutputObservationType>(node.pos, node.nextPositions, positionDeltaToIndex, nextPathArrivalDelays),
-                        convert<TrainingObservationType, OutputObservationType>(node.pos, node.nextPositionsAfterResend, positionDeltaToIndex, nextPathArrivalDelays),
+                        convert<TrainingObservationType, OutputObservationType>(
+                                node.pos,
+                                node.nextPositions,
+                                positionDeltaToIndex,
+                                tenDistanceAndResendAlwaysArrivesToIndex,
+                                nextPathArrivalDelays),
+                        convert<TrainingObservationType, OutputObservationType>(
+                                node.pos,
+                                node.nextPositionsAfterResend,
+                                positionDeltaToIndex,
+                                tenDistanceAndResendAlwaysArrivesToIndex,
+                                nextPathArrivalDelays),
                         node.type == NodeType::StableNode};
             };
 
@@ -331,14 +403,17 @@ namespace MiningOptimizationTraining::DataTransformer
         }
 
         template <typename TrainingObservationType, typename OutputObservationType>
-        MiningOptimization::Path<OutputObservationType> convert(const Path<TrainingObservationType> &rootNode,
-                                                                  const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
-                                                                  const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
+        MiningOptimization::Path<OutputObservationType> convert(
+                const Path<TrainingObservationType> &rootNode,
+                const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
+                const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
+                const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
             return {convert(rootNode.pos),
                     convert<TrainingObservationType, OutputObservationType>(rootNode.pos,
                                                                             rootNode.nextPositions,
                                                                             positionDeltaToIndex,
+                                                                            tenDistanceAndResendAlwaysArrivesToIndex,
                                                                             nextPathArrivalDelays)};
         }
 
@@ -348,7 +423,8 @@ namespace MiningOptimizationTraining::DataTransformer
                 std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, uint8_t>> &nextPathArrivalDelays,
                 std::unordered_map<TilePosition, std::unordered_map<MiningOptimization::PositionAndVelocity,
                                                                     MiningOptimization::SerializedPath<OutputObservationType>>> &outputData,
-                const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex)
+                const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
+                const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
         {
             for (const auto &[tile, rootNodes] : pathData)
             {
@@ -360,7 +436,8 @@ namespace MiningOptimizationTraining::DataTransformer
                 for (const auto &[pos, rootNode] : rootNodes)
                 {
                     outputRootNodes[convert(pos)] = MiningOptimization::SerializedPath<OutputObservationType>::create(
-                            convert<TrainingObservationType, OutputObservationType>(rootNode, positionDeltaToIndex, patchNextPathArrivalDelays));
+                            convert<TrainingObservationType, OutputObservationType>(
+                                    rootNode, positionDeltaToIndex, tenDistanceAndResendAlwaysArrivesToIndex, patchNextPathArrivalDelays));
                 }
             }
         }
@@ -374,9 +451,61 @@ namespace MiningOptimizationTraining::DataTransformer
         // Start by finding all of the needed position deltas
         std::cout << "Building position delta map..." << std::endl;
         std::map<std::pair<int8_t, int8_t>, uint8_t> positionDeltaToIndex;
+        positionDeltaToIndex[{0, 0}] = 0;
+        outputData.positionDeltas.emplace_back(0, 0);
         gatherPositionDeltas(trainingData.resourceToGatherPaths, outputData.positionDeltas, positionDeltaToIndex);
         gatherPositionDeltas(trainingData.resourceToReturnPaths, outputData.positionDeltas, positionDeltaToIndex);
         std::cout << "...found " << outputData.positionDeltas.size() << " position deltas" << std::endl;
+
+        // Next find the ten distance and resend always arrives deltas
+        // This only applies to gather and only to final resend nodes
+        // There will most likely be more than 256 combinations, so we sort by occurrence count and set a default value for those we can't represent
+        std::cout << "Building ten distance and resend always arrives map..." << std::endl;
+
+        // Start by gathering all of the combinations with their occurrence counts
+        std::map<std::pair<int8_t, int8_t>, unsigned long> tenDistanceAndResendAlwaysArrivesToOccurrences;
+        gatherTenDistanceAndResendAlwaysArrives(trainingData.resourceToGatherPaths, tenDistanceAndResendAlwaysArrivesToOccurrences);
+
+        // Now sort them by occurrence count descending
+        std::vector<std::pair<std::pair<uint8_t, uint8_t>, unsigned long>> sortedTenDistanceAndResendAlwaysArrivesToOccurrences;
+        sortedTenDistanceAndResendAlwaysArrivesToOccurrences.reserve(tenDistanceAndResendAlwaysArrivesToOccurrences.size());
+        for (const auto &item : tenDistanceAndResendAlwaysArrivesToOccurrences)
+        {
+            sortedTenDistanceAndResendAlwaysArrivesToOccurrences.emplace_back(item);
+        }
+        std::sort(sortedTenDistanceAndResendAlwaysArrivesToOccurrences.begin(),
+                  sortedTenDistanceAndResendAlwaysArrivesToOccurrences.end(),
+                  [](const std::pair<std::pair<uint8_t, uint8_t>, unsigned long> &first,
+                     const std::pair<std::pair<uint8_t, uint8_t>, unsigned long> &second)
+                  {
+                      return second.second < first.second;
+                  });
+
+        // Now fill in the output data vector and the index lookup map
+        outputData.tenDistanceAndResendAlwaysArrives.reserve(std::min(255UL, sortedTenDistanceAndResendAlwaysArrivesToOccurrences.size()));
+        std::map<std::pair<int8_t, int8_t>, uint8_t> tenDistanceAndResendAlwaysArrivesToIndex;
+        unsigned long handledOccurrences = 0;
+        unsigned long unhandledOccurrences = 0;
+        for (int i = 0; i < sortedTenDistanceAndResendAlwaysArrivesToOccurrences.size(); i++)
+        {
+            tenDistanceAndResendAlwaysArrivesToIndex[sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].first] = std::min(i, 255);
+            if (i < 255)
+            {
+                outputData.tenDistanceAndResendAlwaysArrives.emplace_back(sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].first);
+                handledOccurrences += sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].second;
+            }
+            else
+            {
+                unhandledOccurrences += sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].second;
+            }
+        }
+        std::cout << std::fixed << std::setprecision(2)
+                  << "...found " << sortedTenDistanceAndResendAlwaysArrivesToOccurrences.size() << " combinations"
+                  << "; " << handledOccurrences << " occurrences covered"
+                  << "; " << unhandledOccurrences
+                  << " (" << ((double)unhandledOccurrences * 100.0 / (double)(handledOccurrences + unhandledOccurrences)) << "%)"
+                  << " occurrences not covered"
+                  << std::endl;
 
         // Next, compute all of the average arrival delays from each path
         // We do this in two steps - first we get all the values with the minimum, then we prepare for serialization by subtracting the minimum
@@ -397,11 +526,19 @@ namespace MiningOptimizationTraining::DataTransformer
 
         // Now transform the data
         std::cout << "Transforming gather data..." << std::endl;
-        transform(trainingData.resourceToGatherPaths, returnAverageArrivalDelays, outputData.resourceToSerializedGatherPaths, positionDeltaToIndex);
+        transform(trainingData.resourceToGatherPaths,
+                  returnAverageArrivalDelays,
+                  outputData.resourceToSerializedGatherPaths,
+                  positionDeltaToIndex,
+                  tenDistanceAndResendAlwaysArrivesToIndex);
         std::cout << "...done!" << std::endl;
 
         std::cout << "Transforming return data..." << std::endl;
-        transform(trainingData.resourceToReturnPaths, gatherAverageArrivalDelays, outputData.resourceToSerializedReturnPaths, positionDeltaToIndex);
+        transform(trainingData.resourceToReturnPaths,
+                  gatherAverageArrivalDelays,
+                  outputData.resourceToSerializedReturnPaths,
+                  positionDeltaToIndex,
+                  tenDistanceAndResendAlwaysArrivesToIndex);
         std::cout << "...done!" << std::endl;
 
         // Finally serialize everything
