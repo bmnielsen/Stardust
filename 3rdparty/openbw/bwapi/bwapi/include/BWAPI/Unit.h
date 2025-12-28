@@ -2587,7 +2587,8 @@ namespace BWAPI
     virtual ExactPosition getExactPosition() const = 0;
     virtual int getOrderProcessTimer() const = 0;
     virtual std::optional<std::tuple<std::vector<ExactPosition>, ExactPosition, uint64_t>>
-        simulateGatherPath(const std::set<int> &resendFrames) const = 0;
+        simulateGatherPath(const std::set<int> &resendFrames,
+                           std::optional<bool> ensureOrderProcessZeroOnArrival = std::nullopt) const = 0;
 
     ///@}
   };
