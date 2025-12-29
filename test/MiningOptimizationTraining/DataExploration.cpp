@@ -294,3 +294,26 @@ TEST(DataExploration, DeltasToTenDistanceAndResendAlwaysArrives)
         i++;
     }
 }
+
+TEST(DataExploration, GatherPathPruning)
+{
+    MiningOptimizationTraining::MapData data;
+    MiningOptimizationTraining::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
+    MiningOptimizationTraining::Serialization::readMapData(data);
+
+    size_t maxCount = 0;
+    TilePosition bestTile = {0, 0};
+    for (const auto &[tile, paths] : data.resourceToGatherPaths)
+    {
+        if (paths.size() > maxCount)
+        {
+            maxCount = paths.size();
+            bestTile = tile;
+        }
+    }
+
+    const auto &mostPaths = data.resourceToGatherPaths[bestTile];
+    std::cout << "Most gather paths is " << mostPaths.size() << std::endl;
+
+
+}
