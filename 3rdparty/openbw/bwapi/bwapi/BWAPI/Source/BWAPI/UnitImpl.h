@@ -10,9 +10,6 @@
 
 #include "BW/BWData.h"
 
-#include <optional>
-#include <set>
-
 #ifdef COMPAT
 #include "CompatGameImpl.h"
 #endif
@@ -22,6 +19,9 @@ namespace BWAPI
   // Forwards
   class PlayerInterface;
   typedef PlayerInterface *Player;
+
+  struct SimulateGatherPathOptions;
+  struct SimulateGatherPathResult;
 
   /**
    * Interface for broodwar unit, can be used to obtain any information and
@@ -254,12 +254,11 @@ namespace BWAPI
       virtual void setEnergy(int value) override;
       virtual void setResources(int value) override;
       virtual void setHeading(int value) override;
+      virtual void setOrderProcessTimer(int value) override;
 
       virtual ExactPosition getExactPosition() const override;
       virtual int getOrderProcessTimer() const override;
-      virtual std::optional<std::tuple<std::vector<ExactPosition>, ExactPosition, uint64_t>>
-        simulateGatherPath(const std::set<int> &resendFrames,
-                           std::optional<bool> ensureOrderProcessZeroOnArrival = std::nullopt) const override;
+      virtual std::unique_ptr<SimulateGatherPathResult> simulateGatherPath(const SimulateGatherPathOptions &options) const override;
 
       //Internal BWAPI commands:
       UnitImpl(BW::Unit bwunit, u16 index);

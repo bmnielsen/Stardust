@@ -7,6 +7,8 @@
 #include <BWAPI/Order.h>
 #include <BWAPI/WeaponType.h>
 #include <BWAPI/ExactPosition.h>
+#include <BWAPI/SimulateGatherPathOptions.h>
+#include <BWAPI/SimulateGatherPathResult.h>
 
 #include "Command.h"
 #include "Templates.h"
@@ -243,9 +245,14 @@ namespace BWAPI
     bwunit.setHeading(value);
   }
 
+  void UnitImpl::setOrderProcessTimer(int value)
+  {
+    bwunit.setOrderProcessTimer(value);
+  }
+
   ExactPosition UnitImpl::getExactPosition() const
   {
-    return ExactPosition{bwunit.getExactPosition()};
+    return bwunit.getExactPosition();
   }
 
   int UnitImpl::getOrderProcessTimer() const
@@ -253,18 +260,8 @@ namespace BWAPI
     return bwunit.getOrderProcessTimer();
   }
 
-  std::optional<std::tuple<std::vector<ExactPosition>, ExactPosition, uint64_t>> UnitImpl::simulateGatherPath(
-          const std::set<int> &resendFrames,
-          std::optional<bool> ensureOrderProcessZeroOnArrival) const
+  std::unique_ptr<SimulateGatherPathResult> UnitImpl::simulateGatherPath(const SimulateGatherPathOptions &options) const
   {
-    auto result = bwunit.simulateGatherPath(resendFrames, ensureOrderProcessZeroOnArrival);
-    if (!result.has_value()) return std::nullopt;
-
-    // Convert the positions to the BWAPI object
-    std::vector<ExactPosition> positions;
-    positions.reserve(std::get<0>(*result).size());
-    for (const auto &pos : std::get<0>(*result)) positions.emplace_back(pos);
-
-    return std::make_tuple(positions, ExactPosition(std::get<1>(*result)), std::get<2>(*result));
+    return bwunit.simulateGatherPath(options);
   }
 };

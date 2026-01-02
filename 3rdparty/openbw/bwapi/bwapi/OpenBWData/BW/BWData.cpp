@@ -31,6 +31,11 @@
 #include <cstring>
 #include <condition_variable>
 
+// For some of our extensions we cheat and use the BWAPI types directly to avoid the need for conversions
+#include "../../bwapi/include/BWAPI/ExactPosition.h"
+#include "../../bwapi/include/BWAPI/SimulateGatherPathOptions.h"
+#include "../../bwapi/include/BWAPI/SimulateGatherPathResult.h"
+
 using bwgame::error;
 
 //#ifdef OPENBW_ENABLE_UI
@@ -2335,7 +2340,18 @@ void Unit::setHeading(int value)
   impl->game_setup_helper.input_action(w.data(), w.size());
 }
 
-Unit::exactPosition Unit::getExactPosition() const
+void Unit::setOrderProcessTimer(int value)
+{
+  bwgame::sync_functions::dynamic_writer<> w;
+  w.template put<uint8_t>(210);
+  w.template put<uint8_t>(0);
+  w.template put<uint8_t>(5);
+  w.template put<uint16_t>(impl->funcs.get_unit_id(u).raw_value);
+  w.template put<int32_t>(value);
+  impl->game_setup_helper.input_action(w.data(), w.size());
+}
+
+BWAPI::ExactPosition Unit::getExactPosition() const
 {
     return {(uint32_t)u->exact_position.x.raw_value,
             (uint32_t)u->exact_position.y.raw_value,
@@ -2355,12 +2371,10 @@ int Unit::getOrderProcessTimer() const
 // Exit speed will be 0 if the worker collided with the target
 // Returns no value if the unit doesn't have a valid gather-related order or the path gets stuck somewhere.
 // The method is only intended for use with a single worker mining a patch, there may be unintended results if taking over from another worker.
-std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, uint64_t>>
-    Unit::simulateGatherPath(const std::set<int> &resendFrames,
-                             std::optional<bool> ensureOrderProcessZeroOnArrival) const
+std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const BWAPI::SimulateGatherPathOptions &options) const
 {
     // Validate the unit has a target
-    if (!u->order_target.unit) return std::nullopt;
+    if (!u->order_target.unit) return nullptr;
 
     // Set the relevant orders based on what the unit is currently doing
     bwgame::Orders resendOrderType;
@@ -2405,7 +2419,7 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
         default:
         {
             // The worker is doing something else, so we can't do the simulation
-            return std::nullopt;
+            return nullptr;
         }
     }
 
@@ -2458,51 +2472,27 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
         return true;
     };
 
-    std::vector<Unit::exactPosition> positions;
+    std::vector<BWAPI::ExactPosition> positions;
 
-    auto positionsEqualExcludingVelocity =
-            [](const Unit::exactPosition &first, const Unit::exactPosition &second)
+    auto positionsEqual =
+            [](const BWAPI::ExactPosition &first, const BWAPI::ExactPosition &second)
             {
-                if (std::get<0>(first) != std::get<0>(second)) return false;
-                if (std::get<1>(first) != std::get<1>(second)) return false;
-                if (std::get<2>(first) != std::get<2>(second)) return false;
-                return true;
+                return first.x == second.x && first.y == second.y;
             };
 
-    auto lastTwoPositionsEqualExcludingVelocity = [&]()
+    auto lastTwoPositionsEqual = [&]()
     {
         if (positions.size() < 2) return false;
-        return positionsEqualExcludingVelocity(*(positions.rbegin()), (*(positions.rbegin() + 1)));
+        return positionsEqual(*(positions.rbegin()), (*(positions.rbegin() + 1)));
     };
 
     // Simulate the unit until it reaches the "path finished" order
     while (unit->order_type->id != pathFinishedOrderType)
     {
-        if (depthLimitExceeded()) return std::nullopt;
-
-        // Reset the order process timer if we want to ensure it is either 0 or non-zero at arrival
-        // Skip this, however, if we have just done a resend
-        if (ensureOrderProcessZeroOnArrival.has_value()
-            && resendFrames.find(state_copy.current_frame - 1) == resendFrames.end()
-            && resendFrames.find(state_copy.current_frame - orderProcessFrames) == resendFrames.end())
-        {
-            // If we want to ensure the order process is zero on arrival, we can just set to zero every frame
-            if (*ensureOrderProcessZeroOnArrival)
-            {
-                unit->order_process_timer = 0;
-            }
-            else
-            {
-                // Set the order process timer to 8 unless we think we might be at the destination, in which case we leave it alone
-                if (!lastTwoPositionsEqualExcludingVelocity())
-                {
-                    unit->order_process_timer = 8;
-                }
-            }
-        }
+        if (depthLimitExceeded()) return nullptr;
 
         // Resend if we want to resend on this frame
-        if (resendFrames.find(state_copy.current_frame) != resendFrames.end())
+        if (options.resendFrames.find(state_copy.current_frame) != options.resendFrames.end())
         {
             positions.clear(); // We only return the path following the last resend
             funcs_copy.issue_order(unit, false, funcs_copy.get_order_type(resendOrderType), order_target);
@@ -2513,11 +2503,35 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
                                (int8_t)unit->heading.raw_value,
                                (int32_t)unit->velocity.x.raw_value,
                                (int32_t)unit->velocity.y.raw_value);
+
+        // Reset the order process timer if we want to ensure it is either 0 or non-zero at arrival
+        // Skip this, however, if we have just done a resend
+        if ((options.forceActionAtArrival || options.forceActionAfterArrival)
+            && options.resendFrames.find(state_copy.current_frame - 1) == options.resendFrames.end()
+            && options.resendFrames.find(state_copy.current_frame - orderProcessFrames) == options.resendFrames.end())
+        {
+            // If we want to ensure the order process is zero on arrival, we can just set to zero every frame
+            if (options.forceActionAtArrival)
+            {
+                unit->order_process_timer = 0;
+            }
+            else
+            {
+                // Set the order process timer to 8 unless we think we might be at the destination, in which case we leave it alone
+                if (!lastTwoPositionsEqual())
+                {
+                    unit->order_process_timer = 8;
+                }
+            }
+        }
     }
 
+    // Save the action position
+    auto actionPosition = *positions.rbegin();
+
     // Remove duplicated positions at the end of the path, these are the positions while the worker was waiting to gather or deliver
-    // We only consider the x and y position and heading, since the worker might have some residual velocity that has no effect
-    while (lastTwoPositionsEqualExcludingVelocity())
+    // We ignore the heading as the worker may turn while waiting, but this would not affect its ability to transition earlier
+    while (lastTwoPositionsEqual())
     {
         positions.pop_back();
     }
@@ -2525,16 +2539,16 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
     // Continue simulating until the unit reaches its next order
     while (unit->order_type->id != nextOrderType)
     {
-        if (depthLimitExceeded()) return std::nullopt;
+        if (depthLimitExceeded()) return nullptr;
         nextFrame();
     }
 
     // Save the first position of the next path
-    auto firstNextPathPosition = std::make_tuple((uint32_t)unit->exact_position.x.raw_value,
+    auto firstNextPathPosition = BWAPI::ExactPosition{(uint32_t)unit->exact_position.x.raw_value,
                                                  (uint32_t)unit->exact_position.y.raw_value,
                                                  (int8_t)unit->heading.raw_value,
                                                  (int32_t)unit->velocity.x.raw_value,
-                                                 (int32_t)unit->velocity.y.raw_value);
+                                                 (int32_t)unit->velocity.y.raw_value};
 
     // Detect a collision by checking if the unit is not moving 8 frames after the order changes
     // We don't check against the initial position, as sometimes the unit will move a bit before colliding and entering collision resolution
@@ -2557,7 +2571,11 @@ std::optional<std::tuple<std::vector<Unit::exactPosition>, Unit::exactPosition, 
                      + (uint64_t)((int64_t)unit->velocity.y.raw_value * (int64_t)unit->velocity.y.raw_value);
     }
 
-    return std::make_tuple(std::move(positions), firstNextPathPosition, squaredSpeed);
+    return std::make_unique<BWAPI::SimulateGatherPathResult>(BWAPI::SimulateGatherPathResult{
+            std::move(positions),
+            actionPosition,
+            firstNextPathPosition,
+            squaredSpeed});
 }
 
 Bullet::operator bool() const

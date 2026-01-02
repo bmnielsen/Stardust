@@ -6,9 +6,6 @@
 #include <BWAPI/Interface.h>
 #include <BWAPI/ExactPosition.h>
 
-#include <optional>
-#include <set>
-
 namespace BWAPI
 {
   // Forwards
@@ -28,6 +25,9 @@ namespace BWAPI
 
   class UnitInterface;
   typedef UnitInterface *Unit;
+
+  struct SimulateGatherPathOptions;
+  struct SimulateGatherPathResult;
   
   /// <summary>The Unit class is used to get information about individual units as well as issue
   /// orders to units.</summary> Each unit in the game has a unique Unit object, and Unit objects
@@ -2583,12 +2583,11 @@ namespace BWAPI
     virtual void setEnergy(int value) = 0;
     virtual void setResources(int value) = 0;
     virtual void setHeading(int value) = 0;
+    virtual void setOrderProcessTimer(int value) = 0;
 
     virtual ExactPosition getExactPosition() const = 0;
     virtual int getOrderProcessTimer() const = 0;
-    virtual std::optional<std::tuple<std::vector<ExactPosition>, ExactPosition, uint64_t>>
-        simulateGatherPath(const std::set<int> &resendFrames,
-                           std::optional<bool> ensureOrderProcessZeroOnArrival = std::nullopt) const = 0;
+    virtual std::unique_ptr<SimulateGatherPathResult> simulateGatherPath(const SimulateGatherPathOptions &options) const = 0;
 
     ///@}
   };

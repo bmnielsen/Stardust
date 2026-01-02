@@ -52,14 +52,6 @@ namespace BWAPI
             , velocityX(velocityX)
             , velocityY(velocityY) {}
 
-        explicit ExactPosition(const std::tuple<uint32_t, uint32_t, int8_t, int32_t, int32_t> &tuple)
-            : x(std::get<0>(tuple))
-            , y(std::get<1>(tuple))
-            , heading(std::get<2>(tuple))
-            , velocityX(std::get<3>(tuple))
-            , velocityY(std::get<4>(tuple))
-            {}
-
         Position pos() const
         {
             return {(int)(x >> 8), (int)(y >> 8)};

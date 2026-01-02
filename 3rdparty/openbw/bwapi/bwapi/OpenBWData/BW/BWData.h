@@ -9,8 +9,13 @@
 #include <iterator>
 #include <type_traits>
 #include <vector>
-#include <optional>
-#include <set>
+
+// For some of our extensions we cheat and use the BWAPI types directly to avoid the need for conversions
+namespace BWAPI {
+  struct ExactPosition;
+  struct SimulateGatherPathOptions;
+  struct SimulateGatherPathResult;
+}
 
 namespace bwgame {
   struct unit_t;
@@ -423,13 +428,11 @@ struct Unit {
   void setEnergy(int value);
   void setResources(int value);
   void setHeading(int value);
+  void setOrderProcessTimer(int value);
 
-  typedef std::tuple<uint32_t, uint32_t, int8_t, int32_t, int32_t> exactPosition;
-  exactPosition getExactPosition() const;
+  BWAPI::ExactPosition getExactPosition() const;
   int getOrderProcessTimer() const;
-  std::optional<std::tuple<std::vector<exactPosition>, exactPosition, uint64_t>> simulateGatherPath(
-          const std::set<int> &resendFrames,
-          std::optional<bool> ensureOrderProcessZeroOnArrival = std::nullopt) const;
+  std::unique_ptr<BWAPI::SimulateGatherPathResult> simulateGatherPath(const BWAPI::SimulateGatherPathOptions &options) const;
 };
 
 struct Bullet {
