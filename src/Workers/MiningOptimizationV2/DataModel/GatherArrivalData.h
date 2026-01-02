@@ -13,7 +13,9 @@ namespace MiningOptimization
      * Arrival delay: the number of frames to arrival at the target
      * Facing target: whether the worker is facing its target at arrival
      * Collision: whether there was a collision when the worker leaves the target again
-     * Next path length: average length of the return path from the end position of this arrival
+     * Ten distance delta: The number of frames from the arrival frame where the worker is 10 distance from the patch
+     * Resend always arrives delta: The number of frames from the arrival frame where a resend will always reach the patch on time
+     * Next path length (currently disabled): average length of the return path from the end position of this arrival
      *
      * We store the next path length as an increment from the minimum path length in MapData. This allows it to fit into 6 bits, which allows us
      * to pack the collision and facing target data alongside it in a single 8-bit integer.
@@ -86,15 +88,6 @@ namespace MiningOptimization
                                  int orderProcessTimerAtArrival,
                                  int actionFrame,
                                  double baseProbability) const;
-
-        template <typename S>
-        void serialize(S& s) {
-            s.value1b(packed);
-
-#if USE_NEXT_PATH_LENGTHS
-            s.value1b(nextPathLengthDelta);
-#endif
-        }
 
         friend std::ostream& operator<< (std::ostream& os, const GatherArrivalData& data)
         {

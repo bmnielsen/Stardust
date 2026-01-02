@@ -3,7 +3,8 @@
 #include "BWAPI.h"
 #include "MiningOptimizationTraining/DataModel/MapData.h"
 
-#define VALIDATE_EXPECTED_TRANSITION_FRAMES true
+// This is not working after we started setting the order process timer explicitly
+#define VALIDATE_EXPECTED_TRANSITION_FRAMES false
 
 namespace MiningOptimizationTraining
 {
@@ -17,7 +18,9 @@ namespace MiningOptimizationTraining
             , gatherPaths(mapData.resourceToGatherPaths[TilePosition::fromBWAPI(patch->getTilePosition())])
             , returnPaths(mapData.resourceToReturnPaths[TilePosition::fromBWAPI(patch->getTilePosition())])
             , state(0)
+#if VALIDATE_EXPECTED_TRANSITION_FRAMES
             , expectedTransitionFrame(-1)
+#endif
         {}
 
         void update();
@@ -47,6 +50,9 @@ namespace MiningOptimizationTraining
 
         // The planned resend frames
         std::set<int> plannedResendFrames;
+
+        // Planned frame on which to set the order process timer to a specific value
+        std::pair<int, int> plannedSetOrderProcessTimerFrame;
 
 #if VALIDATE_EXPECTED_TRANSITION_FRAMES
         // The next expected transition frame (from approaching patch to WaitForMinerals, or from approaching depot to delivering minerals)

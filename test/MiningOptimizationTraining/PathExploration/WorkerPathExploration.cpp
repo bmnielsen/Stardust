@@ -1,6 +1,9 @@
 #include "WorkerPathExploration.h"
 #include "../DataModel/Configuration.h"
 
+#include "BWAPI/SimulateGatherPathOptions.h"
+#include "BWAPI/SimulateGatherPathResult.h"
+
 #include <ranges>
 
 #define EPSILON 0.0001
@@ -118,13 +121,22 @@ namespace MiningOptimizationTraining
         template <typename ObservationType>
         struct NodeExplorationResult
         {
-            std::pair<unsigned int, int> arrivalDelay;
+            unsigned int arrivalDelay;
+            int orderProcessTimerValueAtArrival;
+            int postActionDelay;
             BWAPI::ExactPosition nextPathStartPosition;
+            bool actionAtArrival;
             std::set<int> resends;
 
-            NodeExplorationResult(ObservationType &arrivalData, BWAPI::ExactPosition nextPathStartPosition, std::set<int> resends)
-                    : arrivalDelay(arrivalData.calculateFullDelay(resends.empty() ? 0 : (*resends.rbegin() - currentFrame)))
+            NodeExplorationResult(const std::tuple<unsigned int, int, int> &arrivalData,
+                                  BWAPI::ExactPosition nextPathStartPosition,
+                                  bool actionAtArrival,
+                                  std::set<int> resends)
+                    : arrivalDelay(std::get<0>(arrivalData))
+                    , orderProcessTimerValueAtArrival(std::get<1>(arrivalData))
+                    , postActionDelay(std::get<2>(arrivalData))
                     , nextPathStartPosition(std::move(nextPathStartPosition))
+                    , actionAtArrival(actionAtArrival)
                     , resends(std::move(resends))
             {}
         };
@@ -132,14 +144,18 @@ namespace MiningOptimizationTraining
 
     void WorkerPathExploration::update()
     {
-        auto createGatherArrivalData = [&](auto &simulatedPath)
+        auto createGatherArrivalData = [&](
+                auto &simulatedPathWithActionAtArrival,
+                auto &simulatedPathWithActionAfterArrival)
         {
-            return GatherArrivalData::createFromSimulatedPath(simulatedPath, patch);
+            return GatherArrivalData::createFromSimulatedPaths(simulatedPathWithActionAtArrival, simulatedPathWithActionAfterArrival, patch);
         };
 
-        auto createReturnArrivalData = [&](auto &simulatedPath)
+        auto createReturnArrivalData = [&](
+                auto &simulatedPathWithActionAtArrival,
+                auto &simulatedPathWithActionAfterArrival)
         {
-            return ReturnArrivalData::createFromSimulatedPath(simulatedPath);
+            return ReturnArrivalData::createFromSimulatedPaths(simulatedPathWithActionAtArrival, simulatedPathWithActionAfterArrival);
         };
 
         // Called on the first position of a path to make the observations and plan the resends
@@ -166,6 +182,19 @@ namespace MiningOptimizationTraining
 
             // While exploring, we gather the results of each subpath in order to pick a good next path to explore and keep some overall statistics
             std::vector<NodeExplorationResult<ObservationType>> results;
+            auto addResults = [&](
+                    const ObservationType &arrivalData,
+                    BWAPI::ExactPosition nextPathStartPositionActionAtArrival,
+                    BWAPI::ExactPosition nextPathStartPositionActionAfterArrival,
+                    std::set<int> resends)
+            {
+                auto fullDelay = arrivalData.calculateFullDelay(resends.empty() ? 0 : (*resends.rbegin() - currentFrame));
+                if (nextPathStartPositionActionAtArrival != nextPathStartPositionActionAfterArrival)
+                {
+                    results.emplace_back(fullDelay, std::move(nextPathStartPositionActionAfterArrival), false, resends);
+                }
+                results.emplace_back(fullDelay, std::move(nextPathStartPositionActionAtArrival), true, std::move(resends));
+            };
 
             // Explores the path, recursively going down a level as appropriate
             auto explorePath = [&]( // NOLINT(*-no-recursion)
@@ -178,16 +207,20 @@ namespace MiningOptimizationTraining
                     std::ranges::subrange<std::vector<BWAPI::ExactPosition>::iterator> noResendPath = {})
             {
                 // Simulate the path
-                auto simulatedPathResult = worker->simulateGatherPath(resendFrames);
-                if (!simulatedPathResult.has_value())
+                // We both simulate with action at arrival and action after arrival
+                auto simulatedPathWithDeliveryAtArrivalResult =
+                        worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(resendFrames).setForceAction(true));
+                auto simulatedPathWithDeliveryAfterArrivalResult =
+                        worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(resendFrames).setForceAction(false));
+                if (!simulatedPathWithDeliveryAtArrivalResult || !simulatedPathWithDeliveryAfterArrivalResult)
                 {
                     Log::Get() << "ERROR: Path could not be simulated"
                                << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                     return;
                 }
-                auto &simulatedPath = std::get<0>(*simulatedPathResult);
-                auto &nextPathStartPos = std::get<1>(*simulatedPathResult);
-                ObservationType arrivalData = createArrivalData(*simulatedPathResult);
+                auto &simulatedPath = simulatedPathWithDeliveryAtArrivalResult->positions;
+                ObservationType arrivalData =
+                        createArrivalData(*simulatedPathWithDeliveryAtArrivalResult, *simulatedPathWithDeliveryAfterArrivalResult);
 
                 auto addResult = [&]()
                 {
@@ -195,7 +228,10 @@ namespace MiningOptimizationTraining
                     arrivalData.setArrivalDelay(simulatedPath.size());
 
                     // This is always called last, so we can use move semantics
-                    results.emplace_back(arrivalData, std::move(nextPathStartPos), std::move(resendFrames));
+                    addResults(arrivalData,
+                               std::move(simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition),
+                               std::move(simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition),
+                               std::move(resendFrames));
                 };
 
                 // If this is a resend node, we have a couple of additional steps to do
@@ -250,18 +286,18 @@ namespace MiningOptimizationTraining
                                         }
 
                                         resendFrames.insert(lastResendFrame);
-                                        auto result = worker->simulateGatherPath(resendFrames);
+                                        auto result =
+                                                worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(resendFrames).setForceAction(true));
                                         resendFrames.erase(lastResendFrame);
 
-                                        if (!result.has_value())
+                                        if (!result)
                                         {
                                             Log::Get() << "ERROR: Path could not be simulated"
                                                        << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                                             return;
                                         }
 
-                                        auto size = std::get<0>(*result).size();
-                                        if (size > 11) break;
+                                        if (result->positions.size() > 11) break;
                                         successfulDelta++;
                                     }
                                     savedArrivalData.resendAlwaysArrivesDelta = successfulDelta;
@@ -328,7 +364,10 @@ namespace MiningOptimizationTraining
                         // the initial node
                         std::set<int> nextResendFrames = resendFrames;
                         nextResendFrames.insert(frame);
-                        results.emplace_back(arrivalData, nextPathStartPos, std::move(nextResendFrames));
+                        addResults(arrivalData,
+                                   simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition,
+                                   simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition,
+                                   std::move(nextResendFrames));
                     }
 
                     nextPositions = &node->nextPositions;
@@ -355,7 +394,7 @@ namespace MiningOptimizationTraining
             unsigned int bestArrivalDelay;
             for (auto &result : results)
             {
-                unsigned int arrivalDelay = (result.arrivalDelay.first + result.arrivalDelay.second);
+                unsigned int arrivalDelay = (result.arrivalDelay + result.orderProcessTimerValueAtArrival + result.postActionDelay);
                 if (arrivalDelay < bestArrivalDelay)
                 {
                     bestArrivalDelay = arrivalDelay;
@@ -377,7 +416,8 @@ namespace MiningOptimizationTraining
             for (auto &result : results)
             {
                 float score = 1 + getTimesExplored(nextPathRootNodes, PositionAndVelocity(result.nextPathStartPosition));
-                unsigned int arrivalDelayDelta = (result.arrivalDelay.first + result.arrivalDelay.second) - bestArrivalDelay;
+                unsigned int arrivalDelayDelta =
+                        (result.arrivalDelay + result.orderProcessTimerValueAtArrival + result.postActionDelay) - bestArrivalDelay;
                 score *= EXPLORATION_SCORING_FACTOR;
 
                 if (score < (bestScore - EPSILON) || (score < (bestScore + EPSILON) && arrivalDelayDelta < bestDelayDelta))
@@ -385,8 +425,9 @@ namespace MiningOptimizationTraining
                     bestScore = score;
                     bestDelayDelta = arrivalDelayDelta;
                     plannedResendFrames = std::move(result.resends);
+                    plannedSetOrderProcessTimerFrame = std::make_pair(currentFrame + result.arrivalDelay - 1, result.actionAtArrival ? 0 : 8);
 #if VALIDATE_EXPECTED_TRANSITION_FRAMES
-                    expectedTransitionFrame = currentFrame + result.arrivalDelay.first;
+                    expectedTransitionFrame = currentFrame + result.arrivalDelay + result.orderProcessTimerValueAtArrival;
 #endif
                 }
             }
@@ -466,6 +507,11 @@ namespace MiningOptimizationTraining
                                        << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                         }
                     }
+                    else if (plannedSetOrderProcessTimerFrame.first == (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    {
+                        CherryVis::log(worker->getID()) << "Setting order process timer to " << plannedSetOrderProcessTimerFrame.second;
+                        worker->setOrderProcessTimer(plannedSetOrderProcessTimerFrame.second);
+                    }
 
                     return;
                 }
@@ -541,6 +587,11 @@ namespace MiningOptimizationTraining
                             Log::Get() << "ERROR: Failed to reissue return command: " << BWAPI::Broodwar->getLastError()
                                        << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                         }
+                    }
+                    else if (plannedSetOrderProcessTimerFrame.first == (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    {
+                        CherryVis::log(worker->getID()) << "Setting order process timer to " << plannedSetOrderProcessTimerFrame.second;
+                        worker->setOrderProcessTimer(plannedSetOrderProcessTimerFrame.second);
                     }
 
                     return;

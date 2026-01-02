@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BWAPI/SimulateGatherPathResult.h"
+
 #include "PositionAndVelocity.h"
 #include "Path.h"
 #include "Geo.h"
@@ -75,11 +77,11 @@ namespace MiningOptimizationTraining
 
         // Calculates the full delay from the start of the path to when mining will start, assuming no order process timer resets occur, along
         // with the penalty from not facing patch or colliding with it
-        [[nodiscard]] std::pair<unsigned int, int> calculateFullDelay(unsigned int lastResendDistanceFromPathStart) const
+        [[nodiscard]] std::tuple<unsigned int, int, int> calculateFullDelay(unsigned int lastResendDistanceFromPathStart) const
         {
             // Compute the order process timer value at the start of the frame where the worker is at this node (i.e. where this arrival delay is
             // measured from)
-            // If the node is the start of the path, the value will be 0 on the next frame, so we set it to 11 to make the math work
+            // If the node is the start of the path, the value will be 0 on the next frame, so we set it to 10 to make the math work
             // If the node is a resend node, the value will be 0 on the next two frames, so we set it to 11 to make the math work
             int orderProcessTimerAtNode = (lastResendDistanceFromPathStart == 0) ? 10 : 11;
 
@@ -90,8 +92,9 @@ namespace MiningOptimizationTraining
 
             // Put everything together
             // Both having to turn to face the patch and colliding with it incur an extra order process timer cycle of delay after mining starts/ends
-            return std::make_pair(
-                    lastResendDistanceFromPathStart + arrivalDelay() + orderProcessTimerAtArrival,
+            return std::make_tuple(
+                    lastResendDistanceFromPathStart + arrivalDelay(),
+                    orderProcessTimerAtArrival,
                     (!facingTarget() ? 9 : 0) + (collision() ? 9 : 0));
         }
 
@@ -118,22 +121,31 @@ namespace MiningOptimizationTraining
         }
 
         // Populates the members of the struct, except arrivalDelay, from simulated path data
-        static GatherArrivalData createFromSimulatedPath(
-                const std::tuple<std::vector<BWAPI::ExactPosition>, BWAPI::ExactPosition, uint64_t> &simulatedPath,
+        static GatherArrivalData createFromSimulatedPaths(
+                const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAtArrival,
+                const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAfterArrival,
                 BWAPI::Unit patch)
         {
-            auto &positionHistory = std::get<0>(simulatedPath);
-            if (positionHistory.empty()) return {};
+            if (simulatedPathWithActionAtArrival.positions.empty()) return {};
 
             // The worker is "facing target" if it can turn to face the patch in two frames
-            auto finalWorkerPosition = *positionHistory.rbegin();
-            auto vectorToPatch = patch->getPosition() - finalWorkerPosition.pos();
-            auto angleDiff = Geo::BWAngleDiff(finalWorkerPosition.heading, Geo::BWDirection(vectorToPatch));
-            bool facingTarget = (angleDiff <= 2 * BWAPI::UnitTypes::Protoss_Probe.turnRadius());
+            // We check both paths to capture cases where the worker turns while waiting to perform its action
+            // This does mean that in some cases we could use a path as long as we are sure the action will occur at arrival, but
+            // such paths are rare so we don't want to bother investing the extra data storage
+            auto isFacingTarget = [&](const BWAPI::ExactPosition &position)
+            {
+                auto vectorToPatch = patch->getPosition() - position.pos();
+                auto angleDiff = Geo::BWAngleDiff(position.heading, Geo::BWDirection(vectorToPatch));
+                return (angleDiff <= 2 * BWAPI::UnitTypes::Protoss_Probe.turnRadius());
+            };
+            bool facingTarget = isFacingTarget(simulatedPathWithActionAtArrival.actionPosition)
+                    && isFacingTarget(simulatedPathWithActionAfterArrival.actionPosition);
 
             // Find the index of the first position that is 10 distance from the patch
             int i = 0;
-            for (auto it = positionHistory.rbegin(); it != positionHistory.rend(); it++)
+            for (auto it = simulatedPathWithActionAtArrival.positions.rbegin();
+                it != simulatedPathWithActionAtArrival.positions.rend();
+                it++)
             {
                 auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
                                                     it->pos(),
@@ -143,19 +155,20 @@ namespace MiningOptimizationTraining
                 i++;
             }
 
-            return create(positionHistory.size(),
+            return create(simulatedPathWithActionAtArrival.positions.size(),
                           facingTarget,
-                          std::get<2>(simulatedPath) == 0,
+                          simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath == 0
+                            || simulatedPathWithActionAfterArrival.squaredSpeedEightFramesAlongNextPath == 0,
                           (uint8_t)std::min(i, 255),
-                          PositionAndVelocity{std::get<1>(simulatedPath)});
+                          PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition});
         }
 
         template <typename S>
         void serialize(S& s) {
             s.value2b(packed);
             s.value1b(tenDistanceDelta);
-            s.object(nextPathStartPosition);
             s.value1b(resendAlwaysArrivesDelta);
+            s.object(nextPathStartPosition);
         }
 
         friend std::ostream& operator<< (std::ostream& os, const GatherArrivalData& data)

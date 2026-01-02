@@ -246,6 +246,16 @@ namespace MiningOptimizationTraining::DataTransformer
             return result;
         }
 
+        template <>
+        MiningOptimization::ReturnArrivalData convert(const ReturnArrivalData &arrivalData,
+                                                      const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
+                                                      const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
+        {
+            auto result = convert<ReturnArrivalData, MiningOptimization::ReturnArrivalData>(arrivalData, nextPathArrivalDelays);
+            result.collision = arrivalData.collision();
+            return result;
+        }
+
         template <typename TrainingObservationType, typename OutputObservationType>
         std::vector<std::pair<MiningOptimization::PathNode<OutputObservationType>, uint8_t>> convert( // NOLINT(*-no-recursion)
                 const PositionAndVelocity &pos,

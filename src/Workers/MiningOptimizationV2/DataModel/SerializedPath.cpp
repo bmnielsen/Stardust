@@ -22,6 +22,10 @@ namespace MiningOptimization
                 {
                     s.value1b(arrivalData.tenDistanceAndResendAlwaysArrivesIndex);
                 }
+                else
+                {
+                    s.value1b(arrivalData.collision);
+                }
 #if USE_NEXT_PATH_LENGTHS
                 s.value1b(arrivalData.nextPathLengthDelta);
 #endif
@@ -29,6 +33,10 @@ namespace MiningOptimization
             auto finalNodeArrivalDataSerializer = [](S &s, ObservationType &arrivalData)
             {
                 s.value1b(arrivalData.packed);
+                if constexpr (std::is_same_v<ObservationType, ReturnArrivalData>)
+                {
+                    s.value1b(arrivalData.collision);
+                }
 #if USE_NEXT_PATH_LENGTHS
                 // TODO: If this gets enabled again, pack the data like we used to so we don't have to include the arrival delay here
                 s.value1b(arrivalData.nextPathLengthDelta);

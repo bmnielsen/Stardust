@@ -1,5 +1,8 @@
 #include "SimulateGatherPathTester.h"
 
+#include "BWAPI/SimulateGatherPathOptions.h"
+#include "BWAPI/SimulateGatherPathResult.h"
+
 #include "Geo.h"
 
 #include <random>
@@ -52,29 +55,51 @@ namespace MiningOptimizationTraining
 
     void SimulateGatherPathTester::update()
     {
+        // For this testing, we don't care about the distinction between delivery at arrival or delivery not at arrival, so we just pass
+        // the same paths for both cases
+
         auto setGatherArrivalData = [&](auto &simulatedPath)
         {
-            expectedGatherArrivalData = std::make_unique<GatherArrivalData>(GatherArrivalData::createFromSimulatedPath(simulatedPath, patch));
+            expectedGatherArrivalData = std::make_unique<GatherArrivalData>(
+                    GatherArrivalData::createFromSimulatedPaths(simulatedPath, simulatedPath, patch));
         };
 
         auto setReturnArrivalData = [&](auto &simulatedPath)
         {
-            expectedReturnArrivalData = std::make_unique<ReturnArrivalData>(ReturnArrivalData::createFromSimulatedPath(simulatedPath));
+            expectedReturnArrivalData = std::make_unique<ReturnArrivalData>(
+                    ReturnArrivalData::createFromSimulatedPaths(simulatedPath, simulatedPath));
         };
 
-        auto planPath = [&](auto &setArrivalData)
+        auto postValidateGatherPath =
+                [&](auto &simulatedPathWithActionAtArrival,
+                    auto &simulatedPathWithActionAfterArrival)
+        {
+            // For gather, the next start positions and squared speeds should be the same
+            EXPECT_EQ(simulatedPathWithActionAtArrival.nextPathStartPosition, simulatedPathWithActionAfterArrival.nextPathStartPosition);
+            EXPECT_EQ(simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath,
+                      simulatedPathWithActionAfterArrival.squaredSpeedEightFramesAlongNextPath);
+        };
+
+        auto postValidateReturnPath =
+                [&](auto &simulatedPathWithActionAtArrival,
+                    auto &simulatedPathWithActionAfterArrival)
+        {
+            // For return there is nothing further to validate since the remaining fields are expected to differ
+        };
+
+        auto planPath = [&](auto &setArrivalData, auto &postValidatePath)
         {
             followingPath = false;
 
             // Start by getting the path with no resends
             auto noResendPathResult = worker->simulateGatherPath({});
-            if (!noResendPathResult.has_value())
+            if (!noResendPathResult)
             {
                 Log::Get() << "WARNING: Worker could not plan path"
                            << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                 return;
             }
-            auto &noResendPath = std::get<0>(*noResendPathResult);
+            auto &noResendPath = noResendPathResult->positions;
             expectedPath.assign(noResendPath.begin(), noResendPath.end());
             setArrivalData(*noResendPathResult);
 
@@ -91,18 +116,41 @@ namespace MiningOptimizationTraining
                 if (resendFrame >= (currentFrame + (int)expectedPath.size())) return; // Expected path size can change along the way
 
                 plannedResendFrames.insert(resendFrame);
-                auto resendPathResult = worker->simulateGatherPath(plannedResendFrames);
-                if (!noResendPathResult.has_value())
+                auto resendPathResult = worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(plannedResendFrames));
+                if (!resendPathResult)
                 {
                     Log::Get() << "WARNING: Worker could not plan path"
                                << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                     return;
                 }
-                auto &resendPath = std::get<0>(*resendPathResult);
+                auto &resendPath = resendPathResult->positions;
                 expectedPath.erase(expectedPath.begin() + (resendFrame - currentFrame), expectedPath.end());
                 expectedPath.insert(expectedPath.end(), resendPath.begin(), resendPath.end());
                 setArrivalData(*resendPathResult);
             }
+
+            // Simulate the path again, forcing the action both ways, so we can validate the expected differences
+            auto simulatedPathWhenTrue =
+                    worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(plannedResendFrames).setForceAction(true));
+            auto simulatedPathWhenFalse =
+                    worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(plannedResendFrames).setForceAction(false));
+            if (!simulatedPathWhenTrue || !simulatedPathWhenTrue)
+            {
+                Log::Get() << "WARNING: Worker could not plan path"
+                           << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                return;
+            }
+            auto &firstPath = simulatedPathWhenTrue->positions;
+            auto &secondPath = simulatedPathWhenFalse->positions;
+            EXPECT_EQ(firstPath.size(), secondPath.size());
+            if (firstPath.size() == secondPath.size())
+            {
+                for (size_t i = 0; i < firstPath.size(); i++)
+                {
+                    EXPECT_EQ(firstPath[i], secondPath[i]);
+                }
+            }
+            postValidatePath(*simulatedPathWhenTrue, *simulatedPathWhenFalse);
 
             std::ostringstream buf;
             std::string sep;
@@ -140,14 +188,17 @@ namespace MiningOptimizationTraining
             expectedPath.pop_front();
         };
 
-        auto validateStartOfNextPath = [&](PositionAndVelocity &expectedNextPathStartPosition)
+        auto validateStartOfNextPath = [&](const std::set<PositionAndVelocity> &expectedNextPathStartPositions)
         {
             PositionAndVelocity actual(worker);
-            if (actual == expectedNextPathStartPosition) return;
+            if (expectedNextPathStartPositions.contains(actual)) return;
 
             Log::Get() << "ERROR: Next path start position does not match"
                        << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-            ASSERT_EQ(actual, expectedNextPathStartPosition);
+            if (expectedNextPathStartPositions.size() == 1)
+            {
+                ASSERT_EQ(actual, *expectedNextPathStartPositions.begin());
+            }
         };
 
         auto validateGatherFacingPatch = [&]()
@@ -206,7 +257,7 @@ namespace MiningOptimizationTraining
             if (!expectedGatherArrivalData) return;
             if (!followingPath) return; // require expected path for return
 
-            validateStartOfNextPath(expectedGatherArrivalData->nextPathStartPosition);
+            validateStartOfNextPath({expectedGatherArrivalData->nextPathStartPosition});
             validateCollision(expectedGatherArrivalData->collision());
         };
 
@@ -216,7 +267,8 @@ namespace MiningOptimizationTraining
             if (!followingPath) return; // require expected path for gather
             if (expectedPath.size() < 8) return;
 
-            validateStartOfNextPath(expectedReturnArrivalData->nextPathStartPosition);
+            validateStartOfNextPath({expectedReturnArrivalData->nextPathStartPositionDeliveryAtArrival,
+                                     expectedReturnArrivalData->nextPathStartPositionDeliveryAfterArrival});
 
             auto expectedExitSpeed = expectedReturnArrivalData->exitSpeed();
             validateCollision(expectedExitSpeed == ReturnExitSpeed::Collision);
@@ -301,7 +353,7 @@ namespace MiningOptimizationTraining
                     CherryVis::log(worker->getID()) << "State transition from mining to returning minerals";
                     state = 3;
 
-                    planPath(setReturnArrivalData);
+                    planPath(setReturnArrivalData, postValidateReturnPath);
                     if (!followingPath) expectedReturnArrivalData.reset();
 
                     validateGatherArrival();
@@ -320,7 +372,7 @@ namespace MiningOptimizationTraining
                     CherryVis::log(worker->getID()) << "State transition from returning minerals to approaching patch";
                     state = 0;
 
-                    planPath(setGatherArrivalData);
+                    planPath(setGatherArrivalData, postValidateGatherPath);
                     if (!followingPath) expectedGatherArrivalData.reset();
 
                     validateReturnArrival();

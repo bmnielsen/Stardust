@@ -23,8 +23,9 @@ namespace MiningOptimization
      * Stores the arrival data we need to track for return paths.
      *
      * Arrival delay: the number of frames to arrival at the depot
-     * Exit speed: the exit speed from the depot
-     * Next path length: average length of the gather path from the end position of this arrival
+     * Collision: whether the worker collides with the depot after delivery when delivery does not happen on the first frame
+     * Exit speed: the exit speed from the depot when delivery happens on the first frame
+     * Next path length (currently disabled): average length of the gather path from the end position of this arrival
      *
      * We store the next path length as an increment from the minimum path length in MapData. This allows it to fit into 6 bits, which allows us
      * to pack the exit speed data alongside it in a single 8-bit integer.
@@ -32,6 +33,7 @@ namespace MiningOptimization
     struct ReturnArrivalData
     {
         uint8_t packed = UINT8_MAX;
+        bool collision = false;
 
         // The number of frames to arrival at the target
         [[nodiscard]] unsigned int arrivalDelay() const
@@ -40,7 +42,7 @@ namespace MiningOptimization
             return packed >> 2;
         }
 
-        // The exit speed of the worker from the depot back towards the patch
+        // The exit speed of the worker from the depot back towards the patch when there was delivery at arrival
         [[nodiscard]] ReturnExitSpeed exitSpeed() const
         {
             // Exit speed is stored in the lowest two bits
@@ -69,12 +71,12 @@ namespace MiningOptimization
 #else
         bool operator==(const ReturnArrivalData &other) const
         {
-            return packed == other.packed;
+            return std::tie(packed, collision) == std::tie(other.packed, other.collision);
         }
 
         bool operator<(const ReturnArrivalData &other) const
         {
-            return packed < other.packed;
+            return std::tie(packed, collision) < std::tie(other.packed, other.collision);
         }
 #endif
 
@@ -85,15 +87,6 @@ namespace MiningOptimization
                                  int orderProcessTimerAtArrival,
                                  int actionFrame,
                                  double baseProbability) const;
-
-        template <typename S>
-        void serialize(S& s) {
-            s.value1b(packed);
-
-#if USE_NEXT_PATH_LENGTHS
-            s.value1b(nextPathLengthDelta);
-#endif
-        }
 
         friend std::ostream& operator<< (std::ostream& os, const ReturnArrivalData& data)
         {
@@ -112,6 +105,10 @@ namespace MiningOptimization
                 case ReturnExitSpeed::High:
                     os << "[h]";
                     break;
+            }
+            if (data.collision)
+            {
+                os << "{c}";
             }
             return os;
         }

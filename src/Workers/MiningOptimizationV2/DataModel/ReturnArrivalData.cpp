@@ -8,20 +8,27 @@ namespace MiningOptimization
                                                 double baseProbability) const
     {
         int delay;
-        switch (exitSpeed())
+        if (orderProcessTimerAtArrival == 0)
         {
-            case ReturnExitSpeed::Collision:
-                delay = 9;
-                break;
-            case ReturnExitSpeed::Low:
-                delay = 0;
-                break;
-            case ReturnExitSpeed::Medium:
-                delay = (orderProcessTimerAtArrival == 0) ? -2 : 0;
-                break;
-            case ReturnExitSpeed::High:
-                delay = (orderProcessTimerAtArrival == 0) ? -4 : 0;
-                break;
+            switch (exitSpeed())
+            {
+                case ReturnExitSpeed::Collision:
+                    delay = 9;
+                    break;
+                case ReturnExitSpeed::Low:
+                    delay = 0;
+                    break;
+                case ReturnExitSpeed::Medium:
+                    delay = -2;
+                    break;
+                case ReturnExitSpeed::High:
+                    delay = -4;
+                    break;
+            }
+        }
+        else if (collision)
+        {
+            delay = 9;
         }
 
         delaysWithProbabilities[delay] += baseProbability;
