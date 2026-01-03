@@ -4,6 +4,8 @@
 
 #include "MiningOptimizationTraining/DataModel/Serialization.h"
 
+#include "MiningOptimizationV2/DataModel/Serialization.h"
+
 // Root nodes explored above this value are considered "well-explored"
 #define WELL_EXPLORED_THRESHOLD 3
 
@@ -316,4 +318,119 @@ TEST(DataExploration, GatherPathPruning)
     std::cout << "Most gather paths is " << mostPaths.size() << std::endl;
 
 
+}
+
+TEST(DataExploration, ReturnCollisions)
+{
+    MiningOptimizationTraining::MapData data;
+    MiningOptimizationTraining::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
+    MiningOptimizationTraining::Serialization::readMapData(data);
+
+    std::map<bool, unsigned long> deliveryAtArrivalCollisions;
+    std::map<bool, unsigned long> deliveryAfterArrivalCollisions;
+
+    auto processArrivalData = [&](const std::map<ReturnArrivalData, uint32_t> &arrivalDataMap)
+    {
+        for (const auto &[arrivalData, _] : arrivalDataMap)
+        {
+            deliveryAtArrivalCollisions[arrivalData.exitSpeed() == ReturnExitSpeed::Collision]++;
+            deliveryAfterArrivalCollisions[arrivalData.collision()]++;
+        }
+    };
+
+    std::function<void(const std::vector<std::pair<PathNode<ReturnArrivalData>, uint32_t>>&)> processNextNodes;
+    processNextNodes = [&](const std::vector<std::pair<PathNode<ReturnArrivalData>, uint32_t>> &nextNodes)
+    {
+        for (const auto &node : nextNodes)
+        {
+            // This is only relevant for final nodes
+            if (node.first.nextPositions.empty())
+            {
+                processArrivalData(node.first.arrivalData);
+            }
+            else if (node.first.nextPositionsAfterResend.empty() && node.first.type != NodeType::PoorResendNode)
+            {
+                processArrivalData(node.first.arrivalDataAfterResend);
+            }
+
+            processNextNodes(node.first.nextPositions);
+            processNextNodes(node.first.nextPositionsAfterResend);
+        }
+    };
+
+    for (const auto &[_, returnPaths] : data.resourceToReturnPaths)
+    {
+        for (const auto &[_, returnPath] : returnPaths)
+        {
+            processNextNodes(returnPath.nextPositions);
+        }
+    }
+
+    auto outMap = [](std::map<bool, unsigned long> &map)
+    {
+        std::cout << "true: " << map[true] << std::endl;
+        std::cout << "false: " << map[false] << std::endl;
+    };
+    std::cout << "At arrival: " << std::endl;
+    outMap(deliveryAtArrivalCollisions);
+    std::cout << "After arrival: " << std::endl;
+    outMap(deliveryAfterArrivalCollisions);
+}
+
+TEST(DataExploration, ReturnCollisionsProductionData)
+{
+    MiningOptimization::MapData data;
+    MiningOptimization::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
+    MiningOptimization::Serialization::readMapData(data);
+
+    std::map<bool, unsigned long> deliveryAtArrivalCollisions;
+    std::map<bool, unsigned long> deliveryAfterArrivalCollisions;
+
+    auto processArrivalData = [&](const std::vector<std::pair<MiningOptimization::ReturnArrivalData, uint8_t>> &arrivalDataMap)
+    {
+        for (const auto &[arrivalData, _] : arrivalDataMap)
+        {
+            deliveryAtArrivalCollisions[arrivalData.exitSpeed() == MiningOptimization::ReturnExitSpeed::Collision]++;
+            deliveryAfterArrivalCollisions[arrivalData.collision]++;
+        }
+    };
+
+    std::function<void(const std::vector<std::pair<MiningOptimization::PathNode<MiningOptimization::ReturnArrivalData>, uint8_t>>&)> processNextNodes;
+    processNextNodes = [&](const std::vector<std::pair<MiningOptimization::PathNode<MiningOptimization::ReturnArrivalData>, uint8_t>> &nextNodes)
+    {
+        for (const auto &[node, _] : nextNodes)
+        {
+            // This is only relevant for final nodes
+            if (node.nextPositions.empty())
+            {
+                processArrivalData(node.arrivalDataWhenFinalNode);
+            }
+            else if (node.nextPositionsAfterResend.empty())
+            {
+                processArrivalData(node.arrivalDataAfterResend);
+            }
+
+            processNextNodes(node.nextPositions);
+            processNextNodes(node.nextPositionsAfterResend);
+        }
+    };
+
+    for (const auto &[_, returnPaths] : data.resourceToSerializedReturnPaths)
+    {
+        for (const auto &[_, returnPath] : returnPaths)
+        {
+            auto deserializedPath = returnPath.get();
+            processNextNodes(deserializedPath.nextPositions);
+        }
+    }
+
+    auto outMap = [](std::map<bool, unsigned long> &map)
+    {
+        std::cout << "true: " << map[true] << std::endl;
+        std::cout << "false: " << map[false] << std::endl;
+    };
+    std::cout << "At arrival: " << std::endl;
+    outMap(deliveryAtArrivalCollisions);
+    std::cout << "After arrival: " << std::endl;
+    outMap(deliveryAfterArrivalCollisions);
 }

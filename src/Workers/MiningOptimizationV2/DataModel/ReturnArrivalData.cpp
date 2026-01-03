@@ -7,7 +7,7 @@ namespace MiningOptimization
                                                 int actionFrame,
                                                 double baseProbability) const
     {
-        int delay;
+        int delay = 0;
         if (orderProcessTimerAtArrival == 0)
         {
             switch (exitSpeed())
