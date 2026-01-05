@@ -44,12 +44,12 @@ namespace
         return finishedEarly;
     }
 
-    bool runFullSaturationTest(BWTest &test, unsigned int cannons, unsigned int iterations)
+    bool runFullSaturationTest(BWTest &test, unsigned int cannons, unsigned int iterations, bool oneBase = false)
     {
         initializeTest(test);
-        test.myModule = [&cannons]()
+        test.myModule = [&]()
         {
-            return new MiningOptimizationTraining::FullSaturationModule<MiningOptimizationTraining::WorkerPathExploration>(cannons);
+            return new MiningOptimizationTraining::FullSaturationModule<MiningOptimizationTraining::WorkerPathExploration>(cannons, oneBase);
         };
         test.frameLimit = 10000 * (int)iterations;
         test.timeLimit = 600 * (int)iterations;
@@ -109,5 +109,15 @@ TEST(PathExploration, VermeerContinuous)
         BWTest test;
         test.map = Maps::GetOne("Vermeer");
         if (runFullSaturationTest(test, 0, 10)) return;
+    }
+}
+
+TEST(PathExploration, VermeerOneBaseContinuous)
+{
+    while (true)
+    {
+        BWTest test;
+        test.map = Maps::GetOne("Vermeer");
+        if (runFullSaturationTest(test, 0, 10, true)) return;
     }
 }

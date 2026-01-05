@@ -13,9 +13,10 @@ namespace MiningOptimizationTraining
     class FullSaturationModule : public PathExplorationModule<WorkerStatusType>
     {
     public:
-        explicit FullSaturationModule(unsigned int cannons)
+        explicit FullSaturationModule(unsigned int cannons, bool oneBase = false)
                 : PathExplorationModule<WorkerStatusType>()
                 , cannons(cannons)
+                , oneBase(oneBase)
         {}
 
     protected:
@@ -224,6 +225,7 @@ namespace MiningOptimizationTraining
 
                         nextWorker:;
                     }
+                    if (oneBase) break;
                 }
             }
             else if (BWAPI::Broodwar->getFrameCount() % 10000 == 23)
@@ -252,6 +254,7 @@ namespace MiningOptimizationTraining
                             break;
                         }
                     }
+                    if (oneBase) break;
                 }
 
                 // Gather workers
@@ -313,6 +316,7 @@ namespace MiningOptimizationTraining
 
     private:
         unsigned int cannons;
+        bool oneBase;
 
         std::map<BWAPI::Position, std::pair<int, Base *>> workerCreationOrderAndBase;
     };
