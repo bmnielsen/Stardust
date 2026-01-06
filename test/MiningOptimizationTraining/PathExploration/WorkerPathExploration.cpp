@@ -373,56 +373,61 @@ namespace MiningOptimizationTraining
                         &rootNode.nextPositions);
 
             // Process the results
-            // The goals are twofold:
-            // - Keep statistics on the root node of how the optimal arrival delays tend to shake out, which we can later use to prioritize paths
-            //   that get us to better next paths.
-            // - Plan to explore relevant next paths, excluding those that will never come up in real situations because they only occur after
-            //   horrible earlier path decisions. This especially applies to return paths that are not being straightened.
+            // For gather, we attempt to explore all of the possible next path start positions so we can always get the worker back onto a known path
+            // For return, we find the best paths with all possible reset values and consider the best ones, picking the one least explored
+            // The reason for this is to avoid exploring return paths that will never get chosen in practice (like ones without path straightening)
 
             std::set<NodeExplorationResult<ObservationType>*> bestResults;
-            auto findBestResults = [&](std::optional<int> orderProcessTimerResetFrame = std::nullopt)
+
+            if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
             {
-                std::set<NodeExplorationResult<ObservationType>*> theseBestResults;
-                int bestActionFrame = INT_MAX;
                 for (auto &result : results)
                 {
-                    auto actionFrame = result.arrivalData.computeActionFrame(result.resends.empty()
+                    bestResults.insert(&result);
+                }
+            }
+            else
+            {
+                auto findBestResults = [&](std::optional<int> orderProcessTimerResetFrame = std::nullopt)
+                {
+                    std::set<NodeExplorationResult<ObservationType>*> theseBestResults;
+                    int bestActionFrame = INT_MAX;
+                    for (auto &result : results)
+                    {
+                        auto actionFrame = result.arrivalData.computeActionFrame(result.resends.empty()
                                                                                  ? std::nullopt
                                                                                  : (std::optional<int>)*result.resends.rbegin(),
-                                                                             orderProcessTimerResetFrame);
-                    if (actionFrame < bestActionFrame)
-                    {
-                        bestActionFrame = actionFrame;
-                        theseBestResults.clear();
+                                                                                 orderProcessTimerResetFrame);
+                        if (actionFrame < bestActionFrame)
+                        {
+                            bestActionFrame = actionFrame;
+                            theseBestResults.clear();
+                        }
+                        if (actionFrame == bestActionFrame)
+                        {
+                            theseBestResults.insert(&result);
+                        }
                     }
-                    if (actionFrame == bestActionFrame)
-                    {
-                        theseBestResults.insert(&result);
-                    }
+                    bestResults.insert(theseBestResults.begin(), theseBestResults.end());
+                    return bestActionFrame;
+                };
+
+                // Start without a reset
+                int bestNoResetActionFrame = findBestResults();
+
+                // Find the lower bound for what resets are interesting to explore
+                int maxLastResendFrame = currentFrame;
+                for (auto bestResult : bestResults)
+                {
+                    if (bestResult->resends.empty()) continue;
+                    maxLastResendFrame = std::max(maxLastResendFrame, *bestResult->resends.rbegin());
                 }
-                bestResults.insert(theseBestResults.begin(), theseBestResults.end());
-                return bestActionFrame;
-            };
 
-            // Start without a reset
-            int bestNoResetActionFrame = findBestResults();
-            if (getTotalOccurrences(rootNode.bestArrivalDelaysAndOccurrences) < UINT32_MAX)
-            {
-                rootNode.bestArrivalDelaysAndOccurrences[bestNoResetActionFrame - currentFrame]++;
-            }
-
-            // Find the lower bound for what resets are interesting to explore
-            int maxLastResendFrame = currentFrame;
-            for (auto bestResult : bestResults)
-            {
-                if (bestResult->resends.empty()) continue;
-                maxLastResendFrame = std::max(maxLastResendFrame, *bestResult->resends.rbegin());
-            }
-
-            // Add all the best results at each reset frame
-            for (int resetFrame = maxLastResendFrame + 1; resetFrame <= bestNoResetActionFrame; resetFrame++)
-            {
-                findBestResults(resetFrame);
+                // Add all the best results at each reset frame
+                for (int resetFrame = maxLastResendFrame + 1; resetFrame <= bestNoResetActionFrame; resetFrame++)
+                {
+                    findBestResults(resetFrame);
+                }
             }
 
             // Pick the least explored path in the best results
