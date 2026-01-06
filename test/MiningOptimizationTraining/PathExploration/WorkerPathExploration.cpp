@@ -4,6 +4,8 @@
 #include "BWAPI/SimulateGatherPathOptions.h"
 #include "BWAPI/SimulateGatherPathResult.h"
 
+#include "PathExplorationUtils.h"
+
 #include <ranges>
 
 #define EPSILON 0.0001
@@ -96,11 +98,12 @@ namespace MiningOptimizationTraining
         // Gets the number of times a root node has been explored
         template <typename ObservationType>
         uint32_t getTimesExplored(const std::unordered_map<PositionAndVelocity, Path<ObservationType>> &pathRootNodes,
-                                  const PositionAndVelocity &pos)
+                                  const PositionAndVelocity &pos,
+                                  bool collision)
         {
             auto it = pathRootNodes.find(pos);
             if (it == pathRootNodes.end()) return 0;
-            return it->second.timesExplored;
+            return (collision ? it->second.timesExploredWithCollision : it->second.timesExploredWithNoCollision);
         }
 
         // Checks if two paths are equal, can be called with a vector or range
@@ -121,24 +124,10 @@ namespace MiningOptimizationTraining
         template <typename ObservationType>
         struct NodeExplorationResult
         {
-            unsigned int arrivalDelay;
-            int orderProcessTimerValueAtArrival;
-            int postActionDelay;
-            BWAPI::ExactPosition nextPathStartPosition;
-            bool actionAtArrival;
+            ObservationType arrivalData;
+            BWAPI::ExactPosition nextPathStartPositionActionAtArrival;
+            BWAPI::ExactPosition nextPathStartPositionActionAfterArrival;
             std::set<int> resends;
-
-            NodeExplorationResult(const std::tuple<unsigned int, int, int> &arrivalData,
-                                  BWAPI::ExactPosition nextPathStartPosition,
-                                  bool actionAtArrival,
-                                  std::set<int> resends)
-                    : arrivalDelay(std::get<0>(arrivalData))
-                    , orderProcessTimerValueAtArrival(std::get<1>(arrivalData))
-                    , postActionDelay(std::get<2>(arrivalData))
-                    , nextPathStartPosition(std::move(nextPathStartPosition))
-                    , actionAtArrival(actionAtArrival)
-                    , resends(std::move(resends))
-            {}
         };
     }
 
@@ -178,23 +167,9 @@ namespace MiningOptimizationTraining
                 rootNodeIt = rootNodes.emplace(currentPositionAndVelocity, Path<ObservationType>{currentPositionAndVelocity}).first;
             }
             auto &rootNode = rootNodeIt->second;
-            rootNode.timesExplored++;
 
             // While exploring, we gather the results of each subpath in order to pick a good next path to explore and keep some overall statistics
             std::vector<NodeExplorationResult<ObservationType>> results;
-            auto addResults = [&](
-                    const ObservationType &arrivalData,
-                    BWAPI::ExactPosition nextPathStartPositionActionAtArrival,
-                    BWAPI::ExactPosition nextPathStartPositionActionAfterArrival,
-                    std::set<int> resends)
-            {
-                auto fullDelay = arrivalData.calculateFullDelay(resends.empty() ? 0 : (*resends.rbegin() - currentFrame));
-                if (nextPathStartPositionActionAtArrival != nextPathStartPositionActionAfterArrival)
-                {
-                    results.emplace_back(fullDelay, std::move(nextPathStartPositionActionAfterArrival), false, resends);
-                }
-                results.emplace_back(fullDelay, std::move(nextPathStartPositionActionAtArrival), true, std::move(resends));
-            };
 
             // Explores the path, recursively going down a level as appropriate
             auto explorePath = [&]( // NOLINT(*-no-recursion)
@@ -222,16 +197,30 @@ namespace MiningOptimizationTraining
                 ObservationType arrivalData =
                         createArrivalData(*simulatedPathWithDeliveryAtArrivalResult, *simulatedPathWithDeliveryAfterArrivalResult);
 
+                // If this is the no-resend path, record the appropriate exploration on the root node
+                if (resendFrames.empty())
+                {
+                    bool collision = PathExplorationUtils::detectCollision(simulatedPath);
+                    if (collision)
+                    {
+                        rootNode.timesExploredWithCollision++;
+                    }
+                    else
+                    {
+                        rootNode.timesExploredWithNoCollision++;
+                    }
+                }
+
                 auto addResult = [&]()
                 {
                     // Reset the arrival delay since it might have been updated while exploring
                     arrivalData.setArrivalDelay(simulatedPath.size());
 
                     // This is always called last, so we can use move semantics
-                    addResults(arrivalData,
-                               std::move(simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition),
-                               std::move(simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition),
-                               std::move(resendFrames));
+                    results.emplace_back(std::move(arrivalData),
+                                         std::move(simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition),
+                                         std::move(simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition),
+                                         std::move(resendFrames));
                 };
 
                 // If this is a resend node, we have a couple of additional steps to do
@@ -364,10 +353,10 @@ namespace MiningOptimizationTraining
                         // the initial node
                         std::set<int> nextResendFrames = resendFrames;
                         nextResendFrames.insert(frame);
-                        addResults(arrivalData,
-                                   simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition,
-                                   simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition,
-                                   std::move(nextResendFrames));
+                        results.emplace_back(arrivalData,
+                                             simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition,
+                                             simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition,
+                                             std::move(nextResendFrames));
                     }
 
                     nextPositions = &node->nextPositions;
@@ -390,45 +379,78 @@ namespace MiningOptimizationTraining
             // - Plan to explore relevant next paths, excluding those that will never come up in real situations because they only occur after
             //   horrible earlier path decisions. This especially applies to return paths that are not being straightened.
 
-            // Start by scanning to get the best arrival data
-            unsigned int bestArrivalDelay;
-            for (auto &result : results)
+            std::set<NodeExplorationResult<ObservationType>*> bestResults;
+            auto findBestResults = [&](std::optional<int> orderProcessTimerResetFrame = std::nullopt)
             {
-                unsigned int arrivalDelay = (result.arrivalDelay + result.orderProcessTimerValueAtArrival + result.postActionDelay);
-                if (arrivalDelay < bestArrivalDelay)
+                std::set<NodeExplorationResult<ObservationType>*> theseBestResults;
+                int bestActionFrame = INT_MAX;
+                for (auto &result : results)
                 {
-                    bestArrivalDelay = arrivalDelay;
+                    auto actionFrame = result.arrivalData.computeActionFrame(result.resends.empty()
+                                                                                 ? std::nullopt
+                                                                                 : (std::optional<int>)*result.resends.rbegin(),
+                                                                             orderProcessTimerResetFrame);
+                    if (actionFrame < bestActionFrame)
+                    {
+                        bestActionFrame = actionFrame;
+                        theseBestResults.clear();
+                    }
+                    if (actionFrame == bestActionFrame)
+                    {
+                        theseBestResults.insert(&result);
+                    }
                 }
-                if (result.resends.empty() && getTotalOccurrences(rootNode.noResendArrivalDelaysAndOccurrences) < UINT32_MAX)
-                {
-                    rootNode.noResendArrivalDelaysAndOccurrences[arrivalDelay]++;
-                }
-            }
+                bestResults.insert(theseBestResults.begin(), theseBestResults.end());
+                return bestActionFrame;
+            };
+
+            // Start without a reset
+            int bestNoResetActionFrame = findBestResults();
             if (getTotalOccurrences(rootNode.bestArrivalDelaysAndOccurrences) < UINT32_MAX)
             {
-                rootNode.bestArrivalDelaysAndOccurrences[bestArrivalDelay]++;
+                rootNode.bestArrivalDelaysAndOccurrences[bestNoResetActionFrame - currentFrame]++;
             }
 
-            // Now choose the next path start node we want to explore
-            // Our scoring function is to take the times explored and weight it by the difference between the arrival delay and the best arrival delay
-            auto bestScore = (float)UINT32_MAX;
-            unsigned int bestDelayDelta = UINT_MAX;
-            for (auto &result : results)
+            // Find the lower bound for what resets are interesting to explore
+            int maxLastResendFrame = currentFrame;
+            for (auto bestResult : bestResults)
             {
-                float score = 1 + getTimesExplored(nextPathRootNodes, PositionAndVelocity(result.nextPathStartPosition));
-                unsigned int arrivalDelayDelta =
-                        (result.arrivalDelay + result.orderProcessTimerValueAtArrival + result.postActionDelay) - bestArrivalDelay;
-                score *= EXPLORATION_SCORING_FACTOR;
+                if (bestResult->resends.empty()) continue;
+                maxLastResendFrame = std::max(maxLastResendFrame, *bestResult->resends.rbegin());
+            }
 
-                if (score < (bestScore - EPSILON) || (score < (bestScore + EPSILON) && arrivalDelayDelta < bestDelayDelta))
+            // Add all the best results at each reset frame
+            for (int resetFrame = maxLastResendFrame + 1; resetFrame <= bestNoResetActionFrame; resetFrame++)
+            {
+                findBestResults(resetFrame);
+            }
+
+            // Pick the least explored path in the best results
+            unsigned int leastExplored = UINT_MAX;
+            for (auto bestResult : bestResults)
+            {
+                auto processNextPathStartPosition = [&](BWAPI::ExactPosition &nextPathStartPosition,
+                        bool collision,
+                        int orderProcessTimerValue)
                 {
-                    bestScore = score;
-                    bestDelayDelta = arrivalDelayDelta;
-                    plannedResendFrames = std::move(result.resends);
-                    plannedSetOrderProcessTimerFrame = std::make_pair(currentFrame + result.arrivalDelay - 1, result.actionAtArrival ? 0 : 8);
-#if VALIDATE_EXPECTED_TRANSITION_FRAMES
-                    expectedTransitionFrame = currentFrame + result.arrivalDelay + result.orderProcessTimerValueAtArrival;
-#endif
+                    int timesExplored = getTimesExplored(nextPathRootNodes, PositionAndVelocity(nextPathStartPosition), collision);
+                    if (timesExplored < leastExplored)
+                    {
+                        leastExplored = timesExplored;
+                        plannedResendFrames = bestResult->resends;
+                        plannedSetOrderProcessTimerFrame = std::make_pair(currentFrame + bestResult->arrivalData.arrivalDelay() - 1,
+                                                                          orderProcessTimerValue);
+                    }
+                };
+                processNextPathStartPosition(bestResult->nextPathStartPositionActionAtArrival,
+                                             bestResult->arrivalData.isCollisionWithActionAtArrival(),
+                                             0);
+                if ((bestResult->nextPathStartPositionActionAfterArrival != bestResult->nextPathStartPositionActionAtArrival)
+                    || (bestResult->arrivalData.isCollisionWithActionAtArrival() != bestResult->arrivalData.isCollisionWithActionAfterArrival()))
+                {
+                    processNextPathStartPosition(bestResult->nextPathStartPositionActionAtArrival,
+                                                 bestResult->arrivalData.isCollisionWithActionAfterArrival(),
+                                                 8);
                 }
             }
 
@@ -459,7 +481,7 @@ namespace MiningOptimizationTraining
             {
                 for (auto &[_, path] : paths)
                 {
-                    if (path.timesExplored >= EXPLORATION_GOAL) return true;
+                    if ((path.timesExploredWithCollision + path.timesExploredWithNoCollision) >= EXPLORATION_GOAL) return true;
                 }
                 return false;
             };
@@ -625,9 +647,9 @@ namespace MiningOptimizationTraining
                 uint64_t totalExplored = 0;
                 for (auto &[_, path] : paths)
                 {
-                    mostExplored = std::max(mostExplored, path.timesExplored);
-                    leastExplored = std::min(leastExplored, path.timesExplored);
-                    totalExplored += path.timesExplored;
+                    mostExplored = std::max(mostExplored, (path.timesExploredWithCollision + path.timesExploredWithNoCollision));
+                    leastExplored = std::min(leastExplored, (path.timesExploredWithCollision + path.timesExploredWithNoCollision));
+                    totalExplored += (path.timesExploredWithCollision + path.timesExploredWithNoCollision);
                 }
                 out << "; most explored " << mostExplored
                     << "; least explored " << leastExplored

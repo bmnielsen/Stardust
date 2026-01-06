@@ -153,7 +153,9 @@ namespace
         {
             for (const auto &[_2, rootNode] : patchRootNodes)
             {
-                explore((rootNode.timesExplored > WELL_EXPLORED_THRESHOLD) ? wellExploredResult : poorlyExploredResult,
+                explore(((rootNode.timesExploredWithNoCollision + rootNode.timesExploredWithCollision) > WELL_EXPLORED_THRESHOLD)
+                            ? wellExploredResult
+                            : poorlyExploredResult,
                         rootNode.pos,
                         rootNode.pos,
                         rootNode.nextPositions);

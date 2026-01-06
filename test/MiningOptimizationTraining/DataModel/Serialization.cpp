@@ -75,11 +75,8 @@ namespace MiningOptimizationTraining::Serialization
                     s.object(v.first, pathNodeSerializer);
                     s.value4b(v.second);
                 });
-                s.value4b(value.timesExplored);
-                s.ext(value.noResendArrivalDelaysAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [&](S& s, uint16_t& key, uint32_t& v) {
-                    s.value2b(key);
-                    s.value4b(v);
-                });
+                s.value4b(value.timesExploredWithNoCollision);
+                s.value4b(value.timesExploredWithCollision);
                 s.ext(value.bestArrivalDelaysAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [&](S& s, uint16_t& key, uint32_t& v) {
                     s.value2b(key);
                     s.value4b(v);

@@ -10,6 +10,8 @@
 
 #define UINT13_MAX 8191U
 
+extern int currentFrame;
+
 namespace MiningOptimizationTraining
 {
     enum class ReturnExitSpeed:uint16_t
@@ -88,57 +90,48 @@ namespace MiningOptimizationTraining
                                other.nextPathStartPositionDeliveryAfterArrival);
         }
 
-        // Calculates the full delay from the start of the path to when minerals will be delivered, assuming no order process timer resets occur,
-        // along with the penalty or benefit from exit speed
-        [[nodiscard]] std::tuple<unsigned int, int, int> calculateFullDelay(unsigned int lastResendDistanceFromPathStart) const
+        // Computes the frame where resources will be delivered
+        // If the frame is affected by the given order process timer reset frame, returns an approximated average frame
+        [[nodiscard]] int computeActionFrame(std::optional<int> lastResendFrame = std::nullopt,
+                                             std::optional<int> orderProcessTimerResetFrame = std::nullopt,
+                                             int pathStartFrame = currentFrame) const
         {
+            // Compute the arrival frame, using the start frame as either the resend or the path start frame if no resend occurred
+            int arrivalFrame = ((lastResendFrame.has_value()) ? *lastResendFrame : pathStartFrame) + (int)arrivalDelay();
+
             // Compute the order process timer value at the start of the frame where the worker is at this node (i.e. where this arrival delay is
             // measured from)
-            // If the node is the start of the path, the value is 0 since the worker just gained minerals
             // If the node is a resend node, the value will be 0 on the next frame, so we set it to 10 to make the math work
-            int orderProcessTimerAtNode = (lastResendDistanceFromPathStart == 0) ? 0 : 10;
+            // If the node is the start of the path, the value is 0 since the worker just gained minerals
+            int orderProcessTimerAtNode = (lastResendFrame.has_value()) ? 10 : 0;
 
-            // Compute the order process timer value at the arrival frame
-            // In the case of a resend, the order timer is 0 at the start of the next frame, so we set it to 9 on this frame for the math to work out
-
-            // Compute the order process timer value at the arrival frame
-            // We do this by subtracting and then cycling forward
+            // Compute the order process timer value at arrival ignoring resets
             int orderProcessTimerAtArrival = orderProcessTimerAtNode - (int)arrivalDelay();
             while (orderProcessTimerAtArrival < 0) orderProcessTimerAtArrival += 9;
 
-            // Compute the exit speed adjustment
-            // Collisions add a full order process timer cycle
-            // Low exit speed, also applicable if the order process timer is nonzero, is the standard and doesn't modify the timing
-            // Medium exit speed saves two frames
-            // High exit speed saves four frames
-            int exitSpeedAdjustment = 0;
-            if (orderProcessTimerAtArrival == 0)
+            // Compute the action frame ignoring resets
+            int actionFrame = arrivalFrame + orderProcessTimerAtArrival;
+
+            // If there is no order process timer reset affecting the result, return now
+            if (!orderProcessTimerResetFrame.has_value() || (*orderProcessTimerResetFrame > actionFrame)
+                || (lastResendFrame.has_value() && (*orderProcessTimerResetFrame <= *lastResendFrame)))
             {
-                switch (exitSpeed())
-                {
-                    case ReturnExitSpeed::Collision:
-                        exitSpeedAdjustment = 9;
-                        break;
-                    case ReturnExitSpeed::Medium:
-                        exitSpeedAdjustment = -2;
-                        break;
-                    case ReturnExitSpeed::High:
-                        exitSpeedAdjustment = -4;
-                        break;
-                    default:
-                        break;
-                }
-            }
-            else if (collision())
-            {
-                exitSpeedAdjustment = 9;
+                return actionFrame;
             }
 
-            // Put everything together
-            return std::make_tuple(
-                    lastResendDistanceFromPathStart + arrivalDelay(),
-                    orderProcessTimerAtArrival,
-                    exitSpeedAdjustment);
+            // For simplicity we just assume the action frame on average will be 4 frames after the earliest it can be, since we don't need this to
+            // be super accurate for training
+            return std::max(arrivalFrame, *orderProcessTimerResetFrame) + 4;
+        }
+
+        [[nodiscard]] bool isCollisionWithActionAtArrival()
+        {
+            return exitSpeed() == ReturnExitSpeed::Collision;
+        }
+
+        [[nodiscard]] bool isCollisionWithActionAfterArrival()
+        {
+            return collision();
         }
 
         static ReturnArrivalData create(unsigned int arrivalDelay,

@@ -26,8 +26,7 @@ namespace
         return MiningOptimizationTraining::GatherPath{
             pos,
             std::move(nextPositions),
-            pos.x, // times explored
-            {{pos.x + 5, pos.x + 5}}, // no resend delay and occurrences
+            pos.x, pos.x, // times explored
             {{pos.x, pos.x}} // best delay and occurrences
         };
     }

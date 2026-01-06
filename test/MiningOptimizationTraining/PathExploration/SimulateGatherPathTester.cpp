@@ -3,6 +3,7 @@
 #include "BWAPI/SimulateGatherPathOptions.h"
 #include "BWAPI/SimulateGatherPathResult.h"
 
+#include "PathExplorationUtils.h"
 #include "Geo.h"
 
 #include <random>
@@ -219,34 +220,11 @@ namespace MiningOptimizationTraining
             // Resends early in the path can obscure the collision results, so don't validate this if there is a resend early in the path
             if (!plannedResendFrames.empty() && *plannedResendFrames.begin() < (currentFrame + 13)) return;
 
-            // Go through the start of the path to see if the worker stalled for a full order process timer cycle
-            int stallFrames = 0;
-            int maxStallFrames = 0;
-            size_t maxStallStart = 0;
-            for (auto it = expectedPath.begin() + 1; it != expectedPath.end() && std::distance(expectedPath.begin(), it) < 13; it++)
-            {
-                if ((*it).pos() == (*(it - 1)).pos())
-                {
-                    stallFrames++;
-                    if (stallFrames > maxStallFrames)
-                    {
-                        maxStallFrames = stallFrames;
-                        maxStallStart = std::distance(expectedPath.begin(), it) - maxStallFrames;
-                    }
-                }
-                else
-                {
-                    stallFrames = 0;
-                }
-            }
-            bool collision = (maxStallFrames > 7);
-
             // Assert the correct collision data
+            bool collision = PathExplorationUtils::detectCollision(expectedPath);
             if (collision != expectedCollision)
             {
                 Log::Get() << "ERROR: Collision mismatch, actual collision: " << collision
-                           << "; stall frames: " << maxStallFrames
-                           << "; stall start " << maxStallStart
                            << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                 ASSERT_EQ(collision, expectedCollision);
             }
