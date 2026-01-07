@@ -13,6 +13,9 @@
 // The number of times the most-explored path (gather and return) should be explored for us to consider a patch "finished"
 #define EXPLORATION_GOAL 150
 
+// The number of times we explore a specific start node of a path, split on collision or not
+#define ROOT_NODE_EXPLORATION_LIMIT 100
+
 // How the score of a path is weighted based on the difference between its arrival delay and the best one
 
 // This weighting is an exponential function that roughly doubles the score at 4 frames and multiplies by 10 at 10 frames
@@ -147,29 +150,25 @@ namespace MiningOptimizationTraining
             return ReturnArrivalData::createFromSimulatedPaths(simulatedPathWithActionAtArrival, simulatedPathWithActionAfterArrival);
         };
 
-        // Called on the first position of a path to make the observations and plan the resends
-        // Observations are done through the path simulation, so don't require actual resends in the game
-        // Resends are planned to get us to the least-explored root node of the next path
-        auto initializePath = [&]<typename ObservationType, typename NextObservationType>(
+        auto makePathObservations = [&]<typename ObservationType>(
+                std::vector<NodeExplorationResult<ObservationType>> &results,
                 const Limits &limits,
                 auto &createArrivalData,
                 std::unordered_map<PositionAndVelocity, Path<ObservationType>> &rootNodes,
-                std::unordered_map<PositionAndVelocity, Path<NextObservationType>> &nextPathRootNodes
-            )
+                int startFrame = currentFrame,
+                BWAPI::SimulateGatherPathResult *previousPath = nullptr)
         {
-            plannedResendFrames.clear();
+            // For the first path, the worker's current position will be the starting point. For subsequent paths, we'll use the previous path result.
+            auto currentExactPosition = previousPath ? previousPath->nextPathStartPosition : worker->getExactPosition();
 
             // Get or create the root node
-            auto currentPositionAndVelocity = PositionAndVelocity(worker);
+            auto currentPositionAndVelocity = PositionAndVelocity(currentExactPosition);
             auto rootNodeIt = rootNodes.find(currentPositionAndVelocity);
             if (rootNodeIt == rootNodes.end())
             {
                 rootNodeIt = rootNodes.emplace(currentPositionAndVelocity, Path<ObservationType>{currentPositionAndVelocity}).first;
             }
             auto &rootNode = rootNodeIt->second;
-
-            // While exploring, we gather the results of each subpath in order to pick a good next path to explore and keep some overall statistics
-            std::vector<NodeExplorationResult<ObservationType>> results;
 
             // Explores the path, recursively going down a level as appropriate
             auto explorePath = [&]( // NOLINT(*-no-recursion)
@@ -182,11 +181,21 @@ namespace MiningOptimizationTraining
                     std::ranges::subrange<std::vector<BWAPI::ExactPosition>::iterator> noResendPath = {})
             {
                 // Simulate the path
+                auto simulate = [&](bool forceAction)
+                {
+                    // If we have a previous path, include the starting state
+                    if (previousPath)
+                    {
+                        return worker->simulateGatherPath(
+                                BWAPI::SimulateGatherPathOptions(resendFrames, previousPath->stateAtStartOfNextPath).setForceAction(forceAction));
+                    }
+                    return worker->simulateGatherPath(
+                            BWAPI::SimulateGatherPathOptions(resendFrames).setForceAction(forceAction));
+                };
+
                 // We both simulate with action at arrival and action after arrival
-                auto simulatedPathWithDeliveryAtArrivalResult =
-                        worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(resendFrames).setForceAction(true));
-                auto simulatedPathWithDeliveryAfterArrivalResult =
-                        worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(resendFrames).setForceAction(false));
+                auto simulatedPathWithDeliveryAtArrivalResult = simulate(true);
+                auto simulatedPathWithDeliveryAfterArrivalResult = simulate(false);
                 if (!simulatedPathWithDeliveryAtArrivalResult || !simulatedPathWithDeliveryAfterArrivalResult)
                 {
                     Log::Get() << "ERROR: Path could not be simulated"
@@ -321,8 +330,8 @@ namespace MiningOptimizationTraining
                         {
                             node->type = NodeType::AfterExplorationWindow;
                         }
-                        else if ((frame - currentFrame) < BWAPI::Broodwar->getLatencyFrames()
-                            || resendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
+                        else if ((frame - startFrame) < BWAPI::Broodwar->getLatencyFrames()
+                                 || resendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
                         {
                             node->type = NodeType::ResendUnavailable;
                         }
@@ -368,94 +377,150 @@ namespace MiningOptimizationTraining
 
             // Start exploring the path from the worker's initial position
             explorePath(explorePath,
-                        currentFrame,
-                        worker->getExactPosition(),
+                        startFrame,
+                        currentExactPosition,
                         &rootNode.nextPositions);
+        };
 
-            // Process the results
-            // For gather, we attempt to explore all of the possible next path start positions so we can always get the worker back onto a known path
-            // For return, we find the best paths with all possible reset values and consider the best ones, picking the one least explored
-            // The reason for this is to avoid exploring return paths that will never get chosen in practice (like ones without path straightening)
+        // Called on the first position of a return path to make observations and plan resends
+        // Observations are made on all return paths and subsequent gather paths through path simulation, so don't require actual resends in the game
+        // Resends are planned to get us to the least-explored root node of the next return path
+        auto processPath = [&]()
+        {
+            plannedResendFrames.clear();
 
-            std::set<NodeExplorationResult<ObservationType>*> bestResults;
+            // Start by simulating the return path and gathering all results
+            std::vector<NodeExplorationResult<ReturnArrivalData>> returnResults;
+            makePathObservations(returnResults,
+                                 {RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
+                                 createReturnArrivalData,
+                                 returnPaths);
 
-            if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+            // Now compute the best results: results that give the optimal action frame considering different reset frames
+            std::set<NodeExplorationResult<ReturnArrivalData>*> bestResults;
+            auto findBestResults = [&](std::optional<int> orderProcessTimerResetFrame = std::nullopt)
             {
-                for (auto &result : results)
+                std::set<NodeExplorationResult<ReturnArrivalData>*> theseBestResults;
+                int bestActionFrame = INT_MAX;
+                for (auto &result : returnResults)
                 {
-                    bestResults.insert(&result);
-                }
-            }
-            else
-            {
-                auto findBestResults = [&](std::optional<int> orderProcessTimerResetFrame = std::nullopt)
-                {
-                    std::set<NodeExplorationResult<ObservationType>*> theseBestResults;
-                    int bestActionFrame = INT_MAX;
-                    for (auto &result : results)
+                    auto actionFrame = result.arrivalData.computeActionFrame(result.resends.empty()
+                                                                             ? std::nullopt
+                                                                             : (std::optional<int>)*result.resends.rbegin(),
+                                                                             orderProcessTimerResetFrame);
+                    if (actionFrame < bestActionFrame)
                     {
-                        auto actionFrame = result.arrivalData.computeActionFrame(result.resends.empty()
-                                                                                 ? std::nullopt
-                                                                                 : (std::optional<int>)*result.resends.rbegin(),
-                                                                                 orderProcessTimerResetFrame);
-                        if (actionFrame < bestActionFrame)
-                        {
-                            bestActionFrame = actionFrame;
-                            theseBestResults.clear();
-                        }
-                        if (actionFrame == bestActionFrame)
-                        {
-                            theseBestResults.insert(&result);
-                        }
+                        bestActionFrame = actionFrame;
+                        theseBestResults.clear();
                     }
-                    bestResults.insert(theseBestResults.begin(), theseBestResults.end());
-                    return bestActionFrame;
-                };
-
-                // Start without a reset
-                int bestNoResetActionFrame = findBestResults();
-
-                // Find the lower bound for what resets are interesting to explore
-                int maxLastResendFrame = currentFrame;
-                for (auto bestResult : bestResults)
-                {
-                    if (bestResult->resends.empty()) continue;
-                    maxLastResendFrame = std::max(maxLastResendFrame, *bestResult->resends.rbegin());
+                    if (actionFrame == bestActionFrame)
+                    {
+                        theseBestResults.insert(&result);
+                    }
                 }
+                bestResults.insert(theseBestResults.begin(), theseBestResults.end());
+                return bestActionFrame;
+            };
 
-                // Add all the best results at each reset frame
-                for (int resetFrame = maxLastResendFrame + 1; resetFrame <= bestNoResetActionFrame; resetFrame++)
-                {
-                    findBestResults(resetFrame);
-                }
-            }
+            // Start without a reset
+            int bestNoResetActionFrame = findBestResults();
 
-            // Pick the least explored path in the best results
-            unsigned int leastExplored = UINT_MAX;
+            // Find the lower bound for what resets are interesting to explore
+            int maxLastResendFrame = currentFrame;
             for (auto bestResult : bestResults)
             {
-                auto processNextPathStartPosition = [&](BWAPI::ExactPosition &nextPathStartPosition,
-                        bool collision,
-                        int orderProcessTimerValue)
+                if (bestResult->resends.empty()) continue;
+                maxLastResendFrame = std::max(maxLastResendFrame, *bestResult->resends.rbegin());
+            }
+
+            // Add all the best results at each reset frame
+            for (int resetFrame = maxLastResendFrame + 1; resetFrame <= bestNoResetActionFrame; resetFrame++)
+            {
+                findBestResults(resetFrame);
+            }
+
+            // Now break this down to the set of unique next path start positions we want to explore gather paths for
+            // We only explore each exact position once, and skip positions that are already fully explored
+            std::map<BWAPI::ExactPosition, NodeExplorationResult<ReturnArrivalData>*> uniqueNextPathStartPositions;
+            for (auto bestResult : bestResults)
+            {
+                auto processNextPathStartPosition = [&](BWAPI::ExactPosition &nextPathStartPosition, bool collision)
                 {
-                    int timesExplored = getTimesExplored(nextPathRootNodes, PositionAndVelocity(nextPathStartPosition), collision);
+                    if (uniqueNextPathStartPositions.contains(nextPathStartPosition)) return;
+                    if (getTimesExplored(gatherPaths, PositionAndVelocity(nextPathStartPosition), collision) > ROOT_NODE_EXPLORATION_LIMIT)
+                    {
+                        return;
+                    }
+                    uniqueNextPathStartPositions[nextPathStartPosition] = bestResult;
+                };
+                processNextPathStartPosition(bestResult->nextPathStartPositionActionAtArrival,
+                                             bestResult->arrivalData.isCollisionWithActionAtArrival());
+                processNextPathStartPosition(bestResult->nextPathStartPositionActionAtArrival,
+                                             bestResult->arrivalData.isCollisionWithActionAfterArrival());
+            }
+
+            CherryVis::log(worker->getID()) << "Performed return simulations; simulated " << returnResults.size() << " paths and have "
+                                            << uniqueNextPathStartPositions.size() << " gather path start positions to simulate from";
+
+            // If there are no root nodes at all left to explore, just pick the first one
+            if (uniqueNextPathStartPositions.empty())
+            {
+                uniqueNextPathStartPositions[(*bestResults.begin())->nextPathStartPositionActionAtArrival] = *bestResults.begin();
+            }
+
+            // Simulate each gather path resulting from the positions in the map
+            std::vector<std::tuple<BWAPI::ExactPosition,
+                                   NodeExplorationResult<ReturnArrivalData> *,
+                                   std::vector<NodeExplorationResult<GatherArrivalData>>>> gatherResults;
+            for (auto &[startPosition, returnResult] : uniqueNextPathStartPositions)
+            {
+                // Simulate once to get the state copy at the start of the path
+                auto result = worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(returnResult->resends)
+                        .setForceAction(startPosition != returnResult->nextPathStartPositionActionAfterArrival)
+                        .setReturnStateAtStartOfNextPath());
+                if (!result)
+                {
+                    Log::Get() << "ERROR: Path could not be simulated"
+                               << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                    return;
+                }
+
+                // Compute the start frame of the gather path
+                int arrivalFrame = (returnResult->resends.empty() ? currentFrame : *returnResult->resends.rbegin())
+                        + (int)returnResult->arrivalData.arrivalDelay();
+                int actionFrame = (startPosition != returnResult->nextPathStartPositionActionAfterArrival) ? arrivalFrame : (arrivalFrame + 8);
+
+                std::vector<NodeExplorationResult<GatherArrivalData>> returnPathGatherResults;
+                makePathObservations(returnPathGatherResults,
+                                     {GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
+                                     createGatherArrivalData,
+                                     gatherPaths,
+                                     actionFrame,
+                                     result.get());
+                gatherResults.emplace_back(startPosition, returnResult, std::move(returnPathGatherResults));
+            }
+
+            // Find the least-explored return root node in all of the gather results and plan resends to get us there
+            unsigned int leastExplored = UINT_MAX;
+            for (auto &[startPosition, returnResult, returnPathGatherResults] : gatherResults)
+            {
+                for (auto &result : returnPathGatherResults)
+                {
+                    auto timesExplored = getTimesExplored(returnPaths,
+                                                          PositionAndVelocity(result.nextPathStartPositionActionAtArrival),
+                                                          result.arrivalData.collision());
                     if (timesExplored < leastExplored)
                     {
                         leastExplored = timesExplored;
-                        plannedResendFrames = bestResult->resends;
-                        plannedSetOrderProcessTimerFrame = std::make_pair(currentFrame + bestResult->arrivalData.arrivalDelay() - 1,
-                                                                          orderProcessTimerValue);
+                        plannedResendFrames = returnResult->resends;
+                        plannedResendFrames.insert(result.resends.begin(), result.resends.end());
+
+                        int arrivalFrame = (returnResult->resends.empty() ? currentFrame : *returnResult->resends.rbegin())
+                                           + (int)returnResult->arrivalData.arrivalDelay();
+                        plannedSetOrderProcessTimerFrame =
+                                std::make_pair(arrivalFrame - 1,
+                                               (startPosition == returnResult->nextPathStartPositionActionAfterArrival) ? 8 : 0);
                     }
-                };
-                processNextPathStartPosition(bestResult->nextPathStartPositionActionAtArrival,
-                                             bestResult->arrivalData.isCollisionWithActionAtArrival(),
-                                             0);
-                if ((bestResult->nextPathStartPositionActionAfterArrival != bestResult->nextPathStartPositionActionAtArrival)
-                    || (bestResult->arrivalData.isCollisionWithActionAtArrival() != bestResult->arrivalData.isCollisionWithActionAfterArrival()))
-                {
-                    processNextPathStartPosition(bestResult->nextPathStartPositionActionAtArrival,
-                                                 bestResult->arrivalData.isCollisionWithActionAfterArrival(),
-                                                 8);
                 }
             }
 
@@ -467,9 +532,6 @@ namespace MiningOptimizationTraining
                 sep = ", ";
             }
             CherryVis::log(worker->getID()) << "Planned resend frame(s): " << dbg.str();
-#if VALIDATE_EXPECTED_TRANSITION_FRAMES
-            CherryVis::log(worker->getID()) << "Expected transition frame: " << expectedTransitionFrame;
-#endif
         };
 
         auto stateChange = [&](int to)
@@ -511,15 +573,6 @@ namespace MiningOptimizationTraining
                     if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
                     {
                         stateChange(1);
-
-#if VALIDATE_EXPECTED_TRANSITION_FRAMES
-                        if (expectedTransitionFrame != -1 && expectedTransitionFrame != currentFrame)
-                        {
-                            Log::Get() << "ERROR: Incorrect expected transition frame of " << expectedTransitionFrame
-                                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-
-                        }
-#endif
                         continue;
                     }
 
@@ -564,11 +617,7 @@ namespace MiningOptimizationTraining
 
                         if (stateCount[3] > 0)
                         {
-                            initializePath(
-                                    {RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
-                                    createReturnArrivalData,
-                                    returnPaths,
-                                    gatherPaths);
+                            processPath();
                         }
                         continue;
                     }
@@ -583,24 +632,6 @@ namespace MiningOptimizationTraining
                         if (finishedExploring()) return;
 
                         stateChange(0);
-
-#if VALIDATE_EXPECTED_TRANSITION_FRAMES
-                        if (expectedTransitionFrame != -1 && expectedTransitionFrame != currentFrame)
-                        {
-                            Log::Get() << "ERROR: Incorrect expected transition frame of " << expectedTransitionFrame
-                                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-
-                        }
-#endif
-
-                        if (stateCount[0] > 0)
-                        {
-                            initializePath(
-                                    {GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
-                                    createGatherArrivalData,
-                                    gatherPaths,
-                                    returnPaths);
-                        }
                         continue;
                     }
 

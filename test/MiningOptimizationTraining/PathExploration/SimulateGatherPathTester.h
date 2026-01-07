@@ -3,6 +3,8 @@
 #include "BWAPI.h"
 #include "MiningOptimizationTraining/DataModel/MapData.h"
 
+#include <BWAPI/SimulateGatherPathResult.h>
+
 namespace MiningOptimizationTraining
 {
     class SimulateGatherPathTester
@@ -52,5 +54,7 @@ namespace MiningOptimizationTraining
 
         // The expected arrival data (excluding delay) of the previously-planned return path
         std::unique_ptr<ReturnArrivalData> expectedReturnArrivalData;
+
+        std::unique_ptr<BWAPI::SimulateGatherPathResult> lastSimulationResult;
     };
 }

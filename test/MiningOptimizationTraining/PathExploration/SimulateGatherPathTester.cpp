@@ -91,6 +91,7 @@ namespace MiningOptimizationTraining
         auto planPath = [&](auto &setArrivalData, auto &postValidatePath)
         {
             followingPath = false;
+            lastSimulationResult = nullptr;
 
             // Start by getting the path with no resends
             auto noResendPathResult = worker->simulateGatherPath({});
@@ -141,17 +142,52 @@ namespace MiningOptimizationTraining
                            << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                 return;
             }
-            auto &firstPath = simulatedPathWhenTrue->positions;
-            auto &secondPath = simulatedPathWhenFalse->positions;
-            EXPECT_EQ(firstPath.size(), secondPath.size());
-            if (firstPath.size() == secondPath.size())
+            auto assertPathsEqual = [](auto &firstPath, auto &secondPath)
             {
-                for (size_t i = 0; i < firstPath.size(); i++)
+                EXPECT_EQ(firstPath.size(), secondPath.size());
+                if (firstPath.size() == secondPath.size())
                 {
-                    EXPECT_EQ(firstPath[i], secondPath[i]);
+                    for (size_t i = 0; i < firstPath.size(); i++)
+                    {
+                        EXPECT_EQ(firstPath[i], secondPath[i]);
+                    }
                 }
-            }
+            };
+            assertPathsEqual(simulatedPathWhenTrue->positions, simulatedPathWhenFalse->positions);
             postValidatePath(*simulatedPathWhenTrue, *simulatedPathWhenFalse);
+
+            // If we have a saved copy of the results of the previous path, validate that simulating from the state copy produces the same results
+            if (lastSimulationResult)
+            {
+                auto simulatedPathFromCopyWhenTrue = worker->simulateGatherPath(
+                        BWAPI::SimulateGatherPathOptions(plannedResendFrames, lastSimulationResult->stateAtStartOfNextPath)
+                            .setForceAction(true));
+                auto simulatedPathFromCopyWhenFalse = worker->simulateGatherPath(
+                        BWAPI::SimulateGatherPathOptions(plannedResendFrames, lastSimulationResult->stateAtStartOfNextPath)
+                                .setForceAction(false));
+
+                if (!simulatedPathFromCopyWhenTrue || !simulatedPathFromCopyWhenFalse)
+                {
+                    Log::Get() << "WARNING: Worker could not plan path"
+                               << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                    return;
+                }
+
+                auto assertResultFromCopy =
+                        [&assertPathsEqual](BWAPI::SimulateGatherPathResult &resultFromCopy, BWAPI::SimulateGatherPathResult &originalResult)
+                {
+                    assertPathsEqual(resultFromCopy.positions, originalResult.positions);
+                    EXPECT_EQ(resultFromCopy.actionPosition, originalResult.actionPosition);
+                    EXPECT_EQ(resultFromCopy.nextPathStartPosition, originalResult.nextPathStartPosition);
+                    EXPECT_EQ(resultFromCopy.squaredSpeedEightFramesAlongNextPath, originalResult.squaredSpeedEightFramesAlongNextPath);
+                };
+                assertResultFromCopy(*simulatedPathFromCopyWhenTrue, *simulatedPathWhenTrue);
+                assertResultFromCopy(*simulatedPathFromCopyWhenFalse, *simulatedPathWhenFalse);
+            }
+
+            // Run the simulation one last time to save a copy of the result
+            lastSimulationResult = worker->simulateGatherPath(
+                    BWAPI::SimulateGatherPathOptions(plannedResendFrames).setReturnStateAtStartOfNextPath());
 
             std::ostringstream buf;
             std::string sep;

@@ -36,14 +36,14 @@ namespace
         test.run();
     }
 
-    void runFullSaturationTest(BWTest &test, unsigned int cannons, unsigned int iterations)
+    void runFullSaturationTest(BWTest &test, unsigned int cannons, unsigned int iterations, bool oneBase = false)
     {
         initializeTest(test);
-        test.myModule = [&cannons]()
+        test.myModule = [&]()
         {
-            return new MiningOptimizationTraining::FullSaturationModule<MiningOptimizationTraining::SimulateGatherPathTester>(cannons);
+            return new MiningOptimizationTraining::FullSaturationModule<MiningOptimizationTraining::SimulateGatherPathTester>(cannons, oneBase);
         };
-        test.frameLimit = 10000 * (int)iterations;
+        test.frameLimit = 10000 * (int)iterations + 2;
 
         std::ostringstream replayNameBuilder;
         replayNameBuilder << "SimulateGatherPathTests_" << test.map->shortname();
@@ -59,6 +59,13 @@ TEST(SimulateGatherPathTests, VermeerSingleWorker)
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
     runSingleWorkerTest(test, BWAPI::TilePosition(5, 12));
+}
+
+TEST(SimulateGatherPathTests, VermeerOneBaseOneIteration)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    runFullSaturationTest(test, 0, 1, true);
 }
 
 TEST(SimulateGatherPathTests, VermeerOneIteration)
