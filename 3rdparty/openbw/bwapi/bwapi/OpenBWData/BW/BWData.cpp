@@ -2373,15 +2373,35 @@ int Unit::getOrderProcessTimer() const
 // The method is only intended for use with a single worker mining a patch, there may be unintended results if taking over from another worker.
 std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const BWAPI::SimulateGatherPathOptions &options) const
 {
+    // Create a copy of the state
+    // To balance memory allocations/deallocations with total memory usage, we reuse the same state object but reset it every 1000 times, unless
+    // we are being asked to return a copy of the state, in which case we reset it immediately to avoid passing along cruft
+    static std::unique_ptr<bwgame::state> state_copy_ptr;
+    static int counter = 0;
+    if (++counter == 1000 || options.returnStateAtStartOfNextPath)
+    {
+        state_copy_ptr.reset();
+        counter = 0;
+    }
+    if (!state_copy_ptr) state_copy_ptr = std::make_unique<bwgame::state>();
+    auto &state_copy = *state_copy_ptr;
+
+    // If a starting state was specified in the options, use it as the source for the copy, otherwise use the actual game state
+    bwgame::state_copier<true>(options.startingState ? *options.startingState : impl->st, state_copy)();
+    openbwapi_functions<bwgame::state_functions> funcs_copy(impl->vars, state_copy);
+
+    // Get the unit pointer in the state copy
+    auto unit = funcs_copy.get_unit(u->index);
+
     // Validate the unit has a target
-    if (!u->order_target.unit) return nullptr;
+    if (!unit->order_target.unit) return nullptr;
 
     // Set the relevant orders based on what the unit is currently doing
     bwgame::Orders resendOrderType;
     bwgame::Orders pathFinishedOrderType;
     bwgame::Orders nextOrderType;
     int orderProcessFrames;
-    switch (u->order_type->id)
+    switch (unit->order_type->id)
     {
         case bwgame::Orders::MoveToMinerals:
         {
@@ -2422,23 +2442,6 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
             return nullptr;
         }
     }
-
-    // Create a copy of the state
-    // To balance memory allocations/deallocations with total memory usage, we reuse the same state object but reset it every 1000 times
-    static std::unique_ptr<bwgame::state> state_copy_ptr;
-    static int counter = 0;
-    if (++counter == 1000)
-    {
-        state_copy_ptr.reset();
-        counter = 0;
-    }
-    if (!state_copy_ptr) state_copy_ptr = std::make_unique<bwgame::state>();
-    auto &state_copy = *state_copy_ptr;
-    bwgame::state_copier<true>(impl->st, state_copy)();
-    openbwapi_functions<bwgame::state_functions> funcs_copy(impl->vars, state_copy);
-
-    // Get the unit pointer in the state copy
-    auto unit = funcs_copy.get_unit(u->index);
 
     // Create the order target to use for reissuing commands
     // We capture this now in case it changes later
@@ -2550,6 +2553,14 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
                                                  (int32_t)unit->velocity.x.raw_value,
                                                  (int32_t)unit->velocity.y.raw_value};
 
+    // Make a copy of the state if requested to do so
+    std::unique_ptr<bwgame::state> stateAtStartOfNextPath;
+    if (options.returnStateAtStartOfNextPath)
+    {
+        stateAtStartOfNextPath = std::make_unique<bwgame::state>();
+        bwgame::state_copier<true>(state_copy, *stateAtStartOfNextPath)();
+    }
+
     // Detect a collision by checking if the unit is not moving 8 frames after the order changes
     // We don't check against the initial position, as sometimes the unit will move a bit before colliding and entering collision resolution
     for (int i = 0; i < 6; i++) nextFrame();
@@ -2571,11 +2582,12 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
                      + (uint64_t)((int64_t)unit->velocity.y.raw_value * (int64_t)unit->velocity.y.raw_value);
     }
 
-    return std::make_unique<BWAPI::SimulateGatherPathResult>(BWAPI::SimulateGatherPathResult{
+    return std::make_unique<BWAPI::SimulateGatherPathResult>(
             std::move(positions),
             actionPosition,
             firstNextPathPosition,
-            squaredSpeed});
+            squaredSpeed,
+            std::move(stateAtStartOfNextPath));
 }
 
 Bullet::operator bool() const
