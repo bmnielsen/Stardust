@@ -62,6 +62,10 @@ namespace MiningOptimization
         // Extract the path when we reach a root node
         if (!pathBeingFollowed)
         {
+#if VERBOSE_PATH_LOGGING
+            CherryVis::log(worker->id) << "Trying to find root node @ " << currentPosition;
+#endif
+
             // If we don't find a node, we have nothing to do and can just return
             auto it = pathData.find(currentPosition);
             if (it == pathData.end()) return;

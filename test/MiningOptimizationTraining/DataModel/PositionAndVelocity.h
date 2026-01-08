@@ -66,6 +66,12 @@ namespace MiningOptimizationTraining
             s.value4b(velocityX);
             s.value4b(velocityY);
         }
+
+        friend std::ostream& operator<< (std::ostream& os, const PositionAndVelocity& pos)
+        {
+            os << "(" << pos.x << "," << pos.y << ",h=" << (unsigned int)pos.heading << ",dx=" << pos.velocityX << ",dy=" << pos.velocityY << ")";
+            return os;
+        }
     };
 }
 

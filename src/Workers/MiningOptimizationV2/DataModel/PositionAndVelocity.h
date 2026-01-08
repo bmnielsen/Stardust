@@ -86,7 +86,14 @@ namespace MiningOptimization
 
         friend std::ostream& operator<< (std::ostream& os, const PositionAndVelocity& pos)
         {
-            os << "(" << pos.x << "," << pos.y << ")";
+            if (pos.ignoreHeadingAndVelocity)
+            {
+                os << "(" << pos.x << "," << pos.y << ")";
+            }
+            else
+            {
+                os << "(" << pos.x << "," << pos.y << ",h=" << (unsigned int)pos.heading << ",dx=" << pos.velocityX << ",dy=" << pos.velocityY << ")";
+            }
             return os;
         }
     };

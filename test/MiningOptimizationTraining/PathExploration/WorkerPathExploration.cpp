@@ -6,27 +6,18 @@
 
 #include "PathExplorationUtils.h"
 
-#include <ranges>
+#define VERBOSE_DEBUG_LOG_PATHS_EXPLORED true
 
 #define EPSILON 0.0001
 
 // The frames of tolerance we allow for exploring sub-optimal return paths
-#define RETURN_PATH_FRAME_TOLERANCE 2
+#define RETURN_PATH_FRAME_TOLERANCE 0
 
 // The number of times the most-explored path (gather and return) should be explored for us to consider a patch "finished"
 #define EXPLORATION_GOAL 1500
 
 // The number of times we explore a specific start node of a path, split on collision or not
 #define ROOT_NODE_EXPLORATION_LIMIT 200
-
-// How the score of a path is weighted based on the difference between its arrival delay and the best one
-
-// This weighting is an exponential function that roughly doubles the score at 4 frames and multiplies by 10 at 10 frames
-//#define EXPLORATION_SCORING_FACTOR 0.4f * std::pow(3.5f, (float)arrivalDelayDelta / 4.0f) + 0.6f
-
-// This weighting doubles the score every 4 frames
-#define EXPLORATION_SCORING_FACTOR (1.0f + ((float)arrivalDelayDelta / 4.0f))
-
 
 namespace MiningOptimizationTraining
 {
@@ -419,12 +410,41 @@ namespace MiningOptimizationTraining
                     bestActionFrameAndDelay = std::min(bestActionFrameAndDelay, actionFrame + delay);
                 }
 
+#if VERBOSE_DEBUG_LOG_PATHS_EXPLORED
+                if (orderProcessTimerResetFrame)
+                {
+                    Log::Debug() << "Considering " << returnResults.size() << " return results"
+                                 << " with order process timer reset frame " << *orderProcessTimerResetFrame;
+                }
+                else
+                {
+                    Log::Debug() << "Considering " << returnResults.size() << " return results";
+                }
+                Log::Debug() << "Best action frame: " << bestActionFrame;
+                Log::Debug() << "Best action frame and delay: " << bestActionFrameAndDelay;
+#endif
+
                 for (auto &[result, actionFrame, delay] : resultsWithActionFrameAndDelay)
                 {
                     if (actionFrame <= (bestActionFrame + RETURN_PATH_FRAME_TOLERANCE)
                         || (actionFrame + delay) <= (bestActionFrameAndDelay + RETURN_PATH_FRAME_TOLERANCE))
                     {
                         bestResults.insert(result);
+#if VERBOSE_DEBUG_LOG_PATHS_EXPLORED
+                        Log::Debug() << PositionAndVelocity(result->nextPathStartPositionActionAtArrival)
+                                     << " / " << PositionAndVelocity(result->nextPathStartPositionActionAfterArrival)
+                                     << ": added";
+#endif
+                    }
+                    else
+                    {
+#if VERBOSE_DEBUG_LOG_PATHS_EXPLORED
+                        Log::Debug() << PositionAndVelocity(result->nextPathStartPositionActionAtArrival)
+                                     << " / " << PositionAndVelocity(result->nextPathStartPositionActionAfterArrival)
+                                     << ": action frame " << actionFrame << " < " << (bestActionFrame + RETURN_PATH_FRAME_TOLERANCE)
+                                     << "; action frame and delay " << (actionFrame + delay)
+                                            << " < " << (bestActionFrameAndDelay + RETURN_PATH_FRAME_TOLERANCE);
+#endif
                     }
                 }
 
