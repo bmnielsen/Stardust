@@ -6,7 +6,7 @@
 
 #include "PathExplorationUtils.h"
 
-#define VERBOSE_DEBUG_LOG_PATHS_EXPLORED true
+#define VERBOSE_DEBUG_LOG_PATHS_EXPLORED false
 
 #define EPSILON 0.0001
 
@@ -468,6 +468,10 @@ namespace MiningOptimizationTraining
                 findBestResults(resetFrame);
             }
 
+#if VERBOSE_DEBUG_LOG_PATHS_EXPLORED
+            Log::Debug() << "Got " << bestResults.size() << " results, now filtering them down to unique next path start positions";
+#endif
+
             // Now break this down to the set of unique next path start positions we want to explore gather paths for
             // We only explore each exact position once, and skip positions that are already fully explored
             std::map<BWAPI::ExactPosition, NodeExplorationResult<ReturnArrivalData>*> uniqueNextPathStartPositions;
@@ -481,10 +485,13 @@ namespace MiningOptimizationTraining
                         return;
                     }
                     uniqueNextPathStartPositions[nextPathStartPosition] = bestResult;
+#if VERBOSE_DEBUG_LOG_PATHS_EXPLORED
+                    Log::Debug() << "Added " << PositionAndVelocity(nextPathStartPosition);
+#endif
                 };
                 processNextPathStartPosition(bestResult->nextPathStartPositionActionAtArrival,
                                              bestResult->arrivalData.isCollisionWithActionAtArrival());
-                processNextPathStartPosition(bestResult->nextPathStartPositionActionAtArrival,
+                processNextPathStartPosition(bestResult->nextPathStartPositionActionAfterArrival,
                                              bestResult->arrivalData.isCollisionWithActionAfterArrival());
             }
 
