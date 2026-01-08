@@ -27,7 +27,7 @@ namespace
         {
             return new MiningOptimizationTraining::SingleWorkerModule<MiningOptimizationTraining::WorkerPathExploration>(patchTile);
         };
-        test.frameLimit = 10000;
+        if (test.frameLimit == 30000) test.frameLimit = 10000;
 
         std::ostringstream replayNameBuilder;
         replayNameBuilder << "MiningTraining_" << test.map->shortname() << "_SingleWorker";
@@ -84,6 +84,7 @@ TEST(PathExploration, VermeerSingleWorkerContinuous)
     {
         BWTest test;
         test.map = Maps::GetOne("Vermeer");
+        test.frameLimit = 50000;
         if (runSingleWorkerTest(test, BWAPI::TilePosition(5, 12))) return;
     }
 }

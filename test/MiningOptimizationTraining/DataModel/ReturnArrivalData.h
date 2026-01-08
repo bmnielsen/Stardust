@@ -90,39 +90,15 @@ namespace MiningOptimizationTraining
                                other.nextPathStartPositionDeliveryAfterArrival);
         }
 
+        // Returns the delay (e.g. caused by collision) after the action
+        // Can be negative if there is an exit speed bonus
+        [[nodiscard]] int delayAfterAction(int orderProcessTimerAtArrival) const;
+
         // Computes the frame where resources will be delivered
         // If the frame is affected by the given order process timer reset frame, returns an approximated average frame
-        [[nodiscard]] int computeActionFrame(std::optional<int> lastResendFrame = std::nullopt,
-                                             std::optional<int> orderProcessTimerResetFrame = std::nullopt,
-                                             int pathStartFrame = currentFrame) const
-        {
-            // Compute the arrival frame, using the start frame as either the resend or the path start frame if no resend occurred
-            int arrivalFrame = ((lastResendFrame.has_value()) ? *lastResendFrame : pathStartFrame) + (int)arrivalDelay();
-
-            // Compute the order process timer value at the start of the frame where the worker is at this node (i.e. where this arrival delay is
-            // measured from)
-            // If the node is a resend node, the value will be 0 on the next frame, so we set it to 10 to make the math work
-            // If the node is the start of the path, the value is 0 since the worker just gained minerals
-            int orderProcessTimerAtNode = (lastResendFrame.has_value()) ? 10 : 0;
-
-            // Compute the order process timer value at arrival ignoring resets
-            int orderProcessTimerAtArrival = orderProcessTimerAtNode - (int)arrivalDelay();
-            while (orderProcessTimerAtArrival < 0) orderProcessTimerAtArrival += 9;
-
-            // Compute the action frame ignoring resets
-            int actionFrame = arrivalFrame + orderProcessTimerAtArrival;
-
-            // If there is no order process timer reset affecting the result, return now
-            if (!orderProcessTimerResetFrame.has_value() || (*orderProcessTimerResetFrame > actionFrame)
-                || (lastResendFrame.has_value() && (*orderProcessTimerResetFrame <= *lastResendFrame)))
-            {
-                return actionFrame;
-            }
-
-            // For simplicity we just assume the action frame on average will be 4 frames after the earliest it can be, since we don't need this to
-            // be super accurate for training
-            return std::max(arrivalFrame, *orderProcessTimerResetFrame) + 4;
-        }
+        [[nodiscard]] std::pair<int, int> computeActionFrame(std::optional<int> lastResendFrame = std::nullopt,
+                                                             std::optional<int> orderProcessTimerResetFrame = std::nullopt,
+                                                             int pathStartFrame = currentFrame) const;
 
         [[nodiscard]] bool isCollisionWithActionAtArrival()
         {

@@ -10,11 +10,14 @@
 
 #define EPSILON 0.0001
 
+// The frames of tolerance we allow for exploring sub-optimal return paths
+#define RETURN_PATH_FRAME_TOLERANCE 2
+
 // The number of times the most-explored path (gather and return) should be explored for us to consider a patch "finished"
-#define EXPLORATION_GOAL 150
+#define EXPLORATION_GOAL 1500
 
 // The number of times we explore a specific start node of a path, split on collision or not
-#define ROOT_NODE_EXPLORATION_LIMIT 100
+#define ROOT_NODE_EXPLORATION_LIMIT 200
 
 // How the score of a path is weighted based on the difference between its arrival delay and the best one
 
@@ -400,25 +403,29 @@ namespace MiningOptimizationTraining
             std::set<NodeExplorationResult<ReturnArrivalData>*> bestResults;
             auto findBestResults = [&](std::optional<int> orderProcessTimerResetFrame = std::nullopt)
             {
-                std::set<NodeExplorationResult<ReturnArrivalData>*> theseBestResults;
+                std::vector<std::tuple<NodeExplorationResult<ReturnArrivalData>*, int, int>> resultsWithActionFrameAndDelay;
                 int bestActionFrame = INT_MAX;
+                int bestActionFrameAndDelay = INT_MAX;
                 for (auto &result : returnResults)
                 {
-                    auto actionFrame = result.arrivalData.computeActionFrame(result.resends.empty()
-                                                                             ? std::nullopt
-                                                                             : (std::optional<int>)*result.resends.rbegin(),
-                                                                             orderProcessTimerResetFrame);
-                    if (actionFrame < bestActionFrame)
+                    auto [actionFrame, delay] = result.arrivalData.computeActionFrame(result.resends.empty()
+                                                                                      ? std::nullopt
+                                                                                      : (std::optional<int>)*result.resends.rbegin(),
+                                                                                      orderProcessTimerResetFrame);
+                    resultsWithActionFrameAndDelay.emplace_back(&result, actionFrame, delay);
+                    bestActionFrame = std::min(bestActionFrame, actionFrame);
+                    bestActionFrameAndDelay = std::min(bestActionFrameAndDelay, actionFrame + delay);
+                }
+
+                for (auto &[result, actionFrame, delay] : resultsWithActionFrameAndDelay)
+                {
+                    if (actionFrame <= (bestActionFrame + RETURN_PATH_FRAME_TOLERANCE)
+                        || (actionFrame + delay) <= (bestActionFrameAndDelay + RETURN_PATH_FRAME_TOLERANCE))
                     {
-                        bestActionFrame = actionFrame;
-                        theseBestResults.clear();
-                    }
-                    if (actionFrame == bestActionFrame)
-                    {
-                        theseBestResults.insert(&result);
+                        bestResults.insert(result);
                     }
                 }
-                bestResults.insert(theseBestResults.begin(), theseBestResults.end());
+
                 return bestActionFrame;
             };
 
