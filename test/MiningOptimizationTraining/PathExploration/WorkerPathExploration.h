@@ -15,6 +15,8 @@ namespace MiningOptimizationTraining
             , gatherPaths(mapData.resourceToGatherPaths[TilePosition::fromBWAPI(patch->getTilePosition())])
             , returnPaths(mapData.resourceToReturnPaths[TilePosition::fromBWAPI(patch->getTilePosition())])
             , state(0)
+            , expectedReturnActionFrame(-1)
+            , expectedGatherActionFrame(-1)
         {}
 
         void update();
@@ -47,5 +49,9 @@ namespace MiningOptimizationTraining
 
         // Planned frame on which to set the order process timer to a specific value
         std::pair<int, int> plannedSetOrderProcessTimerFrame;
+
+        // Expected frames for return and gather on the planned path
+        int expectedReturnActionFrame;
+        int expectedGatherActionFrame;
     };
 }

@@ -391,6 +391,8 @@ namespace MiningOptimizationTraining
         auto processPath = [&]()
         {
             plannedResendFrames.clear();
+            expectedReturnActionFrame = -1;
+            expectedGatherActionFrame = -1;
 
             // Start by simulating the return path and gathering all results
             std::vector<NodeExplorationResult<ReturnArrivalData>> returnResults;
@@ -527,6 +529,19 @@ namespace MiningOptimizationTraining
                         plannedSetOrderProcessTimerFrame =
                                 std::make_pair(arrivalFrame - 1,
                                                (startPosition == returnResult->nextPathStartPositionActionAfterArrival) ? 8 : 0);
+                        expectedReturnActionFrame = (startPosition != returnResult->nextPathStartPositionActionAfterArrival)
+                                ? arrivalFrame
+                                : (arrivalFrame + 8);
+
+                        int gatherArrivalFrame = (result.resends.empty() ? expectedReturnActionFrame : *result.resends.rbegin())
+                                + (int)result.arrivalData.arrivalDelay();
+                        int orderProcessTimerAtNode = (result.resends.empty()) ? 10 : 11;
+
+                        // Compute the order process timer value at arrival ignoring resets
+                        int orderProcessTimerAtArrival = orderProcessTimerAtNode - (int)result.arrivalData.arrivalDelay();
+                        while (orderProcessTimerAtArrival < 0) orderProcessTimerAtArrival += 9;
+
+                        expectedGatherActionFrame = gatherArrivalFrame + orderProcessTimerAtArrival;
                     }
                 }
             }
@@ -579,6 +594,12 @@ namespace MiningOptimizationTraining
                     // Worker is approaching the patch; transition to state 1 when it is waiting for minerals
                     if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
                     {
+                        if (expectedGatherActionFrame != -1 && expectedGatherActionFrame != currentFrame)
+                        {
+                            Log::Get() << "WARNING: Gather action frame " << currentFrame << " differs from expected " << expectedGatherActionFrame
+                                       << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                        }
+
                         stateChange(1);
                         continue;
                     }
@@ -636,6 +657,12 @@ namespace MiningOptimizationTraining
                     // Worker is returning minerals; transition to state 0 when it has returned minerals
                     if (!worker->isCarryingMinerals())
                     {
+                        if (expectedReturnActionFrame != -1 && expectedReturnActionFrame != currentFrame)
+                        {
+                            Log::Get() << "WARNING: Return action frame " << currentFrame << " differs from expected " << expectedReturnActionFrame
+                                    << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                        }
+
                         if (finishedExploring()) return;
 
                         stateChange(0);
