@@ -2387,8 +2387,11 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
     auto &state_copy = *state_copy_ptr;
 
     // If a starting state was specified in the options, use it as the source for the copy, otherwise use the actual game state
-    bwgame::state_copier<true>(options.startingState ? *options.startingState : impl->st, state_copy)();
+    auto &sourceState = options.startingState ? *options.startingState : impl->st;
+    bwgame::state_copier<true>(sourceState, state_copy)();
     openbwapi_functions<bwgame::state_functions> funcs_copy(impl->vars, state_copy);
+
+    int startFrame = state_copy.current_frame;
 
     // Get the unit pointer in the state copy
     auto unit = funcs_copy.get_unit(u->index);
@@ -2470,7 +2473,7 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
     // This is intended to guard against the unit getting stuck and the simulation never returning
     auto depthLimitExceeded = [&]()
     {
-        if ((state_copy.current_frame - impl->st.current_frame) < 250) return false;
+        if ((state_copy.current_frame - sourceState.current_frame) < 250) return false;
         std::cout << "WARNING: Path simulation for unit at (" << u->position.x << "," << u->position.y << ") did not complete" << std::endl;
         return true;
     };
@@ -2490,6 +2493,7 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
     };
 
     // Simulate the unit until it reaches the "path finished" order
+    int lastOrderProcessTimerOverrideFrame = -1;
     while (unit->order_type->id != pathFinishedOrderType)
     {
         if (depthLimitExceeded()) return nullptr;
@@ -2517,6 +2521,7 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
             if (options.forceActionAtArrival)
             {
                 unit->order_process_timer = 0;
+                lastOrderProcessTimerOverrideFrame = state_copy.current_frame;
             }
             else
             {
@@ -2524,12 +2529,14 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
                 if (!lastTwoPositionsEqual())
                 {
                     unit->order_process_timer = 8;
+                    lastOrderProcessTimerOverrideFrame = state_copy.current_frame;
                 }
             }
         }
     }
 
-    // Save the action position
+    // Save the action frame and position
+    int actionFrame = state_copy.current_frame;
     auto actionPosition = *positions.rbegin();
 
     // Remove duplicated positions at the end of the path, these are the positions while the worker was waiting to gather or deliver
@@ -2583,6 +2590,9 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
     }
 
     return std::make_unique<BWAPI::SimulateGatherPathResult>(
+            startFrame,
+            actionFrame,
+            lastOrderProcessTimerOverrideFrame,
             std::move(positions),
             actionPosition,
             firstNextPathPosition,

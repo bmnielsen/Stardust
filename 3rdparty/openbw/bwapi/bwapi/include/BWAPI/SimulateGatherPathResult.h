@@ -15,12 +15,19 @@ namespace BWAPI
     // The result of running a gather path simulation
     struct SimulateGatherPathResult
     {
-        SimulateGatherPathResult(std::vector<ExactPosition> positions,
+        SimulateGatherPathResult(int startFrame,
+                                 int actionFrame,
+                                 int lastOrderProcessTimerOverrideFrame,
+                                 std::vector<ExactPosition> positions,
                                  ExactPosition actionPosition,
                                  ExactPosition nextPathStartPosition,
                                  uint64_t squaredSpeedEightFramesAlongNextPath,
                                  std::unique_ptr<bwgame::state> stateAtStartOfNextPath);
         ~SimulateGatherPathResult();
+
+        int startFrame;
+        int actionFrame;
+        int lastOrderProcessTimerOverrideFrame;
 
         // The positions encountered from the last resend (or start of the path if no resends were sent) to the arrival at the target
         std::vector<ExactPosition> positions;

@@ -4,12 +4,18 @@
 
 namespace BWAPI
 {
-    SimulateGatherPathResult::SimulateGatherPathResult(std::vector<ExactPosition> positions,
+    SimulateGatherPathResult::SimulateGatherPathResult(int startFrame,
+                                                       int actionFrame,
+                                                       int lastOrderProcessTimerOverrideFrame,
+                                                       std::vector<ExactPosition> positions,
                                                        ExactPosition actionPosition,
                                                        ExactPosition nextPathStartPosition,
                                                        uint64_t squaredSpeedEightFramesAlongNextPath,
                                                        std::unique_ptr<bwgame::state> stateAtStartOfNextPath)
-            : positions(std::move(positions))
+            : startFrame(startFrame)
+            , actionFrame(actionFrame)
+            , lastOrderProcessTimerOverrideFrame(lastOrderProcessTimerOverrideFrame)
+            , positions(std::move(positions))
             , actionPosition(actionPosition)
             , nextPathStartPosition(nextPathStartPosition)
             , squaredSpeedEightFramesAlongNextPath(squaredSpeedEightFramesAlongNextPath)
