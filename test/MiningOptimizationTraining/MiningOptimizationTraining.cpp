@@ -51,7 +51,7 @@ namespace
         {
             return new MiningOptimizationTraining::FullSaturationModule<MiningOptimizationTraining::WorkerPathExploration>(cannons, oneBase);
         };
-        test.frameLimit = 10000 * (int)iterations;
+        if (test.frameLimit == 30000) test.frameLimit = 10000 * (int)iterations;
         test.timeLimit = 600 * (int)iterations;
 
         std::ostringstream replayNameBuilder;
@@ -75,6 +75,7 @@ TEST(PathExploration, VermeerSingleWorker)
 {
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
+    test.frameLimit = 1000;
     runSingleWorkerTest(test, BWAPI::TilePosition(5, 12));
 }
 
@@ -87,6 +88,14 @@ TEST(PathExploration, VermeerSingleWorkerContinuous)
         test.frameLimit = 50000;
         if (runSingleWorkerTest(test, BWAPI::TilePosition(5, 12))) return;
     }
+}
+
+TEST(PathExploration, VermeerOneBase)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    test.frameLimit = 500;
+    runFullSaturationTest(test, 0, 1, true);
 }
 
 TEST(PathExploration, VermeerOneIteration)

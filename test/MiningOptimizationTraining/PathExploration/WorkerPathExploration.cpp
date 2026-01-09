@@ -123,7 +123,11 @@ namespace MiningOptimizationTraining
         {
             ObservationType arrivalData;
             BWAPI::ExactPosition nextPathStartPositionActionAtArrival;
+            int actionFrameAtArrival;
+            int lastOrderProcessTimerOverrideFrameAtArrival;
             BWAPI::ExactPosition nextPathStartPositionActionAfterArrival;
+            int actionFrameAfterArrival;
+            int lastOrderProcessTimerOverrideFrameAfterArrival;
             std::set<int> resends;
         };
     }
@@ -222,7 +226,11 @@ namespace MiningOptimizationTraining
                     // This is always called last, so we can use move semantics
                     results.emplace_back(std::move(arrivalData),
                                          std::move(simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition),
+                                         simulatedPathWithDeliveryAtArrivalResult->actionFrame,
+                                         simulatedPathWithDeliveryAtArrivalResult->lastOrderProcessTimerOverrideFrame,
                                          std::move(simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition),
+                                         simulatedPathWithDeliveryAfterArrivalResult->actionFrame,
+                                         simulatedPathWithDeliveryAfterArrivalResult->lastOrderProcessTimerOverrideFrame,
                                          std::move(resendFrames));
                 };
 
@@ -358,7 +366,11 @@ namespace MiningOptimizationTraining
                         nextResendFrames.insert(frame);
                         results.emplace_back(arrivalData,
                                              simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition,
+                                             simulatedPathWithDeliveryAtArrivalResult->actionFrame,
+                                             simulatedPathWithDeliveryAtArrivalResult->lastOrderProcessTimerOverrideFrame,
                                              simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition,
+                                             simulatedPathWithDeliveryAfterArrivalResult->actionFrame,
+                                             simulatedPathWithDeliveryAfterArrivalResult->lastOrderProcessTimerOverrideFrame,
                                              std::move(nextResendFrames));
                     }
 
@@ -521,23 +533,20 @@ namespace MiningOptimizationTraining
                     return;
                 }
 
-                // Compute the start frame of the gather path
-                int arrivalFrame = (returnResult->resends.empty() ? currentFrame : *returnResult->resends.rbegin())
-                        + (int)returnResult->arrivalData.arrivalDelay();
-                int actionFrame = (startPosition != returnResult->nextPathStartPositionActionAfterArrival) ? arrivalFrame : (arrivalFrame + 8);
-
                 std::vector<NodeExplorationResult<GatherArrivalData>> returnPathGatherResults;
                 makePathObservations(returnPathGatherResults,
                                      {GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
                                      createGatherArrivalData,
                                      gatherPaths,
-                                     actionFrame,
+                                     result->actionFrame,
                                      result.get());
                 gatherResults.emplace_back(startPosition, returnResult, std::move(returnPathGatherResults));
             }
 
             // Find the least-explored return root node in all of the gather results and plan resends to get us there
             unsigned int leastExplored = UINT_MAX;
+            int returnArrivalFrame = 0;
+            int gatherArrivalFrame = 0;
             for (auto &[startPosition, returnResult, returnPathGatherResults] : gatherResults)
             {
                 for (auto &result : returnPathGatherResults)
@@ -551,16 +560,21 @@ namespace MiningOptimizationTraining
                         plannedResendFrames = returnResult->resends;
                         plannedResendFrames.insert(result.resends.begin(), result.resends.end());
 
-                        int arrivalFrame = (returnResult->resends.empty() ? currentFrame : *returnResult->resends.rbegin())
+                        returnArrivalFrame = (returnResult->resends.empty() ? currentFrame : *returnResult->resends.rbegin())
                                            + (int)returnResult->arrivalData.arrivalDelay();
-                        plannedSetOrderProcessTimerFrame =
-                                std::make_pair(arrivalFrame - 1,
-                                               (startPosition == returnResult->nextPathStartPositionActionAfterArrival) ? 8 : 0);
-                        expectedReturnActionFrame = (startPosition != returnResult->nextPathStartPositionActionAfterArrival)
-                                ? arrivalFrame
-                                : (arrivalFrame + 8);
 
-                        int gatherArrivalFrame = (result.resends.empty() ? expectedReturnActionFrame : *result.resends.rbegin())
+                        if (startPosition == returnResult->nextPathStartPositionActionAfterArrival)
+                        {
+                            plannedSetOrderProcessTimerFrame = std::make_pair(returnResult->lastOrderProcessTimerOverrideFrameAfterArrival, 8);
+                            expectedReturnActionFrame = returnResult->actionFrameAfterArrival;
+                        }
+                        else
+                        {
+                            plannedSetOrderProcessTimerFrame = std::make_pair(returnResult->lastOrderProcessTimerOverrideFrameAtArrival, 0);
+                            expectedReturnActionFrame = returnResult->actionFrameAtArrival;
+                        }
+
+                        gatherArrivalFrame = (result.resends.empty() ? expectedReturnActionFrame : *result.resends.rbegin())
                                 + (int)result.arrivalData.arrivalDelay();
                         int orderProcessTimerAtNode = (result.resends.empty()) ? 10 : 11;
 
@@ -581,6 +595,7 @@ namespace MiningOptimizationTraining
                 sep = ", ";
             }
             CherryVis::log(worker->getID()) << "Planned resend frame(s): " << dbg.str();
+            CherryVis::log(worker->getID()) << "Expected arrival frames: " << returnArrivalFrame << " & " << gatherArrivalFrame;
         };
 
         auto stateChange = [&](int to)
@@ -642,7 +657,8 @@ namespace MiningOptimizationTraining
                                        << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                         }
                     }
-                    else if (plannedSetOrderProcessTimerFrame.first == (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    else if (plannedSetOrderProcessTimerFrame.first == (currentFrame + BWAPI::Broodwar->getLatencyFrames())
+                          || plannedSetOrderProcessTimerFrame.first == (currentFrame + BWAPI::Broodwar->getLatencyFrames() + 1))
                     {
                         CherryVis::log(worker->getID()) << "Setting order process timer to " << plannedSetOrderProcessTimerFrame.second;
                         worker->setOrderProcessTimer(plannedSetOrderProcessTimerFrame.second);
@@ -707,7 +723,8 @@ namespace MiningOptimizationTraining
                                        << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
                         }
                     }
-                    else if (plannedSetOrderProcessTimerFrame.first == (currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    else if (plannedSetOrderProcessTimerFrame.first == (currentFrame + BWAPI::Broodwar->getLatencyFrames())
+                          || plannedSetOrderProcessTimerFrame.first == (currentFrame + BWAPI::Broodwar->getLatencyFrames() + 1))
                     {
                         CherryVis::log(worker->getID()) << "Setting order process timer to " << plannedSetOrderProcessTimerFrame.second;
                         worker->setOrderProcessTimer(plannedSetOrderProcessTimerFrame.second);

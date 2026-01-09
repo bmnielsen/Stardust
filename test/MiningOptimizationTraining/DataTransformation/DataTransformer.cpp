@@ -87,9 +87,9 @@ namespace MiningOptimizationTraining::DataTransformer
                 auto delta = std::make_pair((int8_t)(nextNode.pos.x - pos.x), (int8_t)(nextNode.pos.y - pos.y));
                 if (!positionDeltaToIndex.contains(delta))
                 {
-                    ASSERT_GE(128, positionDeltas.size()) << "Positions delta exceeded limit";
                     positionDeltas.push_back(delta);
                     positionDeltaToIndex[delta] = (uint8_t)(positionDeltas.size() - 1);
+                    EXPECT_GE(128, positionDeltas.size()) << "Positions delta exceeded limit";
                 }
 
                 gatherPositionDeltas(nextNode.pos, nextNode.nextPositions, positionDeltas, positionDeltaToIndex);
