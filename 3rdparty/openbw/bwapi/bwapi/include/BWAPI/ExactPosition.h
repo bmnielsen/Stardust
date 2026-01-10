@@ -83,7 +83,14 @@ namespace BWAPI
 
         friend std::ostream &operator << (std::ostream &os, const ExactPosition &pos)
         {
-            return os << '(' << pos.x << ',' << pos.y << ",h=" << (int)pos.heading << ",vx=" << pos.velocityX << ",vy=" << pos.velocityY << ')';
+            return os << '(' << (pos.x >> 8)
+                      << '+' << (pos.x & 0b11111111)
+                      << ',' << (pos.y >> 8)
+                      << '+' << (pos.y & 0b11111111)
+                      << ",h=" << (int)pos.heading
+                      << ",vx=" << pos.velocityX
+                      << ",vy=" << pos.velocityY
+                      << ')';
         };
     };
 }
