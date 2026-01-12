@@ -128,6 +128,6 @@ TEST(PathExploration, VermeerOneBaseContinuous)
     {
         BWTest test;
         test.map = Maps::GetOne("Vermeer");
-        if (runFullSaturationTest(test, 0, 2, true)) return;
+        if (runFullSaturationTest(test, 0, 10, true)) return;
     }
 }

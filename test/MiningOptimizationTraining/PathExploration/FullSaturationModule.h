@@ -6,8 +6,6 @@
 
 #include <random>
 
-#define RESPAWN_INTERVAL 5000
-
 namespace MiningOptimizationTraining
 {
     // Module that does path exploration on every patch on the map
@@ -35,7 +33,7 @@ namespace MiningOptimizationTraining
             // - Add forge at main base
             // - Add required number of cannons
             // - Create workers
-            if (BWAPI::Broodwar->getFrameCount() % RESPAWN_INTERVAL == 0)
+            if (BWAPI::Broodwar->getFrameCount() % 10000 == 0)
             {
                 for (auto unit : BWAPI::Broodwar->self()->getUnits())
                 {
@@ -140,7 +138,7 @@ namespace MiningOptimizationTraining
                     }
                 }
             }
-            else if (BWAPI::Broodwar->getFrameCount() % RESPAWN_INTERVAL == 20)
+            else if (BWAPI::Broodwar->getFrameCount() % 10000 == 20)
             {
                 // Gather tiles occupied by cannons
                 std::set<BWAPI::TilePosition> cannonTiles;
@@ -157,7 +155,7 @@ namespace MiningOptimizationTraining
                 int idx = 0;
                 for (auto &base : Map::allBases())
                 {
-                    std::vector<BWAPI::WalkPosition> startPositions;
+                    std::set<std::pair<int, BWAPI::WalkPosition>> positionsByDistToMineralLineCenter;
                     std::set<BWAPI::WalkPosition> availablePositions;
                     for (auto tile : base->mineralLineTiles)
                     {
@@ -182,17 +180,16 @@ namespace MiningOptimizationTraining
                                     continue;
                                 }
 
-                                startPositions.emplace_back(here);
+                                positionsByDistToMineralLineCenter.insert(std::make_pair(Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                                                                                  workerCenter,
+                                                                                                                  base->mineralLineCenter), here));
                             }
                         }
                     }
 
-                    auto rng = std::default_random_engine(BWAPI::Broodwar->getFrameCount());
-                    std::shuffle(std::begin(startPositions), std::end(startPositions), rng);
-
                     for (int built = 0; built < base->mineralPatchCount(); built++)
                     {
-                        for (auto &start : startPositions)
+                        for (auto [_, start] : positionsByDistToMineralLineCenter)
                         {
                             BWAPI::Position workerCenter;
 
@@ -231,7 +228,7 @@ namespace MiningOptimizationTraining
                     if (oneBase) break;
                 }
             }
-            else if (BWAPI::Broodwar->getFrameCount() % RESPAWN_INTERVAL == 23)
+            else if (BWAPI::Broodwar->getFrameCount() % 10000 == 23)
             {
                 workerStatuses.clear();
 
@@ -314,7 +311,7 @@ namespace MiningOptimizationTraining
                 }
             }
 
-            return (BWAPI::Broodwar->getFrameCount() % RESPAWN_INTERVAL > 30);
+            return (BWAPI::Broodwar->getFrameCount() % 10000 > 30);
         }
 
     private:
