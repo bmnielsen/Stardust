@@ -91,7 +91,6 @@ namespace MiningOptimizationTraining
         auto planPath = [&](auto &setArrivalData, auto &postValidatePath)
         {
             followingPath = false;
-            lastSimulationResult = nullptr;
 
             // Start by getting the path with no resends
             auto noResendPathResult = worker->simulateGatherPath({});
@@ -99,6 +98,7 @@ namespace MiningOptimizationTraining
             {
                 Log::Get() << "WARNING: Worker could not plan path"
                            << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                lastSimulationResult = nullptr;
                 return;
             }
             auto &noResendPath = noResendPathResult->positions;
@@ -115,7 +115,12 @@ namespace MiningOptimizationTraining
             for (auto &resendFrameDelta : chosenCombination)
             {
                 int resendFrame = arrivalFrame + resendFrameDelta;
-                if (resendFrame >= (currentFrame + (int)expectedPath.size())) return; // Expected path size can change along the way
+                if (resendFrame >= (currentFrame + (int)expectedPath.size()))
+                {
+                    // Expected path size can change along the way
+                    lastSimulationResult = nullptr;
+                    return;
+                }
 
                 plannedResendFrames.insert(resendFrame);
                 auto resendPathResult = worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(plannedResendFrames));
@@ -123,6 +128,7 @@ namespace MiningOptimizationTraining
                 {
                     Log::Get() << "WARNING: Worker could not plan path"
                                << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                    lastSimulationResult = nullptr;
                     return;
                 }
                 auto &resendPath = resendPathResult->positions;
@@ -140,6 +146,7 @@ namespace MiningOptimizationTraining
             {
                 Log::Get() << "WARNING: Worker could not plan path"
                            << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                lastSimulationResult = nullptr;
                 return;
             }
             auto assertPathsEqual = [](auto &firstPath, auto &secondPath)
@@ -170,6 +177,7 @@ namespace MiningOptimizationTraining
                 {
                     Log::Get() << "WARNING: Worker could not plan path"
                                << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                    lastSimulationResult = nullptr;
                     return;
                 }
 
