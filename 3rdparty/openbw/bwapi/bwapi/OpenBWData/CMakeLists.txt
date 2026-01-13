@@ -23,8 +23,11 @@ include_directories(
   ${OPENBW_DIR}
 )
 
+#SET_SOURCE_FILES_PROPERTIES(BW/BWData.cpp PROPERTIES COMPILE_FLAGS -O0)
+
 add_library(OpenBWData SHARED
   BW/BWData.cpp
+  BWAPI/PrepareGatherPathResult.cpp
   BWAPI/SimulateGatherPathOptions.cpp
   BWAPI/SimulateGatherPathResult.cpp
 )

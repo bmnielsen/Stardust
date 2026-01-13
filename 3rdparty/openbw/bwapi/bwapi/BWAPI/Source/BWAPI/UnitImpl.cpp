@@ -7,6 +7,8 @@
 #include <BWAPI/Order.h>
 #include <BWAPI/WeaponType.h>
 #include <BWAPI/ExactPosition.h>
+#include <BWAPI/PrepareGatherPathOptions.h>
+#include <BWAPI/PrepareGatherPathResult.h>
 #include <BWAPI/SimulateGatherPathOptions.h>
 #include <BWAPI/SimulateGatherPathResult.h>
 
@@ -258,6 +260,11 @@ namespace BWAPI
   int UnitImpl::getOrderProcessTimer() const
   {
     return bwunit.getOrderProcessTimer();
+  }
+
+  std::unique_ptr<BWAPI::PrepareGatherPathResult> UnitImpl::prepareGatherPath(const BWAPI::PrepareGatherPathOptions &options) const
+  {
+    return bwunit.prepareGatherPath(options);
   }
 
   std::unique_ptr<SimulateGatherPathResult> UnitImpl::simulateGatherPath(const SimulateGatherPathOptions &options) const

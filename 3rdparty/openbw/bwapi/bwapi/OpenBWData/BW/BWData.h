@@ -13,6 +13,8 @@
 // For some of our extensions we cheat and use the BWAPI types directly to avoid the need for conversions
 namespace BWAPI {
   struct ExactPosition;
+  struct PrepareGatherPathOptions;
+  struct PrepareGatherPathResult;
   struct SimulateGatherPathOptions;
   struct SimulateGatherPathResult;
 }
@@ -432,6 +434,7 @@ struct Unit {
 
   BWAPI::ExactPosition getExactPosition() const;
   int getOrderProcessTimer() const;
+  std::unique_ptr<BWAPI::PrepareGatherPathResult> prepareGatherPath(const BWAPI::PrepareGatherPathOptions &options) const;
   std::unique_ptr<BWAPI::SimulateGatherPathResult> simulateGatherPath(const BWAPI::SimulateGatherPathOptions &options) const;
 };
 

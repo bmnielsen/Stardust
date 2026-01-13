@@ -26,9 +26,11 @@ namespace BWAPI
   class UnitInterface;
   typedef UnitInterface *Unit;
 
+  struct PrepareGatherPathOptions;
+  struct PrepareGatherPathResult;
   struct SimulateGatherPathOptions;
   struct SimulateGatherPathResult;
-  
+
   /// <summary>The Unit class is used to get information about individual units as well as issue
   /// orders to units.</summary> Each unit in the game has a unique Unit object, and Unit objects
   /// are not deleted until the end of the match (so you don't need to worry about unit pointers
@@ -68,6 +70,7 @@ namespace BWAPI
     virtual int getID() const = 0;
 
     virtual int getBWID() const = 0;
+    virtual size_t getBWIndex() const = 0;
 
     /// <summary>Checks if the Unit exists in the view of the BWAPI player.</summary>
     ///
@@ -2587,6 +2590,7 @@ namespace BWAPI
 
     virtual ExactPosition getExactPosition() const = 0;
     virtual int getOrderProcessTimer() const = 0;
+    virtual std::unique_ptr<PrepareGatherPathResult> prepareGatherPath(const PrepareGatherPathOptions &options) const = 0;
     virtual std::unique_ptr<SimulateGatherPathResult> simulateGatherPath(const SimulateGatherPathOptions &options) const = 0;
 
     ///@}

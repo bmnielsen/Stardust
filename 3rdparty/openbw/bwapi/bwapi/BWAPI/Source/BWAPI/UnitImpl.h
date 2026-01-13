@@ -20,6 +20,8 @@ namespace BWAPI
   class PlayerInterface;
   typedef PlayerInterface *Player;
 
+  struct PrepareGatherPathOptions;
+  struct PrepareGatherPathResult;
   struct SimulateGatherPathOptions;
   struct SimulateGatherPathResult;
 
@@ -32,6 +34,7 @@ namespace BWAPI
     public:
       virtual int           getID() const override;
       virtual int           getBWID() const override;
+      virtual size_t        getBWIndex() const override;
       virtual bool          exists() const override;
       virtual int           getReplayID() const override;
       virtual Player        getPlayer() const override;
@@ -258,6 +261,7 @@ namespace BWAPI
 
       virtual ExactPosition getExactPosition() const override;
       virtual int getOrderProcessTimer() const override;
+      virtual std::unique_ptr<PrepareGatherPathResult> prepareGatherPath(const PrepareGatherPathOptions &options) const override;
       virtual std::unique_ptr<SimulateGatherPathResult> simulateGatherPath(const SimulateGatherPathOptions &options) const override;
 
       //Internal BWAPI commands:

@@ -33,6 +33,8 @@
 
 // For some of our extensions we cheat and use the BWAPI types directly to avoid the need for conversions
 #include "../../bwapi/include/BWAPI/ExactPosition.h"
+#include "../../bwapi/include/BWAPI/PrepareGatherPathOptions.h"
+#include "../../bwapi/include/BWAPI/PrepareGatherPathResult.h"
 #include "../../bwapi/include/BWAPI/SimulateGatherPathOptions.h"
 #include "../../bwapi/include/BWAPI/SimulateGatherPathResult.h"
 
@@ -2363,6 +2365,97 @@ BWAPI::ExactPosition Unit::getExactPosition() const
 int Unit::getOrderProcessTimer() const
 {
     return u->order_process_timer;
+}
+
+// Method that creates a state copy, moves the worker to a given position, gathers from a given patch, and returns a copy of the state at the start
+// of the return path.
+// The intention is to use this method to prepare a state copy for use in the simulateGatherPath method when we want to simulate a variation of
+// exact start positions.
+std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BWAPI::PrepareGatherPathOptions &options) const
+{
+    // Create the state copy
+    auto state_copy_ptr = std::make_unique<bwgame::state>();
+    auto &state_copy = *state_copy_ptr;
+    bwgame::state_copier<true>(impl->st, state_copy)();
+    openbwapi_functions<bwgame::state_functions> funcs_copy(impl->vars, state_copy);
+
+    // Get the unit and patch pointers in the state copy
+    auto unit = funcs_copy.get_unit(u->index);
+    auto patch = funcs_copy.get_unit(options.patchUnitIndex);
+    if (!unit || !patch) return nullptr;
+
+    // Advances the state of the unit to the next frame
+    // Does not update any other units, bullets, triggers, etc.
+    auto nextFrame = [&]()
+    {
+        state_copy.current_frame++;
+        funcs_copy.update_unit_movement(unit);
+        funcs_copy.update_unit_sprite(unit);
+        funcs_copy.update_unit(unit);
+    };
+
+    // Reset the unit state to match what we expect when the unit is arriving at the patch
+    unit->movement_flags = 0;
+    unit->movement_state = 12;
+    unit->next_speed.raw_value = 0;
+    unit->velocity.x.raw_value = 0;
+    unit->velocity.y.raw_value = 0;
+    unit->exact_position.x.raw_value = (int32_t)options.startPosition.x;
+    unit->exact_position.y.raw_value = (int32_t)options.startPosition.y;
+    unit->position.x = unit->exact_position.x.integer_part();
+    unit->position.y = unit->exact_position.y.integer_part();
+    unit->sprite->position = unit->position;
+    funcs_copy.set_flingy_move_target(unit, unit->position);
+    funcs_copy.set_next_target_waypoint(unit, unit->position);
+    unit->heading.raw_value = options.startPosition.heading;
+    unit->current_velocity_direction = unit->heading;
+    unit->next_velocity_direction = unit->heading;
+    unit->desired_velocity_direction = unit->heading;
+    for (auto* i : ptr(unit->sprite->images)) {
+        funcs_copy.set_image_heading(i, unit->heading);
+    }
+    funcs_copy.unit_finder_reinsert(unit);
+
+    // Order the unit to harvest from the patch
+    bwgame::order_target_t order_target;
+    order_target.unit = patch;
+    funcs_copy.issue_order(unit, false, funcs_copy.get_order_type(bwgame::Orders::Harvest1), order_target);
+
+    // Checks if we have hit the limit to how many frames we are allowed to simulate
+    // This is intended to guard against the unit getting stuck and the simulation never returning
+    auto depthLimitExceeded = [&]()
+    {
+        if ((state_copy.current_frame - impl->st.current_frame) < 20) return false;
+        std::cout << "WARNING: Path preparation for patch at (" << patch->position.x << "," << patch->position.y << ") did not complete" << std::endl;
+        return true;
+    };
+
+    // Advance frames until the unit gets to the returning minerals order
+    while (true)
+    {
+        if (depthLimitExceeded()) return nullptr;
+
+        nextFrame();
+
+        // Break when the worker is ready to return
+        if (unit->order_type->id == bwgame::Orders::ReturnMinerals) break;
+
+        // Pin the unit's order process timer at 0 to reduce waiting time
+        unit->order_process_timer = 0;
+    }
+
+    // Override the status with the value we would get after normal pathing to the patch
+    // Without this, the worker will likely not have the status flag to check for collision on the first two frames after mining completion
+    unit->status_flags = 9895937;
+
+    auto position = BWAPI::ExactPosition(
+            (uint32_t)unit->exact_position.x.raw_value,
+            (uint32_t)unit->exact_position.y.raw_value,
+            (int8_t)unit->heading.raw_value,
+            (int32_t)unit->velocity.x.raw_value,
+            (int32_t)unit->velocity.y.raw_value);
+
+    return std::make_unique<BWAPI::PrepareGatherPathResult>(state_copy.current_frame, std::move(position), std::move(state_copy_ptr));
 }
 
 // Method that simulates the path of a worker gathering
