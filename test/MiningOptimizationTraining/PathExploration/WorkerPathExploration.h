@@ -19,6 +19,11 @@ namespace MiningOptimizationTraining
             , expectedGatherActionFrame(-1)
         {}
 
+        void initialize()
+        {
+            worker->gather(patch);
+        }
+
         void update();
 
         [[nodiscard]] bool isFinished() const { return state == 4; };

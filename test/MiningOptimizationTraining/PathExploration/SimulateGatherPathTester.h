@@ -7,6 +7,15 @@
 
 namespace MiningOptimizationTraining
 {
+    struct RotationPath
+    {
+        BWAPI::ExactPosition startPosition;
+        std::set<int> returnResends;
+        std::vector<BWAPI::ExactPosition> returnPath;
+        std::set<int> gatherResends;
+        std::vector<BWAPI::ExactPosition> gatherPath;
+    };
+
     class SimulateGatherPathTester
     {
     public:
@@ -18,6 +27,11 @@ namespace MiningOptimizationTraining
             , preMiningFrames(0)
             , followingPath(false)
         {}
+
+        void initialize()
+        {
+            worker->gather(patch);
+        }
 
         void update();
 
@@ -55,6 +69,34 @@ namespace MiningOptimizationTraining
         // The expected arrival data (excluding delay) of the previously-planned return path
         std::unique_ptr<ReturnArrivalData> expectedReturnArrivalData;
 
+        // The result of the last simulation, used to pass the state on to the next path
         std::unique_ptr<BWAPI::SimulateGatherPathResult> lastSimulationResult;
+
+        // The current rotation path, a copy of the expected paths for return and gather that is saved for future analysis.
+        std::unique_ptr<RotationPath> currentRotationPath;
+    };
+
+    class PrepareGatherPathTester
+    {
+    public:
+        PrepareGatherPathTester(MapData &mapData, BWAPI::Unit worker, BWAPI::Unit patch, BWAPI::Unit depot)
+                : worker(worker)
+                , patch(patch)
+                , frame(0)
+        {}
+
+        void initialize() {}
+
+        void update();
+
+        [[nodiscard]] bool isFinished() const { return frame > 10; }
+
+        void outputDebugInformation() const {}
+
+    private:
+        BWAPI::Unit worker;
+        BWAPI::Unit patch;
+
+        int frame;
     };
 }
