@@ -28,6 +28,7 @@ namespace MiningOptimizationTraining
             Units::initialize();
             Map::initialize();
             BuildingPlacement::initialize();
+            BuildingPlacement::update();
 
             workerStatuses.clear();
             Serialization::readMapData(mapData);

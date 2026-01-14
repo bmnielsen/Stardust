@@ -8,7 +8,12 @@ namespace MiningOptimizationTraining
     class WorkerPathExploration
     {
     public:
-        WorkerPathExploration(MapData &mapData, BWAPI::Unit worker, BWAPI::Unit patch, BWAPI::Unit depot)
+        WorkerPathExploration(MapData &mapData,
+                              BWAPI::Unit worker,
+                              BWAPI::Unit patch,
+                              BWAPI::Unit depot,
+                              BWAPI::Unit utilityWorker,
+                              BWAPI::StateCopy &initialState)
             : worker(worker)
             , patch(patch)
             , depot(depot)

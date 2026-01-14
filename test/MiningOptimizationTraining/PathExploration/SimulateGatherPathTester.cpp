@@ -1,5 +1,6 @@
 #include "SimulateGatherPathTester.h"
 
+#include "BWAPI/StateCopy.h"
 #include "BWAPI/PrepareGatherPathOptions.h"
 #include "BWAPI/PrepareGatherPathResult.h"
 #include "BWAPI/SimulateGatherPathOptions.h"
@@ -14,8 +15,6 @@ namespace MiningOptimizationTraining
 {
     namespace
     {
-        std::map<BWAPI::TilePosition, std::vector<std::unique_ptr<RotationPath>>> rotationPaths;
-
         std::default_random_engine rng(42); // NOLINT(*-msc51-cpp) - using fixed sequence for reproducability
         std::vector<std::set<int>> resendCombinations;
         std::vector<std::set<int>> resendCombinationsTwoResends;
@@ -97,26 +96,124 @@ namespace MiningOptimizationTraining
             // For return there is nothing further to validate since the remaining fields are expected to differ
         };
 
-        auto planPath = [&](auto &setArrivalData, auto &postValidatePath, int maxResends)
+        auto planPath = [&](auto &setArrivalData, auto &postValidatePath, bool isReturn)
         {
             followingPath = false;
 
-            // Start by getting the path with no resends
-            auto noResendPathResult = worker->simulateGatherPath({});
-            if (!noResendPathResult)
+            // Verify that the worker is always exactly facing the patch when it finishes mining
+            // This is an assumption we use in our mining training
+            if (isReturn)
             {
-                Log::Get() << "WARNING: Worker could not plan path"
-                           << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                lastSimulationResult = nullptr;
-                return;
+                auto expectedHeading = Geo::BWDirection(patch->getPosition() - worker->getPosition());
+                EXPECT_EQ(worker->getExactPosition().heading, expectedHeading);
             }
+
+            auto reset = [&]()
+            {
+                lastSimulationResult.reset();
+                lastPrepareSimulationResult.reset();
+                lastPrepareResult.reset();
+            };
+
+            auto assertEqual = [&](
+                    const std::vector<BWAPI::ExactPosition> &expected, const std::vector<BWAPI::ExactPosition> &actual)
+            {
+                if (expected.size() != actual.size())
+                {
+                    EXPECT_EQ(expected.size(), actual.size()) << "Path size mismatch " << patch->getTilePosition();
+                    return false;
+                }
+                for (size_t i = 0; i < expected.size(); i++)
+                {
+                    if (expected[i] != actual[i])
+                    {
+                        EXPECT_EQ(expected[i], actual[i]) << "Position mismatch " << i << " " << patch->getTilePosition();
+                        return false;
+                    }
+                }
+                return true;
+            };
+
+            auto simulate = [&](
+                    const std::set<int> &resends,
+                    std::optional<bool> forceAction = std::nullopt,
+                    bool useLastSimulationResult = false,
+                    bool includeStateCopy = false)
+            {
+                auto options = useLastSimulationResult
+                        ? BWAPI::SimulateGatherPathOptions(resends, lastSimulationResult->stateAtStartOfNextPath)
+                        : BWAPI::SimulateGatherPathOptions(resends);
+                if (forceAction.has_value()) options.setForceAction(*forceAction);
+                if (includeStateCopy) options.setReturnStateAtStartOfNextPath();
+
+                auto result = worker->simulateGatherPath(options);
+                if (!result)
+                {
+                    Log::Get() << "WARNING: Worker could not simulate path"
+                               << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
+                    reset();
+                }
+                return result;
+            };
+
+            auto simulateFromPrepared = [&](const std::set<int> &resends, bool includeStateCopy = false)
+            {
+                int simStartFrame = lastPrepareSimulationResult ? lastPrepareSimulationResult->actionFrame : lastPrepareResult->returnPathStartFrame;
+                std::set<int> modifiedResends;
+                for (auto resend : resends)
+                {
+                    modifiedResends.insert(simStartFrame + (resend - currentFrame));
+                }
+
+                auto options = BWAPI::SimulateGatherPathOptions(
+                        modifiedResends,
+                        lastPrepareSimulationResult ? lastPrepareSimulationResult->stateAtStartOfNextPath : lastPrepareResult->returnPathState);
+                if (includeStateCopy) options.setReturnStateAtStartOfNextPath();
+
+                auto result = simWorker->simulateGatherPath(options);
+                if (!result)
+                {
+                    Log::Get() << "WARNING: Sim worker could not simulate prepared path"
+                               << "; patch " << patch->getID() << " @ " << patch->getTilePosition();
+                    reset();
+                }
+                return result;
+            };
+
+            if (isReturn)
+            {
+                lastPrepareSimulationResult.reset();
+                lastPrepareResult = simWorker->prepareGatherPath(
+                        BWAPI::PrepareGatherPathOptions(worker->getExactPosition(), patch->getBWIndex(), initialState.state));
+                if (!lastPrepareResult)
+                {
+                    Log::Get() << "WARNING: Sim worker could not prepare path"
+                               << "; patch " << patch->getID() << " @ " << patch->getTilePosition();
+                    reset();
+                    return;
+                }
+                EXPECT_EQ(lastPrepareResult->returnPathStartPosition, worker->getExactPosition())
+                    << "Prepared state does not have correct start position";
+            }
+
+            // Start by getting the path with no resends
+            auto noResendPathResult = simulate({});
+            if (!noResendPathResult) return;
             auto &noResendPath = noResendPathResult->positions;
             expectedPath.assign(noResendPath.begin(), noResendPath.end());
             setArrivalData(*noResendPathResult);
 
+            // Validate that using the prepare method is equivalent
+            if (lastPrepareResult || lastPrepareSimulationResult)
+            {
+                auto result = simulateFromPrepared({});
+                if (!result) return;
+                assertEqual(noResendPathResult->positions, result->positions);
+            }
+
             // Pick the resend frames
             int arrivalFrame = currentFrame + (int)noResendPath.size();
-            auto &chosenCombination = chooseResendCombination(arrivalFrame, maxResends);
+            auto &chosenCombination = chooseResendCombination(arrivalFrame, isReturn ? 1 : 2);
 
             // As the simulate method only returns the positions from the last resend, we graft the full path together
             // We are taking advantage of the fact that std::set is sorted ascending by default
@@ -127,73 +224,49 @@ namespace MiningOptimizationTraining
                 if (resendFrame >= (currentFrame + (int)expectedPath.size()))
                 {
                     // Expected path size can change along the way
-                    lastSimulationResult = nullptr;
+                    reset();
                     return;
                 }
 
                 plannedResendFrames.insert(resendFrame);
-                auto resendPathResult = worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(plannedResendFrames));
-                if (!resendPathResult)
-                {
-                    Log::Get() << "WARNING: Worker could not plan path"
-                               << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                    lastSimulationResult = nullptr;
-                    return;
-                }
+                auto resendPathResult = simulate(plannedResendFrames);
+                if (!resendPathResult) return;
                 auto &resendPath = resendPathResult->positions;
                 expectedPath.erase(expectedPath.begin() + (resendFrame - currentFrame), expectedPath.end());
                 expectedPath.insert(expectedPath.end(), resendPath.begin(), resendPath.end());
                 setArrivalData(*resendPathResult);
+
+                // Validate that using the prepare method is equivalent
+                if (lastPrepareResult || lastPrepareSimulationResult)
+                {
+                    auto result = simulateFromPrepared(plannedResendFrames);
+                    if (!result) return;
+                    if (!assertEqual(resendPath, result->positions))
+                    {
+                        simulateFromPrepared(plannedResendFrames);
+                    }
+                }
             }
 
             // Simulate the path again, forcing the action both ways, so we can validate the expected differences
-            auto simulatedPathWhenTrue =
-                    worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(plannedResendFrames).setForceAction(true));
-            auto simulatedPathWhenFalse =
-                    worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(plannedResendFrames).setForceAction(false));
-            if (!simulatedPathWhenTrue || !simulatedPathWhenTrue)
-            {
-                Log::Get() << "WARNING: Worker could not plan path"
-                           << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                lastSimulationResult = nullptr;
-                return;
-            }
-            auto assertPathsEqual = [](auto &firstPath, auto &secondPath)
-            {
-                EXPECT_EQ(firstPath.size(), secondPath.size());
-                if (firstPath.size() == secondPath.size())
-                {
-                    for (size_t i = 0; i < firstPath.size(); i++)
-                    {
-                        EXPECT_EQ(firstPath[i], secondPath[i]);
-                    }
-                }
-            };
-            assertPathsEqual(simulatedPathWhenTrue->positions, simulatedPathWhenFalse->positions);
+            auto simulatedPathWhenTrue = simulate(plannedResendFrames, true);
+            auto simulatedPathWhenFalse = simulate(plannedResendFrames, false);
+            if (!simulatedPathWhenTrue || !simulatedPathWhenFalse) return;
+
+            assertEqual(simulatedPathWhenTrue->positions, simulatedPathWhenFalse->positions);
             postValidatePath(*simulatedPathWhenTrue, *simulatedPathWhenFalse);
 
             // If we have a saved copy of the results of the previous path, validate that simulating from the state copy produces the same results
             if (lastSimulationResult)
             {
-                auto simulatedPathFromCopyWhenTrue = worker->simulateGatherPath(
-                        BWAPI::SimulateGatherPathOptions(plannedResendFrames, lastSimulationResult->stateAtStartOfNextPath)
-                            .setForceAction(true));
-                auto simulatedPathFromCopyWhenFalse = worker->simulateGatherPath(
-                        BWAPI::SimulateGatherPathOptions(plannedResendFrames, lastSimulationResult->stateAtStartOfNextPath)
-                                .setForceAction(false));
-
-                if (!simulatedPathFromCopyWhenTrue || !simulatedPathFromCopyWhenFalse)
-                {
-                    Log::Get() << "WARNING: Worker could not plan path"
-                               << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                    lastSimulationResult = nullptr;
-                    return;
-                }
+                auto simulatedPathFromCopyWhenTrue = simulate(plannedResendFrames, true, true);
+                auto simulatedPathFromCopyWhenFalse = simulate(plannedResendFrames, false, true);
+                if (!simulatedPathFromCopyWhenTrue || !simulatedPathFromCopyWhenFalse) return;
 
                 auto assertResultFromCopy =
-                        [&assertPathsEqual](BWAPI::SimulateGatherPathResult &resultFromCopy, BWAPI::SimulateGatherPathResult &originalResult)
+                        [&assertEqual](BWAPI::SimulateGatherPathResult &resultFromCopy, BWAPI::SimulateGatherPathResult &originalResult)
                 {
-                    assertPathsEqual(resultFromCopy.positions, originalResult.positions);
+                    assertEqual(resultFromCopy.positions, originalResult.positions);
                     EXPECT_EQ(resultFromCopy.actionPosition, originalResult.actionPosition);
                     EXPECT_EQ(resultFromCopy.nextPathStartPosition, originalResult.nextPathStartPosition);
                     EXPECT_EQ(resultFromCopy.squaredSpeedEightFramesAlongNextPath, originalResult.squaredSpeedEightFramesAlongNextPath);
@@ -203,8 +276,14 @@ namespace MiningOptimizationTraining
             }
 
             // Run the simulation one last time to save a copy of the result
-            lastSimulationResult = worker->simulateGatherPath(
-                    BWAPI::SimulateGatherPathOptions(plannedResendFrames).setReturnStateAtStartOfNextPath());
+            lastSimulationResult = simulate(plannedResendFrames, std::nullopt, false, true);
+
+            // If on return path, swap out the state in our prepared data
+            if (isReturn && lastPrepareResult)
+            {
+                lastPrepareSimulationResult = simulateFromPrepared(plannedResendFrames, true);
+            }
+//            lastPrepareResult.reset();
 
             std::ostringstream buf;
             std::string sep;
@@ -384,17 +463,8 @@ namespace MiningOptimizationTraining
                     CherryVis::log(worker->getID()) << "State transition from mining to returning minerals";
                     state = 3;
 
-                    planPath(setReturnArrivalData, postValidateReturnPath, 1);
-                    if (followingPath)
-                    {
-                        currentRotationPath = std::make_unique<RotationPath>(worker->getExactPosition());
-                        currentRotationPath->returnPath = std::vector<BWAPI::ExactPosition>(expectedPath.begin(), expectedPath.end());
-                        for (auto resendFrame : plannedResendFrames)
-                        {
-                            currentRotationPath->returnResends.insert(resendFrame - currentFrame);
-                        }
-                    }
-                    else
+                    planPath(setReturnArrivalData, postValidateReturnPath, true);
+                    if (!followingPath)
                     {
                         expectedReturnArrivalData.reset();
                     }
@@ -415,25 +485,11 @@ namespace MiningOptimizationTraining
                     CherryVis::log(worker->getID()) << "State transition from returning minerals to approaching patch";
                     state = 0;
 
-                    planPath(setGatherArrivalData, postValidateGatherPath, 2);
-                    if (followingPath)
-                    {
-                        if (currentRotationPath)
-                        {
-                            currentRotationPath->gatherPath = std::vector<BWAPI::ExactPosition>(expectedPath.begin(), expectedPath.end());
-                            for (auto resendFrame : plannedResendFrames)
-                            {
-                                currentRotationPath->gatherResends.insert(resendFrame - currentFrame);
-                            }
-                            rotationPaths[patch->getTilePosition()].emplace_back(std::move(currentRotationPath));
-                        }
-                    }
-                    else
+                    planPath(setGatherArrivalData, postValidateGatherPath, false);
+                    if (!followingPath)
                     {
                         expectedGatherArrivalData.reset();
                     }
-
-                    currentRotationPath.reset();
 
                     validateReturnArrival();
 
@@ -452,131 +508,5 @@ namespace MiningOptimizationTraining
                 return;
             }
         }
-    }
-
-    void PrepareGatherPathTester::update()
-    {
-        frame++;
-
-        if (frame == 1)
-        {
-            worker->stop();
-        }
-        if (frame < 10) return;
-        if (frame > 10) return;
-
-        auto patchCenter = patch->getPosition();
-
-        int collection = 0;
-        for (auto &rotationPath : rotationPaths[patch->getTilePosition()])
-        {
-            collection++;
-
-            auto workerCenter = rotationPath->startPosition.pos();
-            auto expectedHeading = Geo::BWDirection(patchCenter - workerCenter);
-            EXPECT_EQ(rotationPath->startPosition.heading, expectedHeading);
-
-            auto options = BWAPI::PrepareGatherPathOptions{rotationPath->startPosition, patch->getBWIndex()};
-            auto prepareResult = worker->prepareGatherPath(options);
-            if (!prepareResult)
-            {
-                Log::Get() << "ERROR: Patch " << patch->getTilePosition() << " failed to prepare gather path";
-                return;
-            }
-
-            if (options.startPosition != prepareResult->returnPathStartPosition)
-            {
-                EXPECT_EQ(options.startPosition, prepareResult->returnPathStartPosition)
-                                    << "Return path start position does not equal given start position"
-                                    << patch->getTilePosition() << " collection " << collection;
-                worker->prepareGatherPath(options);
-                continue;
-            }
-
-            auto assertEqual = [&](
-                    const std::vector<BWAPI::ExactPosition> &expected, const std::vector<BWAPI::ExactPosition> &actual)
-            {
-                if (expected.size() != actual.size())
-                {
-                    EXPECT_EQ(expected.size(), actual.size()) << "Path size mismatch"
-                                                              << patch->getTilePosition() << " collection " << collection;
-                    return;
-                }
-                for (size_t i = 0; i < expected.size(); i++)
-                {
-                    if (expected[i] != actual[i])
-                    {
-                        EXPECT_EQ(expected[i], actual[i]) << "Position mismatch " << i << " "
-                                                          << patch->getTilePosition() << " collection " << collection;
-                        return;
-                    }
-                }
-            };
-
-            auto simulate = [&](
-                    int startFrame,
-                    const std::set<int> &resendDeltas,
-                    const std::unique_ptr<bwgame::state> &state) -> std::vector<BWAPI::ExactPosition>
-            {
-                // Start by getting the path with no resends
-                auto noResendPathResult = worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(state));
-                if (!noResendPathResult)
-                {
-                    Log::Get() << "WARNING: Worker could not plan path"
-                               << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                    return {};
-                }
-                auto positions = noResendPathResult->positions;
-
-                // As the simulate method only returns the positions from the last resend, we graft the full path together
-                // We are taking advantage of the fact that std::set is sorted ascending by default
-                std::set<int> resends;
-                for (auto &resend : resendDeltas)
-                {
-                    if (positions.size() <= resend)
-                    {
-                        Log::Get() << "WARNING: Path is now too short for resend"
-                                   << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                        return {};
-                    }
-                    resends.insert(startFrame + resend);
-                    auto resendPathResult = worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(resends, state));
-                    if (!resendPathResult)
-                    {
-                        Log::Get() << "WARNING: Worker could not plan path"
-                                   << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                        return {};
-                    }
-                    auto &resendPath = resendPathResult->positions;
-                    positions.erase(positions.begin() + resend, positions.end());
-                    positions.insert(positions.end(), resendPath.begin(), resendPath.end());
-                }
-
-                return positions;
-            };
-
-            auto returnPositions = simulate(prepareResult->returnPathStartFrame, rotationPath->returnResends, prepareResult->returnPathState);
-            assertEqual(rotationPath->returnPath, returnPositions);
-
-            std::set<int> returnResends;
-            for (auto resendDelta : rotationPath->returnResends)
-            {
-                returnResends.insert(prepareResult->returnPathStartFrame + resendDelta);
-            }
-            auto finalReturnResult = worker->simulateGatherPath(
-                    BWAPI::SimulateGatherPathOptions(returnResends, prepareResult->returnPathState)
-                        .setReturnStateAtStartOfNextPath());
-            if (!finalReturnResult)
-            {
-                Log::Get() << "WARNING: Worker could not plan path"
-                           << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
-                return;
-            }
-
-            auto gatherPositions = simulate(finalReturnResult->actionFrame, rotationPath->gatherResends, finalReturnResult->stateAtStartOfNextPath);
-            assertEqual(rotationPath->gatherPath, gatherPositions);
-        }
-
-        Log::Get() << patch->getTilePosition() << ": Validated " << rotationPaths[patch->getTilePosition()].size() << " paths";
     }
 }

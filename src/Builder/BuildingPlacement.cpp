@@ -1191,7 +1191,7 @@ namespace BuildingPlacement
     void update()
     {
         // Build away from the exit if the enemy has units in our base or is doing a rush
-        bool newBuildAwayFromExit = Strategist::getStrategyEngine()->isEnemyRushing()
+        bool newBuildAwayFromExit = (Strategist::getStrategyEngine() && Strategist::getStrategyEngine()->isEnemyRushing())
                                     || !Units::enemyAtBase(Map::getMyMain()).empty();
         if (newBuildAwayFromExit != buildAwayFromExit)
         {

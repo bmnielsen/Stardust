@@ -52,30 +52,6 @@ namespace
 
         test.run();
     }
-
-    void runSingleWorkerPrepareGatherPathTest(BWTest &test, BWAPI::TilePosition patchTile)
-    {
-        initializeTest(test);
-        test.myModule = [&]()
-        {
-            return new MiningOptimizationTraining::SingleWorkerModule<MiningOptimizationTraining::PrepareGatherPathTester>(patchTile);
-        };
-        test.frameLimit = 100;
-        test.writeReplay = false;
-        test.run();
-    }
-
-    void runFullSaturationPrepareGatherPathTest(BWTest &test, unsigned int cannons, unsigned int iterations, bool oneBase = false)
-    {
-        initializeTest(test);
-        test.myModule = [&]()
-        {
-            return new MiningOptimizationTraining::FullSaturationModule<MiningOptimizationTraining::PrepareGatherPathTester>(cannons, oneBase);
-        };
-        test.frameLimit = 100;
-        test.writeReplay = false;
-        test.run();
-    }
 }
 
 TEST(SimulateGatherPathTests, VermeerSingleWorker)
@@ -83,7 +59,6 @@ TEST(SimulateGatherPathTests, VermeerSingleWorker)
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
     runSingleWorkerTest(test, BWAPI::TilePosition(5, 12));
-    runSingleWorkerPrepareGatherPathTest(test, BWAPI::TilePosition(5, 12));
 }
 
 TEST(SimulateGatherPathTests, VermeerOneBaseOneIteration)
@@ -91,16 +66,13 @@ TEST(SimulateGatherPathTests, VermeerOneBaseOneIteration)
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
     runFullSaturationTest(test, 0, 1, true);
-    runFullSaturationPrepareGatherPathTest(test, 0, 1, true);
 }
 
 TEST(SimulateGatherPathTests, VermeerOneIteration)
 {
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    test.frameLimit = 400;
     runFullSaturationTest(test, 0, 1);
-    runFullSaturationPrepareGatherPathTest(test, 0, 1);
 }
 
 TEST(SimulateGatherPathTests, VermeerCannonsOneIteration)
