@@ -43,6 +43,8 @@ namespace BWAPI
   class Unitset;
   class UpgradeType;
 
+  struct StateCopy;
+
   /// <summary>The abstract Game class is implemented by BWAPI and is the primary means of obtaining all
   /// game state information from Starcraft Broodwar.</summary> Game state information includes all units,
   /// resources, players, forces, bullets, terrain, fog of war, regions, etc.
@@ -1757,6 +1759,7 @@ namespace BWAPI
     virtual BWAPI::Position getScreenSize() const = 0;
     virtual std::tuple<int, int, uint32_t*> drawGameScreen(int x, int y, int width, int height) = 0;
 
+    virtual StateCopy getStateCopy() = 0;
   };
 
   extern Game *BroodwarPtr;

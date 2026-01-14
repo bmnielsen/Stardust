@@ -22,6 +22,8 @@
 #include <BWAPI/Flag.h>
 #include <BWAPI/UnaryFilter.h>
 
+#include <BWAPI/StateCopy.h>
+
 #include <BWAPI/Unitset.h>
 
 #include <BW/CheatType.h>
@@ -1297,5 +1299,9 @@ namespace BWAPI
     return bwgame.drawGameScreen(x, y, width, height);
   }
 
+  StateCopy GameImpl::getStateCopy()
+  {
+    return bwgame.getStateCopy();
+  }
 }
 

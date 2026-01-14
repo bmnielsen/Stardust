@@ -27,9 +27,11 @@ include_directories(
 
 add_library(OpenBWData SHARED
   BW/BWData.cpp
+  BWAPI/PrepareGatherPathOptions.cpp
   BWAPI/PrepareGatherPathResult.cpp
   BWAPI/SimulateGatherPathOptions.cpp
   BWAPI/SimulateGatherPathResult.cpp
+  BWAPI/StateCopy.cpp
 )
 
 set_property(TARGET OpenBWData PROPERTY POSITION_INDEPENDENT_CODE ON)

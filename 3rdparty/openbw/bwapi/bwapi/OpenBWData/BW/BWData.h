@@ -13,6 +13,7 @@
 // For some of our extensions we cheat and use the BWAPI types directly to avoid the need for conversions
 namespace BWAPI {
   struct ExactPosition;
+  struct StateCopy;
   struct PrepareGatherPathOptions;
   struct PrepareGatherPathResult;
   struct SimulateGatherPathOptions;
@@ -289,6 +290,8 @@ struct Game {
 
   void sendCustomAction(const void* data, size_t size);
   void setCustomActionCallback(std::function<void(int player, const char* data, size_t size)> callback);
+
+  BWAPI::StateCopy getStateCopy();
 };
 
 struct Player {

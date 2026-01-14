@@ -56,6 +56,8 @@ namespace BWAPI
   class UnitImpl;
   class Unitset;
 
+  struct StateCopy;
+
   struct Snapshot {
     BW::Snapshot bwsnapshot;
     struct Player {
@@ -236,6 +238,8 @@ namespace BWAPI
       virtual void disableTriggers() override;
       virtual BWAPI::Position getScreenSize() const override;
       virtual std::tuple<int, int, uint32_t*> drawGameScreen(int x, int y, int width, int height) override;
+
+      virtual StateCopy getStateCopy() override;
 
       //Internal BWAPI commands:
       GameImpl(BW::Game bwgame);

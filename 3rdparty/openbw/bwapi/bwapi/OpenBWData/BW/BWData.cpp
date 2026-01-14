@@ -33,6 +33,7 @@
 
 // For some of our extensions we cheat and use the BWAPI types directly to avoid the need for conversions
 #include "../../bwapi/include/BWAPI/ExactPosition.h"
+#include "../../bwapi/include/BWAPI/StateCopy.h"
 #include "../../bwapi/include/BWAPI/PrepareGatherPathOptions.h"
 #include "../../bwapi/include/BWAPI/PrepareGatherPathResult.h"
 #include "../../bwapi/include/BWAPI/SimulateGatherPathOptions.h"
@@ -2367,6 +2368,14 @@ int Unit::getOrderProcessTimer() const
     return u->order_process_timer;
 }
 
+// Gets a copy of the game's state, useful if we want a starting point for later simulation methods.
+BWAPI::StateCopy Game::getStateCopy()
+{
+    auto result = std::make_unique<bwgame::state>();
+    bwgame::state_copier(impl->st, *result)();
+    return {std::move(result)};
+}
+
 // Method that creates a state copy, moves the worker to a given position, gathers from a given patch, and returns a copy of the state at the start
 // of the return path.
 // The intention is to use this method to prepare a state copy for use in the simulateGatherPath method when we want to simulate a variation of
@@ -2374,9 +2383,11 @@ int Unit::getOrderProcessTimer() const
 std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BWAPI::PrepareGatherPathOptions &options) const
 {
     // Create the state copy
+    // If a starting state was specified in the options, use it as the source for the copy, otherwise use the actual game state
+    auto &sourceState = options.startingState ? *options.startingState : impl->st;
     auto state_copy_ptr = std::make_unique<bwgame::state>();
     auto &state_copy = *state_copy_ptr;
-    bwgame::state_copier<true>(impl->st, state_copy)();
+    bwgame::state_copier(sourceState, state_copy)();
     openbwapi_functions<bwgame::state_functions> funcs_copy(impl->vars, state_copy);
 
     // Get the unit and patch pointers in the state copy
