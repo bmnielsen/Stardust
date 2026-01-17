@@ -54,7 +54,7 @@ namespace BuildingPlacement
     namespace
     {
         // Used in e.g. mining tests to force us to use start blocks for all starting locations
-        bool useStartBlocksForAllStartingLocations = false;
+        std::optional<bool> useStartBlocksForAllStartingLocations = std::nullopt;
 
         std::vector<Neighbourhood> ALL_NEIGHBOURHOODS = {Neighbourhood::MainBase, Neighbourhood::AllMyBases, Neighbourhood::HiddenBase};
 
@@ -1120,14 +1120,14 @@ namespace BuildingPlacement
 
         initializeTileAvailability();
         updateNeighbourhoods();
-        if (useStartBlocksForAllStartingLocations)
+        if (useStartBlocksForAllStartingLocations.has_value() && *useStartBlocksForAllStartingLocations)
         {
             for (auto &base : Map::allStartingLocations())
             {
                 findStartBlock(base);
             }
         }
-        else
+        else if (!useStartBlocksForAllStartingLocations.has_value())
         {
             findStartBlock(Map::getMyMain());
         }

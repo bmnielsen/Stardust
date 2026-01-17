@@ -1,4 +1,4 @@
-#include "FullSaturationModule.h"
+#include "GatheringWorkersModule.h"
 
 #include "WorkerPathExploration.h"
 #include "SimulateGatherPathTester.h"
@@ -7,148 +7,28 @@
 
 #include <random>
 
+#define DEBUG_LOGGING false
+
 namespace MiningOptimizationTraining
 {
     template<typename WorkerStatusType>
-    bool FullSaturationModule<WorkerStatusType>::initialize()
+    bool GatheringWorkersModule<WorkerStatusType>::initialize()
     {
-        // Initialization steps:
-        // - Kill initial workers, blocking neutrals and critters
-        // - Add observers at expansions
-        // - Add depots at expansions
-        // - Add pylons at each base
-        // - Add forge at main base
-        // - Add required number of cannons
-        // - Create workers
         if (BWAPI::Broodwar->getFrameCount() % 10000 == 0)
         {
+            // Reset the workers every 10000 frames
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
             {
-                if (unit->getType().isWorker())
+                if (unit->getType().isWorker() && unit != simWorker)
                 {
                     BWAPI::Broodwar->killUnit(unit);
                 }
             }
-
+        }
+        else if (BWAPI::Broodwar->getFrameCount() % 10000 == 25)
+        {
             workerCreationOrderAndBase.clear();
-
-            if (BWAPI::Broodwar->getFrameCount() == 0)
-            {
-                for (auto base : Map::allBases())
-                {
-                    for (const auto &blockingNeutral : base->blockingNeutrals)
-                    {
-                        BWAPI::Broodwar->killUnit(blockingNeutral);
-                    }
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, base->getPosition());
-                }
-
-                for (auto unit : BWAPI::Broodwar->getNeutralUnits())
-                {
-                    if (unit->getType().isCritter()) BWAPI::Broodwar->killUnit(unit);
-                }
-            }
-        }
-        else if (BWAPI::Broodwar->getFrameCount() == 5)
-        {
-            for (auto base : Map::allBases())
-            {
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                            BWAPI::UnitTypes::Protoss_Nexus,
-                                            Geo::CenterOfUnit(base->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus));
-
-                auto &staticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-                if (staticDefenseLocations.powerPylon.isValid())
-                {
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                BWAPI::UnitTypes::Protoss_Pylon,
-                                                Geo::CenterOfUnit(staticDefenseLocations.powerPylon, BWAPI::UnitTypes::Protoss_Pylon));
-                }
-            }
-        }
-        else if (BWAPI::Broodwar->getFrameCount() == 10)
-        {
-            for (auto unit : BWAPI::Broodwar->self()->getUnits())
-            {
-                if (unit->getType() == BWAPI::UnitTypes::Protoss_Observer)
-                {
-                    BWAPI::Broodwar->killUnit(unit);
-                }
-            }
-
-            auto &locations =
-                    BuildingPlacement::getBuildLocations()[to_underlying(BuildingPlacement::Neighbourhood::MainBase)][2];
-            if (locations.empty() || locations.begin()->powersMedium.size() < 2)
-            {
-                Log::Get() << "WARNING: No pylon found in main, or not enough medium building locations";
-            }
-            else
-            {
-                auto firstTile = locations.begin()->powersMedium.begin()->location.tile;
-                auto secondTile = (locations.begin()->powersMedium.begin() + 1)->location.tile;
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                            BWAPI::UnitTypes::Protoss_Forge,
-                                            Geo::CenterOfUnit(firstTile, BWAPI::UnitTypes::Protoss_Forge));
-                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                            BWAPI::UnitTypes::Protoss_Probe,
-                                            BWAPI::Position(secondTile) + BWAPI::Position(48, 32));
-            }
-        }
-        else if (BWAPI::Broodwar->getFrameCount() == 15)
-        {
-            // Find the utility worker, at this point there will only be one probe so it's easy to find
-            for (auto unit : BWAPI::Broodwar->self()->getUnits())
-            {
-                if (unit->getType().isWorker())
-                {
-                    utilityWorker = unit;
-                    break;
-                }
-            }
-
-            for (auto base : Map::allBases())
-            {
-                auto &staticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-                if (staticDefenseLocations.powerPylon.isValid())
-                {
-                    auto cannonLocations = std::set<BWAPI::TilePosition>(staticDefenseLocations.workerDefenseCannons.begin(),
-                                                                         staticDefenseLocations.workerDefenseCannons.end());
-
-                    auto buildCannon = [&]()
-                    {
-                        BWAPI::TilePosition best = BWAPI::TilePositions::Invalid;
-                        int bestDist = INT_MAX;
-                        for (auto tile : cannonLocations)
-                        {
-                            int dist = base->mineralLineCenter.getApproxDistance(Geo::CenterOfUnit(tile,
-                                                                                                   BWAPI::UnitTypes::Protoss_Photon_Cannon));
-                            if (dist < bestDist)
-                            {
-                                bestDist = dist;
-                                best = tile;
-                            }
-                        }
-
-                        if (best != BWAPI::TilePositions::Invalid)
-                        {
-                            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                        Geo::CenterOfUnit(best, BWAPI::UnitTypes::Protoss_Photon_Cannon));
-                            cannonLocations.erase(best);
-                        }
-                    };
-
-                    for (int builtCannons = 0; builtCannons < cannons; builtCannons++)
-                    {
-                        buildCannon();
-                    }
-                }
-            }
-        }
-        else if (BWAPI::Broodwar->getFrameCount() % 10000 == 20)
-        {
-            // Copy the state
-            initialState = BWAPI::Broodwar->getStateCopy();
+            workerStatuses.clear();
 
             // Gather tiles occupied by cannons
             std::set<BWAPI::TilePosition> cannonTiles;
@@ -165,6 +45,10 @@ namespace MiningOptimizationTraining
             int idx = 0;
             for (auto &base : Map::allBases())
             {
+#if DEBUG_LOGGING
+                Log::Get() << "Base @ " << base->getTilePosition();
+#endif
+
                 std::set<std::pair<int, BWAPI::WalkPosition>> positionsByDistToMineralLineCenter;
                 std::set<BWAPI::WalkPosition> availablePositions;
                 for (auto tile : base->mineralLineTiles)
@@ -218,6 +102,10 @@ namespace MiningOptimizationTraining
                         BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Probe, workerCenter);
                         workerCreationOrderAndBase[workerCenter] = std::make_pair(++idx, base);
 
+#if DEBUG_LOGGING
+                        Log::Get() << "Created worker @ " << workerCenter;
+#endif
+
                         for (int x = 0; x < 3; x++)
                         {
                             for (int y = 0; y < 3; y++)
@@ -235,13 +123,10 @@ namespace MiningOptimizationTraining
 
                     nextWorker:;
                 }
-                if (oneBase) break;
             }
         }
-        else if (BWAPI::Broodwar->getFrameCount() % 10000 == 23)
+        else if (BWAPI::Broodwar->getFrameCount() % 10000 == 30)
         {
-            workerStatuses.clear();
-
             // Gather all available mineral assignments for each base, and sort them to ensure stability between test runs
             // Also get the depot for each base
             std::map<Base *, std::vector<Resource>> baseMineralPatches;
@@ -264,14 +149,20 @@ namespace MiningOptimizationTraining
                         break;
                     }
                 }
-                if (oneBase) break;
             }
 
             // Gather workers
             std::vector<BWAPI::Unit> workers;
             for (const auto &unit : BWAPI::Broodwar->self()->getUnits())
             {
-                if (unit->getType().isWorker() && unit != utilityWorker) workers.push_back(unit);
+                if (unit->getType().isWorker() && unit != simWorker)
+                {
+                    workers.push_back(unit);
+
+#if DEBUG_LOGGING
+                    Log::Get() << "Found worker @ " << unit->getPosition();
+#endif
+                }
             }
 
             // Sort the workers by location so we get stable behaviour across runs
@@ -301,11 +192,19 @@ namespace MiningOptimizationTraining
                         }
                         else
                         {
-                            auto workerStatus =
-                                    std::make_unique<WorkerStatusType>(mapData, worker, patch, depot, utilityWorker, initialState);
-                            CherryVis::log(worker->getID()) << "Assigned to patch @ " << BWAPI::WalkPosition(patch->getPosition());
-                            workerStatus->initialize();
-                            workerStatuses.emplace_back(std::move(workerStatus));
+                            if ((options.oneBase.isValid() && options.oneBase != it->second.second->getTilePosition())
+                                || (options.onePatch.isValid() && options.onePatch != patch->getTilePosition()))
+                            {
+                                BWAPI::Broodwar->killUnit(worker);
+                            }
+                            else
+                            {
+                                auto workerStatus =
+                                        std::make_unique<WorkerStatusType>(mapData, worker, patch, depot, simWorker, initialState);
+                                CherryVis::log(worker->getID()) << "Assigned to patch @ " << BWAPI::WalkPosition(patch->getPosition());
+                                workerStatus->initialize();
+                                workerStatuses.emplace_back(std::move(workerStatus));
+                            }
                         }
 
                         basePatches.pop_back();
@@ -323,9 +222,49 @@ namespace MiningOptimizationTraining
             }
         }
 
-        return (BWAPI::Broodwar->getFrameCount() % 10000 > 30);
+        return (BWAPI::Broodwar->getFrameCount() % 10000 >= 35);
     }
 
-    template class FullSaturationModule<WorkerPathExploration>;
-    template class FullSaturationModule<SimulateGatherPathTester>;
+    template<typename WorkerStatusType>
+    void GatheringWorkersModule<WorkerStatusType>::run()
+    {
+        // Ensure all mineral patches keep enough minerals
+        if (currentFrame % 500 == 42)
+        {
+            for (auto unit : BWAPI::Broodwar->getNeutralUnits())
+            {
+                if (!unit->getType().isMineralField()) continue;
+                if (unit->getResources() < 200) unit->setResources(1500);
+            }
+        }
+
+        for (auto it = workerStatuses.begin(); it != workerStatuses.end(); )
+        {
+            (*it)->update();
+            if ((*it)->isFinished())
+            {
+                it = workerStatuses.erase(it);
+                if (workerStatuses.empty())
+                {
+                    Log::Get() << "No more workers left; leaving game";
+                    BWAPI::Broodwar->leaveGame();
+                }
+            }
+            else
+            {
+                it++;
+            }
+        }
+
+        if ((currentFrame % 2000 == 0 && currentFrame % 10000 != 0) || currentFrame % 10000 == 9950)
+        {
+            for (auto &workerStatus : workerStatuses)
+            {
+                workerStatus->outputDebugInformation();
+            }
+        }
+    }
+
+    template class GatheringWorkersModule<WorkerPathExploration>;
+    template class GatheringWorkersModule<SimulateGatherPathTester>;
 }
