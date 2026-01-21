@@ -5,6 +5,8 @@
 
 #include <thread>
 
+using namespace MiningOptimizationTraining;
+
 namespace
 {
     void initializeTest(BWTest &test)
@@ -19,12 +21,12 @@ namespace
         test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
     }
 
-    void runTest(BWTest &test, unsigned int iterations, const MiningOptimizationTraining::GatheringWorkersModuleOptions &options)
+    void runTest(BWTest &test, unsigned int iterations, const GatheringWorkersModuleOptions &options)
     {
         initializeTest(test);
         test.myModule = [&]()
         {
-            return new MiningOptimizationTraining::GatheringWorkersModule<MiningOptimizationTraining::SimulateGatherPathTester>(options);
+            return new GatheringWorkersModule<SimulateGatherPathTester>(options);
         };
         if (test.frameLimit == 30000) test.frameLimit = 10000 * (int)iterations + 2;
 
@@ -42,7 +44,7 @@ namespace
 
 TEST(SimulateGatherPathTests, VermeerSingleWorker)
 {
-    MiningOptimizationTraining::GatheringWorkersModuleOptions options;
+    GatheringWorkersModuleOptions options;
     options.loadMapData = false;
     options.onePatch = BWAPI::TilePosition(5, 12);
 
@@ -53,7 +55,7 @@ TEST(SimulateGatherPathTests, VermeerSingleWorker)
 
 TEST(SimulateGatherPathTests, VermeerOneBaseOneIteration)
 {
-    MiningOptimizationTraining::GatheringWorkersModuleOptions options;
+    GatheringWorkersModuleOptions options;
     options.loadMapData = false;
     options.oneBase = BWAPI::TilePosition(7, 6);
 
@@ -64,7 +66,7 @@ TEST(SimulateGatherPathTests, VermeerOneBaseOneIteration)
 
 TEST(SimulateGatherPathTests, VermeerOneIteration)
 {
-    MiningOptimizationTraining::GatheringWorkersModuleOptions options;
+    GatheringWorkersModuleOptions options;
     options.loadMapData = false;
 
     BWTest test;
@@ -74,7 +76,7 @@ TEST(SimulateGatherPathTests, VermeerOneIteration)
 
 TEST(SimulateGatherPathTests, VermeerCannonsOneIteration)
 {
-    MiningOptimizationTraining::GatheringWorkersModuleOptions options;
+    GatheringWorkersModuleOptions options;
     options.loadMapData = false;
     options.cannonsPerBase = 2;
 
@@ -85,7 +87,7 @@ TEST(SimulateGatherPathTests, VermeerCannonsOneIteration)
 
 TEST(SimulateGatherPathTests, VermeerStartBlockCannonsOneIteration)
 {
-    MiningOptimizationTraining::GatheringWorkersModuleOptions options;
+    GatheringWorkersModuleOptions options;
     options.loadMapData = false;
     options.cannonsPerBase = 2;
 
@@ -96,7 +98,7 @@ TEST(SimulateGatherPathTests, VermeerStartBlockCannonsOneIteration)
 
 TEST(SimulateGatherPathTests, VermeerTenIterations)
 {
-    MiningOptimizationTraining::GatheringWorkersModuleOptions options;
+    GatheringWorkersModuleOptions options;
     options.loadMapData = false;
 
     BWTest test;
@@ -106,7 +108,7 @@ TEST(SimulateGatherPathTests, VermeerTenIterations)
 
 TEST(SimulateGatherPathTests, AllSSCAITOneIteration)
 {
-    MiningOptimizationTraining::GatheringWorkersModuleOptions options;
+    GatheringWorkersModuleOptions options;
     options.loadMapData = false;
 
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
@@ -117,7 +119,7 @@ TEST(SimulateGatherPathTests, AllSSCAITOneIteration)
 
 TEST(SimulateGatherPathTests, AllSSCAITCannonsOneIteration)
 {
-    MiningOptimizationTraining::GatheringWorkersModuleOptions options;
+    GatheringWorkersModuleOptions options;
     options.loadMapData = false;
     options.cannonsPerBase = 2;
 

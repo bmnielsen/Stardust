@@ -3,16 +3,18 @@
 #include "MiningOptimizationTraining/DataModel/Serialization.h"
 #include "MiningOptimizationTraining/DataTransformation/DataTransformer.h"
 
+using namespace MiningOptimizationTraining;
+
 namespace
 {
     void transform(const std::string &mapHash)
     {
-        MiningOptimizationTraining::MapData data;
+        MapData data;
 
-        MiningOptimizationTraining::Serialization::setGameParameters(mapHash);
-        MiningOptimizationTraining::Serialization::readMapData(data);
+        Serialization::setGameParameters(mapHash);
+        Serialization::readMapData(data);
 
-        MiningOptimizationTraining::DataTransformer::transform(data);
+        DataTransformer::transform(data);
     }
 }
 
