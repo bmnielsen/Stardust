@@ -68,6 +68,10 @@ namespace MiningOptimizationTraining
         // Best arrival delay is whatever combination of resends gave the best result on a given exploration
         std::map<uint16_t, uint32_t> bestArrivalDelaysAndOccurrences;
 
+        // The set of exact positions left to explore from this root position
+        // These are only set on return paths and serve as the starting points for our path exploration
+        std::vector<BWAPI::ExactPosition> positionsToExplore;
+
         // Ensure we never copy paths
         [[no_unique_address]] noncopyable _ = {};
     };

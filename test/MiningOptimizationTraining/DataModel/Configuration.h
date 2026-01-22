@@ -10,3 +10,7 @@
 #define GATHER_EXPLORATION_WINDOW_END 5
 #define RETURN_EXPLORATION_WINDOW_START INT_MAX
 #define RETURN_EXPLORATION_WINDOW_END 5
+
+// The number of exact positions to explore on each axis from each return path start position
+// Should be a power of two such that it divides 256 evenly
+#define EXACT_POSITIONS_TO_EXPLORE_PER_AXIS 16
