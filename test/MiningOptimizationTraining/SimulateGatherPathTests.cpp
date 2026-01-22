@@ -21,8 +21,11 @@ namespace
         test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
     }
 
-    void runTest(BWTest &test, unsigned int iterations, const GatheringWorkersModuleOptions &options)
+    void runTest(BWTest &test, unsigned int iterations, const GatheringWorkersModuleOptions &_options)
     {
+        auto options = _options;
+        options.loadMapData = false;
+
         initializeTest(test);
         test.myModule = [&]()
         {
@@ -45,7 +48,6 @@ namespace
 TEST(SimulateGatherPathTests, VermeerSingleWorker)
 {
     GatheringWorkersModuleOptions options;
-    options.loadMapData = false;
     options.onePatch = BWAPI::TilePosition(5, 12);
 
     BWTest test;
@@ -56,7 +58,6 @@ TEST(SimulateGatherPathTests, VermeerSingleWorker)
 TEST(SimulateGatherPathTests, VermeerOneBaseOneIteration)
 {
     GatheringWorkersModuleOptions options;
-    options.loadMapData = false;
     options.oneBase = BWAPI::TilePosition(7, 6);
 
     BWTest test;
@@ -66,18 +67,14 @@ TEST(SimulateGatherPathTests, VermeerOneBaseOneIteration)
 
 TEST(SimulateGatherPathTests, VermeerOneIteration)
 {
-    GatheringWorkersModuleOptions options;
-    options.loadMapData = false;
-
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    runTest(test, 1, options);
+    runTest(test, 1, {});
 }
 
 TEST(SimulateGatherPathTests, VermeerCannonsOneIteration)
 {
     GatheringWorkersModuleOptions options;
-    options.loadMapData = false;
     options.cannonsPerBase = 2;
 
     BWTest test;
@@ -88,7 +85,6 @@ TEST(SimulateGatherPathTests, VermeerCannonsOneIteration)
 TEST(SimulateGatherPathTests, VermeerStartBlockCannonsOneIteration)
 {
     GatheringWorkersModuleOptions options;
-    options.loadMapData = false;
     options.cannonsPerBase = 2;
 
     BWTest test;
@@ -98,29 +94,22 @@ TEST(SimulateGatherPathTests, VermeerStartBlockCannonsOneIteration)
 
 TEST(SimulateGatherPathTests, VermeerTenIterations)
 {
-    GatheringWorkersModuleOptions options;
-    options.loadMapData = false;
-
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    runTest(test, 10, options);
+    runTest(test, 10, {});
 }
 
 TEST(SimulateGatherPathTests, AllSSCAITOneIteration)
 {
-    GatheringWorkersModuleOptions options;
-    options.loadMapData = false;
-
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
     {
-        runTest(test, 1, options);
+        runTest(test, 1, {});
     });
 }
 
 TEST(SimulateGatherPathTests, AllSSCAITCannonsOneIteration)
 {
     GatheringWorkersModuleOptions options;
-    options.loadMapData = false;
     options.cannonsPerBase = 2;
 
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
