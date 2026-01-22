@@ -4,11 +4,6 @@
 
 #include "Modules/InstrumentedDoNothingModule.h"
 #include "MiningOptimizationTraining/DataModel/MapData.h"
-#include "MiningOptimizationTraining/DataModel/Serialization.h"
-
-#include "Units.h"
-#include "Map.h"
-#include "BuildingPlacement.h"
 
 namespace MiningOptimizationTraining
 {

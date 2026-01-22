@@ -1,6 +1,11 @@
 #include "PathExplorationModule.h"
 
+#include "Units.h"
+#include "Map.h"
+#include "BuildingPlacement.h"
 #include "UnitUtil.h"
+
+#include "MiningOptimizationTraining/DataModel/Serialization.h"
 
 namespace MiningOptimizationTraining
 {
