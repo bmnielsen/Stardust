@@ -81,6 +81,13 @@ namespace MiningOptimizationTraining::Serialization
                     s.value2b(key);
                     s.value4b(v);
                 });
+                s.container(value.positionsToExplore, INT_MAX, [&](S &s, BWAPI::ExactPosition &v) {
+                    s.value4b(v.x);
+                    s.value4b(v.y);
+                    s.value1b(v.heading);
+                    v.velocityX = 0;
+                    v.velocityY = 0;
+                });
             };
 
             auto resourceToRootNodesSerializer = [&]<typename T>(
