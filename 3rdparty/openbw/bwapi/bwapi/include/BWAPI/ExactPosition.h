@@ -45,6 +45,8 @@ namespace BWAPI
         int32_t velocityX;
         int32_t velocityY;
 
+        ExactPosition() : ExactPosition(0, 0, 0, 0, 0) {}
+
         ExactPosition(uint32_t x, uint32_t y, int8_t heading, int32_t velocityX, int32_t velocityY)
             : x(x)
             , y(y)
