@@ -1,86 +1,44 @@
-//#include "BWTest.h"
-//#include "MiningOptimizationTraining/PathExploration/FullSaturationModule.h"
-//#include "MiningOptimizationTraining/PathExploration/SingleWorkerModule.h"
-//#include "MiningOptimizationTraining/PathExploration/WorkerPathExploration.h"
-//#include "ClearOpponentUnitsModule.h"
-//
-//#include <thread>
-//
-//namespace
-//{
-//    void initializeTest(BWTest &test)
-//    {
-//        test.opponentRace = BWAPI::Races::Terran;
-//        test.opponentModule = []()
-//        {
-//            return new ClearOpponentUnitsModule(false);
-//        };
-//        test.allowOpponentOutput = false;
-//        test.expectWin = false;
-//        test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
-//    }
-//
-//    bool runSingleWorkerTest(BWTest &test, BWAPI::TilePosition patchTile)
-//    {
-//        initializeTest(test);
-//        test.myModule = [&]()
-//        {
-//            return new MiningOptimizationTraining::SingleWorkerModule<MiningOptimizationTraining::WorkerPathExploration>(patchTile);
-//        };
-//        if (test.frameLimit == 30000) test.frameLimit = 10000;
-//
-//        std::ostringstream replayNameBuilder;
-//        replayNameBuilder << "MiningTraining_" << test.map->shortname() << "_SingleWorker";
-//        test.replayName = replayNameBuilder.str();
-//
-//        bool finishedEarly = false;
-//        test.onEndMine = [&](bool)
-//        {
-//            if (BWAPI::Broodwar->getFrameCount() < 500) finishedEarly = true;
-//        };
-//
-//        test.run();
-//
-//        return finishedEarly;
-//    }
-//
-//    bool runFullSaturationTest(BWTest &test, unsigned int cannons, unsigned int iterations, bool oneBase = false)
-//    {
-//        initializeTest(test);
-//        test.myModule = [&]()
-//        {
-//            return new MiningOptimizationTraining::FullSaturationModule<MiningOptimizationTraining::WorkerPathExploration>(
-//                    {.cannons = cannons, .oneBase = oneBase}
-//                    );
-//        };
-//        if (test.frameLimit == 30000) test.frameLimit = 10000 * (int)iterations;
-//        test.timeLimit = 600 * (int)iterations;
-//
-//        std::ostringstream replayNameBuilder;
-//        replayNameBuilder << "MiningTraining_" << test.map->shortname();
-//        replayNameBuilder << "_" << cannons << "cannons";
-//        if (oneBase) replayNameBuilder << "_oneBase";
-//        test.replayName = replayNameBuilder.str();
-//
-//        bool finishedEarly = false;
-//        test.onEndMine = [&](bool)
-//        {
-//            if (BWAPI::Broodwar->getFrameCount() < 500) finishedEarly = true;
-//        };
-//
-//        test.run();
-//
-//        return finishedEarly;
-//    }
-//}
-//
-//TEST(PathExploration, VermeerSingleWorker)
-//{
-//    BWTest test;
-//    test.map = Maps::GetOne("Vermeer");
-//    test.frameLimit = 1000;
-//    runSingleWorkerTest(test, BWAPI::TilePosition(5, 12));
-//}
+#include "BWTest.h"
+
+#include "MiningOptimizationTraining/PathExploration/ExploreRemainingStartPositionsModule.h"
+#include "ClearOpponentUnitsModule.h"
+
+using namespace MiningOptimizationTraining;
+
+namespace
+{
+    void runTest(BWTest &test, const ExploreRemainingStartPositionsModuleOptions &options)
+    {
+        test.opponentRace = BWAPI::Races::Terran;
+        test.opponentModule = []()
+        {
+            return new ClearOpponentUnitsModule(false);
+        };
+        test.myModule = [&]()
+        {
+            return new ExploreRemainingStartPositionsModule(options);
+        };
+        test.allowOpponentOutput = false;
+        test.writeReplay = false;
+        test.expectWin = false;
+        test.randomSeed = 42;
+        test.frameLimit = 100;
+
+        test.run();
+    }
+}
+
+TEST(PathExploration, VermeerSingleWorker)
+{
+    ExploreRemainingStartPositionsModuleOptions options;
+    options.onePatch = BWAPI::TilePosition(5, 12);
+
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    test.frameLimit = 1000;
+    runTest(test, options);
+}
+
 //
 //TEST(PathExploration, VermeerSingleWorkerContinuous)
 //{
