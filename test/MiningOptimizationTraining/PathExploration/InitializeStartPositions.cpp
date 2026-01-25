@@ -1,9 +1,17 @@
 #include "ExploreStartPositionsModule.h"
 
+#include <BWAPI/SimulateGatherPathOptions.h>
+#include <BWAPI/SimulateGatherPathResult.h>
+
+#include "MiningOptimizationTraining/DataModel/Configuration.h"
+
 namespace MiningOptimizationTraining
 {
     namespace
     {
+        // The unique start positions already discovered for each patch
+        std::map<BWAPI::Unit, std::set<BWAPI::Position>> patchToDiscoveredStartPositions;
+
         std::set<BWAPI::Position> getPatchMiningStartPositions(std::set<std::pair<int, int>> &blockedPositions,
                                                                BWAPI::TilePosition depotTile,
                                                                BWAPI::Unit patch)
@@ -67,6 +75,8 @@ namespace MiningOptimizationTraining
     template <>
     void ExploreStartPositionsModule<InitializeStartPosition>::initializeStartPositions()
     {
+        // At this stage we build a set of possible mining start positions around each patch that are oriented towards the depot
+
         // Build a set of blocked positions around all patches on the map
         std::set<std::pair<int, int>> blockedPositions;
         auto addBlockedAroundBox = [&blockedPositions](BWAPI::Position topLeft, BWAPI::Position size)
@@ -125,14 +135,18 @@ namespace MiningOptimizationTraining
                     // The heading is always the direction between the center of the worker and the center of the patch
                     auto heading = (int8_t)Geo::BWDirection(patch->center - startPosition);
 
-                    BWAPI::ExactPosition pos{
-                            (((unsigned int)startPosition.x) << 8) + 128,
-                            (((unsigned int)startPosition.y) << 8) + 128,
-                            heading,
-                            0,
-                            0};
-
-                    startPositions.emplace_back(InitializeStartPosition{pos, patchUnit});
+                    // Generate the exact positions to test
+                    auto baseX = ((unsigned int)startPosition.x) << 8;
+                    auto baseY = ((unsigned int)startPosition.y) << 8;
+                    for (unsigned int subpixelX = 0; subpixelX < 256; subpixelX += (256 / START_POSITIONS_TO_EXPLORE_PER_AXIS))
+                    {
+                        for (unsigned int subpixelY = 0; subpixelY < 256; subpixelY += (256 / START_POSITIONS_TO_EXPLORE_PER_AXIS))
+                        {
+                            startPositions.emplace_back(InitializeStartPosition{
+                                BWAPI::ExactPosition{baseX + subpixelX, baseY + subpixelY, heading, 0, 0},
+                                patchUnit});
+                        }
+                    }
                 }
             }
         }
@@ -142,6 +156,50 @@ namespace MiningOptimizationTraining
     void ExploreStartPositionsModule<InitializeStartPosition>::explore(InitializeStartPosition &startPosition,
                                                                        std::unique_ptr<BWAPI::PrepareGatherPathResult> &preparedGatherPath)
     {
+        // At this point we have initialized a very liberal set of positions at a coarse subpixel granularity.
+        // Now we simulate from each position purely to collect the set of start positions actually reached from a gather rotation.
+        // We do not simulate with resends since we must assume the path may be starting from a position with no path data (for when a worker
+        // is assigned to minerals after doing something else, and therefore reaches the patch at an abnormal start position).
+        // We do however simulate both with the action happening at and after arrival since both cases come up depending on order process timer
+        // resets.
+        // We are ignoring errors from the simulation here, because sometimes workers do weird things like return minerals to a different nexus than
+        // intended if they are gathering from a weird side of the patch, but we don't really care about these cases.
 
+        auto simulate = [&](bool forceReturn, bool forceGather)
+        {
+            auto returnResult = simWorker->simulateGatherPath(
+                    BWAPI::SimulateGatherPathOptions({}, preparedGatherPath->returnPathState)
+                        .setForceAction(forceReturn)
+                        .setReturnStateAtStartOfNextPath());
+            if (!returnResult) return;
+
+            auto gatherResult = simWorker->simulateGatherPath(
+                    BWAPI::SimulateGatherPathOptions({}, returnResult->stateAtStartOfNextPath)
+                            .setForceAction(forceGather));
+            if (!gatherResult) return;
+
+            auto pos = gatherResult->nextPathStartPosition.pos();
+            auto [_, inserted] = patchToDiscoveredStartPositions[startPosition.patch].insert(pos);
+            if (!inserted) return;
+
+            // This is the first time we are seeing this position, so generate the path data
+            auto positionAndVelocity = PositionAndVelocity(gatherResult->nextPathStartPosition);
+            auto path = Path<ReturnArrivalData>{positionAndVelocity};
+            auto baseX = ((unsigned int)positionAndVelocity.x) << 8;
+            auto baseY = ((unsigned int)positionAndVelocity.y) << 8;
+            for (int subpixelX = 0; subpixelX < 256; subpixelX += (256 / EXACT_POSITIONS_TO_EXPLORE_PER_AXIS))
+            {
+                for (int subpixelY = 0; subpixelY < 256; subpixelY += (256 / EXACT_POSITIONS_TO_EXPLORE_PER_AXIS))
+                {
+                    path.positionsToExplore.emplace_back(baseX + subpixelX, baseY + subpixelY, positionAndVelocity.heading, 0, 0);
+                }
+            }
+
+            mapData.resourceToReturnPaths[TilePosition::fromBWAPI(startPosition.patch->getTilePosition())][positionAndVelocity] = std::move(path);
+        };
+        simulate(true, true);
+        simulate(true, false);
+        simulate(false, true);
+        simulate(false, false);
     }
 }
