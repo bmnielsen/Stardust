@@ -6,15 +6,18 @@ namespace MiningOptimizationTraining
     {
         std::set<BWAPI::Position> getPatchMiningStartPositions(std::set<std::pair<int, int>> &blockedPositions,
                                                                BWAPI::TilePosition depotTile,
-                                                               BWAPI::TilePosition patchTile)
+                                                               BWAPI::Unit patch)
         {
             std::set<BWAPI::Position> result;
 
+            auto patchTile = patch->getTilePosition();
+
             // Compute some worker center positions around the patch
-            auto topLeft = BWAPI::Position(patchTile) + BWAPI::Position(-12, -12);
-            auto topRight = BWAPI::Position(patchTile) + BWAPI::Position(75, -12);
-            auto bottomLeft = BWAPI::Position(patchTile) + BWAPI::Position(-12, 43);
-            auto bottomRight = BWAPI::Position(patchTile) + BWAPI::Position(75, 43);
+            auto patchTopLeft = patch->getPosition() + BWAPI::Position(-32, -16);
+            auto topLeft = patchTopLeft + BWAPI::Position(-12, -12);
+            auto topRight = patchTopLeft + BWAPI::Position(75, -12);
+            auto bottomLeft = patchTopLeft + BWAPI::Position(-12, 43);
+            auto bottomRight = patchTopLeft + BWAPI::Position(75, 43);
 
             // Determine where the patch is in relation to the depot
             bool left = (patchTile.x < depotTile.x);
@@ -80,9 +83,10 @@ namespace MiningOptimizationTraining
         {
             if (!unit->getType().isMineralField() && unit->getType() != BWAPI::UnitTypes::Resource_Vespene_Geyser) continue;
 
-            addBlockedAroundBox(BWAPI::Position(unit->getInitialTilePosition()), BWAPI::Position(unit->getType().tileSize()));
+            auto topLeft = unit->getPosition() - (BWAPI::Position(unit->getType().tileSize()) / 2);
+            addBlockedAroundBox(topLeft, BWAPI::Position(unit->getType().tileSize()));
 
-            auto walkPos = BWAPI::WalkPosition(unit->getInitialTilePosition());
+            auto walkPos = BWAPI::WalkPosition(topLeft);
             auto walkSize = BWAPI::WalkPosition(unit->getType().tileSize());
             for (int walkX = walkPos.x - 3; walkX < walkPos.x + walkSize.x + 3; walkX++)
             {
@@ -115,7 +119,7 @@ namespace MiningOptimizationTraining
                     return;
                 }
 
-                auto patchStartPositions = getPatchMiningStartPositions(blockedPositions, base->getTilePosition(), patch->tile);
+                auto patchStartPositions = getPatchMiningStartPositions(blockedPositions, base->getTilePosition(), patchUnit);
                 for (auto &startPosition : patchStartPositions)
                 {
                     // The heading is always the direction between the center of the worker and the center of the patch
