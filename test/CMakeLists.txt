@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 project(tests)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 13.4)
 
 include_directories(${CMAKE_SOURCE_DIR}/3rdparty)
 

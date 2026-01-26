@@ -4,6 +4,7 @@
 
 #include "BWTest.h"
 #include "PositionAndVelocity.h"
+#include "Configuration.h"
 
 namespace MiningOptimizationTraining
 {
@@ -71,6 +72,19 @@ namespace MiningOptimizationTraining
         // The set of exact positions left to explore from this root position
         // These are only set on return paths and serve as the starting points for our path exploration
         std::vector<BWAPI::ExactPosition> positionsToExplore;
+
+        void populatePositionsToExplore()
+        {
+            auto baseX = ((unsigned int)pos.x) << 8;
+            auto baseY = ((unsigned int)pos.y) << 8;
+            for (int subpixelX = 0; subpixelX < 256; subpixelX += (256 / EXACT_POSITIONS_TO_EXPLORE_PER_AXIS))
+            {
+                for (int subpixelY = 0; subpixelY < 256; subpixelY += (256 / EXACT_POSITIONS_TO_EXPLORE_PER_AXIS))
+                {
+                    positionsToExplore.emplace_back(baseX + subpixelX, baseY + subpixelY, pos.heading, 0, 0);
+                }
+            }
+        }
 
         // Ensure we never copy paths
         [[no_unique_address]] noncopyable _ = {};

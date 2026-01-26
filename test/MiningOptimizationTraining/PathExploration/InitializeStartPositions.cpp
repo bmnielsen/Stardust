@@ -9,9 +9,6 @@ namespace MiningOptimizationTraining
 {
     namespace
     {
-        // The unique start positions already discovered for each patch
-        std::map<BWAPI::Unit, std::set<BWAPI::Position>> patchToDiscoveredStartPositions;
-
         std::set<BWAPI::Position> getPatchMiningStartPositions(std::set<std::pair<int, int>> &blockedPositions,
                                                                BWAPI::TilePosition depotTile,
                                                                BWAPI::Unit patch)
@@ -207,23 +204,15 @@ namespace MiningOptimizationTraining
                 return;
             }
 
-            auto pos = gatherResult->nextPathStartPosition.pos();
-            auto [_, inserted] = patchToDiscoveredStartPositions[startPosition.patch].insert(pos);
+            auto positionAndVelocity = PositionAndVelocity(gatherResult->nextPathStartPosition);
+            auto [_, inserted] =
+                    mapData.resourceToReturnPathStartPositions[TilePosition::fromBWAPI(startPosition.patch->getTilePosition())]
+                    .insert(positionAndVelocity);
             if (!inserted) return;
 
             // This is the first time we are seeing this position, so generate the path data
-            auto positionAndVelocity = PositionAndVelocity(gatherResult->nextPathStartPosition);
             auto path = Path<ReturnArrivalData>{positionAndVelocity};
-            auto baseX = ((unsigned int)positionAndVelocity.x) << 8;
-            auto baseY = ((unsigned int)positionAndVelocity.y) << 8;
-            for (int subpixelX = 0; subpixelX < 256; subpixelX += (256 / EXACT_POSITIONS_TO_EXPLORE_PER_AXIS))
-            {
-                for (int subpixelY = 0; subpixelY < 256; subpixelY += (256 / EXACT_POSITIONS_TO_EXPLORE_PER_AXIS))
-                {
-                    path.positionsToExplore.emplace_back(baseX + subpixelX, baseY + subpixelY, positionAndVelocity.heading, 0, 0);
-                }
-            }
-
+            path.populatePositionsToExplore();
             mapData.resourceToReturnPaths[TilePosition::fromBWAPI(startPosition.patch->getTilePosition())][positionAndVelocity] = std::move(path);
         };
         simulate(true, true);

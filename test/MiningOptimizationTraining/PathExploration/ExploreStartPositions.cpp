@@ -186,13 +186,13 @@ namespace MiningOptimizationTraining
         };
 
         auto makePathObservations = [&]<typename ObservationType>(
-                std::vector<NodeExplorationResult<ObservationType>> &results,
                 const Limits &limits,
                 auto &createArrivalData,
                 std::unordered_map<PositionAndVelocity, Path<ObservationType>> &rootNodes,
                 int startFrame,
                 std::unique_ptr<bwgame::state> &initialState,
-                BWAPI::ExactPosition startPosition)
+                BWAPI::ExactPosition startPosition,
+                std::vector<NodeExplorationResult<ObservationType>> *results = nullptr)
         {
             // Get or create the root node
             auto currentPositionAndVelocity = PositionAndVelocity(startPosition);
@@ -232,6 +232,22 @@ namespace MiningOptimizationTraining
                 ObservationType arrivalData =
                         createArrivalData(*simulatedPathWithDeliveryAtArrivalResult, *simulatedPathWithDeliveryAfterArrivalResult);
 
+                // For gather, generate additional return start positions when detected
+                if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+                {
+                    auto positionAndVelocity = PositionAndVelocity(simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition);
+                    if (!returnData.contains(positionAndVelocity))
+                    {
+                        auto path = Path<ReturnArrivalData>{positionAndVelocity};
+                        path.populatePositionsToExplore();
+                        for (auto it = path.positionsToExplore.rbegin(); it != path.positionsToExplore.rend(); it++)
+                        {
+                            startPositions.emplace_back(ExploreStartPosition{*it, patch});
+                        }
+                        returnData[positionAndVelocity] = std::move(path);
+                    }
+                }
+
                 // If this is the no-resend path, record the appropriate exploration on the root node
                 if (resendFrames.empty())
                 {
@@ -248,18 +264,20 @@ namespace MiningOptimizationTraining
 
                 auto addResult = [&]()
                 {
+                    if (!results) return;
+
                     // Reset the arrival delay since it might have been updated while exploring
                     arrivalData.setArrivalDelay(simulatedPath.size());
 
                     // This is always called last, so we can use move semantics
-                    results.emplace_back(std::move(arrivalData),
-                                         std::move(simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition),
-                                         simulatedPathWithDeliveryAtArrivalResult->actionFrame,
-                                         simulatedPathWithDeliveryAtArrivalResult->lastOrderProcessTimerOverrideFrame,
-                                         std::move(simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition),
-                                         simulatedPathWithDeliveryAfterArrivalResult->actionFrame,
-                                         simulatedPathWithDeliveryAfterArrivalResult->lastOrderProcessTimerOverrideFrame,
-                                         std::move(resendFrames));
+                    results->emplace_back(std::move(arrivalData),
+                                          std::move(simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition),
+                                          simulatedPathWithDeliveryAtArrivalResult->actionFrame,
+                                          simulatedPathWithDeliveryAtArrivalResult->lastOrderProcessTimerOverrideFrame,
+                                          std::move(simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition),
+                                          simulatedPathWithDeliveryAfterArrivalResult->actionFrame,
+                                          simulatedPathWithDeliveryAfterArrivalResult->lastOrderProcessTimerOverrideFrame,
+                                          std::move(resendFrames));
                 };
 
                 // If this is a resend node, we have a couple of additional steps to do
@@ -385,20 +403,20 @@ namespace MiningOptimizationTraining
                                     node,
                                     std::ranges::subrange(positionIt + 1, simulatedPath.end()));
                     }
-                    else if (node->type == NodeType::StableNode)
+                    else if (node->type == NodeType::StableNode && results)
                     {
                         // For stable nodes, add a result as if we resent here, as it affects the order timer at arrival and therefore may differ from
                         // the initial node
                         std::set<int> nextResendFrames = resendFrames;
                         nextResendFrames.insert(frame);
-                        results.emplace_back(arrivalData,
-                                             simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition,
-                                             simulatedPathWithDeliveryAtArrivalResult->actionFrame,
-                                             simulatedPathWithDeliveryAtArrivalResult->lastOrderProcessTimerOverrideFrame,
-                                             simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition,
-                                             simulatedPathWithDeliveryAfterArrivalResult->actionFrame,
-                                             simulatedPathWithDeliveryAfterArrivalResult->lastOrderProcessTimerOverrideFrame,
-                                             std::move(nextResendFrames));
+                        results->emplace_back(arrivalData,
+                                              simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition,
+                                              simulatedPathWithDeliveryAtArrivalResult->actionFrame,
+                                              simulatedPathWithDeliveryAtArrivalResult->lastOrderProcessTimerOverrideFrame,
+                                              simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition,
+                                              simulatedPathWithDeliveryAfterArrivalResult->actionFrame,
+                                              simulatedPathWithDeliveryAfterArrivalResult->lastOrderProcessTimerOverrideFrame,
+                                              std::move(nextResendFrames));
                     }
 
                     nextPositions = &node->nextPositions;
@@ -417,13 +435,13 @@ namespace MiningOptimizationTraining
 
         // Start by simulating the return path and gathering all results
         std::vector<NodeExplorationResult<ReturnArrivalData>> returnResults;
-        makePathObservations(returnResults,
-                             {RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
+        makePathObservations({RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
                              createReturnArrivalData,
                              returnData,
                              preparedGatherPath->returnPathStartFrame,
                              preparedGatherPath->returnPathState,
-                             preparedGatherPath->returnPathStartPosition);
+                             preparedGatherPath->returnPathStartPosition,
+                             &returnResults);
 
         // Now compute the best results: results that give the optimal action frame considering different reset frames
         std::set<NodeExplorationResult<ReturnArrivalData>*> bestResults;
@@ -500,9 +518,7 @@ namespace MiningOptimizationTraining
                 return;
             }
 
-            std::vector<NodeExplorationResult<GatherArrivalData>> returnPathGatherResults;
-            makePathObservations(returnPathGatherResults,
-                                 {GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
+            makePathObservations({GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
                                  createGatherArrivalData,
                                  gatherData,
                                  result->actionFrame,

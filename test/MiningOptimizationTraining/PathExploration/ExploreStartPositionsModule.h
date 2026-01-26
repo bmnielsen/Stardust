@@ -54,7 +54,6 @@ namespace MiningOptimizationTraining
             if (executed) return;
             executed = true;
 
-            auto startCount = startPositions.size();
             auto startTime = std::chrono::high_resolution_clock::now();
             long long lastLogOutput = 0;
             long long lastSaved = 0;
@@ -79,18 +78,18 @@ namespace MiningOptimizationTraining
 
                 explore(current, prepareResult);
                 startPositions.pop_front();
+                processed++;
 
                 long long elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - startTime).count();
 
                 // Output status every 5 seconds
                 if (elapsed - lastLogOutput >= 5)
                 {
-                    auto processed = (startCount - startPositions.size());
                     double processedPerSecond = (double)processed / (double)elapsed;
-                    int secondsRemaining = (int)std::round((double)startPositions.size() / processedPerSecond);
+                    std::chrono::hh_mm_ss remaining{std::chrono::seconds((int)std::round((double)startPositions.size() / processedPerSecond))};
 
                     Log::Get() << "Processed " << processed << " start position(s) in " << elapsed << " second(s); "
-                               << startPositions.size() << " remaining (" << secondsRemaining << "s)";
+                               << startPositions.size() << " remaining (" << remaining << ")";
                     lastLogOutput = elapsed;
                 }
 
@@ -102,9 +101,8 @@ namespace MiningOptimizationTraining
                 }
             }
 
-            Log::Get() << "Done; processed " << startCount << " start position(s) in "
-                       << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - startTime).count()
-                       << " second(s)";
+            Log::Get() << "Done; processed " << processed << " start position(s) in "
+                       << std::chrono::hh_mm_ss(std::chrono::high_resolution_clock::now() - startTime);
 
             executed = true;
         }
@@ -113,6 +111,7 @@ namespace MiningOptimizationTraining
         const ExploreStartPositionsModuleOptions &options;
         std::deque<StartPositionState> startPositions;
         bool executed = false;
+        unsigned long processed = 0;
 
         void initializeStartPositions();
 

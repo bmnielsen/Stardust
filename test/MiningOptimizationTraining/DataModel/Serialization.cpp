@@ -4,6 +4,7 @@
 #include <bitsery/adapter/stream.h>
 #include <bitsery/traits/vector.h>
 #include <bitsery/ext/std_map.h>
+#include <bitsery/ext/std_set.h>
 
 #include <zstdstream.h>
 
@@ -105,6 +106,13 @@ namespace MiningOptimizationTraining::Serialization
 
             ser.object(data.resourceToGatherPaths, resourceToRootNodesSerializer);
             ser.object(data.resourceToReturnPaths, resourceToRootNodesSerializer);
+            ser.ext(data.resourceToReturnPathStartPositions, bitsery::ext::StdMap{INT_MAX},
+                    [&](S& s, TilePosition& key, std::unordered_set<PositionAndVelocity>& v) {
+                s.object(key);
+                s.ext(v, bitsery::ext::StdSet{INT_MAX}, [&](S& s, PositionAndVelocity& value) {
+                    s.object(value);
+                });
+            });
         }
     }
 
