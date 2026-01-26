@@ -38,26 +38,17 @@ TEST(PathExploration, VermeerSingleWorker)
     run(test, options);
 }
 
-//
-//TEST(PathExploration, VermeerSingleWorkerContinuous)
-//{
-//    while (true)
-//    {
-//        BWTest test;
-//        test.map = Maps::GetOne("Vermeer");
-//        test.frameLimit = 50000;
-//        if (runSingleWorkerTest(test, BWAPI::TilePosition(5, 12))) return;
-//    }
-//}
-//
-//TEST(PathExploration, VermeerOneBase)
-//{
-//    BWTest test;
-//    test.map = Maps::GetOne("Vermeer");
-//    test.frameLimit = 500;
-//    runFullSaturationTest(test, 0, 1, true);
-//}
-//
+TEST(PathExploration, VermeerOneBase)
+{
+    ExploreStartPositionsModuleOptions options;
+    options.oneBase = BWAPI::TilePosition(7, 6);
+
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    test.frameLimit = 1000;
+    run(test, options);
+}
+
 //TEST(PathExploration, VermeerOneIteration)
 //{
 //    BWTest test;

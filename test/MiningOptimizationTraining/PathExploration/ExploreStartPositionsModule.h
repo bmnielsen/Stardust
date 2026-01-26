@@ -85,8 +85,12 @@ namespace MiningOptimizationTraining
                 // Output status every 5 seconds
                 if (elapsed - lastLogOutput >= 5)
                 {
-                    Log::Get() << "Processed " << (startCount - startPositions.size()) << " start position(s) in " << elapsed << " second(s); "
-                               << startPositions.size() << " remaining";
+                    auto processed = (startCount - startPositions.size());
+                    double processedPerSecond = (double)processed / (double)elapsed;
+                    int secondsRemaining = (int)std::round((double)startPositions.size() / processedPerSecond);
+
+                    Log::Get() << "Processed " << processed << " start position(s) in " << elapsed << " second(s); "
+                               << startPositions.size() << " remaining (" << secondsRemaining << "s)";
                     lastLogOutput = elapsed;
                 }
 
