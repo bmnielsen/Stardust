@@ -1,42 +1,41 @@
 #include "BWTest.h"
 
-#include "MiningOptimizationTraining/PathExploration/ExploreRemainingStartPositionsModule.h"
+#include "MiningOptimizationTraining/PathExploration/ExploreStartPositionsModule.h"
 #include "ClearOpponentUnitsModule.h"
 
 using namespace MiningOptimizationTraining;
 
 namespace
 {
-    void runTest(BWTest &test, const ExploreRemainingStartPositionsModuleOptions &options)
+    void run(BWTest &test, const ExploreStartPositionsModuleOptions &options)
     {
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
-            return new ClearOpponentUnitsModule(false);
+            return new DoNothingModule();
         };
         test.myModule = [&]()
         {
-            return new ExploreRemainingStartPositionsModule(options);
+            return new ExploreStartPositionsModule<ExploreStartPosition>(options);
         };
         test.allowOpponentOutput = false;
-        test.writeReplay = false;
         test.expectWin = false;
         test.randomSeed = 42;
+        test.writeReplay = false;
         test.frameLimit = 100;
-
         test.run();
     }
 }
 
 TEST(PathExploration, VermeerSingleWorker)
 {
-    ExploreRemainingStartPositionsModuleOptions options;
+    ExploreStartPositionsModuleOptions options;
     options.onePatch = BWAPI::TilePosition(5, 12);
 
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
     test.frameLimit = 1000;
-    runTest(test, options);
+    run(test, options);
 }
 
 //

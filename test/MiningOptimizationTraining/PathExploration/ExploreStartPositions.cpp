@@ -1,17 +1,10 @@
-#include "ExploreRemainingStartPositionsModule.h"
+#include "ExploreStartPositionsModule.h"
 
-#include "BWAPI/PrepareGatherPathOptions.h"
-#include "BWAPI/PrepareGatherPathResult.h"
-#include "BWAPI/SimulateGatherPathOptions.h"
-#include "BWAPI/SimulateGatherPathResult.h"
+#include <BWAPI/SimulateGatherPathOptions.h>
+#include <BWAPI/SimulateGatherPathResult.h>
 
 #include "MiningOptimizationTraining/DataModel/Configuration.h"
-#include "MiningOptimizationTraining/DataModel/Serialization.h"
 #include "PathExplorationUtils.h"
-
-#include "Map.h"
-
-#include <chrono>
 
 namespace MiningOptimizationTraining
 {
@@ -126,13 +119,10 @@ namespace MiningOptimizationTraining
         };
     }
 
-    bool ExploreRemainingStartPositionsModule::initialize()
+    template <>
+    void ExploreStartPositionsModule<ExploreStartPosition>::initializeStartPositions()
     {
-        if (executed) return false;
-
-        pathsToExplore.clear();
-
-        // Gather each test case we have remaining
+        // Read the remaining start positions from all of the patches in scope
         for (auto base : Map::allBases())
         {
             if (options.oneBase && base->getTilePosition() != options.oneBase) continue;
@@ -141,89 +131,30 @@ namespace MiningOptimizationTraining
             {
                 if (options.onePatch && patch->tile != options.onePatch) continue;
 
-                auto unit = patch->getBwapiUnitIfVisible();
+                auto patchUnit = patch->getBwapiUnitIfVisible();
+                if (!patchUnit)
+                {
+                    Log::Get() << "ERROR: Could not find unit for patch @ " << patch->tile;
+                    return;
+                }
 
                 for (auto &[_, path] :
-                    mapData.resourceToReturnPaths[TilePosition(patch->tile.x, patch->tile.y)])
+                        mapData.resourceToReturnPaths[TilePosition(patch->tile.x, patch->tile.y)])
                 {
                     for (auto it = path.positionsToExplore.rbegin(); it != path.positionsToExplore.rend(); it++)
                     {
-                        pathsToExplore.emplace_back(unit, *it, path);
+                        startPositions.emplace_back(ExploreStartPosition{*it, patchUnit});
                     }
                 }
             }
         }
-
-        Log::Get() << "Initialized; " << pathsToExplore.size() << " path(s) to explore";
-        return true;
     }
 
-    void ExploreRemainingStartPositionsModule::run()
+    template <>
+    void ExploreStartPositionsModule<ExploreStartPosition>::explore(ExploreStartPosition &startPosition,
+                                                                    std::unique_ptr<BWAPI::PrepareGatherPathResult> &preparedGatherPath)
     {
-        if (executed) return;
-
-        auto startCount = pathsToExplore.size();
-        auto startTime = std::chrono::high_resolution_clock::now();
-        long long lastOutput = 0;
-        long long lastSaved = 0;
-
-        while (!pathsToExplore.empty())
-        {
-            auto &current = pathsToExplore.front();
-
-            explore(current);
-
-            // Remove the position from the positions to explore
-            // We expect it to always be the last one in the vector
-            if (*current.path.positionsToExplore.rbegin() != current.startPosition)
-            {
-                Log::Get() << "ERROR: Position being processed is not last in the pending positions vector";
-                return;
-            }
-            current.path.positionsToExplore.pop_back();
-            pathsToExplore.pop_front();
-
-            // Output status every 5 seconds
-            long long elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - startTime).count();
-            if (elapsed - lastOutput >= 5)
-            {
-                Log::Get() << "Processed " << (startCount - pathsToExplore.size()) << " path(s) in " << elapsed << " second(s); "
-                           << pathsToExplore.size() << " remaining";
-                lastOutput = elapsed;
-            }
-
-            // Save the map data every minute
-            if (elapsed - lastSaved >= 60)
-            {
-                Serialization::writeMapData(mapData);
-                lastSaved = elapsed;
-            }
-        }
-
-        Log::Get() << "Done; processed " << startCount << " path(s) in "
-                   << std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - startTime).count()
-                   << " second(s)";
-
-        executed = true;
-    }
-
-    void ExploreRemainingStartPositionsModule::explore(PathToExplore &pathToExplore)
-    {
-        // Prepare the simulation by moving the sim worker to the start position
-        auto prepareResult = simWorker->prepareGatherPath(
-                BWAPI::PrepareGatherPathOptions(pathToExplore.startPosition, pathToExplore.patch->getBWIndex(), initialState.state));
-        if (!prepareResult)
-        {
-            Log::Get() << "ERROR: Failed to prepare gather path";
-            return;
-        }
-        if (prepareResult->returnPathStartPosition != pathToExplore.startPosition)
-        {
-            Log::Get() << "ERROR: Prepared gather path has incorrect start position";
-            return;
-        }
-
-        auto &patch = pathToExplore.patch;
+        auto &patch = startPosition.patch;
 
 //        auto createGatherArrivalData = [&](
 //                auto &simulatedPathWithActionAtArrival,
@@ -241,12 +172,12 @@ namespace MiningOptimizationTraining
 
         auto makePathObservations = [&]<typename ObservationType>(
                 std::vector<NodeExplorationResult<ObservationType>> &results,
-                const Limits &limits,
-                auto &createArrivalData,
-                std::unordered_map<PositionAndVelocity, Path<ObservationType>> &rootNodes,
-                int startFrame,
-                std::unique_ptr<bwgame::state> *initialState,
-                BWAPI::ExactPosition startPosition)
+        const Limits &limits,
+        auto &createArrivalData,
+        std::unordered_map<PositionAndVelocity, Path<ObservationType>> &rootNodes,
+        int startFrame,
+        std::unique_ptr<bwgame::state> *initialState,
+        BWAPI::ExactPosition startPosition)
         {
             // Get or create the root node
             auto currentPositionAndVelocity = PositionAndVelocity(startPosition);
@@ -475,9 +406,9 @@ namespace MiningOptimizationTraining
                              {RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
                              createReturnArrivalData,
                              mapData.resourceToReturnPaths[TilePosition::fromBWAPI(patch->getTilePosition())],
-                             prepareResult->returnPathStartFrame,
-                             &prepareResult->returnPathState,
-                             prepareResult->returnPathStartPosition);
+                             preparedGatherPath->returnPathStartFrame,
+                             &preparedGatherPath->returnPathState,
+                             preparedGatherPath->returnPathStartPosition);
 
     }
 }

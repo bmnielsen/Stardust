@@ -18,6 +18,7 @@ namespace MiningOptimizationTraining
     };
 
     struct InitializeStartPosition : StartPositionStateBase {};
+    struct ExploreStartPosition : StartPositionStateBase {};
 
     struct ExploreStartPositionsModuleOptions : PathExplorationModuleOptions
     {
