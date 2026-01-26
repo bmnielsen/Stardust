@@ -17,4 +17,4 @@
 
 // The number of start positions to explore from when initializing the path start positions to train on
 // Should be a power of two such that it divides 256 evenly
-#define START_POSITIONS_TO_EXPLORE_PER_AXIS 1
+#define START_POSITIONS_TO_EXPLORE_PER_AXIS 2

@@ -436,3 +436,18 @@ TEST(DataExploration, ReturnCollisionsProductionData)
     std::cout << "After arrival: " << std::endl;
     outMap(deliveryAfterArrivalCollisions);
 }
+
+TEST(DataExploration, ReturnStartPositionsByPatch)
+{
+    MiningOptimizationTraining::MapData data;
+    MiningOptimizationTraining::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
+    MiningOptimizationTraining::Serialization::readMapData(data);
+
+    for (auto &[patchTile, returnPaths] : data.resourceToReturnPaths)
+    {
+        for (auto &[pos, _] : returnPaths)
+        {
+            std::cout << patchTile << ": " << pos << std::endl;
+        }
+    }
+}

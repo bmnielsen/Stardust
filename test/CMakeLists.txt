@@ -38,8 +38,8 @@ file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 list(FILTER SRC_FILES EXCLUDE REGEX ".*3rdparty.*")
 
 # Uncomment this to disable optimizations on a specific file while debugging something
-#SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/PathExploration/WorkerPathExploration.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/PathExploration/SimulateGatherPathTester.cpp PROPERTIES COMPILE_FLAGS -O0)
+#SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/PathExploration/InitializeStartPositions.cpp PROPERTIES COMPILE_FLAGS -O0)
 SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/DataExploration.cpp PROPERTIES COMPILE_FLAGS -O0)
 
 add_executable(tests ${SRC_FILES})

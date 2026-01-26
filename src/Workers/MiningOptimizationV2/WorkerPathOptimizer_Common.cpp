@@ -4,6 +4,10 @@
 
 #include "DebugFlag_MiningOptimization.h"
 
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define LOG_PATH_FAILURES true
+#endif
+
 namespace MiningOptimization
 {
     template <typename ObservationType>
@@ -241,6 +245,9 @@ namespace MiningOptimization
             else if (startPosition)
             {
                 pathStatistics.startPositionsThatLostPath.insert(*startPosition);
+#if LOG_PATH_FAILURES
+                Log::Get() << "Lost path: " << resource->tile << ": " << PositionAndVelocity(*startPosition) << ": " << (*startPosition);
+#endif
 #endif
             }
 #if IS_OPENBW
@@ -248,6 +255,9 @@ namespace MiningOptimization
         else if (startPosition)
         {
             pathStatistics.startPositionsMissingPath.insert(*startPosition);
+#if LOG_PATH_FAILURES
+            Log::Get() << "No path: " << resource->tile << ": " << PositionAndVelocity(*startPosition) << ": " << (*startPosition);
+#endif
 #endif
         }
     }

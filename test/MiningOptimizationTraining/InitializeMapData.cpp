@@ -34,9 +34,12 @@ TEST(InitializeMapData, Vermeer)
     run(test, {});
 }
 
-TEST(InitializeMapData, VermeerOneBa)
+TEST(InitializeMapData, VermeerOnePatch)
 {
+    ExploreStartPositionsModuleOptions options;
+    options.onePatch = BWAPI::TilePosition(2, 11);
+
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    run(test, {});
+    run(test, options);
 }

@@ -36,6 +36,15 @@ namespace MiningOptimization
                 , ignoreHeadingAndVelocity(ignoreHeadingAndVelocity)
         {}
 
+        explicit PositionAndVelocity(const BWAPI::ExactPosition &exactPosition)
+                : x((uint16_t)exactPosition.pos().x)
+                , y((uint16_t)exactPosition.pos().y)
+                , heading(exactPosition.heading)
+                , velocityX(exactPosition.velocityX)
+                , velocityY(exactPosition.velocityY)
+                , ignoreHeadingAndVelocity(false)
+        {}
+
         explicit PositionAndVelocity(const MyWorker &worker)
                 : x(worker->lastPosition.x)
                 , y(worker->lastPosition.y)

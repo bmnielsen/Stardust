@@ -48,7 +48,7 @@ namespace MiningOptimizationTraining
             }
 
             // We might mine from the right side of the patch if is it to the left or middle of the depot
-            if (right || hmid)
+            if (left || hmid)
             {
                 for (int y = topRight.y; y <= bottomRight.y; y++) addPosition(topRight.x, y);
             }
@@ -104,26 +104,6 @@ namespace MiningOptimizationTraining
                     if (BWAPI::Broodwar->isWalkable(hereWalk)) continue;
                     addBlockedAroundBox(BWAPI::Position(hereWalk), BWAPI::Position(8, 8));
                 }
-            }
-        }
-
-        // To avoid exploring positions that are behind an adjacent patch, extend the blocked positions away from the depot
-        for (auto base : Map::allBases())
-        {
-            auto depotTile = base->getTilePosition();
-            for (auto &patch : base->mineralPatches())
-            {
-                auto patchTile = patch->tile;
-                auto topLeft = patch->center - BWAPI::Position(32, 16);
-
-                bool left = (patchTile.x < depotTile.x);
-                bool right = (patchTile.x > (depotTile.x + 2));
-                bool top = (patchTile.y < depotTile.y);
-                bool bottom = (patchTile.y > (depotTile.y + 2));
-                if (left) addBlockedAroundBox(topLeft - BWAPI::Position(32, 0), BWAPI::Position(96, 32));
-                if (right) addBlockedAroundBox(topLeft, BWAPI::Position(96, 32));
-                if (top) addBlockedAroundBox(topLeft - BWAPI::Position(0, 32), BWAPI::Position(64, 64));
-                if (bottom) addBlockedAroundBox(topLeft, BWAPI::Position(64, 64));
             }
         }
 
