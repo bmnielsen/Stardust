@@ -13,8 +13,8 @@
 
 // The number of exact positions to explore on each axis from each return path start position
 // Should be a power of two such that it divides 256 evenly
-#define EXACT_POSITIONS_TO_EXPLORE_PER_AXIS 16
+#define EXACT_POSITIONS_TO_EXPLORE_PER_AXIS 4
 
 // The number of start positions to explore from when initializing the path start positions to train on
 // Should be a power of two such that it divides 256 evenly
-#define START_POSITIONS_TO_EXPLORE_PER_AXIS 2
+#define START_POSITIONS_TO_EXPLORE_PER_AXIS 1

@@ -2437,7 +2437,6 @@ std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BW
     auto depthLimitExceeded = [&]()
     {
         if ((state_copy.current_frame - impl->st.current_frame) < 20) return false;
-        std::cout << "WARNING: Path preparation for patch at (" << patch->position.x << "," << patch->position.y << ") did not complete" << std::endl;
         return true;
     };
 
@@ -2578,7 +2577,6 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
     auto depthLimitExceeded = [&]()
     {
         if ((state_copy.current_frame - sourceState.current_frame) < 250) return false;
-        std::cout << "WARNING: Path simulation for unit at (" << u->position.x << "," << u->position.y << ") did not complete" << std::endl;
         return true;
     };
 

@@ -1,6 +1,7 @@
 #include "BWTest.h"
 
 #include "MiningOptimizationTraining/PathExploration/ExploreStartPositionsModule.h"
+#include "ClearOpponentUnitsModule.h"
 
 using namespace MiningOptimizationTraining;
 
@@ -11,7 +12,7 @@ namespace
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
-            return new DoNothingModule();
+            return new ClearOpponentUnitsModule();
         };
         test.myModule = [&]()
         {
@@ -27,6 +28,13 @@ namespace
 }
 
 TEST(InitializeMapData, Vermeer)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    run(test, {});
+}
+
+TEST(InitializeMapData, VermeerOneBa)
 {
     BWTest test;
     test.map = Maps::GetOne("Vermeer");

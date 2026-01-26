@@ -12,7 +12,7 @@ namespace
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
-            return new DoNothingModule();
+            return new ClearOpponentUnitsModule();
         };
         test.myModule = [&]()
         {

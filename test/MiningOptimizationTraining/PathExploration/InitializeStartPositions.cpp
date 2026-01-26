@@ -110,6 +110,26 @@ namespace MiningOptimizationTraining
             }
         }
 
+        // To avoid exploring positions that are behind an adjacent patch, extend the blocked positions away from the depot
+        for (auto base : Map::allBases())
+        {
+            auto depotTile = base->getTilePosition();
+            for (auto &patch : base->mineralPatches())
+            {
+                auto patchTile = patch->tile;
+                auto topLeft = patch->center - BWAPI::Position(32, 16);
+
+                bool left = (patchTile.x < depotTile.x);
+                bool right = (patchTile.x > (depotTile.x + 2));
+                bool top = (patchTile.y < depotTile.y);
+                bool bottom = (patchTile.y > (depotTile.y + 2));
+                if (left) addBlockedAroundBox(topLeft - BWAPI::Position(32, 0), BWAPI::Position(96, 32));
+                if (right) addBlockedAroundBox(topLeft, BWAPI::Position(96, 32));
+                if (top) addBlockedAroundBox(topLeft - BWAPI::Position(0, 32), BWAPI::Position(64, 64));
+                if (bottom) addBlockedAroundBox(topLeft, BWAPI::Position(64, 64));
+            }
+        }
+
         // Empty the map data
         mapData.clear(BWAPI::Broodwar->mapHash());
 
@@ -162,8 +182,7 @@ namespace MiningOptimizationTraining
         // is assigned to minerals after doing something else, and therefore reaches the patch at an abnormal start position).
         // We do however simulate both with the action happening at and after arrival since both cases come up depending on order process timer
         // resets.
-        // We are ignoring errors from the simulation here, because sometimes workers do weird things like return minerals to a different nexus than
-        // intended if they are gathering from a weird side of the patch, but we don't really care about these cases.
+        // When we do the training with resends, we then add in any additional start positions not seen in this simplified exploration.
 
         auto simulate = [&](bool forceReturn, bool forceGather)
         {
@@ -171,12 +190,22 @@ namespace MiningOptimizationTraining
                     BWAPI::SimulateGatherPathOptions({}, preparedGatherPath->returnPathState)
                         .setForceAction(forceReturn)
                         .setReturnStateAtStartOfNextPath());
-            if (!returnResult) return;
+            if (!returnResult)
+            {
+                Log::Get() << "Return path simulation did not succeed; patch @ " << startPosition.patch->getTilePosition()
+                           << "; start position " << BWAPI::TilePosition(startPosition.pos.pos());
+                return;
+            }
 
             auto gatherResult = simWorker->simulateGatherPath(
                     BWAPI::SimulateGatherPathOptions({}, returnResult->stateAtStartOfNextPath)
                             .setForceAction(forceGather));
-            if (!gatherResult) return;
+            if (!gatherResult)
+            {
+                Log::Get() << "Gather path simulation did not succeed; patch @ " << startPosition.patch->getTilePosition()
+                           << "; start position " << BWAPI::TilePosition(startPosition.pos.pos());
+                return;
+            }
 
             auto pos = gatherResult->nextPathStartPosition.pos();
             auto [_, inserted] = patchToDiscoveredStartPositions[startPosition.patch].insert(pos);
