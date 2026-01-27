@@ -23,6 +23,7 @@ namespace
         test.randomSeed = 42;
         test.writeReplay = false;
         test.frameLimit = 100;
+        test.timeLimit = INT_MAX;
         test.run();
     }
 }
@@ -34,7 +35,6 @@ TEST(PathExploration, VermeerSingleWorker)
 
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    test.frameLimit = 1000;
     run(test, options);
 }
 
@@ -45,40 +45,12 @@ TEST(PathExploration, VermeerOneBase)
 
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    test.frameLimit = 1000;
     run(test, options);
 }
 
-//TEST(PathExploration, VermeerOneIteration)
-//{
-//    BWTest test;
-//    test.map = Maps::GetOne("Vermeer");
-//    runFullSaturationTest(test, 0, 1);
-//}
-//
-//TEST(PathExploration, VermeerTenIterations)
-//{
-//    BWTest test;
-//    test.map = Maps::GetOne("Vermeer");
-//    runFullSaturationTest(test, 0, 10);
-//}
-//
-//TEST(PathExploration, VermeerContinuous)
-//{
-//    while (true)
-//    {
-//        BWTest test;
-//        test.map = Maps::GetOne("Vermeer");
-//        if (runFullSaturationTest(test, 0, 10)) return;
-//    }
-//}
-//
-//TEST(PathExploration, VermeerOneBaseContinuous)
-//{
-//    while (true)
-//    {
-//        BWTest test;
-//        test.map = Maps::GetOne("Vermeer");
-//        if (runFullSaturationTest(test, 0, 10, true)) return;
-//    }
-//}
+TEST(PathExploration, Vermeer)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    run(test, {});
+}

@@ -54,6 +54,7 @@ namespace MiningOptimizationTraining
             if (executed) return;
             executed = true;
 
+            auto initialCount = startPositions.size();
             auto startTime = std::chrono::high_resolution_clock::now();
             long long lastLogOutput = 0;
             long long lastSaved = 0;
@@ -85,24 +86,46 @@ namespace MiningOptimizationTraining
                 // Output status every 5 seconds
                 if (elapsed - lastLogOutput >= 5)
                 {
-                    double processedPerSecond = (double)processed / (double)elapsed;
-                    std::chrono::hh_mm_ss remaining{std::chrono::seconds((int)std::round((double)startPositions.size() / processedPerSecond))};
+                    auto throughput = (double)processed / (double)elapsed;
+                    auto burndown = (double)(initialCount - startPositions.size()) / (double)elapsed;
+                    std::string timeRemaining;
+                    if (burndown < 0.0001)
+                    {
+                        timeRemaining = "N/A";
+                    }
+                    else
+                    {
+                        auto secondsLeft = (int)std::round((double)startPositions.size() / burndown);
+                        if (secondsLeft >= 24 * 60 * 60)
+                        {
+                            timeRemaining = ">24hr";
+                        }
+                        else
+                        {
+                            timeRemaining = ((std::ostringstream() << std::chrono::hh_mm_ss{std::chrono::seconds(secondsLeft)}).str());
+                        }
+                    }
 
-                    Log::Get() << "Processed " << processed << " start position(s) in " << elapsed << " second(s); "
-                               << startPositions.size() << " remaining (" << remaining << ")";
+                    Log::Get() << std::fixed << std::setprecision(2)
+                               << "Processed " << processed << " start position(s); "
+                               << startPositions.size() << " remaining; "
+                               << "throughput " << throughput << " pos/s; "
+                               << timeRemaining << " remaining";
+
                     lastLogOutput = elapsed;
                 }
 
-                // Save the map data every minute
-                if (elapsed - lastSaved >= 60)
+                // Save the map data every five minutes
+                if (elapsed - lastSaved >= 300)
                 {
                     Serialization::writeMapData(mapData);
                     lastSaved = elapsed;
                 }
             }
 
-            Log::Get() << "Done; processed " << processed << " start position(s) in "
-                       << std::chrono::hh_mm_ss(std::chrono::high_resolution_clock::now() - startTime);
+            long long elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - startTime).count();
+
+            Log::Get() << "Done; processed " << processed << " start position(s) in " << elapsed << " second(s)";
 
             executed = true;
         }
