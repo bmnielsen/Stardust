@@ -90,10 +90,6 @@ namespace MiningOptimizationTraining
                                other.nextPathStartPositionDeliveryAfterArrival);
         }
 
-        // Returns the delay (e.g. caused by collision) after the action
-        // Can be negative if there is an exit speed bonus
-        [[nodiscard]] int delayAfterAction(int orderProcessTimerAtArrival) const;
-
         // Computes the frame where resources will be delivered
         // If the frame is affected by the given order process timer reset frame, returns an approximated average frame
         [[nodiscard]] std::pair<int, int> computeActionFrame(std::optional<int> lastResendFrame = std::nullopt,
@@ -199,6 +195,11 @@ namespace MiningOptimizationTraining
             }
             return os;
         }
+
+    private:
+        // Returns the delay (e.g. caused by collision) after the action
+        // Can be negative if there is an exit speed bonus
+        [[nodiscard]] int delayAfterAction(int orderProcessTimerAtArrival) const;
     };
 
     typedef Path<ReturnArrivalData> ReturnPath;

@@ -443,11 +443,15 @@ TEST(DataExploration, ReturnStartPositionsByPatch)
     MiningOptimizationTraining::Serialization::setGameParameters(Maps::GetOne("Vermeer")->openbwHash);
     MiningOptimizationTraining::Serialization::readMapData(data);
 
+    unsigned long total = 0;
     for (auto &[patchTile, returnPaths] : data.resourceToReturnPaths)
     {
+        total += returnPaths.size();
         for (auto &[pos, _] : returnPaths)
         {
             std::cout << patchTile << ": " << pos << std::endl;
         }
     }
+
+    std::cout << "Total: " << total << std::endl;
 }

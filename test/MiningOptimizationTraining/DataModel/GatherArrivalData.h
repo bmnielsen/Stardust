@@ -63,6 +63,12 @@ namespace MiningOptimizationTraining
             packed = ((uint16_t)arrivalDelay << 2) + (packed & 0b00000011);
         }
 
+        // Computes the frame where mining will begin
+        // If the frame is affected by the given order process timer reset frame, returns an approximated average frame
+        [[nodiscard]] std::pair<int, int> computeActionFrame(std::optional<int> lastResendFrame = std::nullopt,
+                                                             std::optional<int> orderProcessTimerResetFrame = std::nullopt,
+                                                             int pathStartFrame = currentFrame) const;
+
         bool operator==(const GatherArrivalData &other) const
         {
             return std::tie(packed, tenDistanceDelta, nextPathStartPosition) ==
