@@ -5,7 +5,7 @@
 #include "DebugFlag_MiningOptimization.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define LOG_PATH_FAILURES false
+#define LOG_PATH_FAILURES true
 #endif
 
 namespace MiningOptimization

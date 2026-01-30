@@ -31,7 +31,7 @@ namespace
 TEST(PathExploration, VermeerSingleWorker)
 {
     ExploreStartPositionsModuleOptions options;
-    options.onePatch = BWAPI::TilePosition(5, 12);
+    options.onePatch = BWAPI::TilePosition(2, 11);
 
     BWTest test;
     test.map = Maps::GetOne("Vermeer");

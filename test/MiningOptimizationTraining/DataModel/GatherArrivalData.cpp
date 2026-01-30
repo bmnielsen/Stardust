@@ -2,9 +2,9 @@
 
 namespace MiningOptimizationTraining
 {
-    std::pair<int, int> GatherArrivalData::computeActionFrame(std::optional<int> lastResendFrame,
-                                                              std::optional<int> orderProcessTimerResetFrame,
-                                                              int pathStartFrame) const
+    std::pair<int, int> GatherArrivalData::computeActionFrame(int pathStartFrame,
+                                                              std::optional<int> lastResendFrame,
+                                                              std::optional<int> orderProcessTimerResetFrame) const
     {
         // Compute the arrival frame, using the start frame as either the resend or the path start frame if no resend occurred
         int arrivalFrame = ((lastResendFrame.has_value()) ? *lastResendFrame : pathStartFrame) + (int)arrivalDelay();

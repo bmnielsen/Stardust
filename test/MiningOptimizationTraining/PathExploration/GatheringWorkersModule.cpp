@@ -1,6 +1,5 @@
 #include "GatheringWorkersModule.h"
 
-#include "WorkerPathExploration.h"
 #include "SimulateGatherPathTester.h"
 
 #include "Geo.h"
@@ -265,6 +264,5 @@ namespace MiningOptimizationTraining
         }
     }
 
-    template class GatheringWorkersModule<WorkerPathExploration>;
     template class GatheringWorkersModule<SimulateGatherPathTester>;
 }

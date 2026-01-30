@@ -423,10 +423,11 @@ namespace MiningOptimizationTraining
                              returnResults);
 
         auto findUniqueNextPathStartPositions =
-                []<typename ObservationType>(std::vector<NodeExplorationResult<ObservationType>> &results)
+                []<typename ObservationType>(std::vector<NodeExplorationResult<ObservationType>> &results,
+                                             int pathStartFrame)
         {
             std::set<NodeExplorationResult<ObservationType>*> bestResults;
-            auto findBestResults = [&results, &bestResults](
+            auto findBestResults = [&](
                     std::optional<int> orderProcessTimerResetFrame = std::nullopt)
             {
                 std::vector<std::tuple<NodeExplorationResult<ObservationType>*, int, int>> resultsWithActionFrameAndDelay;
@@ -434,7 +435,8 @@ namespace MiningOptimizationTraining
                 int bestActionFrameAndDelay = INT_MAX;
                 for (auto &result : results)
                 {
-                    auto [actionFrame, delay] = result.arrivalData.computeActionFrame(result.resends.empty()
+                    auto [actionFrame, delay] = result.arrivalData.computeActionFrame(pathStartFrame,
+                                                                                      result.resends.empty()
                                                                                       ? std::nullopt
                                                                                       : (std::optional<int>)*result.resends.rbegin(),
                                                                                       orderProcessTimerResetFrame);
@@ -471,6 +473,12 @@ namespace MiningOptimizationTraining
                 findBestResults(resetFrame);
             }
 
+            // Add the no-resend result since we might end up on that path accidentally
+            for (auto &result : results)
+            {
+                if (result.resends.empty()) bestResults.insert(&result);
+            }
+
             // Now break this down to the set of unique next path start positions we want to explore gather paths for
             // We only explore each exact position once, and skip positions that are already fully explored
             std::map<BWAPI::ExactPosition, NodeExplorationResult<ObservationType>*> uniqueNextPathStartPositions;
@@ -489,7 +497,7 @@ namespace MiningOptimizationTraining
         };
 
         // Now perform path observations on each unique gather path start position
-        for (auto &[gatherStartPosition, returnResult] : findUniqueNextPathStartPositions(returnResults))
+        for (auto &[gatherStartPosition, returnResult] : findUniqueNextPathStartPositions(returnResults, preparedGatherPath->returnPathStartFrame))
         {
             // Simulate once to get the state copy at the start of the path
             auto result = simWorker->simulateGatherPath(
@@ -512,7 +520,7 @@ namespace MiningOptimizationTraining
                                  gatherResults);
 
             // Find all the best return start positions and add more start positions if applicable
-            for (auto &[returnStartPosition, _] : findUniqueNextPathStartPositions(gatherResults))
+            for (auto &[returnStartPosition, _] : findUniqueNextPathStartPositions(gatherResults, result->actionFrame))
             {
                 auto positionAndVelocity = PositionAndVelocity(returnStartPosition);
                 if (!returnData.contains(positionAndVelocity))

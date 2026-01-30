@@ -92,9 +92,9 @@ namespace MiningOptimizationTraining
 
         // Computes the frame where resources will be delivered
         // If the frame is affected by the given order process timer reset frame, returns an approximated average frame
-        [[nodiscard]] std::pair<int, int> computeActionFrame(std::optional<int> lastResendFrame = std::nullopt,
-                                                             std::optional<int> orderProcessTimerResetFrame = std::nullopt,
-                                                             int pathStartFrame = currentFrame) const;
+        [[nodiscard]] std::pair<int, int> computeActionFrame(int pathStartFrame,
+                                                             std::optional<int> lastResendFrame,
+                                                             std::optional<int> orderProcessTimerResetFrame) const;
 
         [[nodiscard]] bool isCollisionWithActionAtArrival()
         {
