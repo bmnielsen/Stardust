@@ -2,6 +2,9 @@
 
 #include "Geo.h"
 
+#include "MiningOptimizationTraining/PathExploration/ExploreStartPositionsModule.h"
+#include "ClearOpponentUnitsModule.h"
+
 #include "MiningOptimizationTraining/DataModel/Serialization.h"
 
 #include "MiningOptimizationV2/DataModel/Serialization.h"
@@ -186,6 +189,27 @@ TEST(DataExploration, Vermeer)
     explore(Maps::GetOne("Vermeer")->openbwHash);
 }
 
+TEST(DataExploration, SimulateSpecificPath)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        return new ClearOpponentUnitsModule();
+    };
+    test.myModule = [&]()
+    {
+        return new ExploreStartPositionsModule<SimulateSpecificPath>({});
+    };
+    test.allowOpponentOutput = false;
+    test.expectWin = false;
+    test.randomSeed = 42;
+    test.writeReplay = false;
+    test.frameLimit = 100;
+    test.run();
+}
+
 TEST(DataExploration, CheckSpecificPath)
 {
     MiningOptimizationTraining::MapData data;
@@ -193,9 +217,9 @@ TEST(DataExploration, CheckSpecificPath)
     MiningOptimizationTraining::Serialization::readMapData(data);
 
     PositionAndVelocity startPos{
-            56320/256,95232/256,-95,0,0
+            107,203,-68,0,0
     };
-    auto &path = data.resourceToReturnPaths.at(TilePosition(5, 12)).at(startPos);
+    auto &path = data.resourceToReturnPaths.at(TilePosition(1, 6)).at(startPos);
 
     PositionAndVelocity resendPos{
             56366/256,80216/256,2,0,-1280

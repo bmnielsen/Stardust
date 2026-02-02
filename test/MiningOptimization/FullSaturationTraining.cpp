@@ -17,6 +17,9 @@
 #include <algorithm>
 #include <random>
 
+#include <BWAPI/SimulateGatherPathOptions.h>
+#include <BWAPI/SimulateGatherPathResult.h>
+
 // This file is used to perform training where we spawn a depot at each base, either one or two workers for each patch,
 // and between 0 and 2 defensive cannons, then let the workers gather.
 // Two main modes are supported: training, where the workers explore paths, and measure, where the workers use the best paths learned so far
@@ -131,6 +134,25 @@ namespace
         std::map<BWAPI::Position, std::pair<int, Base*>> workerCreationOrderAndBase;
         test.onFrameMine = [&]()
         {
+            if (currentFrame == 333)
+            {
+                for (auto unit : BWAPI::Broodwar->self()->getUnits())
+                {
+                    if (unit->getID() == 211)
+                    {
+                        auto result = unit->simulateGatherPath({});
+                        if (result)
+                        {
+                            Log::Get() << unit->getExactPosition();
+                            for (auto &pos : result->positions)
+                            {
+                                Log::Get() << pos;
+                            }
+                        }
+                    }
+                }
+            }
+
             // Ensure all mineral patches keep enough minerals
             for (auto unit : BWAPI::Broodwar->getNeutralUnits())
             {

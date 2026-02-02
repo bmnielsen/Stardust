@@ -27,6 +27,10 @@ namespace MiningOptimization
         }
         lastProcessedFrame = currentFrame;
 
+#if IS_OPENBW
+        positions.push_back(worker->bwapiUnit->getExactPosition());
+#endif
+
         // Initialize the takeover frames as needed
         initializeGatherTakeover();
 
@@ -247,6 +251,17 @@ namespace MiningOptimization
                 pathStatistics.startPositionsThatLostPath.insert(*startPosition);
 #if LOG_PATH_FAILURES
                 Log::Get() << "Lost path: " << resource->tile << ": " << PositionAndVelocity(*startPosition) << ": " << (*startPosition);
+                if constexpr (std::is_same_v<ObservationType, ReturnArrivalData>)
+                {
+                    if ((startPosition->x & 0b11111111) % 8 == 0 && (startPosition->y & 0b11111111) % 8 == 0)
+                    {
+                        Log::Get() << "ERROR: Return start position should have been covered but we lost the path";
+                        for (auto &pos : positions)
+                        {
+                            Log::Get() << pos;
+                        }
+                    }
+                }
 #endif
 #endif
             }

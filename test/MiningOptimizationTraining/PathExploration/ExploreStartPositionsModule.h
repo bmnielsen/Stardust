@@ -19,6 +19,7 @@ namespace MiningOptimizationTraining
 
     struct InitializeStartPosition : StartPositionStateBase {};
     struct ExploreStartPosition : StartPositionStateBase {};
+    struct SimulateSpecificPath : StartPositionStateBase {};
 
     struct ExploreStartPositionsModuleOptions : PathExplorationModuleOptions
     {
@@ -87,7 +88,7 @@ namespace MiningOptimizationTraining
                 if (elapsed - lastLogOutput >= 5)
                 {
                     auto throughput = (double)processed / (double)elapsed;
-                    auto burndown = (double)(initialCount - startPositions.size()) / (double)elapsed;
+                    auto burndown = (double)((long long)initialCount - (long long)startPositions.size()) / (double)elapsed;
                     std::string timeRemaining;
                     if (burndown < 0.0001)
                     {
