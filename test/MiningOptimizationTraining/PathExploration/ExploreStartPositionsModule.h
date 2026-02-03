@@ -122,6 +122,9 @@ namespace MiningOptimizationTraining
                     Serialization::writeMapData(mapData);
                     lastSaved = elapsed;
                 }
+
+                executed = true;
+                return;
             }
 
             long long elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - startTime).count();

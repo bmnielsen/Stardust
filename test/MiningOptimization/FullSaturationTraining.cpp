@@ -134,24 +134,24 @@ namespace
         std::map<BWAPI::Position, std::pair<int, Base*>> workerCreationOrderAndBase;
         test.onFrameMine = [&]()
         {
-            if (currentFrame == 333)
-            {
-                for (auto unit : BWAPI::Broodwar->self()->getUnits())
-                {
-                    if (unit->getID() == 211)
-                    {
-                        auto result = unit->simulateGatherPath({});
-                        if (result)
-                        {
-                            Log::Get() << unit->getExactPosition();
-                            for (auto &pos : result->positions)
-                            {
-                                Log::Get() << pos;
-                            }
-                        }
-                    }
-                }
-            }
+//            if (currentFrame == 333)
+//            {
+//                for (auto unit : BWAPI::Broodwar->self()->getUnits())
+//                {
+//                    if (unit->getID() == 211)
+//                    {
+//                        auto result = unit->simulateGatherPath({});
+//                        if (result)
+//                        {
+//                            Log::Get() << unit->getExactPosition();
+//                            for (auto &pos : result->positions)
+//                            {
+//                                Log::Get() << pos;
+//                            }
+//                        }
+//                    }
+//                }
+//            }
 
             // Ensure all mineral patches keep enough minerals
             for (auto unit : BWAPI::Broodwar->getNeutralUnits())

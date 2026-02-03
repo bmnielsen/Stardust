@@ -191,6 +191,7 @@ TEST(DataExploration, Vermeer)
 
 TEST(DataExploration, SimulateSpecificPath)
 {
+    ExploreStartPositionsModuleOptions options;
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
     test.opponentRace = BWAPI::Races::Terran;
@@ -200,7 +201,7 @@ TEST(DataExploration, SimulateSpecificPath)
     };
     test.myModule = [&]()
     {
-        return new ExploreStartPositionsModule<SimulateSpecificPath>({});
+        return new ExploreStartPositionsModule<SimulateSpecificPath>(options);
     };
     test.allowOpponentOutput = false;
     test.expectWin = false;
