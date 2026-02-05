@@ -27,10 +27,6 @@ namespace MiningOptimization
         }
         lastProcessedFrame = currentFrame;
 
-#if IS_OPENBW
-        positions.push_back(worker->bwapiUnit->getExactPosition());
-#endif
-
         // Initialize the takeover frames as needed
         initializeGatherTakeover();
 
@@ -256,10 +252,6 @@ namespace MiningOptimization
                     if ((startPosition->x & 0b11111111) % 8 == 0 && (startPosition->y & 0b11111111) % 8 == 0)
                     {
                         Log::Get() << "ERROR: Return start position should have been covered but we lost the path";
-                        for (auto &pos : positions)
-                        {
-                            Log::Get() << pos;
-                        }
                     }
                 }
 #endif

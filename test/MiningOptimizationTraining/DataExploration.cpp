@@ -218,9 +218,9 @@ TEST(DataExploration, CheckSpecificPath)
     MiningOptimizationTraining::Serialization::readMapData(data);
 
     PositionAndVelocity startPos{
-            107,203,-68,0,0
+            56320/256,95232/256,-95,0,0
     };
-    auto &path = data.resourceToReturnPaths.at(TilePosition(1, 6)).at(startPos);
+    auto &path = data.resourceToReturnPaths.at(TilePosition(5, 12)).at(startPos);
 
     PositionAndVelocity resendPos{
             56366/256,80216/256,2,0,-1280

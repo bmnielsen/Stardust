@@ -55,9 +55,7 @@ namespace MiningOptimization
             statusFlags = 0;
             executedResendFrames.clear();
 #if IS_OPENBW
-            previousPathStartPosition = std::move(startPosition);
             startPosition.reset();
-            positions.clear();
 #endif
             pathBeingFollowed.reset();
             expectedPath.reset();
@@ -114,11 +112,6 @@ namespace MiningOptimization
 #if IS_OPENBW
         // The start position of the current path
         std::unique_ptr<BWAPI::ExactPosition> startPosition;
-
-        // The start position of the previous path
-        std::unique_ptr<BWAPI::ExactPosition> previousPathStartPosition;
-
-        std::vector<BWAPI::ExactPosition> positions;
 #endif
 
         // The path being followed, if there is one

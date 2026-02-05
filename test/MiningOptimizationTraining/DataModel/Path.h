@@ -82,7 +82,6 @@ namespace MiningOptimizationTraining
                 for (int subpixelY = 0; subpixelY < 256; subpixelY += (256 / EXACT_POSITIONS_TO_EXPLORE_PER_AXIS))
                 {
                     positionsToExplore.emplace_back(baseX + subpixelX, baseY + subpixelY, pos.heading, 0, 0);
-                    std::cout << "Added " << *positionsToExplore.rbegin() << std::endl;
                 }
             }
         }
