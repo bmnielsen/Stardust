@@ -211,6 +211,28 @@ TEST(DataExploration, SimulateSpecificPath)
     test.run();
 }
 
+TEST(DataExploration, SimulateAllSubpixelsOfPosition)
+{
+    ExploreStartPositionsModuleOptions options;
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        return new ClearOpponentUnitsModule();
+    };
+    test.myModule = [&]()
+    {
+        return new ExploreStartPositionsModule<SimulateAllSubpixelsOfPosition>(options);
+    };
+    test.allowOpponentOutput = false;
+    test.expectWin = false;
+    test.randomSeed = 42;
+    test.writeReplay = false;
+    test.frameLimit = 100;
+    test.run();
+}
+
 TEST(DataExploration, CheckSpecificPath)
 {
     MiningOptimizationTraining::MapData data;

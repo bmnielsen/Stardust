@@ -87,6 +87,9 @@ namespace MiningOptimization
 
 #if VERBOSE_PATH_LOGGING
             CherryVis::log(worker->id) << "Captured path and ran solver; predicted frames:\n" << expectedPath->framePredictions();
+#if IS_OPENBW
+            CherryVis::log(worker->id) << worker->bwapiUnit->getExactPosition();
+#endif
 #endif
         }
 

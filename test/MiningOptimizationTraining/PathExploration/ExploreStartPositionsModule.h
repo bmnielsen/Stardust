@@ -20,6 +20,7 @@ namespace MiningOptimizationTraining
     struct InitializeStartPosition : StartPositionStateBase {};
     struct ExploreStartPosition : StartPositionStateBase {};
     struct SimulateSpecificPath : StartPositionStateBase {};
+    struct SimulateAllSubpixelsOfPosition : StartPositionStateBase {};
 
     struct ExploreStartPositionsModuleOptions : PathExplorationModuleOptions
     {
