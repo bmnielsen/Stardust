@@ -15,11 +15,39 @@ namespace MiningOptimization
     {
         if (skipPathOptimization()) return;
 
-        // Reset if the worker hasn't been optimized last frame
+        // If the worker hasn't been optimized last frame, reset the state and initialize the pathing
         if (lastProcessedFrame != (currentFrame - 1))
         {
             reset();
             setStartOfPathFlags();
+
+            // If a root node for pathing is here, run the solver to plan our approach
+            PositionAndVelocity currentPosition(worker);
+#if VERBOSE_PATH_LOGGING
+            CherryVis::log(worker->id) << "Trying to find root node @ " << currentPosition;
+#endif
+
+            auto it = pathData.find(currentPosition);
+            if (it != pathData.end())
+            {
+                setFlag(StatusFlags::CapturedPath);
+                pathBeingFollowed = std::make_unique<Path<ObservationType>>(it->second.get());
+
+                Solver<ObservationType> solver(mapData,
+                                               resource,
+                                               currentPosition,
+                                               *pathBeingFollowed,
+                                               currentFrame,
+                                               worker->possibleOrderProcessTimerValues);
+                expectedPath = std::make_unique<SolverResult<ObservationType>>(solver.execute());
+
+#if VERBOSE_PATH_LOGGING
+                CherryVis::log(worker->id) << "Captured path and ran solver; predicted frames:\n" << expectedPath->framePredictions();
+#if IS_OPENBW
+                CherryVis::log(worker->id) << worker->bwapiUnit->getExactPosition();
+#endif
+#endif
+            }
 
 #if IS_OPENBW
             startPosition = std::make_unique<BWAPI::ExactPosition>(worker->bwapiUnit->getExactPosition());
@@ -61,37 +89,10 @@ namespace MiningOptimization
     template <typename ObservationType>
     void WorkerPathOptimizer<ObservationType>::updatePath()
     {
+        // Nothing to do if we didn't have any path data
+        if (!pathBeingFollowed) return;
+
         PositionAndVelocity currentPosition(worker);
-
-        // Extract the path when we reach a root node
-        if (!pathBeingFollowed)
-        {
-#if VERBOSE_PATH_LOGGING
-            CherryVis::log(worker->id) << "Trying to find root node @ " << currentPosition;
-#endif
-
-            // If we don't find a node, we have nothing to do and can just return
-            auto it = pathData.find(currentPosition);
-            if (it == pathData.end()) return;
-
-            setFlag(StatusFlags::CapturedPath);
-            pathBeingFollowed = std::make_unique<Path<ObservationType>>(it->second.get());
-
-            Solver<ObservationType> solver(mapData,
-                                           resource,
-                                           currentPosition,
-                                           *pathBeingFollowed,
-                                           currentFrame,
-                                           worker->possibleOrderProcessTimerValues);
-            expectedPath = std::make_unique<SolverResult<ObservationType>>(solver.execute());
-
-#if VERBOSE_PATH_LOGGING
-            CherryVis::log(worker->id) << "Captured path and ran solver; predicted frames:\n" << expectedPath->framePredictions();
-#if IS_OPENBW
-            CherryVis::log(worker->id) << worker->bwapiUnit->getExactPosition();
-#endif
-#endif
-        }
 
         // Guard against null expectedPath
         if (!expectedPath)
