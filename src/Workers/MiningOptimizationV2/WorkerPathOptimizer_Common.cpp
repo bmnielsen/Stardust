@@ -10,6 +10,24 @@
 
 namespace MiningOptimization
 {
+    namespace
+    {
+        PositionAndVelocity getCurrentPosition(const MyWorker &worker)
+        {
+            PositionAndVelocity currentPosition(worker);
+
+            // If delivery happens on the frame immediately after arrival, the worker may still be reporting some residual velocity
+            // that will be removed on the next frame and therefore should not be considered when trying to match path nodes
+            if (worker->lastCarryingResourceChange == currentFrame && worker->frameLastMoved != currentFrame)
+            {
+                currentPosition.velocityX = 0;
+                currentPosition.velocityY = 0;
+            }
+
+            return currentPosition;
+        }
+    }
+
     template <typename ObservationType>
     void WorkerPathOptimizer<ObservationType>::optimize()
     {
@@ -22,7 +40,8 @@ namespace MiningOptimization
             setStartOfPathFlags();
 
             // If a root node for pathing is here, run the solver to plan our approach
-            PositionAndVelocity currentPosition(worker);
+            auto currentPosition = getCurrentPosition(worker);
+
 #if VERBOSE_PATH_LOGGING
             CherryVis::log(worker->id) << "Trying to find root node @ " << currentPosition;
 #endif
@@ -92,7 +111,7 @@ namespace MiningOptimization
         // Nothing to do if we didn't have any path data
         if (!pathBeingFollowed) return;
 
-        PositionAndVelocity currentPosition(worker);
+        auto currentPosition = getCurrentPosition(worker);
 
         // Guard against null expectedPath
         if (!expectedPath)
