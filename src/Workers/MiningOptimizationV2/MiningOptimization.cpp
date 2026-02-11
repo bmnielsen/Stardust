@@ -61,6 +61,8 @@ namespace MiningOptimization
                 << pathStatistics.count << " collections, "
                 << pathStatistics.withPath << " with path data"
                 << " (" << ((double)pathStatistics.withPath * 100.0 / (double)pathStatistics.count) << "%), "
+                << pathStatistics.withPathFollowedToStableResult << " with path followed to stable"
+                << " (" << ((double)pathStatistics.withPathFollowedToStableResult * 100.0 / (double)pathStatistics.count) << "%), "
                 << pathStatistics.withPathFollowedToCompletion << " with path followed to completion"
                 << " (" << ((double)pathStatistics.withPathFollowedToCompletion * 100.0 / (double)pathStatistics.count) << "%), "
                 << pathStatistics.withExpectedArrivalFrame << " with expected arrival frame"

@@ -25,6 +25,7 @@ namespace MiningOptimization
             StartedAtInitialSpawnPosition   = 1 << 3,
             GatherTakeover                  = 1 << 4,
             SwitchedPatch                   = 1 << 5,
+            LostPathWithAssumedResult       = 1 << 6,
         };
 
         // The last frame this worker was optimized

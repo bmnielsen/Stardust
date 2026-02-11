@@ -54,6 +54,10 @@ namespace MiningOptimization
         std::map<int, double> nextPathLengthWithProbabilities;
 #endif
 
+        // Gets the resend frames for all branches below this one if they are stable
+        // If the resend frames are not stable, returns nullopt
+        std::optional<std::set<int>> aggregatedResendFramesIfStable() const;
+
         // Formats the frame predictions as a string
         [[nodiscard]] std::string framePredictions() const;
 

@@ -132,17 +132,46 @@ namespace MiningOptimization
             return;
         }
 
+        auto lostPath = [&]()
+        {
+            setFlag(StatusFlags::LostPath);
+
+            // If all branches from the last node were otherwise stable, assume that the worker will follow the expected path
+            // The reason for doing this is to smooth over some path instabilities: we might be on a slightly different subpixel position than we have
+            // trained on, but most likely will still get the same result even if an intermediate position differs
+            if (expectedPath->arrivalFramesWithProbabilities.size() == 1)
+            {
+                auto resendFrames = expectedPath->aggregatedResendFramesIfStable();
+                if (resendFrames)
+                {
+                    // Patch the resend frames into the expected path and clear the remaining path information
+                    expectedPath->resendFramesOnThisBranch = std::move(*resendFrames);
+                    expectedPath->pathToNextBranch.clear();
+                    expectedPath->pathNodesToNextBranch.clear();
+                    expectedPath->nextBranches.clear();
+
+                    setFlag(StatusFlags::LostPathWithAssumedResult);
+
+#if VERBOSE_PATH_LOGGING
+                    CherryVis::log(worker->id) << "Lost path, but all remaining branches are equivalent, so assuming worker will achieve same result";
+#endif
+                    return;
+                }
+            }
+
+            resetPath();
+#if VERBOSE_PATH_LOGGING
+            CherryVis::log(worker->id) << "Lost path";
+#endif
+        };
+
         // Ensure we are following the path
         if (!expectedPath->pathToNextBranch.empty())
         {
             // We are at a non-branching node, so just validate the next node
             if (expectedPath->pathToNextBranch.front() != currentPosition)
             {
-                resetPath();
-                setFlag(StatusFlags::LostPath);
-#if VERBOSE_PATH_LOGGING
-                CherryVis::log(worker->id) << "Lost path";
-#endif
+                lostPath();
                 return;
             }
 
@@ -183,11 +212,7 @@ namespace MiningOptimization
             // If we didn't find the next branch, we lost the path here
             if (!foundNextBranch)
             {
-                resetPath();
-                setFlag(StatusFlags::LostPath);
-#if VERBOSE_PATH_LOGGING
-                CherryVis::log(worker->id) << "Lost path";
-#endif
+                lostPath();
                 return;
             }
         }
@@ -232,7 +257,7 @@ namespace MiningOptimization
         {
             pathStatistics.withPath++;
 
-            if (!hasFlag(StatusFlags::LostPath))
+            if (!hasFlag(StatusFlags::LostPath) || hasFlag(StatusFlags::LostPathWithAssumedResult))
             {
                 // If we still have a captured path, compare the actual arrival and action frames to the expected
                 if (expectedPath)
@@ -262,7 +287,11 @@ namespace MiningOptimization
                     }
                 }
 
-                pathStatistics.withPathFollowedToCompletion++;
+                pathStatistics.withPathFollowedToStableResult++;
+                if (!hasFlag(StatusFlags::LostPath))
+                {
+                    pathStatistics.withPathFollowedToCompletion++;
+                }
 #if IS_OPENBW
             }
             else if (startPosition)

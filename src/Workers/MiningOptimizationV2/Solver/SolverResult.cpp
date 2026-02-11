@@ -8,6 +8,28 @@
 namespace MiningOptimization
 {
     template <typename ObservationType>
+    std::optional<std::set<int>> SolverResult<ObservationType>::aggregatedResendFramesIfStable() const
+    {
+        if (nextBranches.empty()) return resendFramesOnThisBranch;
+
+        auto firstResult = nextBranches.begin()->aggregatedResendFramesIfStable();
+        if (!firstResult) return std::nullopt;
+
+        if (nextBranches.size() > 1)
+        {
+            for (auto nextBranchIt = nextBranches.begin() + 1; nextBranchIt != nextBranches.end(); nextBranchIt++)
+            {
+                auto nextBranchResult = nextBranchIt->aggregatedResendFramesIfStable();
+                if (!nextBranchResult) return std::nullopt;
+                if (*nextBranchResult != *firstResult) return std::nullopt;
+            }
+        }
+
+        firstResult->insert(resendFramesOnThisBranch.begin(), resendFramesOnThisBranch.end());
+        return firstResult;
+    }
+
+    template <typename ObservationType>
     std::string SolverResult<ObservationType>::framePredictions() const
     {
         std::ostringstream out;

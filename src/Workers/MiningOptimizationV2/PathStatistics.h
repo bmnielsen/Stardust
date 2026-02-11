@@ -18,6 +18,9 @@ namespace MiningOptimization
         // The subset of the above that had any path data
         unsigned int withPath;
 
+        // The subset of the above that was able to follow the path data to a point where all subsequent pathing data was stable
+        unsigned int withPathFollowedToStableResult;
+
         // The subset of the above that was able to follow the path data to completion
         unsigned int withPathFollowedToCompletion;
 
@@ -47,6 +50,7 @@ namespace MiningOptimization
             withTakeover = 0;
             patchSwitches = 0;
             withPath = 0;
+            withPathFollowedToStableResult = 0;
             withPathFollowedToCompletion = 0;
             withExpectedArrivalFrame = 0;
             withExpectedActionFrame = 0;
