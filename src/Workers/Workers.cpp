@@ -920,7 +920,7 @@ namespace Workers
                             worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision)
                         {
                             auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(base->resourceDepot);
-                            if (myDepot)
+                            if (myDepot && mineralPatch)
                             {
                                 WORKERGATHEROPTIMIZER::optimizeReturnOfResource(worker, myDepot, mineralPatch);
                             }
