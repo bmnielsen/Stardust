@@ -161,7 +161,7 @@ namespace MiningOptimizationTraining
         // resets.
         // When we do the training with resends, we then add in any additional start positions not seen in this simplified exploration.
 
-        auto simulate = [&](bool forceReturn, bool forceGather)
+        auto simulate = [&](bool forceReturn)
         {
             auto returnResult = simWorker->simulateGatherPath(
                     BWAPI::SimulateGatherPathOptions({}, preparedGatherPath->returnPathState)
@@ -176,7 +176,7 @@ namespace MiningOptimizationTraining
 
             auto gatherResult = simWorker->simulateGatherPath(
                     BWAPI::SimulateGatherPathOptions({}, returnResult->stateAtStartOfNextPath)
-                            .setForceAction(forceGather));
+                            .setForceAction(true));
             if (!gatherResult)
             {
                 Log::Get() << "Gather path simulation did not succeed; patch @ " << startPosition.patch->getTilePosition()
@@ -195,9 +195,7 @@ namespace MiningOptimizationTraining
             path.populatePositionsToExplore();
             mapData.resourceToReturnPaths[TilePosition::fromBWAPI(startPosition.patch->getTilePosition())][positionAndVelocity] = std::move(path);
         };
-        simulate(true, true);
-        simulate(true, false);
-        simulate(false, true);
-        simulate(false, false);
+        simulate(true);
+        simulate(false);
     }
 }

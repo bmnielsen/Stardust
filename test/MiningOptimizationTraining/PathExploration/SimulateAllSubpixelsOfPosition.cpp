@@ -110,7 +110,7 @@ namespace MiningOptimizationTraining
                         auto resendStartPos = BWAPI::ExactPosition{baseX + x, baseY + y, -68, 0, 0};
 
                         auto prepareResult = simWorker->prepareGatherPath(
-                                BWAPI::PrepareGatherPathOptions(resendStartPos, startPosition.patch->getBWIndex(), initialState.state));
+                                BWAPI::PrepareGatherPathOptions(resendStartPos, startPosition.patch->getBWIndex(), initialStateWithNoCannons.state));
                         if (!prepareResult)
                         {
                             Log::Get() << "ERROR: Failed to prepare gather path";

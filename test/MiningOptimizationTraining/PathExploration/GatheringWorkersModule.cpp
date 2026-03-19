@@ -199,7 +199,7 @@ namespace MiningOptimizationTraining
                             else
                             {
                                 auto workerStatus =
-                                        std::make_unique<WorkerStatusType>(mapData, worker, patch, depot, simWorker, initialState);
+                                        std::make_unique<WorkerStatusType>(mapData, worker, patch, depot, simWorker, initialStateWithNoCannons);
                                 CherryVis::log(worker->getID()) << "Assigned to patch @ " << BWAPI::WalkPosition(patch->getPosition());
                                 workerStatus->initialize();
                                 workerStatuses.emplace_back(std::move(workerStatus));

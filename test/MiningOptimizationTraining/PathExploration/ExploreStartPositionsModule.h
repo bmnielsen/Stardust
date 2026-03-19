@@ -66,7 +66,7 @@ namespace MiningOptimizationTraining
                 auto &current = startPositions.front();
 
                 auto prepareResult = simWorker->prepareGatherPath(
-                        BWAPI::PrepareGatherPathOptions(current.pos, current.patch->getBWIndex(), initialState.state));
+                        BWAPI::PrepareGatherPathOptions(current.pos, current.patch->getBWIndex(), initialStateWithNoCannons.state));
                 if (!prepareResult)
                 {
                     Log::Get() << "ERROR: Failed to prepare gather path for patch " << current.patch->getTilePosition();

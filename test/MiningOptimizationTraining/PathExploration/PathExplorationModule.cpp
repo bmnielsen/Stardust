@@ -18,9 +18,6 @@ namespace MiningOptimizationTraining
         // Initialize the minimum needed to have bases, start blocks and cannon placements available
         Units::initialize();
         Map::initialize();
-        BuildingPlacement::setUseStartBlocksForAllStartingLocations(options.useStartBlockCannonsForStartingLocations);
-        BuildingPlacement::initialize();
-        BuildingPlacement::update();
 
         if (options.loadMapData) Serialization::readMapData(mapData);
 
@@ -33,9 +30,10 @@ namespace MiningOptimizationTraining
 
         if (BWAPI::Broodwar->getFrameCount() == 0)
         {
-            // First initialization step:
             // - kill all starting workers, blocking neutrals and critters
             // - create an observer at each base so we gain the vision needed to create the depot later
+            // - find a free position for the sim worker and create an observer to gain the vision needed to create it
+
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
             {
                 if (unit->getType().isWorker())
@@ -57,78 +55,63 @@ namespace MiningOptimizationTraining
             {
                 if (unit->getType().isCritter()) BWAPI::Broodwar->killUnit(unit);
             }
+
+            auto bestDist = 0;
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            {
+                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                {
+                    if (!Map::isWalkable(x, y)) continue;
+
+                    auto center = BWAPI::Position(BWAPI::TilePosition(x, y)) + BWAPI::Position(16, 16);
+                    int minDist = INT_MAX;
+                    for (auto base : Map::allBases())
+                    {
+                        minDist = std::min(minDist, center.getApproxDistance(base->getPosition()));
+                    }
+
+                    if (minDist > bestDist)
+                    {
+                        simWorkerPosition = center;
+                        bestDist = minDist;
+                    }
+                }
+            }
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Observer, simWorkerPosition);
         }
         else if (BWAPI::Broodwar->getFrameCount() == 5)
         {
-            // Second initialization steps:
-            // - create a depot and pylon at each base
-            // - create a power pylon in a block with one medium and one small build location
+            // - create a depot at each base
+            // - create the sim worker
+
             for (auto base : Map::allBases())
             {
                 BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
                                             BWAPI::UnitTypes::Protoss_Nexus,
                                             Geo::CenterOfUnit(base->getTilePosition(), BWAPI::UnitTypes::Protoss_Nexus));
-
-                auto &staticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-                if (staticDefenseLocations.powerPylon.isValid())
-                {
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                BWAPI::UnitTypes::Protoss_Pylon,
-                                                Geo::CenterOfUnit(staticDefenseLocations.powerPylon, BWAPI::UnitTypes::Protoss_Pylon));
-                }
             }
 
-            for (auto &pylonLocation :
-                    BuildingPlacement::getBuildLocations()[to_underlying(BuildingPlacement::Neighbourhood::MainBase)][2])
-            {
-                if (pylonLocation.powersMedium.size() > 1)
-                {
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                BWAPI::UnitTypes::Protoss_Pylon,
-                                                Geo::CenterOfUnit(pylonLocation.location.tile, BWAPI::UnitTypes::Protoss_Pylon));
-                }
-            }
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Probe,
+                                        simWorkerPosition);
         }
         else if (BWAPI::Broodwar->getFrameCount() == 10)
         {
-            // Third initialization step:
-            // - kill the observers that are no longer needed
-            // - create a forge and the sim worker
-            std::set<BWAPI::TilePosition> pylons;
+            // - kill the observers
+
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
             {
                 if (unit->getType() == BWAPI::UnitTypes::Protoss_Observer)
                 {
                     BWAPI::Broodwar->killUnit(unit);
                 }
-                else if (unit->getType() == BWAPI::UnitTypes::Protoss_Pylon)
-                {
-                    pylons.insert(unit->getTilePosition());
-                }
-            }
-
-            for (auto &pylonLocation :
-                    BuildingPlacement::getBuildLocations()[to_underlying(BuildingPlacement::Neighbourhood::MainBase)][2])
-            {
-                if (pylonLocation.powersMedium.size() > 1 && pylons.contains(pylonLocation.location.tile))
-                {
-                    auto firstTile = pylonLocation.powersMedium.begin()->location.tile;
-                    auto secondTile = (pylonLocation.powersMedium.begin() + 1)->location.tile;
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                BWAPI::UnitTypes::Protoss_Forge,
-                                                Geo::CenterOfUnit(firstTile, BWAPI::UnitTypes::Protoss_Forge));
-                    BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                BWAPI::UnitTypes::Protoss_Probe,
-                                                BWAPI::Position(secondTile) + BWAPI::Position(48, 32));
-                    break;
-                }
             }
         }
         else if (BWAPI::Broodwar->getFrameCount() == 15)
         {
-            // Fourth initialization step:
             // - reference the sim worker
-            // - create the required cannons
+            // - create the state copy with no cannons
+
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
             {
                 if (unit->getType().isWorker())
@@ -138,51 +121,263 @@ namespace MiningOptimizationTraining
                 }
             }
 
+            initialStateWithNoCannons = BWAPI::Broodwar->getStateCopy();
+        }
+        else if (BWAPI::Broodwar->getFrameCount() == 20)
+        {
+            // - find a free position for the pylon+forge and create an observer to gain the vision needed to create it
+            // - populate the various pylon and cannon data structures
+
+            auto bestDist = 0;
+            auto simWorkerTile = BWAPI::TilePosition(simWorkerPosition);
+            for (int y = 0; y < BWAPI::Broodwar->mapHeight(); y++)
+            {
+                for (int x = 0; x < BWAPI::Broodwar->mapWidth(); x++)
+                {
+                    bool allBuildable = true;
+                    for (int dy = 0; dy < 2 && allBuildable; dy++)
+                    {
+                        for (int dx = 0; dx < 5 && allBuildable; dx++)
+                        {
+                            auto tile = BWAPI::TilePosition(x + dx, y + dy);
+                            if (!Map::isWalkable(tile.x, tile.y) || !BWAPI::Broodwar->isBuildable(tile.x, tile.y) || tile == simWorkerTile)
+                            {
+                                allBuildable = false;
+                            }
+                        }
+                    }
+                    if (!allBuildable) continue;
+
+                    auto center = BWAPI::Position(BWAPI::TilePosition(x, y)) + BWAPI::Position(80, 32);
+                    int minDist = INT_MAX;
+                    for (auto base : Map::allBases())
+                    {
+                        minDist = std::min(minDist, center.getApproxDistance(base->getPosition()));
+                    }
+
+                    if (minDist > bestDist)
+                    {
+                        forgePosition = BWAPI::TilePosition(x, y);
+                        bestDist = minDist;
+                    }
+                }
+            }
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Observer,
+                                        BWAPI::Position(forgePosition) + BWAPI::Position(80, 32));
+
+            // Gather the non-start block locations
+            BuildingPlacement::setUseStartBlocksForAllStartingLocations(false);
+            BuildingPlacement::initialize();
+            BuildingPlacement::update();
             for (auto base : Map::allBases())
             {
                 auto &staticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
-                if (staticDefenseLocations.powerPylon.isValid())
+                if (staticDefenseLocations.powerPylon.isValid() && staticDefenseLocations.workerDefenseCannons.size() > 1)
                 {
-                    auto cannonLocations = std::set<BWAPI::TilePosition>(staticDefenseLocations.workerDefenseCannons.begin(),
-                                                                         staticDefenseLocations.workerDefenseCannons.end());
+                    std::vector<BWAPI::TilePosition> cannons = {*staticDefenseLocations.workerDefenseCannons.begin(),
+                                                                *(staticDefenseLocations.workerDefenseCannons.begin() + 1)};
+                    baseToPylonAndCannons[base] = std::make_pair(staticDefenseLocations.powerPylon, cannons);
 
-                    auto buildCannon = [&]()
+                    for (auto &patch : base->mineralPatches())
                     {
+                        patchToCannons[patch->tile] = cannons;
+                        patchToCannonsToStateCopy[patch->tile][CannonConfiguration::FirstNormalCannon] = nullptr;
+                        patchToCannonsToStateCopy[patch->tile][CannonConfiguration::BothNormalCannons] = nullptr;
+                    }
+                }
+            }
+
+            // Gather the start block locations, but only register them if they are different to the normal cannons
+            BuildingPlacement::setUseStartBlocksForAllStartingLocations(true);
+            BuildingPlacement::initialize();
+            BuildingPlacement::update();
+            for (auto base : Map::allBases())
+            {
+                if (!base->isStartingBase()) continue;
+
+                auto &staticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(base);
+                if (staticDefenseLocations.powerPylon.isValid() && staticDefenseLocations.workerDefenseCannons.size() > 1)
+                {
+                    // As long as there are more than 2 cannons, remove the one furthest from the mineral line
+                    while (staticDefenseLocations.workerDefenseCannons.size() > 2)
+                    {
+                        int maxDist = 0;
                         BWAPI::TilePosition best = BWAPI::TilePositions::Invalid;
-                        int bestDist = INT_MAX;
-                        for (auto tile : cannonLocations)
+                        for (auto &tile : staticDefenseLocations.workerDefenseCannons)
                         {
-                            int dist = base->mineralLineCenter.getApproxDistance(Geo::CenterOfUnit(tile,
-                                                                                                   BWAPI::UnitTypes::Protoss_Photon_Cannon));
-                            if (dist < bestDist)
+                            int dist = base->mineralLineCenter.getApproxDistance(Geo::CenterOfUnit(tile, BWAPI::UnitTypes::Protoss_Photon_Cannon));
+                            if (dist > maxDist)
                             {
-                                bestDist = dist;
+                                maxDist = dist;
                                 best = tile;
                             }
                         }
+                        staticDefenseLocations.workerDefenseCannons.erase(
+                                std::remove(staticDefenseLocations.workerDefenseCannons.begin(),
+                                            staticDefenseLocations.workerDefenseCannons.end(),
+                                            best), staticDefenseLocations.workerDefenseCannons.end());
+                    }
 
-                        if (best != BWAPI::TilePositions::Invalid)
-                        {
-                            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
-                                                        BWAPI::UnitTypes::Protoss_Photon_Cannon,
-                                                        Geo::CenterOfUnit(best, BWAPI::UnitTypes::Protoss_Photon_Cannon));
-                            cannonLocations.erase(best);
-                        }
-                    };
+                    std::vector<BWAPI::TilePosition> cannons = {*staticDefenseLocations.workerDefenseCannons.begin(),
+                                                                *(staticDefenseLocations.workerDefenseCannons.begin() + 1)};
 
-                    for (int builtCannons = 0; builtCannons < options.cannonsPerBase; builtCannons++)
+                    if (baseToPylonAndCannons.contains(base) && baseToPylonAndCannons[base].second[0] == cannons[0]
+                        && baseToPylonAndCannons[base].second[1] == cannons[1])
                     {
-                        buildCannon();
+                        continue;
+                    }
+
+                    baseToStartBlockPylonAndCannons[base] = std::make_pair(staticDefenseLocations.powerPylon, cannons);
+
+                    for (auto &patch : base->mineralPatches())
+                    {
+                        patchToStartBlockCannons[patch->tile] = cannons;
+                        patchToCannonsToStateCopy[patch->tile][CannonConfiguration::FirstStartBlockCannon] = nullptr;
+                        patchToCannonsToStateCopy[patch->tile][CannonConfiguration::BothStartBlockCannons] = nullptr;
                     }
                 }
             }
         }
-        else if (BWAPI::Broodwar->getFrameCount() == 20)
+        else if (BWAPI::Broodwar->getFrameCount() == 25)
         {
-            // Final step: copy the state
-            initialState = BWAPI::Broodwar->getStateCopy();
+            // - create the pylon for the forge
+
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Pylon,
+                                        Geo::CenterOfUnit(forgePosition + BWAPI::TilePosition(3, 0), BWAPI::UnitTypes::Protoss_Pylon));
         }
-        else if (BWAPI::Broodwar->getFrameCount() >= 25)
+        else if (BWAPI::Broodwar->getFrameCount() == 30)
+        {
+            // - create the forge
+            // - kill the observer
+            // - create the non-start block pylons
+
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                        BWAPI::UnitTypes::Protoss_Forge,
+                                        Geo::CenterOfUnit(forgePosition, BWAPI::UnitTypes::Protoss_Forge));
+            for (auto unit : BWAPI::Broodwar->self()->getUnits())
+            {
+                if (unit->getType() == BWAPI::UnitTypes::Protoss_Observer)
+                {
+                    BWAPI::Broodwar->killUnit(unit);
+                }
+            }
+
+            for (auto &[_, locations] : baseToPylonAndCannons)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                            BWAPI::UnitTypes::Protoss_Pylon,
+                                            Geo::CenterOfUnit(locations.first, BWAPI::UnitTypes::Protoss_Pylon));
+            }
+        }
+        else if (BWAPI::Broodwar->getFrameCount() == 35)
+        {
+            // - create the first non-start block cannon
+
+            for (auto &[_, locations] : baseToPylonAndCannons)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                            Geo::CenterOfUnit(locations.second[0], BWAPI::UnitTypes::Protoss_Photon_Cannon));
+            }
+        }
+        else if (BWAPI::Broodwar->getFrameCount() == 40)
+        {
+            // - create the state copy with the first non-start block cannon
+            // - create the second non-start block cannon
+
+            initialStateWithFirstCannon = BWAPI::Broodwar->getStateCopy();
+
+            for (auto &[_, locations] : baseToPylonAndCannons)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                            Geo::CenterOfUnit(locations.second[1], BWAPI::UnitTypes::Protoss_Photon_Cannon));
+            }
+        }
+        else if (BWAPI::Broodwar->getFrameCount() == 45)
+        {
+            // - create the state copy with both non-start block cannons
+            // - kill the non-start block pylons and cannons
+
+            initialStateWithBothCannons = BWAPI::Broodwar->getStateCopy();
+
+            for (auto unit : BWAPI::Broodwar->self()->getUnits())
+            {
+                if (unit->getType() == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
+                    (unit->getType() == BWAPI::UnitTypes::Protoss_Pylon && unit->getTilePosition() != (forgePosition + BWAPI::TilePosition(3, 0))))
+                {
+                    BWAPI::Broodwar->killUnit(unit);
+                }
+            }
+        }
+        else if (BWAPI::Broodwar->getFrameCount() == 50)
+        {
+            // - create the start block pylons
+
+            for (auto &[_, locations] : baseToStartBlockPylonAndCannons)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                            BWAPI::UnitTypes::Protoss_Pylon,
+                                            Geo::CenterOfUnit(locations.first, BWAPI::UnitTypes::Protoss_Pylon));
+            }
+        }
+        else if (BWAPI::Broodwar->getFrameCount() == 55)
+        {
+            // - create the first start block cannon
+
+            for (auto &[_, locations] : baseToStartBlockPylonAndCannons)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                            Geo::CenterOfUnit(locations.second[0], BWAPI::UnitTypes::Protoss_Photon_Cannon));
+            }
+        }
+        else if (BWAPI::Broodwar->getFrameCount() == 60)
+        {
+            // - create the state copy with the first start block cannon
+            // - create the second start block cannon
+
+            initialStateWithFirstStartBlockCannon = BWAPI::Broodwar->getStateCopy();
+
+            for (auto &[_, locations] : baseToStartBlockPylonAndCannons)
+            {
+                BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(),
+                                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
+                                            Geo::CenterOfUnit(locations.second[1], BWAPI::UnitTypes::Protoss_Photon_Cannon));
+            }
+        }
+        else if (BWAPI::Broodwar->getFrameCount() == 65)
+        {
+            // - create the state copy with both start block cannons
+            // - populate the state copy pointers in the data structure
+
+            initialStateWithBothStartBlockCannons = BWAPI::Broodwar->getStateCopy();
+
+            for (auto &[_, map] : patchToCannonsToStateCopy)
+            {
+                for (auto &[cannonConfiguration, stateCopy] : map)
+                {
+                    switch (cannonConfiguration)
+                    {
+                        case CannonConfiguration::FirstNormalCannon:
+                            stateCopy = &initialStateWithFirstCannon;
+                            break;
+                        case CannonConfiguration::BothNormalCannons:
+                            stateCopy = &initialStateWithBothCannons;
+                            break;
+                        case CannonConfiguration::FirstStartBlockCannon:
+                            stateCopy = &initialStateWithFirstStartBlockCannon;
+                            break;
+                        case CannonConfiguration::BothStartBlockCannons:
+                            stateCopy = &initialStateWithBothStartBlockCannons;
+                            break;
+                    }
+                }
+            }
+        }
+        else if (BWAPI::Broodwar->getFrameCount() > 65)
         {
             if (initialize())
             {
