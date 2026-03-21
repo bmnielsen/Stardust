@@ -1,6 +1,8 @@
 #include "SerializedPath.h"
 #include "MapData.h"
 
+#include "Units.h"
+
 #include <bitsery/adapter/buffer.h>
 #include <bitsery/traits/vector.h>
 
@@ -139,20 +141,45 @@ namespace MiningOptimization
     template <typename ObservationType>
     Path<ObservationType> SerializedPath<ObservationType>::get() const
     {
-        Path<ObservationType> result;
-        result.pos = pos;
-        bitsery::Deserializer<bitsery::InputBufferAdapter<std::vector<uint8_t>>> ser{data.begin(), data.size()};
-        serializePath<false>(ser, result);
-        return std::move(result);
+        for (auto &[cannonPlacement, data] : dataByCannonPlacement)
+        {
+            if (cannonPlacement.cannonCount > 0 && !Units::myBuildingAt(cannonPlacement.tile)) continue;
+
+            Path<ObservationType> result;
+            result.pos = pos;
+            bitsery::Deserializer<bitsery::InputBufferAdapter<std::vector<uint8_t>>> ser{data.begin(), data.size()};
+            serializePath<false>(ser, result);
+            return std::move(result);
+        }
+
+        // We don't have data matching the current cannon configuration, so return a path without any data
+        return {pos};
     }
 
     template <typename ObservationType>
-    SerializedPath<ObservationType> SerializedPath<ObservationType>::create(const Path<ObservationType> &path)
+    SerializedPath<ObservationType> SerializedPath<ObservationType>::create(
+            const std::map<CannonPlacement, Path<ObservationType>> &cannonPlacementToPath)
     {
         SerializedPath<ObservationType> result;
-        result.pos = path.pos;
-        bitsery::Serializer<bitsery::OutputBufferAdapter<std::vector<uint8_t>>> ser{result.data};
-        serializePath<true>(ser, const_cast<Path<ObservationType>&>(path));
+        std::vector<std::pair<CannonPlacement, std::vector<uint8_t>>> dataByCannonPlacement;
+        for (const auto &[cannonPlacement, path] : cannonPlacementToPath)
+        {
+            result.pos = path.pos;
+
+            std::vector<uint8_t> serialized;
+            bitsery::Serializer<bitsery::OutputBufferAdapter<std::vector<uint8_t>>> ser{serialized};
+            serializePath<true>(ser, const_cast<Path<ObservationType>&>(path));
+
+            dataByCannonPlacement.emplace_back(cannonPlacement, std::move(serialized));
+        }
+
+        std::sort(dataByCannonPlacement.begin(), dataByCannonPlacement.end(), [](const std::pair<CannonPlacement, std::vector<uint8_t>> &a,
+                                                                                 const std::pair<CannonPlacement, std::vector<uint8_t>> &b)
+        {
+            return a.first.cannonCount > b.first.cannonCount;
+        });
+
+        result.dataByCannonPlacement = std::move(dataByCannonPlacement);
         return std::move(result);
     }
 

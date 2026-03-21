@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Path.h"
+#include "CannonPlacement.h"
 
 namespace MiningOptimization
 {
@@ -13,17 +14,20 @@ namespace MiningOptimization
 
         Path<ObservationType> get() const;
 
-        static SerializedPath<ObservationType> create(const Path<ObservationType> &path);
+        static SerializedPath<ObservationType> create(const std::map<CannonPlacement, Path<ObservationType>> &cannonPlacementToPath);
 
         template <typename S>
         void serialize(S& s) {
             s.object(pos);
-            s.container(data, INT_MAX, [&](S &s, uint8_t &v) {
-                s.value1b(v);
+            s.container(dataByCannonPlacement, INT_MAX, [&](S &s, std::pair<CannonPlacement, std::vector<uint8_t>> &v) {
+                s.object(v.first);
+                s.container(v.second, INT_MAX, [&](S &s, uint8_t &v) {
+                    s.value1b(v);
+                });
             });
         }
 
     private:
-        std::vector<uint8_t> data;
+        std::vector<std::pair<CannonPlacement, std::vector<uint8_t>>> dataByCannonPlacement;
     };
 }

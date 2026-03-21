@@ -20,6 +20,10 @@ public:
     {
         return std::tie(this->x, this->y) < std::tie(pos.x, pos.y);
     };
+    operator BWAPI::TilePosition() const
+    {
+        return BWAPI::TilePosition(x, y);
+    }
 
     friend std::ostream &operator << (std::ostream &os, const TilePosition &pos)
     {

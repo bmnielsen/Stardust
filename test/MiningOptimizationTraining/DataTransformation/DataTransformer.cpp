@@ -413,18 +413,22 @@ namespace MiningOptimizationTraining::DataTransformer
         }
 
         template <typename TrainingObservationType, typename OutputObservationType>
-        MiningOptimization::Path<OutputObservationType> convert(
+        std::map<MiningOptimization::CannonPlacement, MiningOptimization::Path<OutputObservationType>> convert(
                 const Path<TrainingObservationType> &rootNode,
                 const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
                 const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
                 const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
-            return {convert(rootNode.pos),
+            std::map<MiningOptimization::CannonPlacement, MiningOptimization::Path<OutputObservationType>> result;
+            result[MiningOptimization::CannonPlacement{0}] =
+                {
+                    convert(rootNode.pos),
                     convert<TrainingObservationType, OutputObservationType>(rootNode.pos,
                                                                             rootNode.nextPositions,
                                                                             positionDeltaToIndex,
                                                                             tenDistanceAndResendAlwaysArrivesToIndex,
                                                                             nextPathArrivalDelays)};
+            return result;
         }
 
         template <typename TrainingObservationType, typename OutputObservationType>
