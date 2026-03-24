@@ -106,7 +106,10 @@ namespace MiningOptimizationTraining::DataTransformer
             {
                 for (const auto &[_, rootNode] : rootNodes)
                 {
-                    gatherPositionDeltas(rootNode.pos, rootNode.nextPositions, positionDeltas, positionDeltaToIndex);
+                    for (auto &[_, nextPositions] : rootNode.nextPositions)
+                    {
+                        gatherPositionDeltas(rootNode.pos, nextPositions, positionDeltas, positionDeltaToIndex);
+                    }
                 }
             }
         }
@@ -139,7 +142,10 @@ namespace MiningOptimizationTraining::DataTransformer
             {
                 for (const auto &[_, rootNode] : rootNodes)
                 {
-                    gatherTenDistanceAndResendAlwaysArrives(rootNode.nextPositions, tenDistanceAndResendAlwaysArrivesToOccurrences);
+                    for (auto &[_, nextPositions] : rootNode.nextPositions)
+                    {
+                        gatherTenDistanceAndResendAlwaysArrives(nextPositions, tenDistanceAndResendAlwaysArrivesToOccurrences);
+                    }
                 }
             }
         }
@@ -420,14 +426,18 @@ namespace MiningOptimizationTraining::DataTransformer
                 const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
             std::map<MiningOptimization::CannonPlacement, MiningOptimization::Path<OutputObservationType>> result;
-            result[MiningOptimization::CannonPlacement{0}] =
-                {
-                    convert(rootNode.pos),
-                    convert<TrainingObservationType, OutputObservationType>(rootNode.pos,
-                                                                            rootNode.nextPositions,
-                                                                            positionDeltaToIndex,
-                                                                            tenDistanceAndResendAlwaysArrivesToIndex,
-                                                                            nextPathArrivalDelays)};
+
+            for (auto &[cannonPlacement, nextPositions] : rootNode.nextPositions)
+            {
+                result[cannonPlacement] = {
+                        convert(rootNode.pos),
+                        convert<TrainingObservationType, OutputObservationType>(rootNode.pos,
+                                                                                nextPositions,
+                                                                                positionDeltaToIndex,
+                                                                                tenDistanceAndResendAlwaysArrivesToIndex,
+                                                                                nextPathArrivalDelays)};
+            }
+
             return result;
         }
 

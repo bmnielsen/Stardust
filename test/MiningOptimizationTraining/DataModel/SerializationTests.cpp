@@ -23,9 +23,13 @@ namespace
     {
         std::vector<std::pair<MiningOptimizationTraining::GatherPathNode, uint32_t>> nextPositions;
         nextPositions.emplace_back(std::move(nextNode), nextNode.pos.x);
+
+        std::map<MiningOptimization::CannonPlacement, std::vector<std::pair<MiningOptimizationTraining::GatherPathNode, uint32_t>>> nextPositionsMap;
+        nextPositionsMap.emplace(MiningOptimization::CannonPlacement{0}, std::move(nextPositions));
+
         return MiningOptimizationTraining::GatherPath{
             pos,
-            std::move(nextPositions),
+            std::move(nextPositionsMap),
             pos.x, pos.x, // times explored
             {{pos.x, pos.x}} // best delay and occurrences
         };
@@ -78,7 +82,7 @@ namespace
                                 MiningOptimizationTraining::GatherPath &actual)
     {
         ASSERT_EQ(expected.pos, actual.pos);
-        assertGatherPathNodesVectorEqual(expected.nextPositions, actual.nextPositions);
+        assertGatherPathNodesVectorEqual(expected.nextPositions[{}], actual.nextPositions[{}]);
     }
 }
 

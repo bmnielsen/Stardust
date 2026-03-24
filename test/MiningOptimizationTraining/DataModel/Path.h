@@ -6,6 +6,8 @@
 #include "PositionAndVelocity.h"
 #include "Configuration.h"
 
+#include "MiningOptimizationV2/DataModel/CannonPlacement.h"
+
 namespace MiningOptimizationTraining
 {
     enum class NodeType:uint8_t
@@ -57,7 +59,7 @@ namespace MiningOptimizationTraining
         PositionAndVelocity pos;
 
         // All next positions seen from this node
-        std::vector<std::pair<PathNode<ObservationType>, uint32_t>> nextPositions;
+        std::map<MiningOptimization::CannonPlacement, std::vector<std::pair<PathNode<ObservationType>, uint32_t>>> nextPositions;
 
         // The number of times this root node has been explored with no collision at the start of the path
         uint32_t timesExploredWithNoCollision = 0;

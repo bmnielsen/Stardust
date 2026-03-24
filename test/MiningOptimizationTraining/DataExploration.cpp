@@ -147,7 +147,7 @@ namespace
             {
                 for (auto &[_2, rootNode] : patchRootNodes)
                 {
-                    prune(rootNode.nextPositions);
+                    prune(rootNode.nextPositions[{}]);
                 }
             }
         }
@@ -161,7 +161,7 @@ namespace
                             : poorlyExploredResult,
                         rootNode.pos,
                         rootNode.pos,
-                        rootNode.nextPositions);
+                        rootNode.nextPositions.at({}));
             }
         }
     }
@@ -247,7 +247,7 @@ TEST(DataExploration, CheckSpecificPath)
     PositionAndVelocity resendPos{
             56366/256,80216/256,2,0,-1280
     };
-    auto current = &path.nextPositions;
+    auto current = &path.nextPositions[{}];
     while (current)
     {
         if (current->empty())
@@ -311,7 +311,7 @@ TEST(DataExploration, DeltasToTenDistanceAndResendAlwaysArrives)
     {
         for (const auto &[_, gatherPath] : gatherPaths)
         {
-            processNextNodes(gatherPath.nextPositions);
+            processNextNodes(gatherPath.nextPositions.at({}));
         }
     }
 
@@ -411,7 +411,7 @@ TEST(DataExploration, ReturnCollisions)
     {
         for (const auto &[_, returnPath] : returnPaths)
         {
-            processNextNodes(returnPath.nextPositions);
+            processNextNodes(returnPath.nextPositions.at({}));
         }
     }
 

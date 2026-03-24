@@ -41,6 +41,7 @@ list(FILTER SRC_FILES EXCLUDE REGEX ".*3rdparty.*")
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/PathExploration/SimulateGatherPathTester.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/PathExploration/InitializeStartPositions.cpp PROPERTIES COMPILE_FLAGS -O0)
 SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/DataExploration.cpp PROPERTIES COMPILE_FLAGS -O0)
+SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/DataTransformation/DataTransformerTests.cpp PROPERTIES COMPILE_FLAGS -O0)
 SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/PathExploration/SimulateAllSubpixelsOfPosition.cpp PROPERTIES COMPILE_FLAGS -O0)
 
 add_executable(tests ${SRC_FILES})

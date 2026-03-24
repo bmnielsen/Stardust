@@ -202,11 +202,11 @@ namespace MiningOptimizationTraining
             mapData.resourceToReturnPaths[TilePosition::fromBWAPI(startPosition.patch->getTilePosition())][positionAndVelocity] = std::move(path);
         };
 
-        for (auto &[cannonConfiguration, state]
+        for (auto &[cannonPlacement, state]
                 : patchToCannonsToStateCopy[startPosition.patch->getTilePosition()])
         {
-            simulate(true, cannonConfiguration, *state);
-            simulate(false, cannonConfiguration, *state);
+            simulate(true, cannonPlacement, *state);
+            simulate(false, cannonPlacement, *state);
         }
     }
 }

@@ -72,10 +72,17 @@ namespace MiningOptimizationTraining::Serialization
                 };
 
                 s.object(value.pos);
-                s.container(value.nextPositions, INT_MAX, [&](S &s, std::pair<PathNode<T>, uint32_t> &v) {
-                    s.object(v.first, pathNodeSerializer);
-                    s.value4b(v.second);
-                });
+
+                s.ext(value.nextPositions, bitsery::ext::StdMap{INT_MAX},
+                      [&](S &s, MiningOptimization::CannonPlacement &key, std::vector<std::pair<PathNode<T>, uint32_t>> &vec)
+                      {
+                          s.object(key);
+                          s.container(vec, INT_MAX, [&](S &s, std::pair<PathNode<T>, uint32_t> &v)
+                          {
+                              s.object(v.first, pathNodeSerializer);
+                              s.value4b(v.second);
+                          });
+                      });
                 s.value4b(value.timesExploredWithNoCollision);
                 s.value4b(value.timesExploredWithCollision);
                 s.ext(value.bestArrivalDelaysAndOccurrences, bitsery::ext::StdMap{INT_MAX}, [&](S& s, uint16_t& key, uint32_t& v) {
