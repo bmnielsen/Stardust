@@ -64,22 +64,7 @@ namespace MiningOptimizationTraining
             while (!startPositions.empty())
             {
                 auto &current = startPositions.front();
-
-                auto prepareResult = simWorker->prepareGatherPath(
-                        BWAPI::PrepareGatherPathOptions(current.pos, current.patch->getBWIndex(), initialStateWithNoCannons.state));
-                if (!prepareResult)
-                {
-                    Log::Get() << "ERROR: Failed to prepare gather path for patch " << current.patch->getTilePosition();
-                    return;
-                }
-                if (prepareResult->returnPathStartPosition != current.pos)
-                {
-                    Log::Get() << "ERROR: Prepared gather path has incorrect start position; patch @ " << current.patch->getTilePosition();
-                    EXPECT_EQ(prepareResult->returnPathStartPosition, current.pos);
-                    return;
-                }
-
-                explore(current, prepareResult);
+                explore(current);
                 startPositions.pop_front();
                 processed++;
 
@@ -132,6 +117,25 @@ namespace MiningOptimizationTraining
             executed = true;
         }
 
+        std::unique_ptr<BWAPI::PrepareGatherPathResult> prepareReturnPath(const StartPositionState &startPosition, const BWAPI::StateCopy &stateCopy)
+        {
+            auto prepareResult = simWorker->prepareGatherPath(
+                    BWAPI::PrepareGatherPathOptions(startPosition.pos, startPosition.patch->getBWIndex(), stateCopy.state));
+            if (!prepareResult)
+            {
+                Log::Get() << "ERROR: Failed to prepare gather path for patch " << startPosition.patch->getTilePosition();
+                return nullptr;
+            }
+            if (prepareResult->returnPathStartPosition != startPosition.pos)
+            {
+                Log::Get() << "ERROR: Prepared gather path has incorrect start position; patch @ " << startPosition.patch->getTilePosition();
+                EXPECT_EQ(prepareResult->returnPathStartPosition, startPosition.pos);
+                return nullptr;
+            }
+
+            return prepareResult;
+        }
+
     private:
         const ExploreStartPositionsModuleOptions &options;
         std::deque<StartPositionState> startPositions;
@@ -140,6 +144,6 @@ namespace MiningOptimizationTraining
 
         void initializeStartPositions();
 
-        void explore(StartPositionState &startPosition, std::unique_ptr<BWAPI::PrepareGatherPathResult> &preparedGatherPath);
+        void explore(StartPositionState &startPosition);
     };
 }

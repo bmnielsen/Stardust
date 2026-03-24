@@ -150,21 +150,27 @@ namespace MiningOptimizationTraining
     }
 
     template <>
-    void ExploreStartPositionsModule<InitializeStartPosition>::explore(InitializeStartPosition &startPosition,
-                                                                       std::unique_ptr<BWAPI::PrepareGatherPathResult> &preparedGatherPath)
+    void ExploreStartPositionsModule<InitializeStartPosition>::explore(InitializeStartPosition &startPosition)
     {
         // At this point we have initialized a very liberal set of positions at a coarse subpixel granularity.
         // Now we simulate from each position purely to collect the set of start positions actually reached from a gather rotation.
         // We do not simulate with resends since we must assume the path may be starting from a position with no path data (for when a worker
         // is assigned to minerals after doing something else, and therefore reaches the patch at an abnormal start position).
-        // We do however simulate both with the action happening at and after arrival since both cases come up depending on order process timer
+        // We do however simulate both with the return action happening at and after arrival since both cases come up depending on order process timer
         // resets.
+        // We also simulate with cannons placed to ensure we catch the few start positions that only arise when pathed around cannons.
         // When we do the training with resends, we then add in any additional start positions not seen in this simplified exploration.
 
-        auto simulate = [&](bool forceReturn)
+        auto simulate = [&](
+                bool forceReturn,
+                const MiningOptimization::CannonPlacement &cannonPlacement,
+                const BWAPI::StateCopy &initialState)
         {
+            auto preparedReturnPath = prepareReturnPath(startPosition, initialState);
+            if (!preparedReturnPath) return;
+
             auto returnResult = simWorker->simulateGatherPath(
-                    BWAPI::SimulateGatherPathOptions({}, preparedGatherPath->returnPathState)
+                    BWAPI::SimulateGatherPathOptions({}, preparedReturnPath->returnPathState)
                         .setForceAction(forceReturn)
                         .setReturnStateAtStartOfNextPath());
             if (!returnResult)
@@ -187,7 +193,7 @@ namespace MiningOptimizationTraining
             auto positionAndVelocity = PositionAndVelocity(gatherResult->nextPathStartPosition);
             auto [_, inserted] =
                     mapData.resourceToReturnPathStartPositions[TilePosition::fromBWAPI(startPosition.patch->getTilePosition())]
-                    .insert(positionAndVelocity);
+                            .insert(positionAndVelocity);
             if (!inserted) return;
 
             // This is the first time we are seeing this position, so generate the path data
@@ -195,7 +201,12 @@ namespace MiningOptimizationTraining
             path.populatePositionsToExplore();
             mapData.resourceToReturnPaths[TilePosition::fromBWAPI(startPosition.patch->getTilePosition())][positionAndVelocity] = std::move(path);
         };
-        simulate(true);
-        simulate(false);
+
+        for (auto &[cannonConfiguration, state]
+                : patchToCannonsToStateCopy[startPosition.patch->getTilePosition()])
+        {
+            simulate(true, cannonConfiguration, *state);
+            simulate(false, cannonConfiguration, *state);
+        }
     }
 }

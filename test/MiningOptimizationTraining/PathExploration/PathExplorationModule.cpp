@@ -182,8 +182,6 @@ namespace MiningOptimizationTraining
                     for (auto &patch : base->mineralPatches())
                     {
                         patchToCannons[patch->tile] = cannons;
-                        patchToCannonsToStateCopy[patch->tile][CannonConfiguration::FirstNormalCannon] = nullptr;
-                        patchToCannonsToStateCopy[patch->tile][CannonConfiguration::BothNormalCannons] = nullptr;
                     }
                 }
             }
@@ -233,8 +231,6 @@ namespace MiningOptimizationTraining
                     for (auto &patch : base->mineralPatches())
                     {
                         patchToStartBlockCannons[patch->tile] = cannons;
-                        patchToCannonsToStateCopy[patch->tile][CannonConfiguration::FirstStartBlockCannon] = nullptr;
-                        patchToCannonsToStateCopy[patch->tile][CannonConfiguration::BothStartBlockCannons] = nullptr;
                     }
                 }
             }
@@ -355,26 +351,27 @@ namespace MiningOptimizationTraining
 
             initialStateWithBothStartBlockCannons = BWAPI::Broodwar->getStateCopy();
 
-            for (auto &[_, map] : patchToCannonsToStateCopy)
+            for (auto base : Map::allBases())
             {
-                for (auto &[cannonConfiguration, stateCopy] : map)
+                for (auto &patch : base->mineralPatches())
                 {
-                    switch (cannonConfiguration)
-                    {
-                        case CannonConfiguration::FirstNormalCannon:
-                            stateCopy = &initialStateWithFirstCannon;
-                            break;
-                        case CannonConfiguration::BothNormalCannons:
-                            stateCopy = &initialStateWithBothCannons;
-                            break;
-                        case CannonConfiguration::FirstStartBlockCannon:
-                            stateCopy = &initialStateWithFirstStartBlockCannon;
-                            break;
-                        case CannonConfiguration::BothStartBlockCannons:
-                            stateCopy = &initialStateWithBothStartBlockCannons;
-                            break;
-                    }
+                    patchToCannonsToStateCopy[patch->tile][MiningOptimization::CannonPlacement{0}] = &initialStateWithNoCannons;
                 }
+            }
+
+            for (auto &[patch, cannons] : patchToCannons)
+            {
+                patchToCannonsToStateCopy[patch][MiningOptimization::CannonPlacement{1, TilePosition::fromBWAPI(cannons[0])}]
+                        = &initialStateWithFirstCannon;
+                patchToCannonsToStateCopy[patch][MiningOptimization::CannonPlacement{2, TilePosition::fromBWAPI(cannons[1])}]
+                        = &initialStateWithBothCannons;
+            }
+            for (auto &[patch, cannons] : patchToStartBlockCannons)
+            {
+                patchToCannonsToStateCopy[patch][MiningOptimization::CannonPlacement{1, TilePosition::fromBWAPI(cannons[0])}]
+                        = &initialStateWithFirstStartBlockCannon;
+                patchToCannonsToStateCopy[patch][MiningOptimization::CannonPlacement{2, TilePosition::fromBWAPI(cannons[1])}]
+                        = &initialStateWithBothStartBlockCannons;
             }
         }
         else if (BWAPI::Broodwar->getFrameCount() > 65)

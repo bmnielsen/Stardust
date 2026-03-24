@@ -45,11 +45,13 @@ namespace MiningOptimizationTraining
     }
 
     template <>
-    void ExploreStartPositionsModule<SimulateAllSubpixelsOfPosition>::explore(SimulateAllSubpixelsOfPosition &startPosition,
-                                                                              std::unique_ptr<BWAPI::PrepareGatherPathResult> &preparedGatherPath)
+    void ExploreStartPositionsModule<SimulateAllSubpixelsOfPosition>::explore(SimulateAllSubpixelsOfPosition &startPosition)
     {
+        auto preparedReturnPath = prepareReturnPath(startPosition, initialStateWithNoCannons);
+        if (!preparedReturnPath) return;
+
         auto returnResult = simWorker->simulateGatherPath(
-                BWAPI::SimulateGatherPathOptions({}, preparedGatherPath->returnPathState));
+                BWAPI::SimulateGatherPathOptions({}, preparedReturnPath->returnPathState));
         if (!returnResult)
         {
             Log::Get() << "Failed to simulate";

@@ -151,9 +151,11 @@ namespace MiningOptimizationTraining
     }
 
     template <>
-    void ExploreStartPositionsModule<ExploreStartPosition>::explore(ExploreStartPosition &startPosition,
-                                                                    std::unique_ptr<BWAPI::PrepareGatherPathResult> &preparedGatherPath)
+    void ExploreStartPositionsModule<ExploreStartPosition>::explore(ExploreStartPosition &startPosition)
     {
+        auto preparedReturnPath = prepareReturnPath(startPosition, initialStateWithNoCannons);
+        if (!preparedReturnPath) return;
+
         auto &patch = startPosition.patch;
 
         auto &gatherData = mapData.resourceToGatherPaths[TilePosition::fromBWAPI(patch->getTilePosition())];
@@ -417,9 +419,9 @@ namespace MiningOptimizationTraining
         makePathObservations({RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
                              createReturnArrivalData,
                              returnData,
-                             preparedGatherPath->returnPathStartFrame,
-                             preparedGatherPath->returnPathState,
-                             preparedGatherPath->returnPathStartPosition,
+                             preparedReturnPath->returnPathStartFrame,
+                             preparedReturnPath->returnPathState,
+                             preparedReturnPath->returnPathStartPosition,
                              returnResults);
 
         auto findUniqueNextPathStartPositions =
@@ -497,11 +499,11 @@ namespace MiningOptimizationTraining
         };
 
         // Now perform path observations on each unique gather path start position
-        for (auto &[gatherStartPosition, returnResult] : findUniqueNextPathStartPositions(returnResults, preparedGatherPath->returnPathStartFrame))
+        for (auto &[gatherStartPosition, returnResult] : findUniqueNextPathStartPositions(returnResults, preparedReturnPath->returnPathStartFrame))
         {
             // Simulate once to get the state copy at the start of the path
             auto result = simWorker->simulateGatherPath(
-                    BWAPI::SimulateGatherPathOptions(returnResult->resends, preparedGatherPath->returnPathState)
+                    BWAPI::SimulateGatherPathOptions(returnResult->resends, preparedReturnPath->returnPathState)
                             .setForceAction(gatherStartPosition != returnResult->nextPathStartPositionActionAfterArrival)
                             .setReturnStateAtStartOfNextPath());
             if (!result)

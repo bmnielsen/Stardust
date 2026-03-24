@@ -4,6 +4,7 @@
 
 #include "Modules/InstrumentedDoNothingModule.h"
 #include "MiningOptimizationTraining/DataModel/MapData.h"
+#include "MiningOptimizationV2/DataModel/CannonPlacement.h"
 
 namespace MiningOptimizationTraining
 {
@@ -14,20 +15,6 @@ namespace MiningOptimizationTraining
 
         // WHether to save the optimization training data for the map at completion
         bool saveMapData = true;
-
-        // How many cannons to create at each base
-        unsigned int cannonsPerBase = 0;
-
-        // Whether to use start block cannons at starting locations
-        bool useStartBlockCannonsForStartingLocations = false;
-    };
-
-    enum class CannonConfiguration
-    {
-        FirstNormalCannon,  // The first normal (not start block) cannon is built
-        BothNormalCannons,  // The first and second normal (not start block) cannons are built
-        FirstStartBlockCannon,  // The first start block cannon is built
-        BothStartBlockCannons,  // The first and second start block cannons are built
     };
 
     // Abstract base class for a module that does path exploration
@@ -54,7 +41,7 @@ namespace MiningOptimizationTraining
         std::map<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> patchToCannons;
         std::map<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> patchToStartBlockCannons;
 
-        std::map<BWAPI::TilePosition, std::map<CannonConfiguration, BWAPI::StateCopy*>> patchToCannonsToStateCopy;
+        std::map<BWAPI::TilePosition, std::map<MiningOptimization::CannonPlacement, BWAPI::StateCopy*>> patchToCannonsToStateCopy;
 
         BWAPI::StateCopy initialStateWithNoCannons;
         BWAPI::StateCopy initialStateWithFirstCannon;
