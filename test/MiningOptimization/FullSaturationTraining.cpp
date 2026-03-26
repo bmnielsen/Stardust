@@ -1030,6 +1030,28 @@ TEST(FullSaturationTraining, VermeerSingleMeasure)
               << "Single: " << sgl << std::endl;
 }
 
+TEST(FullSaturationTraining, VermeerSingleMeasureOneCannon)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 1, false, true, false);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl;
+}
+
+TEST(FullSaturationTraining, VermeerSingleMeasureTwoCannons)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 2, false, true, false);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl;
+}
+
 TEST(FullSaturationTraining, VermeerSingleMeasureOneBase)
 {
     BWTest test;
@@ -1058,6 +1080,28 @@ TEST(FullSaturationTraining, VermeerDoubleMeasure)
     test.map = Maps::GetOne("VermeerSE_2.1");
     test.randomSeed = 42;
     auto sgl = runEfficiencyTest(test, 2, 0, false, true, false);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl;
+}
+
+TEST(FullSaturationTraining, VermeerDoubleMeasureOneCannon)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 2, 1, false, true, false);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl;
+}
+
+TEST(FullSaturationTraining, VermeerDoubleMeasureTwoCannons)
+{
+    BWTest test;
+    test.map = Maps::GetOne("VermeerSE_2.1");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 2, 2, false, true, false);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << std::endl;
