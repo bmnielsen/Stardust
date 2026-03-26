@@ -301,7 +301,7 @@ namespace MiningOptimization
                 Log::Get() << "Lost path: " << resource->tile << ": " << PositionAndVelocity(*startPosition) << ": " << (*startPosition);
                 if constexpr (std::is_same_v<ObservationType, ReturnArrivalData>)
                 {
-                    if ((startPosition->x & 0b11111111) % 8 == 0 && (startPosition->y & 0b11111111) % 8 == 0)
+                    if ((startPosition->x & 0b11111111) % 64 == 0 && (startPosition->y & 0b11111111) % 64 == 0)
                     {
                         Log::Get() << "ERROR: Return start position should have been covered but we lost the path";
                     }
