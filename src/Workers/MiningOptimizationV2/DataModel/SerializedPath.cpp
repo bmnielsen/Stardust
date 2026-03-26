@@ -179,6 +179,31 @@ namespace MiningOptimization
             return a.first.cannonCount > b.first.cannonCount;
         });
 
+        // Remove any data vectors that are equivalent to a lower number of cannons
+        for (auto it = dataByCannonPlacement.begin(); it != dataByCannonPlacement.end(); )
+        {
+            bool areEqual = false;
+            for (auto nextIt = it + 1; nextIt != dataByCannonPlacement.end(); nextIt++)
+            {
+                if (nextIt->first.cannonCount == it->first.cannonCount) continue;
+
+                if (it->second == nextIt->second)
+                {
+                    areEqual = true;
+                    break;
+                }
+            }
+
+            if (areEqual)
+            {
+                it = dataByCannonPlacement.erase(it);
+            }
+            else
+            {
+                it++;
+            }
+        }
+
         result.dataByCannonPlacement = std::move(dataByCannonPlacement);
         return std::move(result);
     }
