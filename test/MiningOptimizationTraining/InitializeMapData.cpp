@@ -53,3 +53,25 @@ TEST(InitializeMapData, VermeerOneBase)
     test.map = Maps::GetOne("Vermeer");
     run(test, options);
 }
+
+TEST(InitializeMapData, AllSSCAIT)
+{
+    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        run(test, {});
+    });
+}
+
+TEST(InitializeMapData, Benzene)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Benzene");
+    run(test, {});
+}
+
+TEST(InitializeMapData, Destination)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Destination");
+    run(test, {});
+}

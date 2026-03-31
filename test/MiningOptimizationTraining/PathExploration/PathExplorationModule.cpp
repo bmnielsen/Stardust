@@ -19,7 +19,11 @@ namespace MiningOptimizationTraining
         Units::initialize();
         Map::initialize();
 
-        if (options.loadMapData) Serialization::readMapData(mapData);
+        if (options.loadMapData)
+        {
+            Serialization::setGameParameters(BWAPI::Broodwar->mapHash());
+            Serialization::readMapData(mapData);
+        }
 
         Log::Get() << "Initialized mining training on " << BWAPI::Broodwar->mapFileName() << " (" << BWAPI::Broodwar->mapHash() << ")";
     }
@@ -122,6 +126,7 @@ namespace MiningOptimizationTraining
             }
 
             initialStateWithNoCannons = BWAPI::Broodwar->getStateCopy();
+            initialStateWithNoCannons.label = "no-cannons";
         }
         else if (BWAPI::Broodwar->getFrameCount() == 20)
         {
@@ -284,6 +289,7 @@ namespace MiningOptimizationTraining
             // - create the second non-start block cannon
 
             initialStateWithFirstCannon = BWAPI::Broodwar->getStateCopy();
+            initialStateWithFirstCannon.label = "one-non-start-block-cannon";
 
             for (auto &[_, locations] : baseToPylonAndCannons)
             {
@@ -298,6 +304,7 @@ namespace MiningOptimizationTraining
             // - kill the non-start block pylons and cannons
 
             initialStateWithBothCannons = BWAPI::Broodwar->getStateCopy();
+            initialStateWithBothCannons.label = "two-non-start-block-cannons";
 
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
             {
@@ -336,6 +343,7 @@ namespace MiningOptimizationTraining
             // - create the second start block cannon
 
             initialStateWithFirstStartBlockCannon = BWAPI::Broodwar->getStateCopy();
+            initialStateWithFirstStartBlockCannon.label = "one-start-block-cannon";
 
             for (auto &[_, locations] : baseToStartBlockPylonAndCannons)
             {
@@ -350,6 +358,7 @@ namespace MiningOptimizationTraining
             // - populate the state copy pointers in the data structure
 
             initialStateWithBothStartBlockCannons = BWAPI::Broodwar->getStateCopy();
+            initialStateWithBothStartBlockCannons.label = "two-start-block-cannons";
 
             for (auto base : Map::allBases())
             {

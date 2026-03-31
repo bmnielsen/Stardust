@@ -13,7 +13,7 @@ namespace MiningOptimizationTraining
         // Whether to load the optimization training data for the map at startup
         bool loadMapData = true;
 
-        // WHether to save the optimization training data for the map at completion
+        // Whether to save the optimization training data for the map at completion
         bool saveMapData = true;
     };
 

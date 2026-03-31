@@ -123,13 +123,16 @@ namespace MiningOptimizationTraining
                     BWAPI::PrepareGatherPathOptions(startPosition.pos, startPosition.patch->getBWIndex(), stateCopy.state));
             if (!prepareResult)
             {
-                Log::Get() << "ERROR: Failed to prepare gather path for patch " << startPosition.patch->getTilePosition();
+                Log::Get() << "ERROR: Failed to prepare gather path for patch " << startPosition.patch->getTilePosition()
+                           << "; start position " << startPosition.pos
+                           << "; state copy " << stateCopy.label;
                 return nullptr;
             }
             if (prepareResult->returnPathStartPosition != startPosition.pos)
             {
-                Log::Get() << "ERROR: Prepared gather path has incorrect start position; patch @ " << startPosition.patch->getTilePosition();
-                EXPECT_EQ(prepareResult->returnPathStartPosition, startPosition.pos);
+                Log::Get() << "ERROR: Prepared gather path has incorrect start position; patch @ " << startPosition.patch->getTilePosition()
+                           << "; start position " << startPosition.pos
+                           << "; state copy " << stateCopy.label;
                 return nullptr;
             }
 

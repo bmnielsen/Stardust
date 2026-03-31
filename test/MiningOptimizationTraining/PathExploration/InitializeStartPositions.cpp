@@ -32,8 +32,13 @@ namespace MiningOptimizationTraining
             bool bottom = (patchTile.y > (depotTile.y + 2));
             bool vmid = (!top && !bottom);
 
+            int xUpperBound = BWAPI::Broodwar->mapWidth() * 32 - 12;
+            int yUpperBound = BWAPI::Broodwar->mapHeight() * 32 - 12;
+
             auto addPosition = [&](int x, int y)
             {
+                if (x < 11 || y < 11 || x > xUpperBound || y > yUpperBound) return;
+
                 auto pos = BWAPI::Position(x, y);
                 if (pos.isValid() && !blockedPositions.contains(std::make_pair(x, y)))
                 {
@@ -175,7 +180,9 @@ namespace MiningOptimizationTraining
                         .setReturnStateAtStartOfNextPath());
             if (!returnResult)
             {
-                Log::Get() << "Return path simulation did not succeed; patch @ " << startPosition.patch->getTilePosition()
+                // This is not necessarily a problem if the start position is behind another mineral field
+                // (the 12 oclock base on Benzene has this problem)
+                Log::Debug() << "Return path simulation did not succeed; patch @ " << startPosition.patch->getTilePosition()
                            << "; start position " << BWAPI::TilePosition(startPosition.pos.pos());
                 return;
             }

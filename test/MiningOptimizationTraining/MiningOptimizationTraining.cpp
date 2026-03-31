@@ -54,3 +54,18 @@ TEST(PathExploration, Vermeer)
     test.map = Maps::GetOne("Vermeer");
     run(test, {});
 }
+
+TEST(PathExploration, Benzene)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Benzene");
+    run(test, {});
+}
+
+TEST(PathExploration, AllSSCAIT)
+{
+    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        run(test, {});
+    });
+}

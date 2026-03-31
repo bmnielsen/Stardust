@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 // Forwards
 namespace bwgame
@@ -18,5 +19,8 @@ namespace BWAPI
         StateCopy& operator=(StateCopy&& other) noexcept;
 
         std::unique_ptr<bwgame::state> state;
+
+        // Can be used by the application if it wants to attach some descriptive label to the state copy
+        std::string label;
     };
 }
