@@ -32,11 +32,10 @@ namespace MiningOptimizationTraining::Serialization
             gameParametersInitialized = true;
         }
 
-        std::string getFilename(bool writing)
+        std::string getFilename(const std::string &dataset, bool writing)
         {
             std::ostringstream builder;
-            builder << "mining-optimization-training";
-            builder << "_" << mapHash;
+            builder << dataset << "_" << mapHash;
             return FileTools::getFilePath(builder.str(), "bin.zstd", writing);
         }
 
@@ -121,6 +120,24 @@ namespace MiningOptimizationTraining::Serialization
                 });
             });
         }
+
+        template <typename S>
+        void serialize(S &ser, InitialWorkerMapData &data)
+        {
+            std::map<BWAPI::Position, std::vector<InitialWorkerMapData::OrderProcessTimerReset>> startingWorkerPositionToOrderProcessTimerReset;
+
+            ser.ext(data.startingWorkerPositionToOrderProcessTimerReset, bitsery::ext::StdMap{INT_MAX},
+                    [&](S& s, BWAPI::Position& key, std::vector<InitialWorkerMapData::OrderProcessTimerReset>& values) {
+                s.value4b(key.x);
+                s.value4b(key.y);
+                s.container(values, INT_MAX, [&](S &s, InitialWorkerMapData::OrderProcessTimerReset &v) {
+                    s.value1b(v.value);
+                    s.value1b(v.opponentRace);
+                    s.value1b(v.opponentStartLocationsCount);
+                    s.value4b(v.randomSeed);
+                });
+            });
+        }
     }
 
     void setGameParameters(const std::string &_mapHash)
@@ -142,7 +159,7 @@ namespace MiningOptimizationTraining::Serialization
 
         data.clear(mapHash);
 
-        auto filename = getFilename(false);
+        auto filename = getFilename("mining-optimization-training", false);
         if (filename.empty())
         {
             Log::Get() << "No saved mining optimization data available";
@@ -167,7 +184,7 @@ namespace MiningOptimizationTraining::Serialization
     {
         ensureGameParametersInitialized();
 
-        auto filename = getFilename(true);
+        auto filename = getFilename("mining-optimization-training", true);
         if (filename.empty())
         {
             Log::Get() << "ERROR: Could not generate filename for mining optimization data";
@@ -187,5 +204,65 @@ namespace MiningOptimizationTraining::Serialization
         file.close();
 
         Log::Get() << "Wrote mining optimization data to " << filename;
+    }
+
+    void readMapData(InitialWorkerMapData &data)
+    {
+        ensureGameParametersInitialized();
+
+        // Don't need to reload the data if the map hasn't changed
+        if (!data.mapHash.empty() && data.mapHash == mapHash)
+        {
+            Log::Get() << "Using already-loaded initial workers mining optimization data";
+            return;
+        }
+
+        data.clear(mapHash);
+
+        auto filename = getFilename("mining-optimization-training-initialworkers", false);
+        if (filename.empty())
+        {
+            Log::Get() << "No saved initial workers mining optimization data available";
+            return;
+        }
+
+        zstd::ifstream file(filename);
+        if (!file.good())
+        {
+            Log::Get() << "Could not open saved initial workers mining optimization data from " << filename;
+            return;
+        }
+
+        bitsery::Deserializer<bitsery::InputStreamAdapter> ser{file};
+        serialize(ser, data);
+        file.close();
+
+        Log::Get() << "Read initial workers mining optimization data from " << filename;
+    }
+
+    void writeMapData(InitialWorkerMapData &data)
+    {
+        ensureGameParametersInitialized();
+
+        auto filename = getFilename("mining-optimization-training-initialworkers", true);
+        if (filename.empty())
+        {
+            Log::Get() << "ERROR: Could not generate filename for initial workers mining optimization data";
+            return;
+        }
+
+        zstd::ofstream file(filename, std::ofstream::trunc, COMPRESSION_LEVEL);
+        if (file.fail())
+        {
+            Log::Get() << "Could not open initial workers mining optimization data file for writing: " << filename;
+            return;
+        }
+
+        bitsery::Serializer<bitsery::OutputStreamAdapter> ser{file};
+        serialize(ser, data);
+        ser.adapter().flush();
+        file.close();
+
+        Log::Get() << "Wrote initial workers mining optimization data to " << filename;
     }
 }

@@ -9,4 +9,7 @@ namespace MiningOptimizationTraining::Serialization
 
     void readMapData(MapData &data);
     void writeMapData(MapData &data);
+
+    void readMapData(InitialWorkerMapData &data);
+    void writeMapData(InitialWorkerMapData &data);
 }
