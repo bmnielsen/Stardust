@@ -1288,3 +1288,8 @@ TEST(FullSaturationTraining, VermeerSingleWorkerMeasure)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << std::endl;
 }
+
+TEST(FullSaturationTraining, AllSSCAITMeasure)
+{
+    testRunWithResults("sscai", 0, true, true);
+}
