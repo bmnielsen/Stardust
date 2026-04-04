@@ -22,3 +22,11 @@ TEST(DataTransformation, Vermeer)
 {
     transform(Maps::GetOne("Vermeer")->openbwHash);
 }
+
+TEST(DataTransformation, AllSSCAIT)
+{
+    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        transform(test.map->openbwHash);
+    });
+}
