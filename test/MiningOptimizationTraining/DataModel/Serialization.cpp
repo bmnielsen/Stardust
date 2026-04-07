@@ -132,7 +132,7 @@ namespace MiningOptimizationTraining::Serialization
                 s.value4b(key.y);
                 s.container(values, INT_MAX, [&](S &s, InitialWorkerMapData::OrderProcessTimerReset &v) {
                     s.value1b(v.value);
-                    s.value1b(v.opponentRace);
+                    s.value1b(v.opponentIsZerg);
                     s.value1b(v.opponentStartLocationsCount);
                     s.value4b(v.randomSeed);
                 });

@@ -32,34 +32,37 @@ namespace MiningOptimizationTraining
     class InitialWorkerMapData
     {
     public:
-        enum class OpponentRace:uint8_t
-        {
-            Meaningless,
-            Zerg,
-            NotZerg
-        };
-
         struct OrderProcessTimerReset
         {
             // The order process timer value reset to
             uint8_t value;
 
-            // What opponent race configuration this reset applies to
-            OpponentRace opponentRace;
+            // Whether the opponent is zerg
+            bool opponentIsZerg;
 
             // The count of opponent start locations this reset value applies to
             uint8_t opponentStartLocationsCount;
 
             // A random seed that gives this order process timer reset
             uint32_t randomSeed;
+
+            friend std::ostream &operator << (std::ostream &os, const OrderProcessTimerReset &orderProcessTimerReset)
+            {
+                os << "[" << (unsigned int)orderProcessTimerReset.value;
+                os << ";" << (orderProcessTimerReset.opponentIsZerg ? "zerg" : "notzerg");
+                os << ";" << (unsigned int)orderProcessTimerReset.opponentStartLocationsCount;
+                os << "]";
+                return os;
+            };
         };
 
         std::string mapHash;
 
         // This maps out the possible order process timer reset values each starting worker can get
         // Because the values depend on each unit's position in the visible unit list, they vary based on start location and opponent race
-        // If our units are first in the list, the value is always the same, so one start position always gives completely known values
-        // If our units are last in the list, the value depends on whether the opponent is zerg or not, since zerg gets two extra units at game start
+        // For race, the variation is between zerg and non-zerg, as zerg start with two extra units and the larva is always initialized last
+        // For start location, the variation occurs because our units end up ahead or behind the opponent's based on whether our start location is
+        // ahead or behind theirs
         std::map<BWAPI::Position, std::vector<OrderProcessTimerReset>> startingWorkerPositionToOrderProcessTimerReset;
 
         // The game randomizes the heading of each starting worker, but aligned to intervals of 8 so there are 32 possible values.
