@@ -4,6 +4,7 @@
 #include <bitsery/adapter/stream.h>
 #include <bitsery/traits/vector.h>
 #include <bitsery/ext/std_map.h>
+#include <bitsery/ext/std_optional.h>
 #include <bitsery/ext/std_set.h>
 
 #include <zstdstream.h>
@@ -121,7 +122,7 @@ namespace MiningOptimizationTraining::Serialization
             });
         }
 
-        template <typename S>
+        template <bool serializing, typename S>
         void serialize(S &ser, InitialWorkerMapData &data)
         {
             std::map<BWAPI::Position, std::vector<InitialWorkerMapData::OrderProcessTimerReset>> startingWorkerPositionToOrderProcessTimerReset;
@@ -136,6 +137,63 @@ namespace MiningOptimizationTraining::Serialization
                     s.value1b(v.opponentStartLocationsCount);
                     s.value4b(v.randomSeed);
                 });
+            });
+
+            auto startingWorkerPositionToRootNodesSerializer = [&]<typename T>(
+                    S &s,
+                    std::map<BWAPI::ExactPosition, std::map<TilePosition, InitialWorkerPathNode<T>>> &value)
+            {
+                std::function<void(S&, InitialWorkerPathNode<T>&)> pathNodeSerializer;
+
+                // In theory this should have been handled by Bitsery's StdSharedPtr extension, but I couldn't get it to work
+                auto serializeNextPosition = [&](S &s, std::unique_ptr<InitialWorkerPathNode<T>> &value)
+                {
+                    if constexpr(serializing)
+                    {
+                        s.boolValue(static_cast<bool>(value));
+                        if (value)
+                        {
+                            s.object(*value, pathNodeSerializer);
+                        }
+                    }
+                    else
+                    {
+                        value = nullptr;
+                        bool exists{};
+                        s.boolValue(exists);
+                        if (exists)
+                        {
+                            auto obj = new InitialWorkerPathNode<T>();
+                            s.object(*obj, pathNodeSerializer);
+                            value.reset(obj);
+                        }
+                    }
+                };
+
+                pathNodeSerializer = [&](S &s, InitialWorkerPathNode<T>& value)
+                {
+                    s.object(value.pos);
+                    s.value1b(value.type);
+                    s.object(value.arrivalData);
+                    s.ext(value.arrivalDataAfterResend, bitsery::ext::StdOptional{});
+                    s.object(value.nextPosition, serializeNextPosition);
+                    s.object(value.nextPositionAfterResend, serializeNextPosition);
+                };
+
+                s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S& s, BWAPI::ExactPosition& key, std::map<TilePosition,
+                        InitialWorkerPathNode<T>>& v) {
+                    s.object(key);
+                    s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S& s, TilePosition& key, InitialWorkerPathNode<T>& v) {
+                        s.object(key);
+                        s.object(v, pathNodeSerializer);
+                    });
+                });
+            };
+
+            ser.object(data.startingWorkerPositionToPatchToGatherPaths, startingWorkerPositionToRootNodesSerializer);
+            ser.object(data.startingWorkerPositionToPatchToReturnPaths, startingWorkerPositionToRootNodesSerializer);
+            ser.container(data.positionsToExplore, INT_MAX, [&](S &s, BWAPI::ExactPosition &v) {
+                s.object(v);
             });
         }
     }
@@ -234,7 +292,7 @@ namespace MiningOptimizationTraining::Serialization
         }
 
         bitsery::Deserializer<bitsery::InputStreamAdapter> ser{file};
-        serialize(ser, data);
+        serialize<false>(ser, data);
         file.close();
 
         Log::Get() << "Read initial workers mining optimization data from " << filename;
@@ -259,7 +317,7 @@ namespace MiningOptimizationTraining::Serialization
         }
 
         bitsery::Serializer<bitsery::OutputStreamAdapter> ser{file};
-        serialize(ser, data);
+        serialize<true>(ser, data);
         ser.adapter().flush();
         file.close();
 

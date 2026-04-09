@@ -204,4 +204,22 @@ namespace MiningOptimizationTraining
 
     typedef Path<ReturnArrivalData> ReturnPath;
     typedef PathNode<ReturnArrivalData> ReturnPathNode;
+
+    // Stores the arrival data for an initial worker return path
+    // This is similar to the above, with the following differences:
+    // - We don't need to store exit speeds since we can just look up the next path
+    // - The next path start position is an exact position since we know the starting subpixels
+    struct InitialWorkerReturnArrivalData
+    {
+        uint16_t arrivalDelay = UINT16_MAX;
+        BWAPI::ExactPosition nextPathStartPosition;
+
+        template <typename S>
+        void serialize(S& s) {
+            s.value2b(arrivalDelay);
+            s.object(nextPathStartPosition);
+        }
+    };
+
+    typedef InitialWorkerPathNode<InitialWorkerReturnArrivalData> InitialWorkerReturnPathNode;
 }

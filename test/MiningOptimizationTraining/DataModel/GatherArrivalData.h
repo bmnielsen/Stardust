@@ -171,4 +171,25 @@ namespace MiningOptimizationTraining
 
     typedef Path<GatherArrivalData> GatherPath;
     typedef PathNode<GatherArrivalData> GatherPathNode;
+
+    // Stores the arrival data for an initial worker gather path
+    // This is similar to the above, with the following differences:
+    // - We don't bother packing as aggressively since we have a limited data set
+    // - We don't need to store collision since we can just look up the next path
+    // - The next path start position is an exact position since we know the starting subpixels
+    struct InitialWorkerGatherArrivalData
+    {
+        uint16_t arrivalDelay = UINT16_MAX;
+        bool collision = true;
+        BWAPI::ExactPosition nextPathStartPosition;
+
+        template <typename S>
+        void serialize(S& s) {
+            s.value2b(arrivalDelay);
+            s.value1b(collision);
+            s.object(nextPathStartPosition);
+        }
+    };
+
+    typedef InitialWorkerPathNode<InitialWorkerGatherArrivalData> InitialWorkerGatherPathNode;
 }

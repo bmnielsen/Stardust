@@ -91,4 +91,34 @@ namespace MiningOptimizationTraining
         // Ensure we never copy paths
         [[no_unique_address]] noncopyable _ = {};
     };
+
+    // This structure stores a node in an initial worker path
+    // Initial worker paths differ from normal paths, since they have no subpixel instabilities, so the only branches are for resends
+    template <typename ObservationType>
+    struct InitialWorkerPathNode
+    {
+        // The exact position, including velocity and heading
+        BWAPI::ExactPosition pos;
+
+        // The type of node, see definition of NodeType for details on each type
+        NodeType type = NodeType::Uninitialized;
+
+        // The arrival details when the path is not changed by a later gather command
+        ObservationType arrivalData;
+
+        // The arrival details when a resend takes effect here
+        // Will be empty if the resend does not change the path or no additional resends are possible
+        std::optional<ObservationType> arrivalDataAfterResend;
+
+        // The next position when the path has not been changed by a resend
+        // Will be empty at the end of the path
+        std::unique_ptr<InitialWorkerPathNode<ObservationType>> nextPosition;
+
+        // The next position when a resend takes effect at this node
+        // Will be empty if the resend does not change the path or no additional resends are possible
+        std::unique_ptr<InitialWorkerPathNode<ObservationType>> nextPositionAfterResend;
+
+        // Ensure we never copy path nodes
+        [[no_unique_address]] noncopyable _ = {};
+    };
 }

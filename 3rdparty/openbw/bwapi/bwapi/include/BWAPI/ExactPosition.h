@@ -94,5 +94,14 @@ namespace BWAPI
                       << ",vy=" << pos.velocityY
                       << ')';
         };
+
+        template <typename S>
+        void serialize(S& s) {
+            s.value4b(x);
+            s.value4b(y);
+            s.value1b(heading);
+            s.value4b(velocityX);
+            s.value4b(velocityY);
+        }
     };
 }
