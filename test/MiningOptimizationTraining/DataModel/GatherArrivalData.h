@@ -183,6 +183,18 @@ namespace MiningOptimizationTraining
         bool collision = true;
         BWAPI::ExactPosition nextPathStartPosition;
 
+        bool operator==(const InitialWorkerGatherArrivalData &other) const
+        {
+            return std::tie(arrivalDelay, collision, nextPathStartPosition) ==
+                   std::tie(other.arrivalDelay, other.collision, other.nextPathStartPosition);
+        }
+
+        bool operator<(const InitialWorkerGatherArrivalData &other) const
+        {
+            return std::tie(arrivalDelay, collision, nextPathStartPosition) <
+                   std::tie(other.arrivalDelay, other.collision, other.nextPathStartPosition);
+        }
+
         template <typename S>
         void serialize(S& s) {
             s.value2b(arrivalDelay);

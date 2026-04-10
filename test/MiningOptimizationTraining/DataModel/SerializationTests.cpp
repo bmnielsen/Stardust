@@ -18,6 +18,27 @@ namespace
         return result;
     }
 
+    MiningOptimizationTraining::InitialWorkerGatherPathNode generateInitialWorkerGatherPathNode(MiningOptimizationTraining::PositionAndVelocity pos)
+    {
+        MiningOptimizationTraining::InitialWorkerGatherPathNode result{
+            BWAPI::ExactPosition{pos.x, pos.y, pos.heading, pos.velocityX, pos.velocityY}
+        };
+        result.type = (MiningOptimizationTraining::NodeType)(pos.x % 6);
+        result.arrivalData.arrivalDelay = pos.x;
+        result.arrivalData.collision = (pos.x % 2 == 0);
+        result.arrivalData.nextPathStartPosition =
+                BWAPI::ExactPosition{pos.x + 2U, pos.y + 2U, pos.heading, pos.velocityX, pos.velocityY};
+        if (pos.x % 2 != 0)
+        {
+            result.arrivalDataAfterResend = MiningOptimizationTraining::InitialWorkerGatherArrivalData{
+                pos.x,
+                (pos.x % 4 == 0),
+                BWAPI::ExactPosition{pos.x + 3U, pos.y + 3U, pos.heading, pos.velocityX, pos.velocityY}
+            };
+        }
+        return result;
+    }
+
     MiningOptimizationTraining::GatherPath generateGatherPath(MiningOptimizationTraining::PositionAndVelocity &pos,
                                                               MiningOptimizationTraining::GatherPathNode nextNode)
     {
@@ -65,6 +86,25 @@ namespace
 
         assertGatherPathNodesVectorEqual(expected.nextPositions, actual.nextPositions);
         assertGatherPathNodesVectorEqual(expected.nextPositionsAfterResend, actual.nextPositionsAfterResend);
+    }
+
+    void assertInitialWorkerGatherPathNodesEqual(MiningOptimizationTraining::InitialWorkerGatherPathNode &expected,
+                                                 MiningOptimizationTraining::InitialWorkerGatherPathNode &actual)
+    {
+        ASSERT_EQ(expected.pos, actual.pos);
+        ASSERT_EQ(expected.type, actual.type);
+        ASSERT_EQ(expected.arrivalData, actual.arrivalData);
+        ASSERT_EQ(expected.arrivalDataAfterResend, actual.arrivalDataAfterResend);
+        ASSERT_EQ(expected.nextPosition != nullptr, actual.nextPosition != nullptr);
+        if (expected.nextPosition && actual.nextPosition)
+        {
+            assertInitialWorkerGatherPathNodesEqual(*expected.nextPosition, *actual.nextPosition);
+        }
+        ASSERT_EQ(expected.nextPositionAfterResend != nullptr, actual.nextPositionAfterResend != nullptr);
+        if (expected.nextPositionAfterResend && actual.nextPositionAfterResend)
+        {
+            assertInitialWorkerGatherPathNodesEqual(*expected.nextPositionAfterResend, *actual.nextPositionAfterResend);
+        }
     }
 
     void assertGatherPathNodesVectorEqual(std::vector<std::pair<MiningOptimizationTraining::GatherPathNode, uint32_t>> &expected,
@@ -133,5 +173,63 @@ TEST(SerializationTests, WriteAndReadBack)
                             std::unordered_map<MiningOptimizationTraining::PositionAndVelocity, MiningOptimizationTraining::GatherPath> &actual)
                             {
                                 assertMapsEqual(expected, actual, std::function{&assertGatherPathsEqual});
+                            }});
+}
+
+// Tests that we can serialize some initial worker data and read it back
+TEST(SerializationTests, InitialWorkersWriteAndReadBack)
+{
+    Log::SetOutputToConsole(true);
+
+    // TODO: Add other fields
+
+    // Set up sample gather data
+    MiningOptimizationTraining::PositionAndVelocity pos[9];
+    std::vector<MiningOptimizationTraining::InitialWorkerGatherPathNode> gatherObservations;
+    for (int i = 0; i < 9; i++)
+    {
+        pos[i] = generateTestPosition(10 * (i+1));
+        gatherObservations.push_back(generateInitialWorkerGatherPathNode(pos[i]));
+    }
+    gatherObservations[1].nextPosition =
+            std::make_unique<MiningOptimizationTraining::InitialWorkerGatherPathNode>(std::move(gatherObservations[3]));
+    gatherObservations[0].nextPosition =
+            std::make_unique<MiningOptimizationTraining::InitialWorkerGatherPathNode>(std::move(gatherObservations[1]));
+    gatherObservations[0].nextPositionAfterResend =
+            std::make_unique<MiningOptimizationTraining::InitialWorkerGatherPathNode>(std::move(gatherObservations[2]));
+    gatherObservations[5].nextPosition =
+            std::make_unique<MiningOptimizationTraining::InitialWorkerGatherPathNode>(std::move(gatherObservations[7]));
+    gatherObservations[4].nextPosition =
+            std::make_unique<MiningOptimizationTraining::InitialWorkerGatherPathNode>(std::move(gatherObservations[5]));
+    gatherObservations[4].nextPositionAfterResend =
+            std::make_unique<MiningOptimizationTraining::InitialWorkerGatherPathNode>(std::move(gatherObservations[6]));
+
+    std::map<TilePosition, MiningOptimizationTraining::InitialWorkerGatherPathNode> rootNodes1;
+    rootNodes1.emplace(TilePosition{1,1}, std::move(gatherObservations[0]));
+    rootNodes1.emplace(TilePosition{1,2}, std::move(gatherObservations[8]));
+    std::map<TilePosition, MiningOptimizationTraining::InitialWorkerGatherPathNode> rootNodes2;
+    rootNodes2.emplace(TilePosition{1,1}, std::move(gatherObservations[4]));
+
+    // Create the expected map data
+    MiningOptimizationTraining::InitialWorkerMapData expected;
+    expected.startingWorkerPositionToPatchToGatherPaths.emplace(BWAPI::ExactPosition(1,1,0,0,0), std::move(rootNodes1));
+    expected.startingWorkerPositionToPatchToGatherPaths.emplace(BWAPI::ExactPosition(1,2,0,0,0), std::move(rootNodes2));
+
+    // Serialize the data
+    MiningOptimizationTraining::Serialization::setGameParameters("test");
+    MiningOptimizationTraining::Serialization::writeMapData(expected);
+
+    // Deserialize the data to a new structure
+    MiningOptimizationTraining::InitialWorkerMapData actual;
+    MiningOptimizationTraining::Serialization::readMapData(actual);
+
+    // Assert
+    assertMapsEqual(expected.startingWorkerPositionToPatchToGatherPaths,
+                    actual.startingWorkerPositionToPatchToGatherPaths,
+                    std::function{[](
+                            std::map<TilePosition, MiningOptimizationTraining::InitialWorkerGatherPathNode> &expected,
+                            std::map<TilePosition, MiningOptimizationTraining::InitialWorkerGatherPathNode> &actual)
+                            {
+                                assertMapsEqual(expected, actual, std::function{&assertInitialWorkerGatherPathNodesEqual});
                             }});
 }

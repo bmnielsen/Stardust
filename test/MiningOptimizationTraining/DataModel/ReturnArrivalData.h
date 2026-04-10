@@ -214,6 +214,18 @@ namespace MiningOptimizationTraining
         uint16_t arrivalDelay = UINT16_MAX;
         BWAPI::ExactPosition nextPathStartPosition;
 
+        bool operator==(const InitialWorkerReturnArrivalData &other) const
+        {
+            return std::tie(arrivalDelay, nextPathStartPosition) ==
+                   std::tie(other.arrivalDelay, other.nextPathStartPosition);
+        }
+
+        bool operator<(const InitialWorkerReturnArrivalData &other) const
+        {
+            return std::tie(arrivalDelay, nextPathStartPosition) <
+                   std::tie(other.arrivalDelay, other.nextPathStartPosition);
+        }
+
         template <typename S>
         void serialize(S& s) {
             s.value2b(arrivalDelay);
