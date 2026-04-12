@@ -9,17 +9,21 @@ namespace BWAPI
         std::unique_ptr<bwgame::state> emptyStartingState;
     }
 
-    PrepareGatherPathOptions::PrepareGatherPathOptions(ExactPosition startPosition, size_t patchUnitIndex)
+    PrepareGatherPathOptions::PrepareGatherPathOptions(ExactPosition startPosition)
         : startPosition(startPosition)
-        , patchUnitIndex(patchUnitIndex)
         , startingState(emptyStartingState) {}
 
     PrepareGatherPathOptions::PrepareGatherPathOptions(ExactPosition startPosition,
-                                                       size_t patchUnitIndex,
                                                        const std::unique_ptr<bwgame::state> &startingState)
         : startPosition(startPosition)
-        , patchUnitIndex(patchUnitIndex)
         , startingState(startingState) {}
 
     PrepareGatherPathOptions::~PrepareGatherPathOptions() = default;
+
+    PrepareGatherPathOptions &PrepareGatherPathOptions::prepareReturnFrom(size_t _patchUnitIndex)
+    {
+        prepareReturn = true;
+        patchUnitIndex = _patchUnitIndex;
+        return *this;
+    }
 }

@@ -2392,22 +2392,9 @@ std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BW
 
     // Get the unit and patch pointers in the state copy
     auto unit = funcs_copy.get_unit(u->index);
-    auto patch = funcs_copy.get_unit(options.patchUnitIndex);
-    if (!unit || !patch) return nullptr;
+    if (!unit) return nullptr;
 
-    // Advances the state of the unit to the next frame
-    // Does not update any other units, bullets, triggers, etc.
-    auto nextFrame = [&]()
-    {
-        state_copy.current_frame++;
-        funcs_copy.update_unit_movement(unit);
-        funcs_copy.update_unit_sprite(unit);
-        funcs_copy.update_unit(unit);
-    };
-
-    // Reset the unit state to match what we expect when the unit is arriving at the patch
-    unit->movement_flags = 0;
-    unit->movement_state = 12;
+    // Update the unit's position and heading
     unit->next_speed.raw_value = 0;
     unit->velocity.x.raw_value = 0;
     unit->velocity.y.raw_value = 0;
@@ -2416,8 +2403,6 @@ std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BW
     unit->position.x = unit->exact_position.x.integer_part();
     unit->position.y = unit->exact_position.y.integer_part();
     unit->sprite->position = unit->position;
-    funcs_copy.set_flingy_move_target(unit, unit->position);
-    funcs_copy.set_next_target_waypoint(unit, unit->position);
     unit->heading.raw_value = options.startPosition.heading;
     unit->current_velocity_direction = unit->heading;
     unit->next_velocity_direction = unit->heading;
@@ -2427,7 +2412,32 @@ std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BW
     }
     funcs_copy.unit_finder_reinsert(unit);
 
+    auto currentPosition = [&unit]()
+    {
+        return BWAPI::ExactPosition(
+                (uint32_t)unit->exact_position.x.raw_value,
+                (uint32_t)unit->exact_position.y.raw_value,
+                (int8_t)unit->heading.raw_value,
+                (int32_t)unit->velocity.x.raw_value,
+                (int32_t)unit->velocity.y.raw_value);
+    };
+
+    // If we only wanted to move the worker, return now
+    if (!options.prepareReturn)
+    {
+        return std::make_unique<BWAPI::PrepareGatherPathResult>(state_copy.current_frame, currentPosition(), std::move(state_copy_ptr));
+    }
+
+    // Set movement state to match what we expect when arriving at the patch
+    unit->movement_flags = 0;
+    unit->movement_state = 12;
+    funcs_copy.set_flingy_move_target(unit, unit->position);
+    funcs_copy.set_next_target_waypoint(unit, unit->position);
+
     // Order the unit to harvest from the patch
+    auto patch = funcs_copy.get_unit(options.patchUnitIndex);
+    if (!patch) return nullptr;
+
     bwgame::order_target_t order_target;
     order_target.unit = patch;
     funcs_copy.issue_order(unit, false, funcs_copy.get_order_type(bwgame::Orders::Harvest1), order_target);
@@ -2438,6 +2448,16 @@ std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BW
     {
         if ((state_copy.current_frame - impl->st.current_frame) < 20) return false;
         return true;
+    };
+
+    // Advances the state of the unit to the next frame
+    // Does not update any other units, bullets, triggers, etc.
+    auto nextFrame = [&]()
+    {
+        state_copy.current_frame++;
+        funcs_copy.update_unit_movement(unit);
+        funcs_copy.update_unit_sprite(unit);
+        funcs_copy.update_unit(unit);
     };
 
     // Advance frames until the unit gets to the returning minerals order
@@ -2458,14 +2478,7 @@ std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BW
     // Without this, the worker will likely not have the status flag to check for collision on the first two frames after mining completion
     unit->status_flags = 9895937;
 
-    auto position = BWAPI::ExactPosition(
-            (uint32_t)unit->exact_position.x.raw_value,
-            (uint32_t)unit->exact_position.y.raw_value,
-            (int8_t)unit->heading.raw_value,
-            (int32_t)unit->velocity.x.raw_value,
-            (int32_t)unit->velocity.y.raw_value);
-
-    return std::make_unique<BWAPI::PrepareGatherPathResult>(state_copy.current_frame, std::move(position), std::move(state_copy_ptr));
+    return std::make_unique<BWAPI::PrepareGatherPathResult>(state_copy.current_frame, currentPosition(), std::move(state_copy_ptr));
 }
 
 // Method that simulates the path of a worker gathering
@@ -2498,6 +2511,43 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
 
     // Get the unit pointer in the state copy
     auto unit = funcs_copy.get_unit(u->index);
+    if (!unit) return nullptr;
+
+    // Advances the state of the unit to the next frame
+    // Does not update any other units, bullets, triggers, etc.
+    auto nextFrame = [&]()
+    {
+        state_copy.current_frame++;
+
+        if (funcs_copy.us_hidden(unit))
+        {
+            funcs_copy.update_hidden_unit(unit);
+        }
+        else
+        {
+            funcs_copy.update_unit_movement(unit);
+            funcs_copy.update_unit_sprite(unit);
+            funcs_copy.update_unit(unit);
+        }
+    };
+
+    // If we want to switch patches, do so
+    if (options.switchPatches)
+    {
+        auto patch = funcs_copy.get_unit(options.patchUnitIndex);
+        if (!patch) return nullptr;
+
+        // Issue the order on the third frame as if we were constrained by latency
+        nextFrame();
+        nextFrame();
+        nextFrame();
+
+        bwgame::order_target_t order_target;
+        order_target.unit = patch;
+        funcs_copy.issue_order(unit, false, funcs_copy.get_order_type(bwgame::Orders::Harvest1), order_target);
+
+        nextFrame();
+    }
 
     // Validate the unit has a target
     if (!unit->order_target.unit) return nullptr;
@@ -2553,24 +2603,6 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
     // We capture this now in case it changes later
     bwgame::order_target_t order_target;
     order_target.unit = unit->order_target.unit;
-
-    // Advances the state of the unit to the next frame
-    // Does not update any other units, bullets, triggers, etc.
-    auto nextFrame = [&]()
-    {
-        state_copy.current_frame++;
-
-        if (funcs_copy.us_hidden(unit))
-        {
-            funcs_copy.update_hidden_unit(unit);
-        }
-        else
-        {
-            funcs_copy.update_unit_movement(unit);
-            funcs_copy.update_unit_sprite(unit);
-            funcs_copy.update_unit(unit);
-        }
-    };
 
     // Checks if we have hit the limit to how many frames we are allowed to simulate
     // This is intended to guard against the unit getting stuck and the simulation never returning

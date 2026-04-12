@@ -30,10 +30,15 @@ namespace BWAPI
         // simulate the start of the next path
         SimulateGatherPathOptions &setReturnStateAtStartOfNextPath();
 
+        // Sets that we want to switch to the given patch at the start of the simulation
+        SimulateGatherPathOptions &switchToPatch(size_t _patchUnitIndex);
+
         const std::set<int> &resendFrames;
         const std::unique_ptr<bwgame::state> &startingState;
         bool forceActionAtArrival = false;
         bool forceActionAfterArrival = false;
         bool returnStateAtStartOfNextPath = false;
+        bool switchPatches = false;
+        size_t patchUnitIndex = 0;
     };
 }

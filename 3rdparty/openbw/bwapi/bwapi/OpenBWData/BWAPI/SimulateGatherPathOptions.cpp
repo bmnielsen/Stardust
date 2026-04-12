@@ -42,4 +42,11 @@ namespace BWAPI
         returnStateAtStartOfNextPath = true;
         return *this;
     }
+
+    SimulateGatherPathOptions &SimulateGatherPathOptions::switchToPatch(size_t _patchUnitIndex)
+    {
+        switchPatches = true;
+        patchUnitIndex = _patchUnitIndex;
+        return *this;
+    }
 }
