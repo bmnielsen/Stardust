@@ -72,9 +72,6 @@ namespace MiningOptimizationTraining
         std::map<BWAPI::ExactPosition, std::map<TilePosition, InitialWorkerGatherPathNode>> startingWorkerPositionToPatchToGatherPaths;
         std::map<BWAPI::ExactPosition, std::map<TilePosition, InitialWorkerReturnPathNode>> startingWorkerPositionToPatchToReturnPaths;
 
-        // The number of starting positions (with heading) that are left to explore
-        std::vector<BWAPI::ExactPosition> positionsToExplore;
-
         void clear(const std::string &_mapHash)
         {
             mapHash = _mapHash;

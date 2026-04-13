@@ -90,63 +90,6 @@ namespace
 
         Serialization::writeMapData(data);
     }
-
-    void initializePositionsToExplore(const Maps::MapMetadata &map)
-    {
-        std::vector<Maps::MapMetadata> maps = {map};
-
-        InitialWorkerMapData data;
-        Serialization::setGameParameters(map.openbwHash);
-        Serialization::readMapData(data);
-        data.positionsToExplore.clear();
-
-        Maps::RunOnEachStartLocation({map}, [&](BWTest test)
-        {
-            test.opponentModule = []()
-            {
-                return new DoNothingModule();
-            };
-            test.myModule = []()
-            {
-                return new DoNothingModule();
-            };
-            test.allowOpponentOutput = false;
-            test.expectWin = false;
-            test.writeReplay = false;
-            test.frameLimit = 15;
-            test.onFrameMine = [&]()
-            {
-                if (BWAPI::Broodwar->getFrameCount() != 5) return;
-
-                // Record the positions of each worker, with all of the possible headings
-                for (auto worker : BWAPI::Broodwar->self()->getUnits())
-                {
-                    if (!worker->getType().isWorker()) continue;
-
-                    auto exactPosition = BWAPI::ExactPosition{
-                            (uint32_t)worker->getPosition().x * 256,
-                            (uint32_t)worker->getPosition().y * 256,
-                            0, 0, 0
-                    };
-                    for (int heading = INT8_MIN; heading <= INT8_MAX; heading += 8)
-                    {
-                        exactPosition.heading = (int8_t)heading;
-                        data.positionsToExplore.push_back(exactPosition);
-                    }
-                }
-            };
-            test.run();
-        });
-
-#if VERBOSE_LOGGING
-        for (const auto &positionToExplore : data.positionsToExplore)
-        {
-            Log::Get() << positionToExplore;
-        }
-#endif
-
-        Serialization::writeMapData(data);
-    }
 }
 
 TEST(InitializeOrderProcessTimerResetValues, Vermeer)
@@ -154,23 +97,10 @@ TEST(InitializeOrderProcessTimerResetValues, Vermeer)
     initializeOrderProcessTimerResetValues(*Maps::GetOne("Vermeer"));
 }
 
-TEST(InitializePositionsToExplore, Vermeer)
-{
-    initializePositionsToExplore(*Maps::GetOne("Vermeer"));
-}
-
 TEST(InitializeOrderProcessTimerResetValues, AllSSCAIT)
 {
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
     {
         initializeOrderProcessTimerResetValues(*test.map);
-    });
-}
-
-TEST(InitializePositionsToExplore, AllSSCAIT)
-{
-    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
-    {
-        initializePositionsToExplore(*test.map);
     });
 }

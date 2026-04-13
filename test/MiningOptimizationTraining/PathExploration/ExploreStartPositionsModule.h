@@ -21,6 +21,7 @@ namespace MiningOptimizationTraining
     struct ExploreStartPosition : StartPositionStateBase {};
     struct SimulateSpecificPath : StartPositionStateBase {};
     struct SimulateAllSubpixelsOfPosition : StartPositionStateBase {};
+    struct ExploreInitialWorkerStartPosition : StartPositionStateBase {};
 
     struct ExploreStartPositionsModuleOptions : PathExplorationModuleOptions
     {
@@ -120,7 +121,7 @@ namespace MiningOptimizationTraining
         std::unique_ptr<BWAPI::PrepareGatherPathResult> prepareReturnPath(const StartPositionState &startPosition, const BWAPI::StateCopy &stateCopy)
         {
             auto prepareResult = simWorker->prepareGatherPath(
-                    BWAPI::PrepareGatherPathOptions(startPosition.pos, startPosition.patch->getBWIndex(), stateCopy.state));
+                    BWAPI::PrepareGatherPathOptions(startPosition.pos, stateCopy.state).prepareReturnFrom(startPosition.patch->getBWIndex()));
             if (!prepareResult)
             {
                 Log::Get() << "ERROR: Failed to prepare gather path for patch " << startPosition.patch->getTilePosition()

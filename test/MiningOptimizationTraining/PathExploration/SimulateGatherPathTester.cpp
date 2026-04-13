@@ -184,7 +184,7 @@ namespace MiningOptimizationTraining
             {
                 lastPrepareSimulationResult.reset();
                 lastPrepareResult = simWorker->prepareGatherPath(
-                        BWAPI::PrepareGatherPathOptions(worker->getExactPosition(), patch->getBWIndex(), initialState.state));
+                        BWAPI::PrepareGatherPathOptions(worker->getExactPosition(), initialState.state).prepareReturnFrom(patch->getBWIndex()));
                 if (!lastPrepareResult)
                 {
                     Log::Get() << "WARNING: Sim worker could not prepare path"

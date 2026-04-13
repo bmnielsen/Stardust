@@ -192,9 +192,6 @@ namespace MiningOptimizationTraining::Serialization
 
             ser.object(data.startingWorkerPositionToPatchToGatherPaths, startingWorkerPositionToRootNodesSerializer);
             ser.object(data.startingWorkerPositionToPatchToReturnPaths, startingWorkerPositionToRootNodesSerializer);
-            ser.container(data.positionsToExplore, INT_MAX, [&](S &s, BWAPI::ExactPosition &v) {
-                s.object(v);
-            });
         }
     }
 

@@ -15,6 +15,12 @@ namespace MiningOptimizationTraining
 
         // Whether to save the optimization training data for the map at completion
         bool saveMapData = true;
+
+        // Whether to load the optimization training data for the map at startup
+        bool loadInitialWorkerMapData = true;
+
+        // Whether to save the optimization training data for the map at completion
+        bool saveInitialWorkerMapData = true;
     };
 
     // Abstract base class for a module that does path exploration
@@ -37,6 +43,7 @@ namespace MiningOptimizationTraining
 
     protected:
         MapData mapData;
+        InitialWorkerMapData initialWorkerMapData;
 
         std::map<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> patchToCannons;
         std::map<BWAPI::TilePosition, std::vector<BWAPI::TilePosition>> patchToStartBlockCannons;

@@ -19,10 +19,17 @@ namespace MiningOptimizationTraining
         Units::initialize();
         Map::initialize();
 
-        if (options.loadMapData)
+        if (options.loadMapData || options.loadInitialWorkerMapData)
         {
             Serialization::setGameParameters(BWAPI::Broodwar->mapHash());
-            Serialization::readMapData(mapData);
+            if (options.loadMapData)
+            {
+                Serialization::readMapData(mapData);
+            }
+            if (options.loadInitialWorkerMapData)
+            {
+                Serialization::readMapData(initialWorkerMapData);
+            }
         }
 
         Log::Get() << "Initialized mining training on " << BWAPI::Broodwar->mapFileName() << " (" << BWAPI::Broodwar->mapHash() << ")";
@@ -397,6 +404,7 @@ namespace MiningOptimizationTraining
     void PathExplorationModule::onEnd(bool isWinner)
     {
         if (options.loadMapData && options.saveMapData) Serialization::writeMapData(mapData);
+        if (options.loadInitialWorkerMapData && options.saveInitialWorkerMapData) Serialization::writeMapData(initialWorkerMapData);
         InstrumentedDoNothingModule::onEnd(isWinner);
     }
 }
