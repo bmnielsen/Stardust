@@ -103,12 +103,19 @@ namespace MiningOptimizationTraining
         // The type of node, see definition of NodeType for details on each type
         NodeType type = NodeType::Uninitialized;
 
-        // The arrival details when the path is not changed by a later gather command
-        ObservationType arrivalData;
+        // The arrival details when the path is not changed by a later gather command and the action happens at arrival
+        ObservationType arrivalDataActionAtArrival;
 
-        // The arrival details when a resend takes effect here
+        // The arrival details when the path is not changed by a later gather command and the action happens after arrival
+        ObservationType arrivalDataActionAfterArrival;
+
+        // The arrival details when a resend takes effect here and the action happens at arrival
         // Will be empty if the resend does not change the path or no additional resends are possible
-        std::optional<ObservationType> arrivalDataAfterResend;
+        std::optional<ObservationType> arrivalDataAfterResendActionAtArrival;
+
+        // The arrival details when a resend takes effect here and the action happens after arrival
+        // Will be empty if the resend does not change the path or no additional resends are possible
+        std::optional<ObservationType> arrivalDataAfterResendActionAfterArrival;
 
         // The next position when the path has not been changed by a resend
         // Will be empty at the end of the path

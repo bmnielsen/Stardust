@@ -24,16 +24,25 @@ namespace
             BWAPI::ExactPosition{pos.x, pos.y, pos.heading, pos.velocityX, pos.velocityY}
         };
         result.type = (MiningOptimizationTraining::NodeType)(pos.x % 6);
-        result.arrivalData.arrivalDelay = pos.x;
-        result.arrivalData.collision = (pos.x % 2 == 0);
-        result.arrivalData.nextPathStartPosition =
+        result.arrivalDataActionAtArrival.arrivalDelay = pos.x;
+        result.arrivalDataActionAtArrival.facingPatch = (pos.x % 2 == 0);
+        result.arrivalDataActionAtArrival.nextPathStartPosition =
                 BWAPI::ExactPosition{pos.x + 2U, pos.y + 2U, pos.heading, pos.velocityX, pos.velocityY};
+        result.arrivalDataActionAfterArrival.arrivalDelay = pos.x + 1;
+        result.arrivalDataActionAfterArrival.facingPatch = (pos.x % 2 != 0);
+        result.arrivalDataActionAfterArrival.nextPathStartPosition =
+                BWAPI::ExactPosition{pos.x + 3U, pos.y + 3U, pos.heading, pos.velocityX, pos.velocityY};
         if (pos.x % 2 != 0)
         {
-            result.arrivalDataAfterResend = MiningOptimizationTraining::InitialWorkerGatherArrivalData{
+            result.arrivalDataAfterResendActionAtArrival = MiningOptimizationTraining::InitialWorkerGatherArrivalData{
                 pos.x,
                 (pos.x % 4 == 0),
                 BWAPI::ExactPosition{pos.x + 3U, pos.y + 3U, pos.heading, pos.velocityX, pos.velocityY}
+            };
+            result.arrivalDataAfterResendActionAfterArrival = MiningOptimizationTraining::InitialWorkerGatherArrivalData{
+                pos.x,
+                (pos.x % 4 != 0),
+                BWAPI::ExactPosition{pos.x + 4U, pos.y + 4U, pos.heading, pos.velocityX, pos.velocityY}
             };
         }
         return result;
@@ -93,8 +102,10 @@ namespace
     {
         ASSERT_EQ(expected.pos, actual.pos);
         ASSERT_EQ(expected.type, actual.type);
-        ASSERT_EQ(expected.arrivalData, actual.arrivalData);
-        ASSERT_EQ(expected.arrivalDataAfterResend, actual.arrivalDataAfterResend);
+        ASSERT_EQ(expected.arrivalDataActionAtArrival, actual.arrivalDataActionAtArrival);
+        ASSERT_EQ(expected.arrivalDataActionAfterArrival, actual.arrivalDataActionAfterArrival);
+        ASSERT_EQ(expected.arrivalDataAfterResendActionAtArrival, actual.arrivalDataAfterResendActionAtArrival);
+        ASSERT_EQ(expected.arrivalDataAfterResendActionAfterArrival, actual.arrivalDataAfterResendActionAfterArrival);
         ASSERT_EQ(expected.nextPosition != nullptr, actual.nextPosition != nullptr);
         if (expected.nextPosition && actual.nextPosition)
         {

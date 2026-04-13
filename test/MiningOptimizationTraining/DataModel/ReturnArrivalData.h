@@ -110,59 +110,12 @@ namespace MiningOptimizationTraining
                                         ReturnExitSpeed exitSpeed,
                                         bool collision,
                                         PositionAndVelocity nextPathStartPositionDeliveryAtArrival,
-                                        PositionAndVelocity nextPathStartPositionDeliveryAfterArrival)
-        {
-            // Arrival delay values outside the range of 14 bits are clamped
-            // This is fine since such long arrival delays would never be useful for optimization anyway
-            arrivalDelay = std::min(UINT13_MAX, arrivalDelay);
-
-            // Shift to the left to make room for the exit speed and collision
-            uint16_t packed = (uint16_t)arrivalDelay << 3;
-
-            // Add the exit speed
-            packed += (uint16_t)exitSpeed;
-
-            // Add the collision
-            if (collision) packed |= 0b0000000000000100;
-
-            return ReturnArrivalData{packed,
-                                     std::move(nextPathStartPositionDeliveryAtArrival),
-                                     std::move(nextPathStartPositionDeliveryAfterArrival)};
-        }
+                                        PositionAndVelocity nextPathStartPositionDeliveryAfterArrival);
 
         // Populates the members of the struct, except arrivalDelay, from simulated path data
         static ReturnArrivalData createFromSimulatedPaths(
                 const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAtArrival,
-                const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAfterArrival)
-        {
-            // The return exit speed is bucketed based on the squared speed
-            // The max speed of a worker is 5 pixels per frame, which corresponds to 5*256=1280 subpixels per frame or 1638400 squared
-            ReturnExitSpeed returnExitSpeed;
-            if (simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath > 1048576) // 80% of top speed
-            {
-                returnExitSpeed = ReturnExitSpeed::High;
-            }
-            else if (simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath > 409600) // 50% of top speed
-            {
-                returnExitSpeed = ReturnExitSpeed::Medium;
-            }
-            else if (simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath == 0)
-            {
-                returnExitSpeed = ReturnExitSpeed::Collision;
-            }
-            else
-            {
-                returnExitSpeed = ReturnExitSpeed::Low;
-            }
-
-            bool collision = (simulatedPathWithActionAfterArrival.squaredSpeedEightFramesAlongNextPath == 0);
-
-            return create(simulatedPathWithActionAtArrival.positions.size(),
-                          returnExitSpeed,
-                          collision,
-                          PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition},
-                          PositionAndVelocity{simulatedPathWithActionAfterArrival.nextPathStartPosition});
-        }
+                const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAfterArrival);
 
         template <typename S>
         void serialize(S& s) {
@@ -225,6 +178,8 @@ namespace MiningOptimizationTraining
             return std::tie(arrivalDelay, nextPathStartPosition) <
                    std::tie(other.arrivalDelay, other.nextPathStartPosition);
         }
+
+        static InitialWorkerReturnArrivalData createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPath);
 
         template <typename S>
         void serialize(S& s) {

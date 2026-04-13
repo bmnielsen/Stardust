@@ -2,6 +2,17 @@
 
 namespace MiningOptimizationTraining
 {
+    namespace
+    {
+        // Computes whether a worker at the given exact position is facing the patch (so it can start mining without waiting to turn)
+        bool isFacingPatch(const BWAPI::ExactPosition &position, BWAPI::Unit patch)
+        {
+            auto vectorToPatch = patch->getPosition() - position.pos();
+            auto angleDiff = Geo::BWAngleDiff(position.heading, Geo::BWDirection(vectorToPatch));
+            return (angleDiff <= 2 * BWAPI::UnitTypes::Protoss_Probe.turnRadius());
+        }
+    }
+
     std::pair<int, int> GatherArrivalData::computeActionFrame(int pathStartFrame,
                                                               std::optional<int> lastResendFrame,
                                                               std::optional<int> orderProcessTimerResetFrame) const
@@ -35,5 +46,76 @@ namespace MiningOptimizationTraining
         // For simplicity we just assume the action frame on average will be 4 frames after the earliest it can be, since we don't need this to
         // be super accurate for training
         return std::make_pair(std::max(arrivalFrame, *orderProcessTimerResetFrame) + 4 + (!facingTarget() ? 9 : 0), (collision() ? 9 : 0));
+    }
+
+    GatherArrivalData GatherArrivalData::create(unsigned int arrivalDelay,
+                                                bool facingTarget,
+                                                bool collision,
+                                                uint8_t tenDistanceDelta,
+                                                const PositionAndVelocity &nextPathStartPosition)
+    {
+        // Arrival delay values outside the range of 14 bits are clamped
+        // This is fine since such long arrival delays would never be useful for optimization anyway
+        arrivalDelay = std::min(UINT14_MAX, arrivalDelay);
+
+        // Shift to the left to make room for the boolean bits
+        uint16_t packed = (uint16_t)arrivalDelay << 2;
+
+        // We assume we are usually facing the target, so only set the lowest bit if this isn't the case
+        if (!facingTarget) packed |= 0b00000001;
+
+        // We set the second-lowest bit if there is a collision
+        if (collision) packed |= 0b00000010;
+
+        return GatherArrivalData{packed, tenDistanceDelta, nextPathStartPosition};
+    }
+
+    // Populates the members of the struct, except arrivalDelay, from simulated path data
+    GatherArrivalData GatherArrivalData::createFromSimulatedPaths(
+            const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAtArrival,
+            const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAfterArrival,
+            BWAPI::Unit patch)
+    {
+        if (simulatedPathWithActionAtArrival.positions.empty()) return {};
+
+        // The worker is "facing target" if it can turn to face the patch in two frames
+        // We check both paths to capture cases where the worker turns while waiting to perform its action
+        // This does mean that in some cases we could use a path as long as we are sure the action will occur at arrival, but
+        // such paths are rare so we don't want to bother investing the extra data storage
+        bool facingTarget = isFacingPatch(simulatedPathWithActionAtArrival.actionPosition, patch)
+                            && isFacingPatch(simulatedPathWithActionAfterArrival.actionPosition, patch);
+
+        // Find the index of the first position that is 10 distance from the patch
+        int i = 0;
+        for (auto it = simulatedPathWithActionAtArrival.positions.rbegin();
+             it != simulatedPathWithActionAtArrival.positions.rend();
+             it++)
+        {
+            auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                it->pos(),
+                                                BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                patch->getPosition());
+            if (dist > 10) break;
+            i++;
+        }
+
+        return create(simulatedPathWithActionAtArrival.positions.size(),
+                      facingTarget,
+                      simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath == 0
+                      || simulatedPathWithActionAfterArrival.squaredSpeedEightFramesAlongNextPath == 0,
+                      (uint8_t)std::min(i, 255),
+                      PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition});
+    }
+
+    InitialWorkerGatherArrivalData InitialWorkerGatherArrivalData::createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPath,
+                                                                                           BWAPI::Unit patch)
+    {
+        if (simulatedPath.positions.empty()) return {};
+
+        return {
+                (uint16_t)simulatedPath.positions.size(),
+                isFacingPatch(simulatedPath.actionPosition, patch),
+                simulatedPath.nextPathStartPosition
+        };
     }
 }

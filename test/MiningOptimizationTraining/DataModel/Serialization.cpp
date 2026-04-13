@@ -174,8 +174,10 @@ namespace MiningOptimizationTraining::Serialization
                 {
                     s.object(value.pos);
                     s.value1b(value.type);
-                    s.object(value.arrivalData);
-                    s.ext(value.arrivalDataAfterResend, bitsery::ext::StdOptional{});
+                    s.object(value.arrivalDataActionAtArrival);
+                    s.object(value.arrivalDataActionAfterArrival);
+                    s.ext(value.arrivalDataAfterResendActionAtArrival, bitsery::ext::StdOptional{});
+                    s.ext(value.arrivalDataAfterResendActionAfterArrival, bitsery::ext::StdOptional{});
                     s.object(value.nextPosition, serializeNextPosition);
                     s.object(value.nextPositionAfterResend, serializeNextPosition);
                 };

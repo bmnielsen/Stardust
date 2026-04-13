@@ -85,66 +85,13 @@ namespace MiningOptimizationTraining
                                         bool facingTarget,
                                         bool collision,
                                         uint8_t tenDistanceDelta,
-                                        const PositionAndVelocity &nextPathStartPosition)
-        {
-            // Arrival delay values outside the range of 14 bits are clamped
-            // This is fine since such long arrival delays would never be useful for optimization anyway
-            arrivalDelay = std::min(UINT14_MAX, arrivalDelay);
-
-            // Shift to the left to make room for the boolean bits
-            uint16_t packed = (uint16_t)arrivalDelay << 2;
-
-            // We assume we are usually facing the target, so only set the lowest bit if this isn't the case
-            if (!facingTarget) packed |= 0b00000001;
-
-            // We set the second-lowest bit if there is a collision
-            if (collision) packed |= 0b00000010;
-
-            return GatherArrivalData{packed, tenDistanceDelta, nextPathStartPosition};
-        }
+                                        const PositionAndVelocity &nextPathStartPosition);
 
         // Populates the members of the struct, except arrivalDelay, from simulated path data
         static GatherArrivalData createFromSimulatedPaths(
                 const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAtArrival,
                 const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAfterArrival,
-                BWAPI::Unit patch)
-        {
-            if (simulatedPathWithActionAtArrival.positions.empty()) return {};
-
-            // The worker is "facing target" if it can turn to face the patch in two frames
-            // We check both paths to capture cases where the worker turns while waiting to perform its action
-            // This does mean that in some cases we could use a path as long as we are sure the action will occur at arrival, but
-            // such paths are rare so we don't want to bother investing the extra data storage
-            auto isFacingTarget = [&](const BWAPI::ExactPosition &position)
-            {
-                auto vectorToPatch = patch->getPosition() - position.pos();
-                auto angleDiff = Geo::BWAngleDiff(position.heading, Geo::BWDirection(vectorToPatch));
-                return (angleDiff <= 2 * BWAPI::UnitTypes::Protoss_Probe.turnRadius());
-            };
-            bool facingTarget = isFacingTarget(simulatedPathWithActionAtArrival.actionPosition)
-                    && isFacingTarget(simulatedPathWithActionAfterArrival.actionPosition);
-
-            // Find the index of the first position that is 10 distance from the patch
-            int i = 0;
-            for (auto it = simulatedPathWithActionAtArrival.positions.rbegin();
-                it != simulatedPathWithActionAtArrival.positions.rend();
-                it++)
-            {
-                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                    it->pos(),
-                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                    patch->getPosition());
-                if (dist > 10) break;
-                i++;
-            }
-
-            return create(simulatedPathWithActionAtArrival.positions.size(),
-                          facingTarget,
-                          simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath == 0
-                            || simulatedPathWithActionAfterArrival.squaredSpeedEightFramesAlongNextPath == 0,
-                          (uint8_t)std::min(i, 255),
-                          PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition});
-        }
+                BWAPI::Unit patch);
 
         template <typename S>
         void serialize(S& s) {
@@ -180,25 +127,28 @@ namespace MiningOptimizationTraining
     struct InitialWorkerGatherArrivalData
     {
         uint16_t arrivalDelay = UINT16_MAX;
-        bool collision = true;
+        bool facingPatch = false;
         BWAPI::ExactPosition nextPathStartPosition;
 
         bool operator==(const InitialWorkerGatherArrivalData &other) const
         {
-            return std::tie(arrivalDelay, collision, nextPathStartPosition) ==
-                   std::tie(other.arrivalDelay, other.collision, other.nextPathStartPosition);
+            return std::tie(arrivalDelay, facingPatch, nextPathStartPosition) ==
+                   std::tie(other.arrivalDelay, other.facingPatch, other.nextPathStartPosition);
         }
 
         bool operator<(const InitialWorkerGatherArrivalData &other) const
         {
-            return std::tie(arrivalDelay, collision, nextPathStartPosition) <
-                   std::tie(other.arrivalDelay, other.collision, other.nextPathStartPosition);
+            return std::tie(arrivalDelay, facingPatch, nextPathStartPosition) <
+                   std::tie(other.arrivalDelay, other.facingPatch, other.nextPathStartPosition);
         }
+
+        // Creates the struct from a simulated path
+        static InitialWorkerGatherArrivalData createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPath, BWAPI::Unit patch);
 
         template <typename S>
         void serialize(S& s) {
             s.value2b(arrivalDelay);
-            s.value1b(collision);
+            s.boolValue(facingPatch);
             s.object(nextPathStartPosition);
         }
     };
