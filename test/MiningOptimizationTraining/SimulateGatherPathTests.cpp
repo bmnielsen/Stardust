@@ -1,5 +1,6 @@
 #include "BWTest.h"
 #include "MiningOptimizationTraining/PathExploration/GatheringWorkersModule.h"
+#include "MiningOptimizationTraining/PathExploration/InitialWorkerSimulateGatherPathTester.h"
 #include "MiningOptimizationTraining/PathExploration/SimulateGatherPathTester.h"
 #include "ClearOpponentUnitsModule.h"
 
@@ -41,6 +42,26 @@ namespace
         if (options.onePatch.isValid()) replayNameBuilder << "_patch" << options.onePatch;
         test.replayName = replayNameBuilder.str();
 
+        test.run();
+    }
+
+    void runInitialWorkersTest(BWTest &test)
+    {
+        initializeTest(test);
+        test.frameLimit = 500;
+        test.myModule = [&]()
+        {
+            return new InitialWorkerSimulateGatherPathTesterModule();
+        };
+
+        std::ostringstream replayNameBuilder;
+        replayNameBuilder << "SimulateGatherPathTests_" << test.map->shortname() << "_initialWorkers";
+        test.replayName = replayNameBuilder.str();
+
+        test.onEndMine = [&](bool)
+        {
+            test.addClockPositionToReplayName();
+        };
         test.run();
     }
 }
@@ -116,4 +137,12 @@ TEST(SimulateGatherPathTests, AllSSCAITCannonsOneIteration)
     {
         runTest(test, 1, options);
     });
+}
+
+
+TEST(SimulateGatherPathTests, VermeerInitialWorkers)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Vermeer");
+    runInitialWorkersTest(test);
 }
