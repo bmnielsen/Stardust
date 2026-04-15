@@ -8,6 +8,8 @@
 
 using namespace MiningOptimizationTraining;
 
+#define CREATE_REPLAYS false
+
 namespace
 {
     void initializeTest(BWTest &test)
@@ -19,7 +21,6 @@ namespace
         };
         test.allowOpponentOutput = false;
         test.expectWin = false;
-        test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
     }
 
     void runTest(BWTest &test, unsigned int iterations, const GatheringWorkersModuleOptions &_options)
@@ -28,12 +29,14 @@ namespace
         options.loadMapData = false;
 
         initializeTest(test);
+        test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes
         test.myModule = [&]()
         {
             return new GatheringWorkersModule<SimulateGatherPathTester>(options);
         };
         if (test.frameLimit == 30000) test.frameLimit = 10000 * (int)iterations + 2;
 
+#if CREATE_REPLAYS
         std::ostringstream replayNameBuilder;
         replayNameBuilder << "SimulateGatherPathTests_" << test.map->shortname();
         replayNameBuilder << "_" << options.cannonsPerBase << "cannons";
@@ -41,28 +44,40 @@ namespace
         if (options.oneBase.isValid()) replayNameBuilder << "_base" << options.oneBase;
         if (options.onePatch.isValid()) replayNameBuilder << "_patch" << options.onePatch;
         test.replayName = replayNameBuilder.str();
+#else
+        test.writeReplay = false;
+#endif
 
         test.run();
     }
 
-    void runInitialWorkersTest(BWTest &test)
+    void runInitialWorkersTest(BWTest &testTemplate, int iterations = 100)
     {
-        initializeTest(test);
-        test.frameLimit = 500;
-        test.myModule = [&]()
+        for (int i = 0; i < iterations; i++)
         {
-            return new InitialWorkerSimulateGatherPathTesterModule();
-        };
+            auto test = testTemplate;
+            initializeTest(test);
+            test.frameLimit = 500;
+            test.randomSeed = i;
+            test.myModule = [&]()
+            {
+                return new InitialWorkerSimulateGatherPathTesterModule();
+            };
 
-        std::ostringstream replayNameBuilder;
-        replayNameBuilder << "SimulateGatherPathTests_" << test.map->shortname() << "_initialWorkers";
-        test.replayName = replayNameBuilder.str();
+#if CREATE_REPLAYS
+            std::ostringstream replayNameBuilder;
+            replayNameBuilder << "SimulateGatherPathTests_" << test.map->shortname() << "_initialWorkers";
+            test.replayName = replayNameBuilder.str();
 
-        test.onEndMine = [&](bool)
-        {
-            test.addClockPositionToReplayName();
-        };
-        test.run();
+            test.onEndMine = [&](bool)
+            {
+                test.addClockPositionToReplayName();
+            };
+#else
+            test.writeReplay = false;
+#endif
+            test.run();
+        }
     }
 }
 

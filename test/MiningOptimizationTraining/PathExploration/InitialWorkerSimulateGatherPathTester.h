@@ -1,5 +1,6 @@
 #pragma once
 
+#include <BWAPI/SimulateGatherPathResult.h>
 #include <BWAPI/StateCopy.h>
 
 #include "Modules/InstrumentedDoNothingModule.h"
@@ -38,6 +39,10 @@ namespace MiningOptimizationTraining
             // 6: moving to return from second patch
             // 7: simulation complete
             int state;
+
+            std::set<int> plannedResendFrames;
+            std::unique_ptr<BWAPI::SimulateGatherPathResult> simulatedGatherPath;
+            std::vector<BWAPI::ExactPosition> positionHistory;
         };
 
         void onStart() override;
