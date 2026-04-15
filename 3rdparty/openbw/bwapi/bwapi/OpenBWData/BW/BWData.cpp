@@ -2531,6 +2531,18 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
         }
     };
 
+    if (options.skipFirstFrame) nextFrame();
+
+    std::vector<BWAPI::ExactPosition> positions;
+    auto recordPosition = [&positions, &unit]()
+    {
+        positions.emplace_back((uint32_t)unit->exact_position.x.raw_value,
+                               (uint32_t)unit->exact_position.y.raw_value,
+                               (int8_t)unit->heading.raw_value,
+                               (int32_t)unit->velocity.x.raw_value,
+                               (int32_t)unit->velocity.y.raw_value);
+    };
+
     // If we want to switch patches, do so
     if (options.switchPatches)
     {
@@ -2539,14 +2551,18 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
 
         // Issue the order on the third frame as if we were constrained by latency
         nextFrame();
+        recordPosition();
         nextFrame();
+        recordPosition();
         nextFrame();
+        recordPosition();
 
         bwgame::order_target_t order_target;
         order_target.unit = patch;
         funcs_copy.issue_order(unit, false, funcs_copy.get_order_type(bwgame::Orders::Harvest1), order_target);
 
         nextFrame();
+        recordPosition();
     }
 
     // Validate the unit has a target
@@ -2612,8 +2628,6 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
         return true;
     };
 
-    std::vector<BWAPI::ExactPosition> positions;
-
     auto positionsEqual =
             [](const BWAPI::ExactPosition &first, const BWAPI::ExactPosition &second)
             {
@@ -2635,15 +2649,11 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
         // Resend if we want to resend on this frame
         if (options.resendFrames.find(state_copy.current_frame) != options.resendFrames.end())
         {
-            positions.clear(); // We only return the path following the last resend
+            if (!options.includeAllPositions) positions.clear(); // We only return the path following the last resend unless explicitly disabled
             funcs_copy.issue_order(unit, false, funcs_copy.get_order_type(resendOrderType), order_target);
         }
         nextFrame();
-        positions.emplace_back((uint32_t)unit->exact_position.x.raw_value,
-                               (uint32_t)unit->exact_position.y.raw_value,
-                               (int8_t)unit->heading.raw_value,
-                               (int32_t)unit->velocity.x.raw_value,
-                               (int32_t)unit->velocity.y.raw_value);
+        recordPosition();
 
         // Reset the order process timer if we want to ensure it is either 0 or non-zero at arrival
         // Skip this, however, if we have just done a resend

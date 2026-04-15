@@ -27,11 +27,19 @@ namespace BWAPI
         SimulateGatherPathOptions &setForceAction(bool atArrival);
 
         // Tells the simulator that we want a copy of the state returned at the start of the next path, which we can use in later invocations to
-        // simulate the start of the next path
+        // simulate the start of the next 'path'
         SimulateGatherPathOptions &setReturnStateAtStartOfNextPath();
 
         // Sets that we want to switch to the given patch at the start of the simulation
         SimulateGatherPathOptions &switchToPatch(size_t _patchUnitIndex);
+
+        // Indicate that the result should include all positions visited by the worker, not just positions after the last resend
+        SimulateGatherPathOptions &setIncludeAllPositions();
+
+        // Have the simulation skip the first frame
+        // Chaining simulated results together ends up skipping the first frame of each step, as it is the end frame of the last one, so this lets
+        // us align the first result to this pattern
+        SimulateGatherPathOptions &setSkipFirstFrame();
 
         const std::set<int> &resendFrames;
         const std::unique_ptr<bwgame::state> &startingState;
@@ -40,5 +48,7 @@ namespace BWAPI
         bool returnStateAtStartOfNextPath = false;
         bool switchPatches = false;
         size_t patchUnitIndex = 0;
+        bool includeAllPositions = false;
+        bool skipFirstFrame = false;
     };
 }

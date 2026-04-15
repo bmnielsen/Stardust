@@ -49,4 +49,16 @@ namespace BWAPI
         patchUnitIndex = _patchUnitIndex;
         return *this;
     }
+
+    SimulateGatherPathOptions &SimulateGatherPathOptions::setIncludeAllPositions()
+    {
+        includeAllPositions = true;
+        return *this;
+    }
+
+    SimulateGatherPathOptions &SimulateGatherPathOptions::setSkipFirstFrame()
+    {
+        skipFirstFrame = true;
+        return *this;
+    }
 }
