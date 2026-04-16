@@ -116,13 +116,15 @@ namespace MiningOptimizationTraining
     }
 
     InitialWorkerReturnArrivalData InitialWorkerReturnArrivalData::createFromSimulatedPath(
-            const BWAPI::SimulateGatherPathResult &simulatedPath)
+            const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAtArrival,
+            const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAfterArrival)
     {
-        if (simulatedPath.positions.empty()) return {};
+        if (simulatedPathDeliveryAtArrival.positions.empty()) return {};
 
         return {
-                (uint16_t)simulatedPath.positions.size(),
-                simulatedPath.nextPathStartPosition
+                (uint16_t)simulatedPathDeliveryAtArrival.positions.size(),
+                simulatedPathDeliveryAtArrival.nextPathStartPosition,
+                simulatedPathDeliveryAfterArrival.nextPathStartPosition
         };
     }
 

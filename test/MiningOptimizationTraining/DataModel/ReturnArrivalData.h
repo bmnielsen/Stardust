@@ -165,26 +165,29 @@ namespace MiningOptimizationTraining
     struct InitialWorkerReturnArrivalData
     {
         uint16_t arrivalDelay = UINT16_MAX;
-        BWAPI::ExactPosition nextPathStartPosition;
+        BWAPI::ExactPosition nextPathStartPositionDeliveryAtArrival;
+        BWAPI::ExactPosition nextPathStartPositionDeliveryAfterArrival;
 
         bool operator==(const InitialWorkerReturnArrivalData &other) const
         {
-            return std::tie(arrivalDelay, nextPathStartPosition) ==
-                   std::tie(other.arrivalDelay, other.nextPathStartPosition);
+            return std::tie(arrivalDelay, nextPathStartPositionDeliveryAtArrival, nextPathStartPositionDeliveryAfterArrival) ==
+                   std::tie(other.arrivalDelay, other.nextPathStartPositionDeliveryAtArrival, other.nextPathStartPositionDeliveryAfterArrival);
         }
 
         bool operator<(const InitialWorkerReturnArrivalData &other) const
         {
-            return std::tie(arrivalDelay, nextPathStartPosition) <
-                   std::tie(other.arrivalDelay, other.nextPathStartPosition);
+            return std::tie(arrivalDelay, nextPathStartPositionDeliveryAtArrival, nextPathStartPositionDeliveryAfterArrival) <
+                   std::tie(other.arrivalDelay, other.nextPathStartPositionDeliveryAtArrival, other.nextPathStartPositionDeliveryAfterArrival);
         }
 
-        static InitialWorkerReturnArrivalData createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPath);
+        static InitialWorkerReturnArrivalData createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAtArrival,
+                                                                      const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAfterArrival);
 
         template <typename S>
         void serialize(S& s) {
             s.value2b(arrivalDelay);
-            s.object(nextPathStartPosition);
+            s.object(nextPathStartPositionDeliveryAtArrival);
+            s.object(nextPathStartPositionDeliveryAfterArrival);
         }
     };
 
