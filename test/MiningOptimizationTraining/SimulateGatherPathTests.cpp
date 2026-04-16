@@ -27,6 +27,7 @@ namespace
     {
         auto options = _options;
         options.loadMapData = false;
+        options.loadInitialWorkerMapData = false;
 
         initializeTest(test);
         test.randomSeed = 42; // We use a constant seed to ensure the same initial headings on the created probes

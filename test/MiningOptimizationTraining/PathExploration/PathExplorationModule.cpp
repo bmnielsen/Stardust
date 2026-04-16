@@ -363,6 +363,7 @@ namespace MiningOptimizationTraining
         {
             // - create the state copy with both start block cannons
             // - populate the state copy pointers in the data structure
+            // - kill all of the cannons, pylons and forge
 
             initialStateWithBothStartBlockCannons = BWAPI::Broodwar->getStateCopy();
             initialStateWithBothStartBlockCannons.label = "two-start-block-cannons";
@@ -389,8 +390,18 @@ namespace MiningOptimizationTraining
                 patchToCannonsToStateCopy[patch][MiningOptimization::CannonPlacement{2, TilePosition::fromBWAPI(cannons[1])}]
                         = &initialStateWithBothStartBlockCannons;
             }
+
+            for (auto unit : BWAPI::Broodwar->self()->getUnits())
+            {
+                if (unit->getType() == BWAPI::UnitTypes::Protoss_Photon_Cannon ||
+                    unit->getType() == BWAPI::UnitTypes::Protoss_Pylon ||
+                    unit->getType() == BWAPI::UnitTypes::Protoss_Forge)
+                {
+                    BWAPI::Broodwar->killUnit(unit);
+                }
+            }
         }
-        else if (BWAPI::Broodwar->getFrameCount() > 65)
+        else if (BWAPI::Broodwar->getFrameCount() >= 70)
         {
             if (initialize())
             {

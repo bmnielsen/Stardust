@@ -8,12 +8,14 @@
 
 #define DEBUG_LOGGING false
 
+#define INITIALIZATION_FRAME 70
+
 namespace MiningOptimizationTraining
 {
     template<typename WorkerStatusType>
     bool GatheringWorkersModule<WorkerStatusType>::initialize()
     {
-        if (BWAPI::Broodwar->getFrameCount() % 10000 == 0)
+        if (BWAPI::Broodwar->getFrameCount() % 10000 == INITIALIZATION_FRAME)
         {
             // Reset the workers every 10000 frames
             for (auto unit : BWAPI::Broodwar->self()->getUnits())
@@ -24,7 +26,7 @@ namespace MiningOptimizationTraining
                 }
             }
         }
-        else if (BWAPI::Broodwar->getFrameCount() % 10000 == 25)
+        else if (BWAPI::Broodwar->getFrameCount() % 10000 == (INITIALIZATION_FRAME + 5))
         {
             workerCreationOrderAndBase.clear();
             workerStatuses.clear();
@@ -124,7 +126,7 @@ namespace MiningOptimizationTraining
                 }
             }
         }
-        else if (BWAPI::Broodwar->getFrameCount() % 10000 == 30)
+        else if (BWAPI::Broodwar->getFrameCount() % 10000 == (INITIALIZATION_FRAME + 10))
         {
             // Gather all available mineral assignments for each base, and sort them to ensure stability between test runs
             // Also get the depot for each base
@@ -221,7 +223,7 @@ namespace MiningOptimizationTraining
             }
         }
 
-        return (BWAPI::Broodwar->getFrameCount() % 10000 >= 35);
+        return (BWAPI::Broodwar->getFrameCount() % 10000 >= (INITIALIZATION_FRAME + 15));
     }
 
     template<typename WorkerStatusType>
