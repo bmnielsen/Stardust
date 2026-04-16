@@ -223,8 +223,8 @@ TEST(SerializationTests, InitialWorkersWriteAndReadBack)
 
     // Create the expected map data
     MiningOptimizationTraining::InitialWorkerMapData expected;
-    expected.startingWorkerPositionToPatchToGatherPaths.emplace(BWAPI::ExactPosition(1,1,0,0,0), std::move(rootNodes1));
-    expected.startingWorkerPositionToPatchToGatherPaths.emplace(BWAPI::ExactPosition(1,2,0,0,0), std::move(rootNodes2));
+    expected.startingWorkerPositionToPatchToFirstGatherPath.emplace(BWAPI::ExactPosition(1,1,0,0,0), std::move(rootNodes1));
+    expected.startingWorkerPositionToPatchToFirstGatherPath.emplace(BWAPI::ExactPosition(1,2,0,0,0), std::move(rootNodes2));
 
     // Serialize the data
     MiningOptimizationTraining::Serialization::setGameParameters("test");
@@ -235,8 +235,8 @@ TEST(SerializationTests, InitialWorkersWriteAndReadBack)
     MiningOptimizationTraining::Serialization::readMapData(actual);
 
     // Assert
-    assertMapsEqual(expected.startingWorkerPositionToPatchToGatherPaths,
-                    actual.startingWorkerPositionToPatchToGatherPaths,
+    assertMapsEqual(expected.startingWorkerPositionToPatchToFirstGatherPath,
+                    actual.startingWorkerPositionToPatchToFirstGatherPath,
                     std::function{[](
                             std::map<TilePosition, MiningOptimizationTraining::InitialWorkerGatherPathNode> &expected,
                             std::map<TilePosition, MiningOptimizationTraining::InitialWorkerGatherPathNode> &actual)

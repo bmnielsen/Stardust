@@ -139,39 +139,36 @@ namespace MiningOptimizationTraining::Serialization
                 });
             });
 
-            auto startingWorkerPositionToRootNodesSerializer = [&]<typename T>(
-                    S &s,
-                    std::map<BWAPI::ExactPosition, std::map<TilePosition, InitialWorkerPathNode<T>>> &value)
+            auto pathNodeSerializer = [&]<typename T>(S &s, InitialWorkerPathNode<T> &value)
             {
-                std::function<void(S&, InitialWorkerPathNode<T>&)> pathNodeSerializer;
-
-                // In theory this should have been handled by Bitsery's StdSharedPtr extension, but I couldn't get it to work
-                auto serializeNextPosition = [&](S &s, std::unique_ptr<InitialWorkerPathNode<T>> &value)
+                std::function<void(S&, InitialWorkerPathNode<T>&)> pathNodeSerializerImpl;
+                pathNodeSerializerImpl = [&](S &s, InitialWorkerPathNode<T> &value)
                 {
-                    if constexpr(serializing)
+                    // In theory this should have been handled by Bitsery's StdSharedPtr extension, but I couldn't get it to work
+                    auto serializeNextPosition = [&](S &s, std::unique_ptr<InitialWorkerPathNode<T>> &value)
                     {
-                        s.boolValue(static_cast<bool>(value));
-                        if (value)
+                        if constexpr(serializing)
                         {
-                            s.object(*value, pathNodeSerializer);
+                            s.boolValue(static_cast<bool>(value));
+                            if (value)
+                            {
+                                s.object(*value, pathNodeSerializerImpl);
+                            }
                         }
-                    }
-                    else
-                    {
-                        value = nullptr;
-                        bool exists{};
-                        s.boolValue(exists);
-                        if (exists)
+                        else
                         {
-                            auto obj = new InitialWorkerPathNode<T>();
-                            s.object(*obj, pathNodeSerializer);
-                            value.reset(obj);
+                            value = nullptr;
+                            bool exists{};
+                            s.boolValue(exists);
+                            if (exists)
+                            {
+                                auto obj = new InitialWorkerPathNode<T>();
+                                s.object(*obj, pathNodeSerializerImpl);
+                                value.reset(obj);
+                            }
                         }
-                    }
-                };
+                    };
 
-                pathNodeSerializer = [&](S &s, InitialWorkerPathNode<T>& value)
-                {
                     s.object(value.pos);
                     s.value1b(value.type);
                     s.object(value.arrivalDataActionAtArrival);
@@ -181,19 +178,79 @@ namespace MiningOptimizationTraining::Serialization
                     s.object(value.nextPosition, serializeNextPosition);
                     s.object(value.nextPositionAfterResend, serializeNextPosition);
                 };
-
-                s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S& s, BWAPI::ExactPosition& key, std::map<TilePosition,
-                        InitialWorkerPathNode<T>>& v) {
-                    s.object(key);
-                    s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S& s, TilePosition& key, InitialWorkerPathNode<T>& v) {
-                        s.object(key);
-                        s.object(v, pathNodeSerializer);
-                    });
-                });
+                pathNodeSerializerImpl(s, value);
             };
 
-            ser.object(data.startingWorkerPositionToPatchToGatherPaths, startingWorkerPositionToRootNodesSerializer);
-            ser.object(data.startingWorkerPositionToPatchToReturnPaths, startingWorkerPositionToRootNodesSerializer);
+            ser.ext(data.startingWorkerPositionToPatchToFirstGatherPath,
+                    bitsery::ext::StdMap{INT_MAX},
+                    [&](S &s, BWAPI::ExactPosition &key, std::map<TilePosition, InitialWorkerGatherPathNode> &v)
+                    {
+                        s.object(key);
+                        s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S &s, TilePosition &key, InitialWorkerGatherPathNode &v)
+                        {
+                            s.object(key);
+                            s.object(v, pathNodeSerializer);
+                        });
+                    });
+            ser.ext(data.startingWorkerPositionToPatchesToSecondGatherPaths,
+                    bitsery::ext::StdMap{INT_MAX},
+                    [&](S &s,
+                        BWAPI::ExactPosition &key,
+                        std::map<std::pair<TilePosition, TilePosition>, std::map<BWAPI::ExactPosition, InitialWorkerGatherPathNode>> &v)
+                    {
+                        s.object(key);
+                        s.ext(v,
+                              bitsery::ext::StdMap{INT_MAX},
+                              [&](S &s, std::pair<TilePosition, TilePosition> &key, std::map<BWAPI::ExactPosition, InitialWorkerGatherPathNode> &v)
+                              {
+                                  s.object(key.first);
+                                  s.object(key.second);
+                                  s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S &s, BWAPI::ExactPosition &key, InitialWorkerGatherPathNode &v)
+                                  {
+                                      s.object(key);
+                                      s.object(v, pathNodeSerializer);
+                                  });
+                              });
+                    });
+            ser.ext(data.startingWorkerPositionToPatchToFirstReturnPaths,
+                    bitsery::ext::StdMap{INT_MAX},
+                    [&](S &s,
+                        BWAPI::ExactPosition &key,
+                        std::map<TilePosition, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode>> &v)
+                    {
+                        s.object(key);
+                        s.ext(v,
+                              bitsery::ext::StdMap{INT_MAX},
+                              [&](S &s, TilePosition &key, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode> &v)
+                              {
+                                  s.object(key);
+                                  s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S &s, BWAPI::ExactPosition &key, InitialWorkerReturnPathNode &v)
+                                  {
+                                      s.object(key);
+                                      s.object(v, pathNodeSerializer);
+                                  });
+                              });
+                    });
+            ser.ext(data.startingWorkerPositionToPatchesToSecondReturnPaths,
+                    bitsery::ext::StdMap{INT_MAX},
+                    [&](S &s,
+                        BWAPI::ExactPosition &key,
+                        std::map<std::pair<TilePosition, TilePosition>, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode>> &v)
+                    {
+                        s.object(key);
+                        s.ext(v,
+                              bitsery::ext::StdMap{INT_MAX},
+                              [&](S &s, std::pair<TilePosition, TilePosition> &key, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode> &v)
+                              {
+                                  s.object(key.first);
+                                  s.object(key.second);
+                                  s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S &s, BWAPI::ExactPosition &key, InitialWorkerReturnPathNode &v)
+                                  {
+                                      s.object(key);
+                                      s.object(v, pathNodeSerializer);
+                                  });
+                              });
+                    });
         }
     }
 

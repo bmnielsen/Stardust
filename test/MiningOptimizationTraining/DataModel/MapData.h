@@ -66,11 +66,15 @@ namespace MiningOptimizationTraining
         std::map<BWAPI::Position, std::vector<OrderProcessTimerReset>> startingWorkerPositionToOrderProcessTimerReset;
 
         // The game randomizes the heading of each starting worker, but aligned to intervals of 8 giving 32 possible values.
-        // For each starting position (including heading), we simulate the first two full rotations with all combinations of patches and all
-        // possible order process timer reset effects.
+        // For each starting position (including heading), we simulate the first two full rotations with all combinations of patches.
         // When the bot starts up, this allows it to find the allocation of starting workers that gives the earliest 7th collection.
-        std::map<BWAPI::ExactPosition, std::map<TilePosition, InitialWorkerGatherPathNode>> startingWorkerPositionToPatchToGatherPaths;
-        std::map<BWAPI::ExactPosition, std::map<TilePosition, InitialWorkerReturnPathNode>> startingWorkerPositionToPatchToReturnPaths;
+        std::map<BWAPI::ExactPosition, std::map<TilePosition, InitialWorkerGatherPathNode>> startingWorkerPositionToPatchToFirstGatherPath;
+        std::map<BWAPI::ExactPosition, std::map<std::pair<TilePosition, TilePosition>, std::map<BWAPI::ExactPosition, InitialWorkerGatherPathNode>>>
+                startingWorkerPositionToPatchesToSecondGatherPaths;
+        std::map<BWAPI::ExactPosition, std::map<TilePosition, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode>>>
+                startingWorkerPositionToPatchToFirstReturnPaths;
+        std::map<BWAPI::ExactPosition, std::map<std::pair<TilePosition, TilePosition>, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode>>>
+                startingWorkerPositionToPatchesToSecondReturnPaths;
 
         void clear(const std::string &_mapHash)
         {
