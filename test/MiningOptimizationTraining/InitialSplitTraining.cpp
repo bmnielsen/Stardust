@@ -2,6 +2,8 @@
 
 #include "DoNothingModule.h"
 #include "DataModel/Serialization.h"
+#include "MiningOptimizationTraining/PathExploration/ExploreStartPositionsModule.h"
+#include "ClearOpponentUnitsModule.h"
 
 #define VERBOSE_LOGGING false
 
@@ -90,6 +92,30 @@ namespace
 
         Serialization::writeMapData(data);
     }
+
+    void initialPathExploration(const Maps::MapMetadata &map)
+    {
+        BWTest test;
+        test.map = std::make_shared<Maps::MapMetadata>(map);
+        test.opponentRace = BWAPI::Races::Terran;
+        test.opponentModule = []()
+        {
+            return new ClearOpponentUnitsModule();
+        };
+        test.myModule = [&]()
+        {
+            ExploreStartPositionsModuleOptions options;
+            options.loadMapData = false;
+            return new ExploreStartPositionsModule<ExploreInitialWorkerStartPosition>(options);
+        };
+        test.allowOpponentOutput = false;
+        test.expectWin = false;
+        test.randomSeed = 42;
+        test.writeReplay = false;
+        test.frameLimit = 100;
+        test.timeLimit = INT_MAX;
+        test.run();
+    }
 }
 
 TEST(InitializeOrderProcessTimerResetValues, Vermeer)
@@ -103,4 +129,9 @@ TEST(InitializeOrderProcessTimerResetValues, AllSSCAIT)
     {
         initializeOrderProcessTimerResetValues(*test.map);
     });
+}
+
+TEST(ExploreInitialStartPositions, Vermeer)
+{
+    initialPathExploration(*Maps::GetOne("Vermeer"));
 }

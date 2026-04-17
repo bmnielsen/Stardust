@@ -4,12 +4,12 @@
 
 namespace BWAPI
 {
-    PrepareGatherPathResult::PrepareGatherPathResult(int returnPathStartFrame,
-                                                     ExactPosition returnPathStartPosition,
-                                                     std::unique_ptr<bwgame::state> returnPathState)
-            : returnPathStartFrame(returnPathStartFrame)
-            , returnPathStartPosition(returnPathStartPosition)
-            , returnPathState(std::move(returnPathState))
+    PrepareGatherPathResult::PrepareGatherPathResult(int startFrame,
+                                                     ExactPosition startPosition,
+                                                     std::unique_ptr<bwgame::state> state)
+            : startFrame(startFrame)
+            , startPosition(startPosition)
+            , state(std::move(state))
     {}
 
     PrepareGatherPathResult::~PrepareGatherPathResult() = default;

@@ -175,7 +175,7 @@ namespace MiningOptimizationTraining
             if (!preparedReturnPath) return;
 
             auto returnResult = simWorker->simulateGatherPath(
-                    BWAPI::SimulateGatherPathOptions({}, preparedReturnPath->returnPathState)
+                    BWAPI::SimulateGatherPathOptions({}, preparedReturnPath->state)
                         .setForceAction(forceReturn)
                         .setReturnStateAtStartOfNextPath());
             if (!returnResult)

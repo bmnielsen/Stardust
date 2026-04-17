@@ -51,7 +51,7 @@ namespace MiningOptimizationTraining
         if (!preparedReturnPath) return;
 
         auto returnResult = simWorker->simulateGatherPath(
-                BWAPI::SimulateGatherPathOptions({}, preparedReturnPath->returnPathState));
+                BWAPI::SimulateGatherPathOptions({}, preparedReturnPath->state));
         if (!returnResult)
         {
             Log::Get() << "Failed to simulate";
@@ -124,7 +124,7 @@ namespace MiningOptimizationTraining
                         for (int resend = 20; resend < 50; resend++)
                         {
                             auto resendReturnResult = simWorker->simulateGatherPath(
-                                    BWAPI::SimulateGatherPathOptions({resend}, prepareResult->returnPathState));
+                                    BWAPI::SimulateGatherPathOptions({resend}, prepareResult->state));
                             if (!resendReturnResult)
                             {
                                 Log::Get() << "Failed to simulate";

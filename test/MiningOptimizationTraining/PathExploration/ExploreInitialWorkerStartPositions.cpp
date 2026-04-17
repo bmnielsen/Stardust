@@ -18,84 +18,25 @@ namespace MiningOptimizationTraining
             int resends;
         };
 
-//        // Gets the next path node matching a specific next position
-//        // If update is set, nodes are created where they don't exist and occurrence counts are incremented
-//        template <typename ObservationType>
-//        PathNode<ObservationType> *getNextPathNode(std::vector<std::pair<PathNode<ObservationType>, uint32_t>> &nextPositions,
-//                                                   BWAPI::ExactPosition position,
-//                                                   bool update)
-//        {
-//            PositionAndVelocity pos(position);
-//
-//            std::pair<PathNode<ObservationType>, uint32_t> *nextPathNodePair = nullptr;
-//            for (auto &pathNodePair : nextPositions)
-//            {
-//                if (pathNodePair.first.pos == pos)
-//                {
-//                    nextPathNodePair = &pathNodePair;
-//                    break;
-//                }
-//            }
-//
-//            if (!update && !nextPathNodePair) return nullptr;
-//
-//            if (!nextPathNodePair)
-//            {
-//                nextPathNodePair = &nextPositions.emplace_back(PathNode<ObservationType>{pos}, 0);
-//            }
-//
-//            if (update && getTotalOccurrences(nextPositions) < UINT32_MAX)
-//            {
-//                nextPathNodePair->second++;
-//            }
-//
-//            return &(nextPathNodePair->first);
-//        }
-//
-//        // Adds an arrival observation to the given observations map
-//        template <typename ObservationType>
-//        const ObservationType& addArrivalObservation(std::map<ObservationType, uint32_t> &observations,
-//                                                     const ObservationType &arrivalData,
-//                                                     uint32_t *occurrences = nullptr)
-//        {
-//            auto dataIt = observations.find(arrivalData);
-//            if (dataIt == observations.end())
-//            {
-//                dataIt = observations.emplace(arrivalData, 0).first;
-//            }
-//
-//            if (getTotalOccurrences(observations) < UINT32_MAX) dataIt->second++;
-//
-//            if (occurrences) *occurrences = dataIt->second;
-//
-//            return dataIt->first;
-//        }
-//
-//        // Checks if two paths are equal, can be called with a vector or range
-//        bool pathsEqual(auto first, auto second)
-//        {
-//            std::input_or_output_iterator auto firstIt = first.begin();
-//            std::input_or_output_iterator auto secondIt = second.begin();
-//            while (firstIt != first.end() && secondIt != second.end())
-//            {
-//                if (*firstIt != *secondIt) return false;
-//                firstIt++;
-//                secondIt++;
-//            }
-//            return firstIt == first.end() && secondIt == second.end();
-//        }
+        // Checks if two paths are equal, can be called with a vector or range
+        bool pathsEqual(auto first, auto second)
+        {
+            std::input_or_output_iterator auto firstIt = first.begin();
+            std::input_or_output_iterator auto secondIt = second.begin();
+            while (firstIt != first.end() && secondIt != second.end())
+            {
+                if (*firstIt != *secondIt) return false;
+                firstIt++;
+                secondIt++;
+            }
+            return firstIt == first.end() && secondIt == second.end();
+        }
 
         // Records the results of exploring a node
         template <typename ObservationType>
         struct NodeExplorationResult
         {
             ObservationType arrivalData;
-            BWAPI::ExactPosition nextPathStartPositionActionAtArrival;
-            int actionFrameAtArrival;
-            int lastOrderProcessTimerOverrideFrameAtArrival;
-            BWAPI::ExactPosition nextPathStartPositionActionAfterArrival;
-            int actionFrameAfterArrival;
-            int lastOrderProcessTimerOverrideFrameAfterArrival;
             std::set<int> resends;
         };
     }
@@ -123,7 +64,8 @@ namespace MiningOptimizationTraining
 
                 for (auto &patch : base->mineralPatches())
                 {
-                    if (initialWorkerMapData.startingWorkerPositionToPatchToGatherPaths[exactPosition].contains(TilePosition::fromBWAPI(patch->tile)))
+                    auto patchTile = TilePosition::fromBWAPI(patch->tile);
+                    if (initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath[exactPosition].contains(patchTile))
                     {
                         continue;
                     }
@@ -137,8 +79,8 @@ namespace MiningOptimizationTraining
     template <>
     void ExploreStartPositionsModule<ExploreInitialWorkerStartPosition>::explore(ExploreInitialWorkerStartPosition &startPosition)
     {
-        auto &gatherData = initialWorkerMapData.startingWorkerPositionToPatchToGatherPaths[startPosition.pos];
-        auto &returnData = initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths[startPosition.pos];
+        // This is similar to the exploration done for normal gathering, but the scope is different because we know the subpixel positions and the
+        // possible order process timer reset values the workers will encounter.
 
         // Find the base corresponding to this start position
         auto base = Map::baseNear(startPosition.pos.pos());
@@ -157,27 +99,11 @@ namespace MiningOptimizationTraining
             return;
         }
 
-        auto createGatherArrivalData = [&](
-                auto &simulatedPathWithActionAtArrival,
-                auto &simulatedPathWithActionAfterArrival)
-        {
-            return GatherArrivalData::createFromSimulatedPaths(simulatedPathWithActionAtArrival, simulatedPathWithActionAfterArrival, patch);
-        };
-
-        auto createReturnArrivalData = [&](
-                auto &simulatedPathWithActionAtArrival,
-                auto &simulatedPathWithActionAfterArrival)
-        {
-            return ReturnArrivalData::createFromSimulatedPaths(simulatedPathWithActionAtArrival, simulatedPathWithActionAfterArrival);
-        };
-
         auto makePathObservations = [&]<typename ObservationType>(
                 const Limits &limits,
-                auto &createArrivalData,
                 InitialWorkerPathNode<ObservationType> &rootNode,
                 int startFrame,
                 std::unique_ptr<bwgame::state> &initialState,
-                BWAPI::ExactPosition startPosition,
                 std::vector<NodeExplorationResult<ObservationType>> &results,
                 BWAPI::Unit gatherPatch = nullptr)
         {
@@ -185,53 +111,71 @@ namespace MiningOptimizationTraining
             auto explorePath = [&]( // NOLINT(*-no-recursion)
                     auto &explorePath,
                     int frame,
-                    BWAPI::ExactPosition currentPosition,
-                    std::unique_ptr<InitialWorkerPathNode<ObservationType>> &nextPosition,
+                    std::unique_ptr<InitialWorkerPathNode<ObservationType>> *nextNode,
                     std::set<int> resendFrames = {},
-                    PathNode<ObservationType> *resendNode = nullptr,
+                    InitialWorkerPathNode<ObservationType> *resendNode = nullptr,
                     std::ranges::subrange<std::vector<BWAPI::ExactPosition>::iterator> noResendPath = {})
             {
                 // Simulate the path
                 auto simulate = [&](bool forceAction)
                 {
-                    auto options = BWAPI::SimulateGatherPathOptions(resendFrames, initialState).setForceAction(forceAction);
-                    if (gatherPatch) options.switchToPatch(gatherPatch->getBWIndex());
-                    return simWorker->simulateGatherPath(options);
+                    auto simulateOptions =
+                            BWAPI::SimulateGatherPathOptions(resendFrames, initialState)
+                                    .setForceAction(forceAction);
+                    if (gatherPatch) simulateOptions.switchToPatch(gatherPatch->getBWIndex());
+                    return simWorker->simulateGatherPath(simulateOptions);
                 };
 
-                // We both simulate with action at arrival and action after arrival
-                auto simulatedPathWithDeliveryAtArrivalResult = simulate(true);
-                auto simulatedPathWithDeliveryAfterArrivalResult = simulate(false);
-                if (!simulatedPathWithDeliveryAtArrivalResult || !simulatedPathWithDeliveryAfterArrivalResult)
+                std::unique_ptr<BWAPI::SimulateGatherPathResult> simulatedPathWithDeliveryAtArrivalResult = nullptr;
+                std::unique_ptr<BWAPI::SimulateGatherPathResult> simulatedPathWithDeliveryAfterArrivalResult = nullptr;
+                std::function<ObservationType()> createArrivalData;
+                if constexpr (std::is_same_v<ObservationType, InitialWorkerGatherArrivalData>)
                 {
-                    Log::Get() << "ERROR: Path could not be simulated";
-                    return;
+                    createArrivalData = [&]()
+                    {
+                        simulatedPathWithDeliveryAtArrivalResult = simulate(true);
+                        if (!simulatedPathWithDeliveryAtArrivalResult)
+                        {
+                            Log::Get() << "ERROR: Path could not be simulated";
+                        }
+
+                        return InitialWorkerGatherArrivalData::createFromSimulatedPath(*simulatedPathWithDeliveryAtArrivalResult, gatherPatch);
+                    };
                 }
+                else
+                {
+                    createArrivalData = [&]()
+                    {
+                        simulatedPathWithDeliveryAtArrivalResult = simulate(true);
+                        simulatedPathWithDeliveryAfterArrivalResult = simulate(false);
+                        if (!simulatedPathWithDeliveryAtArrivalResult || !simulatedPathWithDeliveryAfterArrivalResult)
+                        {
+                            Log::Get() << "ERROR: Path could not be simulated";
+                        }
+
+                        return InitialWorkerReturnArrivalData::createFromSimulatedPath(*simulatedPathWithDeliveryAtArrivalResult,
+                                                                                       *simulatedPathWithDeliveryAfterArrivalResult);
+                    };
+                }
+
+                ObservationType arrivalData = createArrivalData();
                 auto &simulatedPath = simulatedPathWithDeliveryAtArrivalResult->positions;
-                ObservationType arrivalData =
-                        createArrivalData(*simulatedPathWithDeliveryAtArrivalResult, *simulatedPathWithDeliveryAfterArrivalResult);
 
                 auto addResult = [&]()
                 {
                     // Reset the arrival delay since it might have been updated while exploring
-                    arrivalData.setArrivalDelay(simulatedPath.size());
+                    arrivalData.arrivalDelay = simulatedPath.size();
 
                     // This is always called last, so we can use move semantics
                     results.emplace_back(std::move(arrivalData),
-                                         std::move(simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition),
-                                         simulatedPathWithDeliveryAtArrivalResult->actionFrame,
-                                         simulatedPathWithDeliveryAtArrivalResult->lastOrderProcessTimerOverrideFrame,
-                                         std::move(simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition),
-                                         simulatedPathWithDeliveryAfterArrivalResult->actionFrame,
-                                         simulatedPathWithDeliveryAfterArrivalResult->lastOrderProcessTimerOverrideFrame,
                                          std::move(resendFrames));
                 };
 
-                // If this is a resend node, we have a couple of additional steps to do
+                // If this is a resend node, check if the path changed
                 if (resendNode)
                 {
-                    // If this node is uninitialized, check if the resend changed the path or not
-                    if (resendNode->type == NodeType::Uninitialized || resendNode->type == NodeType::StableNode)
+                    // If this node is uninitialized, set the node type
+                    if (resendNode->type == NodeType::Uninitialized)
                     {
                         if (pathsEqual(noResendPath, simulatedPath))
                         {
@@ -256,53 +200,20 @@ namespace MiningOptimizationTraining
                         }
                     }
 
-                    // Make the resend observation on the resend node
-                    uint32_t arrivalDataOccurrences;
-                    auto &savedArrivalData = addArrivalObservation(resendNode->arrivalDataAfterResend, arrivalData, &arrivalDataOccurrences);
+                    resendNode->arrivalDataAfterResend = arrivalData;
 
                     // Jump out unless we need to explore more resends from here
                     if (resendNode->type != NodeType::NonfinalResendNode)
                     {
                         if (resendNode->type != NodeType::PoorResendNode)
                         {
-                            // For gather paths, compute resendAlwaysArrivesDelta the first time
-                            if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
-                            {
-                                if (arrivalDataOccurrences == 1)
-                                {
-                                    uint8_t successfulDelta = 0;
-                                    for (int lastResendFrame = frame + simulatedPath.size() - 1; lastResendFrame > frame; lastResendFrame--)
-                                    {
-                                        if (resendFrames.contains(lastResendFrame - BWAPI::Broodwar->getLatencyFrames()))
-                                        {
-                                            continue;
-                                        }
-
-                                        resendFrames.insert(lastResendFrame);
-                                        auto result = simWorker->simulateGatherPath(
-                                                BWAPI::SimulateGatherPathOptions(resendFrames, initialState).setForceAction(true));
-                                        resendFrames.erase(lastResendFrame);
-
-                                        if (!result)
-                                        {
-                                            Log::Get() << "ERROR: Path could not be simulated";
-                                            return;
-                                        }
-
-                                        if (result->positions.size() > 11) break;
-                                        successfulDelta++;
-                                    }
-                                    savedArrivalData.resendAlwaysArrivesDelta = successfulDelta;
-                                }
-                            }
-
                             addResult();
                         }
                         return;
                     }
                 }
 
-                // Loop through the path, creating and updating nodes as needed
+                // Loop through the path and create the nodes
                 for (auto positionIt = simulatedPath.begin(); positionIt != simulatedPath.end(); positionIt++)
                 {
                     // The arrival delay is the distance to the last position node, which is the arrival position
@@ -314,59 +225,45 @@ namespace MiningOptimizationTraining
                     frame++;
 
                     auto &position = *positionIt;
-                    auto node = getNextPathNode(*nextPositions, position, true);
-                    currentPosition = position;
-
-                    // For new nodes, set the type if we can already determine it here
-                    if (node->type == NodeType::Uninitialized)
+                    if (*nextNode)
                     {
-                        if (arrivalDelay < limits.endOfExplorationWindow)
-                        {
-                            node->type = NodeType::AfterExplorationWindow;
-                        }
-                        else if ((frame - startFrame) < BWAPI::Broodwar->getLatencyFrames()
-                                 || resendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
-                        {
-                            node->type = NodeType::ResendUnavailable;
-                        }
+                        (*nextNode)->pos = position;
+                    }
+                    else
+                    {
+                        (*nextNode) = std::make_unique<InitialWorkerPathNode<ObservationType>>(position);
+                    }
+                    auto &currentNode = **nextNode;
+
+                    // Set the type if we can already determine it here
+                    if (arrivalDelay < limits.endOfExplorationWindow)
+                    {
+                        currentNode.type = NodeType::AfterExplorationWindow;
+                    }
+                    else if ((frame - startFrame) < BWAPI::Broodwar->getLatencyFrames()
+                             || resendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
+                    {
+                        currentNode.type = NodeType::ResendUnavailable;
                     }
 
                     // Make the observation on the node
-                    arrivalData.setArrivalDelay(arrivalDelay);
-                    addArrivalObservation(node->arrivalData, arrivalData);
+                    arrivalData.arrivalDelay = arrivalDelay;
+                    currentNode.arrivalData = arrivalData;
 
-                    // If a resend is relevant from the node, explore one level deeper
-                    // We check stable nodes 3 times since we do see some false positives
-                    if (node->type == NodeType::Uninitialized || node->type == NodeType::NonfinalResendNode || node->type == NodeType::FinalResendNode
-                        || (node->type == NodeType::StableNode && getTotalOccurrences(node->arrivalData) < 3))
+                    // Explore resends on nodes that haven't already been classified
+                    if (currentNode.type == NodeType::Uninitialized)
                     {
                         std::set<int> nextResendFrames = resendFrames;
                         nextResendFrames.insert(frame);
                         explorePath(explorePath,
                                     frame,
-                                    currentPosition,
-                                    &node->nextPositionsAfterResend,
+                                    &currentNode.nextPositionAfterResend,
                                     std::move(nextResendFrames),
-                                    node,
+                                    &currentNode,
                                     std::ranges::subrange(positionIt + 1, simulatedPath.end()));
                     }
-                    else if (node->type == NodeType::StableNode)
-                    {
-                        // For stable nodes, add a result as if we resent here, as it affects the order timer at arrival and therefore may differ from
-                        // the initial node
-                        std::set<int> nextResendFrames = resendFrames;
-                        nextResendFrames.insert(frame);
-                        results.emplace_back(arrivalData,
-                                             simulatedPathWithDeliveryAtArrivalResult->nextPathStartPosition,
-                                             simulatedPathWithDeliveryAtArrivalResult->actionFrame,
-                                             simulatedPathWithDeliveryAtArrivalResult->lastOrderProcessTimerOverrideFrame,
-                                             simulatedPathWithDeliveryAfterArrivalResult->nextPathStartPosition,
-                                             simulatedPathWithDeliveryAfterArrivalResult->actionFrame,
-                                             simulatedPathWithDeliveryAfterArrivalResult->lastOrderProcessTimerOverrideFrame,
-                                             std::move(nextResendFrames));
-                    }
 
-                    nextPositions = &node->nextPositions;
+                    nextNode = &currentNode.nextPosition;
                 }
 
                 // Add the result if we did not resend after this node
@@ -374,156 +271,23 @@ namespace MiningOptimizationTraining
             };
 
             // Start exploring the path from the worker's initial position
+            std::unique_ptr<InitialWorkerPathNode<ObservationType>> rootNodePtr(&rootNode);
             explorePath(explorePath,
                         startFrame,
-                        startPosition,
-                        &rootNode.nextPositions[cannonPlacement]);
+                        &rootNodePtr);
+            rootNodePtr.release();
         };
 
         // Start by simulating the first gather path and gathering all results
-        std::vector<NodeExplorationResult<ReturnArrivalData>> returnResults;
-        makePathObservations({RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
-                             cannonPlacement,
-                             createReturnArrivalData,
-                             returnData,
-                             preparedReturnPath->returnPathStartFrame,
-                             preparedReturnPath->returnPathState,
-                             preparedReturnPath->returnPathStartPosition,
-                             returnResults);
-
-
-
-//        for (auto &[cannonPlacement, state]
-//                : patchToCannonsToStateCopy[startPosition.patch->getTilePosition()])
-//        {
-//            auto preparedReturnPath = prepareReturnPath(startPosition, *state);
-//            if (!preparedReturnPath) return;
-//
-//            // Start by simulating the return path and gathering all results
-//            std::vector<NodeExplorationResult<ReturnArrivalData>> returnResults;
-//            makePathObservations({RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
-//                                 cannonPlacement,
-//                                 createReturnArrivalData,
-//                                 returnData,
-//                                 preparedReturnPath->returnPathStartFrame,
-//                                 preparedReturnPath->returnPathState,
-//                                 preparedReturnPath->returnPathStartPosition,
-//                                 returnResults);
-//
-//            auto findUniqueNextPathStartPositions =
-//                    []<typename ObservationType>(std::vector<NodeExplorationResult<ObservationType>> &results,
-//                                                 int pathStartFrame)
-//                    {
-//                        std::set<NodeExplorationResult<ObservationType>*> bestResults;
-//                        auto findBestResults = [&](
-//                                std::optional<int> orderProcessTimerResetFrame = std::nullopt)
-//                        {
-//                            std::vector<std::tuple<NodeExplorationResult<ObservationType>*, int, int>> resultsWithActionFrameAndDelay;
-//                            int bestActionFrame = INT_MAX;
-//                            int bestActionFrameAndDelay = INT_MAX;
-//                            for (auto &result : results)
-//                            {
-//                                auto [actionFrame, delay] = result.arrivalData.computeActionFrame(pathStartFrame,
-//                                                                                                  result.resends.empty()
-//                                                                                                  ? std::nullopt
-//                                                                                                  : (std::optional<int>)*result.resends.rbegin(),
-//                                                                                                  orderProcessTimerResetFrame);
-//                                resultsWithActionFrameAndDelay.emplace_back(&result, actionFrame, delay);
-//                                bestActionFrame = std::min(bestActionFrame, actionFrame);
-//                                bestActionFrameAndDelay = std::min(bestActionFrameAndDelay, actionFrame + delay);
-//                            }
-//
-//                            for (auto &[result, actionFrame, delay] : resultsWithActionFrameAndDelay)
-//                            {
-//                                if (actionFrame <= bestActionFrame || (actionFrame + delay) <= bestActionFrameAndDelay)
-//                                {
-//                                    bestResults.insert(result);
-//                                }
-//                            }
-//
-//                            return bestActionFrame;
-//                        };
-//
-//                        // Start without a reset
-//                        int bestNoResetActionFrame = findBestResults();
-//
-//                        // Find the lower bound for what resets are interesting to explore
-//                        int maxLastResendFrame = currentFrame;
-//                        for (auto bestResult : bestResults)
-//                        {
-//                            if (bestResult->resends.empty()) continue;
-//                            maxLastResendFrame = std::max(maxLastResendFrame, *bestResult->resends.rbegin());
-//                        }
-//
-//                        // Add all the best results at each reset frame
-//                        for (int resetFrame = maxLastResendFrame + 1; resetFrame <= bestNoResetActionFrame; resetFrame++)
-//                        {
-//                            findBestResults(resetFrame);
-//                        }
-//
-//                        // Add the no-resend result since we might end up on that path accidentally
-//                        for (auto &result : results)
-//                        {
-//                            if (result.resends.empty()) bestResults.insert(&result);
-//                        }
-//
-//                        // Now break this down to the set of unique next path start positions we want to explore gather paths for
-//                        // We only explore each exact position once, and skip positions that are already fully explored
-//                        std::map<BWAPI::ExactPosition, NodeExplorationResult<ObservationType>*> uniqueNextPathStartPositions;
-//                        for (auto bestResult : bestResults)
-//                        {
-//                            auto processNextPathStartPosition = [&](BWAPI::ExactPosition &nextPathStartPosition)
-//                            {
-//                                if (uniqueNextPathStartPositions.contains(nextPathStartPosition)) return;
-//                                uniqueNextPathStartPositions[nextPathStartPosition] = bestResult;
-//                            };
-//                            processNextPathStartPosition(bestResult->nextPathStartPositionActionAtArrival);
-//                            processNextPathStartPosition(bestResult->nextPathStartPositionActionAfterArrival);
-//                        }
-//
-//                        return uniqueNextPathStartPositions;
-//                    };
-//
-//            // Now perform path observations on each unique gather path start position
-//            for (auto &[gatherStartPosition, returnResult] : findUniqueNextPathStartPositions(returnResults, preparedReturnPath->returnPathStartFrame))
-//            {
-//                // Simulate once to get the state copy at the start of the path
-//                auto result = simWorker->simulateGatherPath(
-//                        BWAPI::SimulateGatherPathOptions(returnResult->resends, preparedReturnPath->returnPathState)
-//                                .setForceAction(gatherStartPosition != returnResult->nextPathStartPositionActionAfterArrival)
-//                                .setReturnStateAtStartOfNextPath());
-//                if (!result)
-//                {
-//                    Log::Get() << "ERROR: Path could not be simulated";
-//                    return;
-//                }
-//
-//                std::vector<NodeExplorationResult<GatherArrivalData>> gatherResults;
-//                makePathObservations({GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
-//                                     cannonPlacement,
-//                                     createGatherArrivalData,
-//                                     gatherData,
-//                                     result->actionFrame,
-//                                     result->stateAtStartOfNextPath,
-//                                     result->nextPathStartPosition,
-//                                     gatherResults);
-//
-//                // Find all the best return start positions and add more start positions if applicable
-//                for (auto &[returnStartPosition, _] : findUniqueNextPathStartPositions(gatherResults, result->actionFrame))
-//                {
-//                    auto positionAndVelocity = PositionAndVelocity(returnStartPosition);
-//                    if (!returnData.contains(positionAndVelocity))
-//                    {
-//                        auto newPath = Path<ReturnArrivalData>{positionAndVelocity};
-//                        newPath.populatePositionsToExplore();
-//                        for (auto it = newPath.positionsToExplore.rbegin(); it != newPath.positionsToExplore.rend(); it++)
-//                        {
-//                            startPositions.emplace_back(ExploreStartPosition{*it, patch});
-//                        }
-//                        returnData[positionAndVelocity] = std::move(newPath);
-//                    }
-//                }
-//            }
-//        }
+        auto result = initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath[startPosition.pos]
+                                                   .emplace(TilePosition::fromBWAPI(startPosition.patch->getTilePosition()), startPosition.pos);
+        auto &firstGatherRootNode = result.first->second;
+        std::vector<NodeExplorationResult<InitialWorkerGatherArrivalData>> gatherResults;
+        makePathObservations({GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
+                             firstGatherRootNode,
+                             prepareResult->startFrame,
+                             prepareResult->state,
+                             gatherResults,
+                             startPosition.patch);
     }
 }

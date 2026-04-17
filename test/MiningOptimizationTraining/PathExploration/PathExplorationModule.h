@@ -67,7 +67,7 @@ namespace MiningOptimizationTraining
         virtual void run() = 0;
 
     private:
-        const PathExplorationModuleOptions &options;
+        const PathExplorationModuleOptions options;
 
         BWAPI::Position simWorkerPosition;
         BWAPI::TilePosition forgePosition;

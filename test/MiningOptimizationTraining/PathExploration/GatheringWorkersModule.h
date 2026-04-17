@@ -34,7 +34,7 @@ namespace MiningOptimizationTraining
         void run() override;
 
     private:
-        const GatheringWorkersModuleOptions &options;
+        const GatheringWorkersModuleOptions options;
         std::map<BWAPI::Position, std::pair<int, Base *>> workerCreationOrderAndBase;
         std::vector<std::unique_ptr<WorkerStatusType>> workerStatuses;
     };

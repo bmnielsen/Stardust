@@ -424,9 +424,9 @@ namespace MiningOptimizationTraining
                                  cannonPlacement,
                                  createReturnArrivalData,
                                  returnData,
-                                 preparedReturnPath->returnPathStartFrame,
-                                 preparedReturnPath->returnPathState,
-                                 preparedReturnPath->returnPathStartPosition,
+                                 preparedReturnPath->startFrame,
+                                 preparedReturnPath->state,
+                                 preparedReturnPath->startPosition,
                                  returnResults);
 
             auto findUniqueNextPathStartPositions =
@@ -504,11 +504,11 @@ namespace MiningOptimizationTraining
                     };
 
             // Now perform path observations on each unique gather path start position
-            for (auto &[gatherStartPosition, returnResult] : findUniqueNextPathStartPositions(returnResults, preparedReturnPath->returnPathStartFrame))
+            for (auto &[gatherStartPosition, returnResult] : findUniqueNextPathStartPositions(returnResults, preparedReturnPath->startFrame))
             {
                 // Simulate once to get the state copy at the start of the path
                 auto result = simWorker->simulateGatherPath(
-                        BWAPI::SimulateGatherPathOptions(returnResult->resends, preparedReturnPath->returnPathState)
+                        BWAPI::SimulateGatherPathOptions(returnResult->resends, preparedReturnPath->state)
                                 .setForceAction(gatherStartPosition != returnResult->nextPathStartPositionActionAfterArrival)
                                 .setReturnStateAtStartOfNextPath());
                 if (!result)

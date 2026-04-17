@@ -129,7 +129,7 @@ namespace MiningOptimizationTraining
                            << "; state copy " << stateCopy.label;
                 return nullptr;
             }
-            if (prepareResult->returnPathStartPosition != startPosition.pos)
+            if (prepareResult->startPosition != startPosition.pos)
             {
                 Log::Get() << "ERROR: Prepared gather path has incorrect start position; patch @ " << startPosition.patch->getTilePosition()
                            << "; start position " << startPosition.pos
@@ -141,7 +141,7 @@ namespace MiningOptimizationTraining
         }
 
     private:
-        const ExploreStartPositionsModuleOptions &options;
+        const ExploreStartPositionsModuleOptions options;
         std::deque<StartPositionState> startPositions;
         bool executed = false;
         unsigned long processed = 0;

@@ -158,7 +158,7 @@ namespace MiningOptimizationTraining
 
             auto simulateFromPrepared = [&](const std::set<int> &resends, bool includeStateCopy = false)
             {
-                int simStartFrame = lastPrepareSimulationResult ? lastPrepareSimulationResult->actionFrame : lastPrepareResult->returnPathStartFrame;
+                int simStartFrame = lastPrepareSimulationResult ? lastPrepareSimulationResult->actionFrame : lastPrepareResult->startFrame;
                 std::set<int> modifiedResends;
                 for (auto resend : resends)
                 {
@@ -167,7 +167,7 @@ namespace MiningOptimizationTraining
 
                 auto options = BWAPI::SimulateGatherPathOptions(
                         modifiedResends,
-                        lastPrepareSimulationResult ? lastPrepareSimulationResult->stateAtStartOfNextPath : lastPrepareResult->returnPathState);
+                        lastPrepareSimulationResult ? lastPrepareSimulationResult->stateAtStartOfNextPath : lastPrepareResult->state);
                 if (includeStateCopy) options.setReturnStateAtStartOfNextPath();
 
                 auto result = simWorker->simulateGatherPath(options);
@@ -192,7 +192,7 @@ namespace MiningOptimizationTraining
                     reset();
                     return;
                 }
-                EXPECT_EQ(lastPrepareResult->returnPathStartPosition, worker->getExactPosition())
+                EXPECT_EQ(lastPrepareResult->startPosition, worker->getExactPosition())
                     << "Prepared state does not have correct start position";
             }
 
