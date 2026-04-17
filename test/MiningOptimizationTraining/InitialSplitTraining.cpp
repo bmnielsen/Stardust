@@ -3,6 +3,7 @@
 #include "DoNothingModule.h"
 #include "DataModel/Serialization.h"
 #include "MiningOptimizationTraining/PathExploration/ExploreStartPositionsModule.h"
+#include "MiningOptimizationTraining/PathExploration/InitialWorkerSplitTester.h"
 #include "ClearOpponentUnitsModule.h"
 
 #define VERBOSE_LOGGING false
@@ -13,8 +14,6 @@ namespace
 {
     void initializeOrderProcessTimerResetValues(const Maps::MapMetadata &map)
     {
-        std::vector<Maps::MapMetadata> maps = {map};
-
         InitialWorkerMapData data;
         Serialization::setGameParameters(map.openbwHash);
         Serialization::readMapData(data);
@@ -116,6 +115,43 @@ namespace
         test.timeLimit = INT_MAX;
         test.run();
     }
+
+    void initialSplitTest(const Maps::MapMetadata &map)
+    {
+        InitialWorkerMapData data;
+        Serialization::setGameParameters(map.openbwHash);
+        Serialization::readMapData(data);
+        data.startingWorkerPositionToOrderProcessTimerReset.clear();
+
+        BWAPI::Race knownEnemyRace = BWAPI::Races::Unknown;
+        auto runner = [&](BWTest test)
+        {
+            test.opponentModule = []()
+            {
+                return new DoNothingModule();
+            };
+            test.myModule = [&]()
+            {
+                return new InitialWorkerSplitTesterModule(data, knownEnemyRace);
+            };
+            test.allowOpponentOutput = false;
+            test.expectWin = false;
+            test.writeReplay = false;
+            test.frameLimit = 500;
+            test.run();
+        };
+
+        // Run with zerg and non-zerg where we don't know the enemy race
+        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
+        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
+
+        // Run with zerg and non-zerg where we know the enemy race
+        knownEnemyRace = BWAPI::Races::Zerg;
+        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
+
+        knownEnemyRace = BWAPI::Races::Protoss;
+        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
+    }
 }
 
 TEST(InitializeOrderProcessTimerResetValues, Vermeer)
@@ -134,4 +170,9 @@ TEST(InitializeOrderProcessTimerResetValues, AllSSCAIT)
 TEST(ExploreInitialStartPositions, Vermeer)
 {
     initialPathExploration(*Maps::GetOne("Vermeer"));
+}
+
+TEST(InitialSplitTest, Vermeer)
+{
+    initialSplitTest(*Maps::GetOne("Vermeer"));
 }
