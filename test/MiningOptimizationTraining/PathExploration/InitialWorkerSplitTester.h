@@ -5,6 +5,21 @@
 
 namespace MiningOptimizationTraining
 {
+    struct WorkerGatherPlan
+    {
+        BWAPI::Unit firstPatch;
+        std::set<int> firstGatherResends;
+        std::set<int> expectedFirstGatherMiningFrames;
+        std::set<int> firstReturnResends;
+        std::set<int> expectedFirstReturnDeliveryFrames;
+
+        BWAPI::Unit secondPatch;
+        std::set<int> secondGatherResends;
+        std::set<int> expectedSecondGatherMiningFrames;
+        std::set<int> secondReturnResends;
+        std::set<int> expectedSecondReturnDeliveryFrames;
+    };
+
     // Module to test that the trained initial worker split data is correct.
     // It takes the initial four workers and plans the best first two rotations. Along the way it verifies that all of the positions and timings
     // match the trained data.
@@ -13,7 +28,7 @@ namespace MiningOptimizationTraining
     class InitialWorkerSplitTesterModule : public InstrumentedDoNothingModule
     {
     public:
-        InitialWorkerSplitTesterModule(const InitialWorkerMapData &mapData, BWAPI::Race knownEnemyRace = BWAPI::Races::Unknown)
+        explicit InitialWorkerSplitTesterModule(const InitialWorkerMapData &mapData, BWAPI::Race knownEnemyRace = BWAPI::Races::Unknown)
             : mapData(mapData)
             , knownEnemyRace(knownEnemyRace)
         {}
@@ -24,5 +39,9 @@ namespace MiningOptimizationTraining
     private:
         const InitialWorkerMapData &mapData;
         BWAPI::Race knownEnemyRace;
+
+        std::map<BWAPI::Unit, WorkerGatherPlan> workerGatherPlans;
+
+        WorkerGatherPlan planPatchCombination(BWAPI::ExactPosition startPosition, TilePosition firstPatch, TilePosition secondPatch);
     };
 }
