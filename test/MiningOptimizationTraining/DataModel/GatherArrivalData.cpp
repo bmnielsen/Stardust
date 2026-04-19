@@ -115,6 +115,7 @@ namespace MiningOptimizationTraining
         return {
                 (uint16_t)simulatedPath.positions.size(),
                 isFacingPatch(simulatedPath.actionPosition, patch),
+                simulatedPath.squaredSpeedEightFramesAlongNextPath == 0,
                 simulatedPath.nextPathStartPosition
         };
     }

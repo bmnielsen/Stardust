@@ -121,8 +121,32 @@ namespace MiningOptimizationTraining
     {
         if (simulatedPathDeliveryAtArrival.positions.empty()) return {};
 
+        // The return exit speed is bucketed based on the squared speed
+        // The max speed of a worker is 5 pixels per frame, which corresponds to 5*256=1280 subpixels per frame or 1638400 squared
+        ReturnExitSpeed returnExitSpeed;
+        if (simulatedPathDeliveryAtArrival.squaredSpeedEightFramesAlongNextPath > 1048576) // 80% of top speed
+        {
+            returnExitSpeed = ReturnExitSpeed::High;
+        }
+        else if (simulatedPathDeliveryAtArrival.squaredSpeedEightFramesAlongNextPath > 409600) // 50% of top speed
+        {
+            returnExitSpeed = ReturnExitSpeed::Medium;
+        }
+        else if (simulatedPathDeliveryAtArrival.squaredSpeedEightFramesAlongNextPath == 0)
+        {
+            returnExitSpeed = ReturnExitSpeed::Collision;
+        }
+        else
+        {
+            returnExitSpeed = ReturnExitSpeed::Low;
+        }
+
+        bool collision = (simulatedPathDeliveryAfterArrival.squaredSpeedEightFramesAlongNextPath == 0);
+
         return {
                 (uint16_t)simulatedPathDeliveryAtArrival.positions.size(),
+                returnExitSpeed,
+                collision,
                 simulatedPathDeliveryAtArrival.nextPathStartPosition,
                 simulatedPathDeliveryAfterArrival.nextPathStartPosition
         };

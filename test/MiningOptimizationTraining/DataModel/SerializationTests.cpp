@@ -26,6 +26,7 @@ namespace
         result.type = (MiningOptimizationTraining::NodeType)(pos.x % 6);
         result.arrivalData.arrivalDelay = pos.x;
         result.arrivalData.facingPatch = (pos.x % 2 == 0);
+        result.arrivalData.collision = (pos.x % 2 == 1);
         result.arrivalData.nextPathStartPosition =
                 BWAPI::ExactPosition{pos.x + 2U, pos.y + 2U, pos.heading, pos.velocityX, pos.velocityY};
         if (pos.x % 2 != 0)
@@ -33,6 +34,7 @@ namespace
             result.arrivalDataAfterResend = MiningOptimizationTraining::InitialWorkerGatherArrivalData{
                 pos.x,
                 (pos.x % 4 == 0),
+                (pos.x % 4 == 1),
                 BWAPI::ExactPosition{pos.x + 3U, pos.y + 3U, pos.heading, pos.velocityX, pos.velocityY}
             };
         }

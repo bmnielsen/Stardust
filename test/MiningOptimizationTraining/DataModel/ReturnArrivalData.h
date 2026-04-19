@@ -165,19 +165,37 @@ namespace MiningOptimizationTraining
     struct InitialWorkerReturnArrivalData
     {
         uint16_t arrivalDelay = UINT16_MAX;
+        ReturnExitSpeed exitSpeedDeliveryAtArrival;
+        bool collisionDeliveryAfterArrival;
         BWAPI::ExactPosition nextPathStartPositionDeliveryAtArrival;
         BWAPI::ExactPosition nextPathStartPositionDeliveryAfterArrival;
 
         bool operator==(const InitialWorkerReturnArrivalData &other) const
         {
-            return std::tie(arrivalDelay, nextPathStartPositionDeliveryAtArrival, nextPathStartPositionDeliveryAfterArrival) ==
-                   std::tie(other.arrivalDelay, other.nextPathStartPositionDeliveryAtArrival, other.nextPathStartPositionDeliveryAfterArrival);
+            return std::tie(arrivalDelay,
+                            exitSpeedDeliveryAtArrival,
+                            collisionDeliveryAfterArrival,
+                            nextPathStartPositionDeliveryAtArrival,
+                            nextPathStartPositionDeliveryAfterArrival) ==
+                   std::tie(other.arrivalDelay,
+                            other.exitSpeedDeliveryAtArrival,
+                            other.collisionDeliveryAfterArrival,
+                            other.nextPathStartPositionDeliveryAtArrival,
+                            other.nextPathStartPositionDeliveryAfterArrival);
         }
 
         bool operator<(const InitialWorkerReturnArrivalData &other) const
         {
-            return std::tie(arrivalDelay, nextPathStartPositionDeliveryAtArrival, nextPathStartPositionDeliveryAfterArrival) <
-                   std::tie(other.arrivalDelay, other.nextPathStartPositionDeliveryAtArrival, other.nextPathStartPositionDeliveryAfterArrival);
+            return std::tie(arrivalDelay,
+                            exitSpeedDeliveryAtArrival,
+                            collisionDeliveryAfterArrival,
+                            nextPathStartPositionDeliveryAtArrival,
+                            nextPathStartPositionDeliveryAfterArrival) <
+                   std::tie(other.arrivalDelay,
+                            other.exitSpeedDeliveryAtArrival,
+                            other.collisionDeliveryAfterArrival,
+                            other.nextPathStartPositionDeliveryAtArrival,
+                            other.nextPathStartPositionDeliveryAfterArrival);
         }
 
         static InitialWorkerReturnArrivalData createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAtArrival,
@@ -186,6 +204,8 @@ namespace MiningOptimizationTraining
         template <typename S>
         void serialize(S& s) {
             s.value2b(arrivalDelay);
+            s.value2b(exitSpeedDeliveryAtArrival);
+            s.boolValue(collisionDeliveryAfterArrival);
             s.object(nextPathStartPositionDeliveryAtArrival);
             s.object(nextPathStartPositionDeliveryAfterArrival);
         }

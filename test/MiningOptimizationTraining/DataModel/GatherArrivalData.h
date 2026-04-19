@@ -128,18 +128,19 @@ namespace MiningOptimizationTraining
     {
         uint16_t arrivalDelay = UINT16_MAX;
         bool facingPatch = false;
+        bool collision = false;
         BWAPI::ExactPosition nextPathStartPosition;
 
         bool operator==(const InitialWorkerGatherArrivalData &other) const
         {
-            return std::tie(arrivalDelay, facingPatch, nextPathStartPosition) ==
-                   std::tie(other.arrivalDelay, other.facingPatch, other.nextPathStartPosition);
+            return std::tie(arrivalDelay, facingPatch, collision, nextPathStartPosition) ==
+                   std::tie(other.arrivalDelay, other.facingPatch, other.collision, other.nextPathStartPosition);
         }
 
         bool operator<(const InitialWorkerGatherArrivalData &other) const
         {
-            return std::tie(arrivalDelay, facingPatch, nextPathStartPosition) <
-                   std::tie(other.arrivalDelay, other.facingPatch, other.nextPathStartPosition);
+            return std::tie(arrivalDelay, facingPatch, collision, nextPathStartPosition) <
+                   std::tie(other.arrivalDelay, other.facingPatch, other.collision, other.nextPathStartPosition);
         }
 
         // Creates the struct from a simulated path
@@ -149,6 +150,7 @@ namespace MiningOptimizationTraining
         void serialize(S& s) {
             s.value2b(arrivalDelay);
             s.boolValue(facingPatch);
+            s.boolValue(collision);
             s.object(nextPathStartPosition);
         }
     };
