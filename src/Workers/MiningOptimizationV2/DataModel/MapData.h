@@ -12,6 +12,21 @@
 
 namespace MiningOptimization
 {
+    struct InitialSplitRotation
+    {
+        std::set<uint16_t> resendFrames;
+        uint16_t gatherArrivalFrame;
+        uint16_t gatherActionFrame;
+        uint16_t returnArrivalFrame;
+        std::set<uint16_t> returnActionFrames;
+    };
+
+    struct InitialSplitData
+    {
+        InitialSplitRotation firstRotation;
+        std::map<uint16_t, InitialSplitRotation> firstRotationDeliveryToSecondRotation;
+    };
+
     class MapData
     {
     public:
@@ -33,6 +48,13 @@ namespace MiningOptimization
         std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<GatherArrivalData>>> resourceToSerializedGatherPaths;
         std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ReturnArrivalData>>> resourceToSerializedReturnPaths;
 
+        std::unordered_map<PositionAndVelocity, std::map<std::pair<TilePosition, TilePosition>, InitialSplitData>>
+            startLocationToPatchPairToInitialSplitDataZerg;
+        std::unordered_map<PositionAndVelocity, std::map<std::pair<TilePosition, TilePosition>, InitialSplitData>>
+            startLocationToPatchPairToInitialSplitDataNotZerg;
+        std::unordered_map<PositionAndVelocity, std::map<std::pair<TilePosition, TilePosition>, InitialSplitData>>
+            startLocationToPatchPairToInitialSplitDataUnknown;
+
         void clear(const std::string &_mapHash)
         {
             mapHash = _mapHash;
@@ -40,6 +62,9 @@ namespace MiningOptimization
             minimumNextPathLength = 0;
             resourceToSerializedGatherPaths.clear();
             resourceToSerializedReturnPaths.clear();
+            startLocationToPatchPairToInitialSplitDataZerg.clear();
+            startLocationToPatchPairToInitialSplitDataNotZerg.clear();
+            startLocationToPatchPairToInitialSplitDataUnknown.clear();
         }
 
         static double occurrenceRateToProbability(uint8_t occurrenceRate)

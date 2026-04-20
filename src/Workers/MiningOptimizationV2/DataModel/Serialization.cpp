@@ -4,6 +4,7 @@
 #include <bitsery/adapter/stream.h>
 #include <bitsery/traits/vector.h>
 #include <bitsery/ext/std_map.h>
+#include <bitsery/ext/std_set.h>
 
 #include <zstdstream.h>
 
@@ -69,6 +70,48 @@ namespace MiningOptimization::Serialization
             ser.value4b(data.minimumNextPathLength);
             ser.object(data.resourceToSerializedGatherPaths, resourceToRootNodesSerializer);
             ser.object(data.resourceToSerializedReturnPaths, resourceToRootNodesSerializer);
+
+            auto initialSplitRotationSerializer = [](S &s, InitialSplitRotation &v)
+            {
+                s.ext(v.resendFrames, bitsery::ext::StdSet{INT_MAX}, [&](S& s, uint16_t &v) {
+                    s.value2b(v);
+                });
+                s.value2b(v.gatherArrivalFrame);
+                s.value2b(v.gatherActionFrame);
+                s.value2b(v.returnArrivalFrame);
+                s.ext(v.returnActionFrames, bitsery::ext::StdSet{INT_MAX}, [&](S& s, uint16_t &v) {
+                    s.value2b(v);
+                });
+            };
+            auto initialSplitDataSerializer = [&initialSplitRotationSerializer](
+                    S &s,
+                    std::unordered_map<PositionAndVelocity, std::map<std::pair<TilePosition, TilePosition>, InitialSplitData>> &v)
+            {
+                s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S &s,
+                                                            PositionAndVelocity &key,
+                                                            std::map<std::pair<TilePosition, TilePosition>, InitialSplitData> &v)
+                {
+                    s.object(key);
+                    s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S &s,
+                                                                std::pair<TilePosition, TilePosition> &key,
+                                                                InitialSplitData &v)
+                    {
+                        s.object(key.first);
+                        s.object(key.second);
+                        s.object(v.firstRotation, initialSplitRotationSerializer);
+                        s.ext(v.firstRotationDeliveryToSecondRotation, bitsery::ext::StdMap{INT_MAX}, [&](S &s,
+                                                                                                          uint16_t &key,
+                                                                                                          InitialSplitRotation &v)
+                        {
+                            s.value2b(key);
+                            s.object(v, initialSplitRotationSerializer);
+                        });
+                    });
+                });
+            };
+            ser.object(data.startLocationToPatchPairToInitialSplitDataZerg, initialSplitDataSerializer);
+            ser.object(data.startLocationToPatchPairToInitialSplitDataNotZerg, initialSplitDataSerializer);
+            ser.object(data.startLocationToPatchPairToInitialSplitDataUnknown, initialSplitDataSerializer);
         }
     }
 
