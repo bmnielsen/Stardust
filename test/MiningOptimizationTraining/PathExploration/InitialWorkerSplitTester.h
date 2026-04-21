@@ -5,19 +5,56 @@
 
 namespace MiningOptimizationTraining
 {
+    struct PlannedPath
+    {
+        std::set<int> resends;
+        std::set<int> actionFrames;
+
+        friend std::ostream &operator<<(std::ostream &os, const PlannedPath &path)
+        {
+            auto outIntSet = [&os](const std::set<int> &intSet)
+            {
+                os << "[";
+                std::string sep;
+                for (auto val : intSet)
+                {
+                    os << sep << val;
+                    sep = ",";
+                }
+                os << "]";
+            };
+
+            os << "resends: ";
+            outIntSet(path.resends);
+            os << "; actions: ";
+            outIntSet(path.actionFrames);
+
+            return os;
+        }
+    };
     struct WorkerGatherPlan
     {
-        BWAPI::Unit firstPatch;
-        std::set<int> firstGatherResends;
-        std::set<int> expectedFirstGatherMiningFrames;
-        std::set<int> firstReturnResends;
-        std::set<int> expectedFirstReturnDeliveryFrames;
+        PlannedPath firstGather;
+        PlannedPath firstReturn;
+        PlannedPath secondGather;
+        PlannedPath secondReturn;
+    };
 
+    struct WorkerStatus
+    {
+        WorkerGatherPlan gatherPlan;
+        BWAPI::Unit firstPatch;
         BWAPI::Unit secondPatch;
-        std::set<int> secondGatherResends;
-        std::set<int> expectedSecondGatherMiningFrames;
-        std::set<int> secondReturnResends;
-        std::set<int> expectedSecondReturnDeliveryFrames;
+
+        // 0 - initial state
+        // 1 - moving towards first patch
+        // 2 - mining first patch
+        // 3 - moving towards first delivery
+        // 4 - moving towards second patch
+        // 5 - mining second patch
+        // 6 - moving towards second delivery
+        // 7 - final state
+        int state = 0;
     };
 
     // Module to test that the trained initial worker split data is correct.
@@ -25,12 +62,16 @@ namespace MiningOptimizationTraining
     // match the trained data.
     // The game will be initialized with the enemy as random since this is how we store the random seeds in our infrastructure. If the caller wishes
     // to test the behaviour as if the bot knew the enemy race, this can be specified in the constructor.
+    // It can also be specified to pick random resends in order to test our path exploration.
     class InitialWorkerSplitTesterModule : public InstrumentedDoNothingModule
     {
     public:
-        explicit InitialWorkerSplitTesterModule(const InitialWorkerMapData &mapData, BWAPI::Race knownEnemyRace = BWAPI::Races::Unknown)
+        explicit InitialWorkerSplitTesterModule(const InitialWorkerMapData &mapData,
+                                                BWAPI::Race enemyRace,
+                                                bool chooseRandomResends)
             : mapData(mapData)
-            , knownEnemyRace(knownEnemyRace)
+            , enemyRace(enemyRace)
+            , chooseRandomResends(chooseRandomResends)
         {}
 
         void onStart() override;
@@ -38,10 +79,11 @@ namespace MiningOptimizationTraining
 
     private:
         const InitialWorkerMapData &mapData;
-        BWAPI::Race knownEnemyRace;
+        BWAPI::Race enemyRace;
+        bool chooseRandomResends;
 
-        std::map<BWAPI::Unit, WorkerGatherPlan> workerGatherPlans;
+        std::map<BWAPI::Unit, WorkerStatus> workerStatuses;
 
-        WorkerGatherPlan planPatchCombination(BWAPI::ExactPosition startPosition, TilePosition firstPatch, TilePosition secondPatch);
+        WorkerGatherPlan planPatchCombinationRandomly(BWAPI::ExactPosition startPosition, TilePosition firstPatch, TilePosition secondPatch);
     };
 }

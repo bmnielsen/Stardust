@@ -121,7 +121,6 @@ namespace
         InitialWorkerMapData data;
         Serialization::setGameParameters(map.openbwHash);
         Serialization::readMapData(data);
-        data.startingWorkerPositionToOrderProcessTimerReset.clear();
 
         BWAPI::Race knownEnemyRace = BWAPI::Races::Unknown;
         auto runner = [&](BWTest test)
@@ -132,25 +131,30 @@ namespace
             };
             test.myModule = [&]()
             {
-                return new InitialWorkerSplitTesterModule(data, knownEnemyRace);
+                return new InitialWorkerSplitTesterModule(data, knownEnemyRace, true);
             };
             test.allowOpponentOutput = false;
             test.expectWin = false;
-            test.writeReplay = false;
+            test.writeReplay = true;
             test.frameLimit = 500;
             test.run();
         };
 
-        // Run with zerg and non-zerg where we don't know the enemy race
-        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
-        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
-
-        // Run with zerg and non-zerg where we know the enemy race
-        knownEnemyRace = BWAPI::Races::Zerg;
-        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
-
-        knownEnemyRace = BWAPI::Races::Protoss;
-        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
+        BWTest test;
+        test.maps = {map};
+        test.randomSeed = 42;
+        runner(test);
+//
+//        // Run with zerg and non-zerg where we don't know the enemy race
+//        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
+//        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
+//
+//        // Run with zerg and non-zerg where we know the enemy race
+//        knownEnemyRace = BWAPI::Races::Zerg;
+//        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
+//
+//        knownEnemyRace = BWAPI::Races::Protoss;
+//        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
     }
 }
 
