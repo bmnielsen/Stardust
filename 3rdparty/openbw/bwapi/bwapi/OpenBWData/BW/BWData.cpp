@@ -2403,6 +2403,8 @@ std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BW
     unit->position.x = unit->exact_position.x.integer_part();
     unit->position.y = unit->exact_position.y.integer_part();
     unit->sprite->position = unit->position;
+    funcs_copy.set_flingy_move_target(unit, unit->position);
+    funcs_copy.set_next_target_waypoint(unit, unit->position);
     unit->heading.raw_value = options.startPosition.heading;
     unit->current_velocity_direction = unit->heading;
     unit->next_velocity_direction = unit->heading;
@@ -2431,8 +2433,6 @@ std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BW
     // Set movement state to match what we expect when arriving at the patch
     unit->movement_flags = 0;
     unit->movement_state = 12;
-    funcs_copy.set_flingy_move_target(unit, unit->position);
-    funcs_copy.set_next_target_waypoint(unit, unit->position);
 
     // Order the unit to harvest from the patch
     auto patch = funcs_copy.get_unit(options.patchUnitIndex);
