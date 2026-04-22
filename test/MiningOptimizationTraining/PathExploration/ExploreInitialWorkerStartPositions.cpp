@@ -44,6 +44,15 @@ namespace MiningOptimizationTraining
     template <>
     void ExploreStartPositionsModule<ExploreInitialWorkerStartPosition>::initializeStartPositions()
     {
+//        for (auto patch : BWAPI::Broodwar->getStaticNeutralUnits())
+//        {
+//            if (!patch->getType().isMineralField()) continue;
+//            if (patch->getTilePosition() == BWAPI::TilePosition(2,11))
+//            {
+//                startPositions.emplace_back(ExploreInitialWorkerStartPosition{BWAPI::ExactPosition{264*32,296*32,48,0,0}, patch});
+//            }
+//        }
+
         for (const auto &[spawnPosition, _] : initialWorkerMapData.startingWorkerPositionToOrderProcessTimerReset)
         {
             auto base = Map::baseNear(spawnPosition);

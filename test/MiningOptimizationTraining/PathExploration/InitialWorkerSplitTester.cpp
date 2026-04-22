@@ -5,6 +5,8 @@
 #include <BWAPI/SimulateGatherPathOptions.h>
 #include <BWAPI/SimulateGatherPathResult.h>
 
+#define VERBOSE_LOGGING false
+
 namespace MiningOptimizationTraining
 {
     namespace
@@ -78,6 +80,10 @@ namespace MiningOptimizationTraining
             {
                 if (!worker->getType().isWorker()) continue;
 
+#if VERBOSE_LOGGING
+                Log::Get() << "Planning worker " << worker->getID();
+#endif
+
                 workerStatuses[worker] = {
                         planPatchCombinationRandomly(worker->getExactPosition(), firstPatches[i], secondPatches[i]),
                         patchAt(firstPatches[i]),
@@ -124,21 +130,30 @@ namespace MiningOptimizationTraining
 
         for (auto &[worker, status] : workerStatuses)
         {
+#if VERBOSE_LOGGING
             CherryVis::log(worker->getID()) << worker->getExactPosition();
+#endif
 
             switch (status.state)
             {
                 case 0:
                 {
-                    auto simulateResult =
-                            worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(status.gatherPlan.firstGather.resends)
-                            .switchToPatch(status.firstPatch->getBWIndex())
-                            .setSkipFirstFrame()
-                            .setIncludeAllPositions());
-                    Log::Get() << worker->getID() << ": Simulated path:";
-                    for (const auto &pos : simulateResult->positions)
+                    if (worker->getID() == 0)
                     {
-                        Log::Get() << pos;
+                        std::set<int> resends;
+                        for (auto resend : status.gatherPlan.firstGather.resends)
+                        {
+                            resends.insert(resend + 1);
+                        }
+                        auto simulateResult =
+                                worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(resends)
+                                                                   .switchToPatch(status.firstPatch->getBWIndex())
+                                                                   .setIncludeAllPositions());
+                        Log::Get() << worker->getID() << ": Simulated path:";
+                        for (const auto &pos : simulateResult->positions)
+                        {
+                            Log::Get() << pos;
+                        }
                     }
 
                     worker->gather(status.firstPatch);
@@ -146,7 +161,18 @@ namespace MiningOptimizationTraining
                     break;
                 }
                 case 1:
-                    if (status.gatherPlan.firstGather.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames() + 1))
+                    if (worker->getID() == 0 && currentFrame == 3)
+                    {
+                        auto simulateResult =
+                                worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(status.gatherPlan.firstGather.resends)
+                                                                   .setIncludeAllPositions());
+                        Log::Get() << worker->getID() << ": Simulated path:";
+                        for (const auto &pos : simulateResult->positions)
+                        {
+                            Log::Get() << pos;
+                        }
+                    }
+                    if (status.gatherPlan.firstGather.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                     {
                         worker->gather(status.firstPatch);
                         CherryVis::log(worker->getID()) << "Resent gather";
@@ -166,7 +192,7 @@ namespace MiningOptimizationTraining
                     }
                     break;
                 case 3:
-                    if (status.gatherPlan.firstReturn.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames() + 1))
+                    if (status.gatherPlan.firstReturn.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                     {
                         worker->returnCargo();
                         CherryVis::log(worker->getID()) << "Resent return";
@@ -181,7 +207,7 @@ namespace MiningOptimizationTraining
                     }
                     break;
                 case 4:
-                    if (status.gatherPlan.secondGather.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames() + 1))
+                    if (status.gatherPlan.secondGather.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                     {
                         worker->gather(status.secondPatch);
                         CherryVis::log(worker->getID()) << "Resent gather";
@@ -192,7 +218,7 @@ namespace MiningOptimizationTraining
                     }
                     break;
                 case 6:
-                    if (status.gatherPlan.secondReturn.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames() + 1))
+                    if (status.gatherPlan.secondReturn.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                     {
                         worker->returnCargo();
                         CherryVis::log(worker->getID()) << "Resent return";
@@ -232,7 +258,7 @@ namespace MiningOptimizationTraining
 
         std::vector<Result<InitialWorkerGatherArrivalData>> results;
 
-        int startFrame = 4;
+        int startFrame = 0;
         int minimumResendFrame = 8;
 
         std::deque<QueuedNode<InitialWorkerGatherArrivalData>> nodeQueue;
@@ -252,7 +278,9 @@ namespace MiningOptimizationTraining
             int frame = node.frame;
             while (current)
             {
-                if (frame >= minimumResendFrame && !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
+                if (frame >= minimumResendFrame &&
+                    !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()) &&
+                    current->type != NodeType::PoorResendNode)
                 {
                     std::set<int> resends = node.resends;
                     resends.insert(frame);
@@ -269,7 +297,7 @@ namespace MiningOptimizationTraining
                         results.emplace_back(resends, resendNodes, frame + current->arrivalDataAfterResend->arrivalDelay);
                         if (current->nextPositionAfterResend)
                         {
-                            nodeQueue.emplace_back(current->nextPositionAfterResend.get(), resends, resendNodes, frame);
+                            nodeQueue.emplace_back(current->nextPositionAfterResend.get(), resends, resendNodes, frame + 1);
                         }
                     }
                 }
@@ -287,12 +315,24 @@ namespace MiningOptimizationTraining
         auto chosenResult = results[dist(rng)];
 
         // Compute the order process timer value at the arrival frame
-        int resendToArrival = chosenResult.arrivalFrame - *chosenResult.resends.rbegin();
-        int delayAfterArrival = resendToArrival % 9;
+        // The order process timer is 0 at the start of the frame two frames after the last resend takes effect
+        int orderProcessTimerAtArrival = 0;
+        for (int i = 0; i < (chosenResult.arrivalFrame - *chosenResult.resends.rbegin() - 2); i++)
+        {
+            if (orderProcessTimerAtArrival == 0)
+            {
+                orderProcessTimerAtArrival = 8;
+            }
+            else
+            {
+                orderProcessTimerAtArrival--;
+            }
+        }
 
+#if VERBOSE_LOGGING
         Log::Get() << "Arrival frame " << chosenResult.arrivalFrame
-                   << "; last resend frame " << (*chosenResult.resends.rbegin()) << " (" << resendToArrival << ")"
-                   << "; order process timer at arrival " << delayAfterArrival;
+                   << "; last resend frame " << (*chosenResult.resends.rbegin())
+                   << "; order process timer at arrival " << orderProcessTimerAtArrival;
 
         Log::Get() << "Expected path:";
         auto current = &rootNode;
@@ -301,6 +341,7 @@ namespace MiningOptimizationTraining
             Log::Get() << current->pos;
             if (chosenResult.resendNodes.contains(current))
             {
+                Log::Get() << "resend takes effect";
                 current = current->nextPositionAfterResend.get();
             }
             else
@@ -308,10 +349,11 @@ namespace MiningOptimizationTraining
                 current = current->nextPosition.get();
             }
         }
+#endif
 
         WorkerGatherPlan result;
         result.firstGather.resends = chosenResult.resends;
-        result.firstGather.actionFrames = {chosenResult.arrivalFrame + delayAfterArrival};
+        result.firstGather.actionFrames = {chosenResult.arrivalFrame + orderProcessTimerAtArrival};
         return result;
     }
 }

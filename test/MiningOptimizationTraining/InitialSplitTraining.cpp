@@ -135,26 +135,37 @@ namespace
             };
             test.allowOpponentOutput = false;
             test.expectWin = false;
-            test.writeReplay = true;
+            test.writeReplay = false;
             test.frameLimit = 500;
             test.run();
         };
+//
+//        BWTest test;
+//        test.maps = {map};
+//        test.randomSeed = 53681;
+//        test.opponentRace = BWAPI::Races::Unknown;
+//        runner(test);
+//        return;
 
-        BWTest test;
-        test.maps = {map};
-        test.randomSeed = 42;
-        runner(test);
-//
-//        // Run with zerg and non-zerg where we don't know the enemy race
-//        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
-//        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
-//
-//        // Run with zerg and non-zerg where we know the enemy race
-//        knownEnemyRace = BWAPI::Races::Zerg;
-//        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
-//
-//        knownEnemyRace = BWAPI::Races::Protoss;
-//        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
+        // Run with zerg and non-zerg where we don't know the enemy race
+        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
+        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
+
+        // Run with zerg and non-zerg where we know the enemy race
+        knownEnemyRace = BWAPI::Races::Zerg;
+        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
+
+        knownEnemyRace = BWAPI::Races::Protoss;
+        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
+
+        // Run another 100 iterations on random settings
+        knownEnemyRace = BWAPI::Races::Unknown;
+        for (int i = 0; i < 100; i++)
+        {
+            BWTest test;
+            test.maps = {map};
+            runner(test);
+        }
     }
 }
 

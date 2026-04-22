@@ -155,7 +155,6 @@ TEST(SimulateGatherPathTests, AllSSCAITCannonsOneIteration)
     });
 }
 
-
 TEST(SimulateGatherPathTests, VermeerInitialWorkers)
 {
     BWTest test;
