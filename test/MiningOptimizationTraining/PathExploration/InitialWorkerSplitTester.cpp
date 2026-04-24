@@ -5,6 +5,8 @@
 #include <BWAPI/SimulateGatherPathOptions.h>
 #include <BWAPI/SimulateGatherPathResult.h>
 
+#include "OrderProcessTimer.h"
+
 #define VERBOSE_LOGGING false
 
 namespace MiningOptimizationTraining
@@ -37,9 +39,9 @@ namespace MiningOptimizationTraining
         template <typename ObservationType>
         struct Result
         {
+            ObservationType arrivalData;
             std::set<int> resends;
             std::set<const InitialWorkerPathNode<ObservationType> *> resendNodes;
-            int arrivalFrame;
         };
     }
 
@@ -50,8 +52,7 @@ namespace MiningOptimizationTraining
         Log::Get() << "Starting initial worker split validation on " << mapData.mapHash << " with enemy race " << enemyRace;
         rng = std::default_random_engine(BWAPI::Broodwar->getRandomSeed());
 
-        // Verify we have data for each worker and get the set of mineral patch positions
-        std::vector<TilePosition> patches;
+        // Verify we have data for each worker and gather the vectors of workers and patches
         for (auto worker : BWAPI::Broodwar->self()->getUnits())
         {
             if (!worker->getType().isWorker()) continue;
@@ -60,13 +61,23 @@ namespace MiningOptimizationTraining
             EXPECT_NE(mapData.startingWorkerPositionToPatchToFirstGatherPath.end(), firstGatherPaths)
                                 << "No first gather paths found for worker starting position " << worker->getExactPosition();
 
+            workers.emplace_back(worker);
+
             if (!patches.empty()) continue;
 
             for (const auto &[patchTile, _] : firstGatherPaths->second)
             {
-                patches.emplace_back(patchTile);
+                patches.emplace_back(patchAt(patchTile));
             }
         }
+
+        // Sort the workers and patches by position to ensure stability between runs
+        auto positionSorter = [](const BWAPI::Unit &first, const BWAPI::Unit &second)
+        {
+            return first->getPosition() < second->getPosition();
+        };
+        std::sort(workers.begin(), workers.end(), positionSorter);
+        std::sort(patches.begin(), patches.end(), positionSorter);
 
         if (chooseRandomResends)
         {
@@ -76,18 +87,16 @@ namespace MiningOptimizationTraining
             std::shuffle(std::begin(firstPatches), std::end(firstPatches), rng);
             std::shuffle(std::begin(secondPatches), std::end(secondPatches), rng);
             size_t i = 0;
-            for (auto worker : BWAPI::Broodwar->self()->getUnits())
+            for (auto worker : workers)
             {
-                if (!worker->getType().isWorker()) continue;
-
 #if VERBOSE_LOGGING
                 Log::Get() << "Planning worker " << worker->getID();
 #endif
 
                 workerStatuses[worker] = {
-                        planPatchCombinationRandomly(worker->getExactPosition(), firstPatches[i], secondPatches[i]),
-                        patchAt(firstPatches[i]),
-                        patchAt(secondPatches[i])
+                        planPatchCombinationRandomly(worker, firstPatches[i], secondPatches[i]),
+                        firstPatches[i],
+                        secondPatches[i]
                 };
                 i++;
 
@@ -148,15 +157,17 @@ namespace MiningOptimizationTraining
                         auto simulateResult =
                                 worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(resends)
                                                                    .switchToPatch(status.firstPatch->getBWIndex())
-                                                                   .setIncludeAllPositions());
+                                                                   );
                         Log::Get() << worker->getID() << ": Simulated path:";
                         for (const auto &pos : simulateResult->positions)
                         {
                             Log::Get() << pos;
                         }
+                        Log::Get() << worker->getID() << ": Arrival " << simulateResult->positions.size();
                     }
 
-                    worker->gather(status.firstPatch);
+                    EXPECT_TRUE(worker->gather(status.firstPatch))
+                                        << worker->getID() << ": Failed to issue gather command: " << BWAPI::Broodwar->getLastError();
                     status.state++;
                     break;
                 }
@@ -174,7 +185,8 @@ namespace MiningOptimizationTraining
                     }
                     if (status.gatherPlan.firstGather.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                     {
-                        worker->gather(status.firstPatch);
+                        EXPECT_TRUE(worker->gather(status.firstPatch))
+                            << worker->getID() << ": Failed to issue gather command: " << BWAPI::Broodwar->getLastError();
                         CherryVis::log(worker->getID()) << "Resent gather";
                     }
                     if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
@@ -194,7 +206,8 @@ namespace MiningOptimizationTraining
                 case 3:
                     if (status.gatherPlan.firstReturn.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                     {
-                        worker->returnCargo();
+                        EXPECT_TRUE(worker->returnCargo())
+                                            << worker->getID() << ": Failed to issue return command: " << BWAPI::Broodwar->getLastError();
                         CherryVis::log(worker->getID()) << "Resent return";
                     }
                     if (!worker->isCarryingMinerals())
@@ -209,7 +222,8 @@ namespace MiningOptimizationTraining
                 case 4:
                     if (status.gatherPlan.secondGather.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                     {
-                        worker->gather(status.secondPatch);
+                        EXPECT_TRUE(worker->gather(status.secondPatch))
+                                            << worker->getID() << ": Failed to issue gather command: " << BWAPI::Broodwar->getLastError();
                         CherryVis::log(worker->getID()) << "Resent gather";
                     }
                     if (worker->getOrder() == BWAPI::Orders::MiningMinerals)
@@ -220,7 +234,8 @@ namespace MiningOptimizationTraining
                 case 6:
                     if (status.gatherPlan.secondReturn.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
                     {
-                        worker->returnCargo();
+                        EXPECT_TRUE(worker->returnCargo())
+                                            << worker->getID() << ": Failed to issue return command: " << BWAPI::Broodwar->getLastError();
                         CherryVis::log(worker->getID()) << "Resent return";
                     }
                     if (!worker->isCarryingMinerals())
@@ -237,9 +252,7 @@ namespace MiningOptimizationTraining
         InstrumentedDoNothingModule::onFrameEnd();
     }
 
-    WorkerGatherPlan InitialWorkerSplitTesterModule::planPatchCombinationRandomly(BWAPI::ExactPosition startPosition,
-                                                                                  TilePosition firstPatch,
-                                                                                  TilePosition secondPatch)
+    WorkerGatherPlan InitialWorkerSplitTesterModule::planPatchCombinationRandomly(BWAPI::Unit worker, BWAPI::Unit firstPatch, BWAPI::Unit secondPatch)
     {
         // We go through each path and find all usable resend combinations (combinations that have path data from their next path start position)
         // Then we choose a random one
@@ -247,9 +260,9 @@ namespace MiningOptimizationTraining
         // Find the possible order process timer reset values for this start position and enemy race
         std::set<int> orderProcessTimerResetValues;
         {
-            for (const auto &resetData : mapData.startingWorkerPositionToOrderProcessTimerReset.at(startPosition.pos()))
+            for (const auto &resetData : mapData.startingWorkerPositionToOrderProcessTimerReset.at(worker->getPosition()))
             {
-                if (resetData.opponentIsZerg && (enemyRace != BWAPI::Races::Random && enemyRace != BWAPI::Races::Zerg)) continue;
+                if (resetData.opponentIsZerg && (enemyRace != BWAPI::Races::Unknown && enemyRace != BWAPI::Races::Zerg)) continue;
                 if (!resetData.opponentIsZerg && (enemyRace == BWAPI::Races::Zerg)) continue;
 
                 orderProcessTimerResetValues.insert(resetData.value);
@@ -259,10 +272,16 @@ namespace MiningOptimizationTraining
         std::vector<Result<InitialWorkerGatherArrivalData>> results;
 
         int startFrame = 0;
-        int minimumResendFrame = 8;
+        int minimumResendFrame = 4;
 
         std::deque<QueuedNode<InitialWorkerGatherArrivalData>> nodeQueue;
-        auto &rootNode = mapData.startingWorkerPositionToPatchToFirstGatherPath.at(startPosition).at(firstPatch);
+        auto &rootNode = mapData
+                .startingWorkerPositionToPatchToFirstGatherPath
+                .at(worker->getExactPosition())
+                .at(TilePosition::fromBWAPI(firstPatch->getTilePosition()));
+
+        results.emplace_back(rootNode.arrivalData, std::set<int>{}, std::set<const InitialWorkerPathNode<InitialWorkerGatherArrivalData> *>{});
+
         nodeQueue.emplace_back(
                 &rootNode,
                 std::set<int>{},
@@ -279,8 +298,12 @@ namespace MiningOptimizationTraining
             while (current)
             {
                 if (frame >= minimumResendFrame &&
+                    current->arrivalDataAfterResend &&
+                    current->type != NodeType::PoorResendNode &&
+                    current->type != NodeType::StableNode &&
+                    (frame - BWAPI::Broodwar->getLatencyFrames()) != startFrame &&
                     !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()) &&
-                    current->type != NodeType::PoorResendNode)
+                    !OrderProcessTimer::isResetFrame(frame + BWAPI::Broodwar->getLatencyFrames() + 2))
                 {
                     std::set<int> resends = node.resends;
                     resends.insert(frame);
@@ -288,17 +311,10 @@ namespace MiningOptimizationTraining
                     std::set<const InitialWorkerPathNode<InitialWorkerGatherArrivalData> *> resendNodes = node.resendNodes;
                     resendNodes.insert(current);
 
-                    if (current->type == NodeType::StableNode)
+                    results.emplace_back(*current->arrivalDataAfterResend, resends, resendNodes);
+                    if (current->nextPositionAfterResend)
                     {
-                        results.emplace_back(resends, resendNodes, frame + current->arrivalData.arrivalDelay);
-                    }
-                    else if (current->arrivalDataAfterResend)
-                    {
-                        results.emplace_back(resends, resendNodes, frame + current->arrivalDataAfterResend->arrivalDelay);
-                        if (current->nextPositionAfterResend)
-                        {
-                            nodeQueue.emplace_back(current->nextPositionAfterResend.get(), resends, resendNodes, frame + 1);
-                        }
+                        nodeQueue.emplace_back(current->nextPositionAfterResend.get(), resends, resendNodes, frame + 1);
                     }
                 }
 
@@ -314,25 +330,32 @@ namespace MiningOptimizationTraining
         std::uniform_int_distribution<size_t> dist(0, results.size() - 1);
         auto chosenResult = results[dist(rng)];
 
-        // Compute the order process timer value at the arrival frame
-        // The order process timer is 0 at the start of the frame two frames after the last resend takes effect
-        int orderProcessTimerAtArrival = 0;
-        for (int i = 0; i < (chosenResult.arrivalFrame - *chosenResult.resends.rbegin() - 2); i++)
-        {
-            if (orderProcessTimerAtArrival == 0)
-            {
-                orderProcessTimerAtArrival = 8;
-            }
-            else
-            {
-                orderProcessTimerAtArrival--;
-            }
-        }
+        auto actionFrames = chosenResult.arrivalData.computeActionFrames(startFrame,
+                                                                         true,
+                                                                         chosenResult.resends.empty()
+                                                                            ? std::nullopt
+                                                                            : (std::optional<int>)*chosenResult.resends.rbegin(),
+                                                                         orderProcessTimerResetValues);
+//
+//        // Compute the order process timer value at the arrival frame
+//        // The order process timer is 0 at the start of the frame two frames after the last resend takes effect
+//        int orderProcessTimerAtArrival = 0;
+//        for (int i = 0; i < (arrivalFrame - *chosenResult.resends.rbegin() - 2); i++)
+//        {
+//            if (orderProcessTimerAtArrival == 0)
+//            {
+//                orderProcessTimerAtArrival = 8;
+//            }
+//            else
+//            {
+//                orderProcessTimerAtArrival--;
+//            }
+//        }
 
 #if VERBOSE_LOGGING
-        Log::Get() << "Arrival frame " << chosenResult.arrivalFrame
-                   << "; last resend frame " << (*chosenResult.resends.rbegin())
-                   << "; order process timer at arrival " << orderProcessTimerAtArrival;
+//        Log::Get() << "Arrival frame " << chosenResult.arrivalFrame
+//                   << "; last resend frame " << (*chosenResult.resends.rbegin())
+//                   << "; action frame " << *actionFrames.begin();
 
         Log::Get() << "Expected path:";
         auto current = &rootNode;
@@ -353,7 +376,7 @@ namespace MiningOptimizationTraining
 
         WorkerGatherPlan result;
         result.firstGather.resends = chosenResult.resends;
-        result.firstGather.actionFrames = {chosenResult.arrivalFrame + orderProcessTimerAtArrival};
+        result.firstGather.actionFrames = actionFrames;
         return result;
     }
 }

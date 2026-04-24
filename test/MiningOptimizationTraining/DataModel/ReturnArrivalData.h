@@ -198,6 +198,11 @@ namespace MiningOptimizationTraining
                             other.nextPathStartPositionDeliveryAfterArrival);
         }
 
+        std::set<int> computeActionFrames(int pathStartFrame,
+                                          bool pathStartsWithGatherCommand,
+                                          std::optional<int> lastResendFrame,
+                                          const std::set<int> &orderProcessTimerResetValues) const;
+
         static InitialWorkerReturnArrivalData createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAtArrival,
                                                                       const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAfterArrival);
 

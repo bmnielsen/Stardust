@@ -139,11 +139,12 @@ namespace
             test.frameLimit = 500;
             test.run();
         };
-//
+
 //        BWTest test;
 //        test.maps = {map};
-//        test.randomSeed = 53681;
-//        test.opponentRace = BWAPI::Races::Unknown;
+//        test.randomSeed = 10638;
+//        test.opponentRace = BWAPI::Races::Random;
+////        knownEnemyRace = BWAPI::Races::Zerg;
 //        runner(test);
 //        return;
 
@@ -164,6 +165,7 @@ namespace
         {
             BWTest test;
             test.maps = {map};
+            test.opponentRace = BWAPI::Races::Random;
             runner(test);
         }
     }

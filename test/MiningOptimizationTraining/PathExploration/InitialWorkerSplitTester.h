@@ -82,8 +82,11 @@ namespace MiningOptimizationTraining
         BWAPI::Race enemyRace;
         bool chooseRandomResends;
 
+        std::vector<BWAPI::Unit> workers;
+        std::vector<BWAPI::Unit> patches;
+
         std::map<BWAPI::Unit, WorkerStatus> workerStatuses;
 
-        WorkerGatherPlan planPatchCombinationRandomly(BWAPI::ExactPosition startPosition, TilePosition firstPatch, TilePosition secondPatch);
+        WorkerGatherPlan planPatchCombinationRandomly(BWAPI::Unit worker, BWAPI::Unit firstPatch, BWAPI::Unit secondPatch);
     };
 }
