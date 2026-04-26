@@ -6,6 +6,8 @@
 #include "MiningOptimizationTraining/DataModel/Configuration.h"
 #include "PathExplorationUtils.h"
 
+#define RESULT_FRAME_THRESHOLD 0
+
 namespace MiningOptimizationTraining
 {
     namespace
@@ -38,7 +40,21 @@ namespace MiningOptimizationTraining
         {
             ObservationType arrivalData;
             std::set<int> resends;
+
+            [[nodiscard]] bool isPoor() const;
         };
+
+        template <>
+        bool NodeExplorationResult<InitialWorkerGatherArrivalData>::isPoor() const
+        {
+            return !arrivalData.facingPatch;
+        }
+
+        template <>
+        bool NodeExplorationResult<InitialWorkerReturnArrivalData>::isPoor() const
+        {
+            return false;
+        }
     }
 
     template <>
@@ -97,6 +113,15 @@ namespace MiningOptimizationTraining
         {
             Log::Get() << "ERROR: Unexpectedly couldn't get a base for start position " << startPosition.pos;
             return;
+        }
+
+        // Gather the possible order process timer reset values for this start position
+        std::set<int> orderProcessTimerResetValues;
+        {
+            for (const auto &resetData : initialWorkerMapData.startingWorkerPositionToOrderProcessTimerReset.at(startPosition.pos.pos()))
+            {
+                orderProcessTimerResetValues.insert(resetData.value);
+            }
         }
 
         // Prepare the state so that the worker is at this start position
@@ -291,12 +316,83 @@ namespace MiningOptimizationTraining
         auto result = initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath[startPosition.pos]
                                                    .emplace(TilePosition::fromBWAPI(startPosition.patch->getTilePosition()), startPosition.pos);
         auto &firstGatherRootNode = result.first->second;
-        std::vector<NodeExplorationResult<InitialWorkerGatherArrivalData>> gatherResults;
+        std::vector<NodeExplorationResult<InitialWorkerGatherArrivalData>> firstGatherResults;
         makePathObservations({GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
                              firstGatherRootNode,
                              prepareResult->startFrame,
                              prepareResult->state,
-                             gatherResults,
+                             firstGatherResults,
                              startPosition.patch);
+
+        // Method that gets all of the start positions of the best next paths
+        auto findUniqueNextPathStartPositions = [&]<typename ObservationType>(
+                std::vector<NodeExplorationResult<ObservationType>> &results,
+                int pathStartFrame,
+                bool pathStartsWithGatherCommand)
+        {
+            // Score all of the results based on the action frame and delay
+            std::vector<std::tuple<int, int, BWAPI::ExactPosition>> resultsWithActionFrameAndScore;
+            int bestScore = INT_MAX;
+            for (auto &result : results)
+            {
+                if (result.isPoor()) continue;
+
+                // Compute the action frame, delay, and next start position for each potential order process timer reset value
+                auto pathResult = result.arrivalData.computePathResult(
+                        pathStartFrame,
+                        pathStartsWithGatherCommand,
+                        result.resends.empty() ? std::nullopt : (std::optional<int>)*result.resends.rbegin(),
+                        orderProcessTimerResetValues);
+
+                // Add the results
+                for (const auto &[actionFrame, delay, pos] : pathResult)
+                {
+                    int score = actionFrame + delay;
+                    bestScore = std::min(bestScore, score);
+                    resultsWithActionFrameAndScore.emplace_back(actionFrame, score, pos);
+                }
+            }
+
+            // Return all of the unique start positions that are within the frame threshold of the best score
+            std::map<BWAPI::ExactPosition, int> result;
+            for (const auto &[actionFrame, score, pos] : resultsWithActionFrameAndScore)
+            {
+                if (score > (bestScore + RESULT_FRAME_THRESHOLD)) continue;
+
+                if (!result.contains(pos) || result[pos] > actionFrame)
+                {
+                    result[pos] = actionFrame;
+                }
+            }
+
+            return result;
+        };
+
+        // Explore the first return paths
+        auto firstReturnPaths = findUniqueNextPathStartPositions(firstGatherResults, 0, true);
+        std::vector<NodeExplorationResult<InitialWorkerReturnArrivalData>> firstReturnResults;
+        auto &returnPaths = initialWorkerMapData.startingWorkerPositionToPatchToFirstReturnPaths
+                [startPosition.pos][TilePosition::fromBWAPI(startPosition.patch->getTilePosition())];
+
+        for (const auto &[pos, previousActionFrame] : firstReturnPaths)
+        {
+            // Prepare the return path
+            auto returnPrepareResult = simWorker->prepareGatherPath(
+                    BWAPI::PrepareGatherPathOptions(pos, initialStateWithNoCannons.state)
+                    .prepareReturnFrom(startPosition.patch->getBWIndex()));
+            if (!prepareResult)
+            {
+                Log::Get() << "ERROR: Failed to prepare return path for position " << pos;
+                return;
+            }
+
+            auto rootNodeResult = returnPaths.emplace(pos, pos);
+            makePathObservations({RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
+                                 rootNodeResult.first->second,
+                                 prepareResult->startFrame,
+                                 prepareResult->state,
+                                 firstReturnResults,
+                                 startPosition.patch);
+        }
     }
 }

@@ -191,8 +191,8 @@ namespace MiningOptimizationTraining
                     }
                     if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
                     {
-                        EXPECT_TRUE(status.gatherPlan.firstGather.actionFrames.contains(currentFrame))
-                            << worker->getID() << ": " << currentFrame << " is not an expected action frame";
+                        EXPECT_TRUE(status.gatherPlan.firstGather.containsActionFrame(currentFrame))
+                            << worker->getID() << ": " << currentFrame << " is not an expected first gather action frame";
                         status.state++;
                     }
                     break;
@@ -212,6 +212,8 @@ namespace MiningOptimizationTraining
                     }
                     if (!worker->isCarryingMinerals())
                     {
+                        EXPECT_TRUE(status.gatherPlan.firstReturn.containsActionFrame(currentFrame))
+                                            << worker->getID() << ": " << currentFrame << " is not an expected first return action frame";
                         if (status.firstPatch != status.secondPatch)
                         {
                             worker->gather(status.secondPatch);
@@ -269,73 +271,228 @@ namespace MiningOptimizationTraining
             }
         }
 
-        std::vector<Result<InitialWorkerGatherArrivalData>> results;
+        WorkerGatherPlan workerGatherPlan;
 
-        int startFrame = 0;
-        int minimumResendFrame = 4;
+        auto planPath = [&]<typename ObservationType, typename NextObservationType>(
+                int startFrame,
+                std::optional<int> requireResendAfterFrame,
+                bool pathStartsWithGatherCommand,
+                const InitialWorkerPathNode<ObservationType> &rootNode,
+                const std::map<BWAPI::ExactPosition, NextObservationType> *nextRootNodes = nullptr)
+        {
+            std::vector<Result<ObservationType>> results;
+            std::deque<QueuedNode<ObservationType>> nodeQueue;
 
-        std::deque<QueuedNode<InitialWorkerGatherArrivalData>> nodeQueue;
-        auto &rootNode = mapData
+            // Add the no-resend result
+            if (!requireResendAfterFrame || startFrame > (*requireResendAfterFrame))
+            {
+                results.emplace_back(rootNode.arrivalData, std::set<int>{}, std::set<const InitialWorkerPathNode<ObservationType> *>{});
+            }
+
+            // Push the root node onto the queue and start iterating over the paths
+            nodeQueue.emplace_back(
+                    &rootNode,
+                    std::set<int>{},
+                    std::set<const InitialWorkerPathNode<ObservationType> *>{},
+                    startFrame);
+
+            while (!nodeQueue.empty())
+            {
+                auto &node = *nodeQueue.begin();
+
+                // Follow the nodes, register resend results, and queue resend nodes
+                auto current = node.node;
+                int frame = node.frame;
+                while (current)
+                {
+                    if (frame >= (startFrame + BWAPI::Broodwar->getLatencyFrames() + 1) &&
+                        (!requireResendAfterFrame || frame > (*requireResendAfterFrame)) &&
+                        current->type != NodeType::PoorResendNode &&
+                        !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()) &&
+                        !OrderProcessTimer::isResetFrame(frame + 3))
+                    {
+                        std::set<int> resends = node.resends;
+                        resends.insert(frame);
+
+                        std::set<const InitialWorkerPathNode<ObservationType> *> resendNodes = node.resendNodes;
+                        resendNodes.insert(current);
+
+                        if (current->type == NodeType::StableNode)
+                        {
+                            results.emplace_back(current->arrivalData, resends, resendNodes);
+                        }
+                        else if (current->arrivalDataAfterResend)
+                        {
+                            results.emplace_back(*current->arrivalDataAfterResend, resends, resendNodes);
+                            if (current->nextPositionAfterResend)
+                            {
+                                nodeQueue.emplace_back(current->nextPositionAfterResend.get(), resends, resendNodes, frame + 1);
+                            }
+                        }
+                    }
+
+                    current = current->nextPosition.get();
+                    frame++;
+                }
+
+                nodeQueue.pop_front();
+            }
+
+            // Choose a result, validating that its next positions are in the next path data
+            PlannedPath result;
+            while (true)
+            {
+                EXPECT_FALSE(results.empty()) << worker->getID() << ": No valid paths from start position " << rootNode.pos;
+
+                std::uniform_int_distribution<size_t> dist(0, results.size() - 1);
+                size_t resultIndex = dist(rng);
+                auto chosenResult = results[resultIndex];
+
+                auto pathResults = chosenResult.arrivalData.computePathResult(
+                        startFrame,
+                        pathStartsWithGatherCommand,
+                        chosenResult.resends.empty() ? std::nullopt : (std::optional<int>)*chosenResult.resends.rbegin(),
+                        orderProcessTimerResetValues);
+
+                if (pathResults.size() > 1)
+                {
+                    pathResults = chosenResult.arrivalData.computePathResult(
+                            startFrame,
+                            pathStartsWithGatherCommand,
+                            chosenResult.resends.empty() ? std::nullopt : (std::optional<int>)*chosenResult.resends.rbegin(),
+                            orderProcessTimerResetValues);
+                }
+
+                // If we have been provided with next root nodes, validate that all of the paths have all of the positions covered
+                if (nextRootNodes)
+                {
+                    bool allExist = true;
+                    for (const auto &[_, _2, pos] : pathResults)
+                    {
+                        allExist = allExist && nextRootNodes->contains(pos);
+                    }
+
+                    // Positions were missing, so reject this result and pick a new one
+                    if (!allExist)
+                    {
+                        results.erase(results.begin() + resultIndex);
+                        continue;
+                    }
+                }
+
+                // Use this result
+                result.resends = chosenResult.resends;
+                for (const auto &[actionFrame, _, pos] : pathResults)
+                {
+                    result.actionFrames.emplace_back(actionFrame);
+                    result.nextPathStartPositions.emplace_back(pos);
+                }
+                break;
+            }
+            return result;
+        };
+
+        auto &firstGatherRootNode = mapData
                 .startingWorkerPositionToPatchToFirstGatherPath
                 .at(worker->getExactPosition())
                 .at(TilePosition::fromBWAPI(firstPatch->getTilePosition()));
 
-        results.emplace_back(rootNode.arrivalData, std::set<int>{}, std::set<const InitialWorkerPathNode<InitialWorkerGatherArrivalData> *>{});
+        auto &firstReturnNodes = mapData
+                .startingWorkerPositionToPatchToFirstReturnPaths
+                .at(worker->getExactPosition())
+                .at(TilePosition::fromBWAPI(firstPatch->getTilePosition()));
 
-        nodeQueue.emplace_back(
-                &rootNode,
-                std::set<int>{},
-                std::set<const InitialWorkerPathNode<InitialWorkerGatherArrivalData> *>{},
-                startFrame);
+        workerGatherPlan.firstGather = planPath(0, 8, true, firstGatherRootNode, &firstReturnNodes);
 
-        while (!nodeQueue.empty())
-        {
-            auto &node = *nodeQueue.begin();
+        // TODO: Need to figure out how to handle multiple action frames
+        EXPECT_EQ(1, workerGatherPlan.firstGather.actionFrames.size());
 
-            // Follow the nodes, register resend results, and queue resend nodes
-            auto current = node.node;
-            int frame = node.frame;
-            while (current)
-            {
-                if (frame >= minimumResendFrame &&
-                    current->arrivalDataAfterResend &&
-                    current->type != NodeType::PoorResendNode &&
-                    current->type != NodeType::StableNode &&
-                    (frame - BWAPI::Broodwar->getLatencyFrames()) != startFrame &&
-                    !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()) &&
-                    !OrderProcessTimer::isResetFrame(frame + BWAPI::Broodwar->getLatencyFrames() + 2))
-                {
-                    std::set<int> resends = node.resends;
-                    resends.insert(frame);
+//        auto &secondGatherNodes = mapData
+//                .startingWorkerPositionToPatchesToSecondGatherPaths
+//                .at(worker->getExactPosition())
+//                .at(std::make_pair(TilePosition::fromBWAPI(firstPatch->getTilePosition()), TilePosition::fromBWAPI(secondPatch->getTilePosition())));
 
-                    std::set<const InitialWorkerPathNode<InitialWorkerGatherArrivalData> *> resendNodes = node.resendNodes;
-                    resendNodes.insert(current);
+        workerGatherPlan.firstReturn = planPath(*workerGatherPlan.firstGather.actionFrames.begin() + 84,
+                                                std::nullopt,
+                                                false,
+                                                firstReturnNodes.at(*workerGatherPlan.firstGather.nextPathStartPositions.begin()),
+                                                (std::map<BWAPI::ExactPosition, int>*)nullptr);
 
-                    results.emplace_back(*current->arrivalDataAfterResend, resends, resendNodes);
-                    if (current->nextPositionAfterResend)
-                    {
-                        nodeQueue.emplace_back(current->nextPositionAfterResend.get(), resends, resendNodes, frame + 1);
-                    }
-                }
 
-                current = current->nextPosition.get();
-                frame++;
-            }
-
-            nodeQueue.pop_front();
-        }
+//        std::vector<Result<InitialWorkerGatherArrivalData>> results;
+//
+//        int startFrame = 0;
+//        int minimumResendFrame = 4;
+//
+//        std::deque<QueuedNode<InitialWorkerGatherArrivalData>> nodeQueue;
+//        auto &rootNode = mapData
+//                .startingWorkerPositionToPatchToFirstGatherPath
+//                .at(worker->getExactPosition())
+//                .at(TilePosition::fromBWAPI(firstPatch->getTilePosition()));
+//
+//        results.emplace_back(rootNode.arrivalData, std::set<int>{}, std::set<const InitialWorkerPathNode<InitialWorkerGatherArrivalData> *>{});
+//
+//        nodeQueue.emplace_back(
+//                &rootNode,
+//                std::set<int>{},
+//                std::set<const InitialWorkerPathNode<InitialWorkerGatherArrivalData> *>{},
+//                startFrame);
+//
+//        while (!nodeQueue.empty())
+//        {
+//            auto &node = *nodeQueue.begin();
+//
+//            // Follow the nodes, register resend results, and queue resend nodes
+//            auto current = node.node;
+//            int frame = node.frame;
+//            while (current)
+//            {
+//                if (frame >= minimumResendFrame &&
+//                    current->arrivalDataAfterResend &&
+//                    current->type != NodeType::PoorResendNode &&
+//                    current->type != NodeType::StableNode &&
+//                    (frame - BWAPI::Broodwar->getLatencyFrames()) != startFrame &&
+//                    !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()) &&
+//                    !OrderProcessTimer::isResetFrame(frame + 3))
+//                {
+//                    std::set<int> resends = node.resends;
+//                    resends.insert(frame);
+//
+//                    std::set<const InitialWorkerPathNode<InitialWorkerGatherArrivalData> *> resendNodes = node.resendNodes;
+//                    resendNodes.insert(current);
+//
+//                    results.emplace_back(*current->arrivalDataAfterResend, resends, resendNodes);
+//                    if (current->nextPositionAfterResend)
+//                    {
+//                        nodeQueue.emplace_back(current->nextPositionAfterResend.get(), resends, resendNodes, frame + 1);
+//                    }
+//                }
+//
+//                current = current->nextPosition.get();
+//                frame++;
+//            }
+//
+//            nodeQueue.pop_front();
+//        }
 
         // TODO: Add on later path selections as we implement them
 
-        std::uniform_int_distribution<size_t> dist(0, results.size() - 1);
-        auto chosenResult = results[dist(rng)];
+//        std::uniform_int_distribution<size_t> dist(0, results.size() - 1);
+//        auto chosenResult = results[dist(rng)];
+//
+//        auto actionFramesAndDelay = chosenResult.arrivalData.computeActionFramesAndDelay(
+//                0,
+//                true,
+//                chosenResult.resends.empty()
+//                   ? std::nullopt
+//                   : (std::optional<int>)*chosenResult.resends.rbegin(),
+//                orderProcessTimerResetValues);
+//        std::set<int> actionFrames;
+//        for (const auto &[actionFrame, _] : actionFramesAndDelay)
+//        {
+//            actionFrames.insert(actionFrame);
+//        }
 
-        auto actionFrames = chosenResult.arrivalData.computeActionFrames(startFrame,
-                                                                         true,
-                                                                         chosenResult.resends.empty()
-                                                                            ? std::nullopt
-                                                                            : (std::optional<int>)*chosenResult.resends.rbegin(),
-                                                                         orderProcessTimerResetValues);
 //
 //        // Compute the order process timer value at the arrival frame
 //        // The order process timer is 0 at the start of the frame two frames after the last resend takes effect
@@ -374,9 +531,9 @@ namespace MiningOptimizationTraining
         }
 #endif
 
-        WorkerGatherPlan result;
-        result.firstGather.resends = chosenResult.resends;
-        result.firstGather.actionFrames = actionFrames;
-        return result;
+//        WorkerGatherPlan result;
+//        result.firstGather.resends = chosenResult.resends;
+//        result.firstGather.actionFrames = actionFrames;
+        return workerGatherPlan;
     }
 }

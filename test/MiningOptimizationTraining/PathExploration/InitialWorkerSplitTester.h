@@ -8,15 +8,25 @@ namespace MiningOptimizationTraining
     struct PlannedPath
     {
         std::set<int> resends;
-        std::set<int> actionFrames;
+        std::vector<int> actionFrames;
+        std::vector<BWAPI::ExactPosition> nextPathStartPositions;
+
+        [[nodiscard]] bool containsActionFrame(int frame) const
+        {
+            for (auto actionFrame : actionFrames)
+            {
+                if (frame == actionFrame) return true;
+            }
+            return false;
+        }
 
         friend std::ostream &operator<<(std::ostream &os, const PlannedPath &path)
         {
-            auto outIntSet = [&os](const std::set<int> &intSet)
+            auto outIntCollection = [&os]<typename T>(const T &intCollection)
             {
                 os << "[";
                 std::string sep;
-                for (auto val : intSet)
+                for (auto val : intCollection)
                 {
                     os << sep << val;
                     sep = ",";
@@ -25,9 +35,9 @@ namespace MiningOptimizationTraining
             };
 
             os << "resends: ";
-            outIntSet(path.resends);
+            outIntCollection(path.resends);
             os << "; actions: ";
-            outIntSet(path.actionFrames);
+            outIntCollection(path.actionFrames);
 
             return os;
         }

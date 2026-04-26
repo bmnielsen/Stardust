@@ -109,10 +109,11 @@ namespace MiningOptimizationTraining
                       PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition});
     }
 
-    std::set<int> InitialWorkerGatherArrivalData::computeActionFrames(int pathStartFrame,
-                                                                      bool pathStartsWithGatherCommand,
-                                                                      std::optional<int> lastResendFrame,
-                                                                      const std::set<int> &orderProcessTimerResetValues) const
+    std::set<std::tuple<int, int, BWAPI::ExactPosition>> InitialWorkerGatherArrivalData::computePathResult(
+            int pathStartFrame,
+            bool pathStartsWithGatherCommand,
+            std::optional<int> lastResendFrame,
+            const std::set<int> &orderProcessTimerResetValues) const
     {
         // The reference frame (where we know the order process timer value) is either the path start or the last resend
         int referenceFrame = (lastResendFrame.has_value()) ? *lastResendFrame : pathStartFrame;
@@ -123,7 +124,7 @@ namespace MiningOptimizationTraining
         // Adjust the reference frame to where we know the order process timer value
         // The order process timer value here is the value at the start of the frame
         // It is in reality in the range 0-8, but always starts with an extra frame at 0 so using 10 makes the math work
-        int orderProcessTimer = 10;
+        int initialOrderProcessTimer = 10;
         if (lastResendFrame)
         {
             // When we have a resend, the order process timer stays at 0 for two frames, so we increment the reference frame
@@ -137,10 +138,11 @@ namespace MiningOptimizationTraining
         }
 
         // Run the order process timer cycle for each reset value until action and record the results
-        std::set<int> results;
+        std::set<std::tuple<int, int, BWAPI::ExactPosition>> results;
         for (auto resetValue : orderProcessTimerResetValues)
         {
             int frame = referenceFrame;
+            int orderProcessTimer = initialOrderProcessTimer;
             while (true)
             {
                 if (OrderProcessTimer::isResetFrame(frame + 1) && frame > referenceFrame)
@@ -150,7 +152,7 @@ namespace MiningOptimizationTraining
 
                 if (orderProcessTimer == 0 && frame >= arrivalFrame)
                 {
-                    results.insert(frame);
+                    results.emplace(frame, collision ? 9 : 0, nextPathStartPosition);
                     break;
                 }
 
@@ -164,8 +166,8 @@ namespace MiningOptimizationTraining
         return results;
     }
 
-InitialWorkerGatherArrivalData InitialWorkerGatherArrivalData::createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPath,
-                                                                                       BWAPI::Unit patch)
+    InitialWorkerGatherArrivalData InitialWorkerGatherArrivalData::createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPath,
+                                                                                           BWAPI::Unit patch)
     {
         if (simulatedPath.positions.empty()) return {};
 

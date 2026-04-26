@@ -143,10 +143,12 @@ namespace MiningOptimizationTraining
                    std::tie(other.arrivalDelay, other.facingPatch, other.collision, other.nextPathStartPosition);
         }
 
-        std::set<int> computeActionFrames(int pathStartFrame,
-                                          bool pathStartsWithGatherCommand,
-                                          std::optional<int> lastResendFrame,
-                                          const std::set<int> &orderProcessTimerResetValues) const;
+        // Computes the possible action frames, delays, and next path starting positions for this path
+        std::set<std::tuple<int, int, BWAPI::ExactPosition>> computePathResult(
+                int pathStartFrame,
+                bool pathStartsWithGatherCommand,
+                std::optional<int> lastResendFrame,
+                const std::set<int> &orderProcessTimerResetValues) const;
 
         // Creates the struct from a simulated path
         static InitialWorkerGatherArrivalData createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPath, BWAPI::Unit patch);
