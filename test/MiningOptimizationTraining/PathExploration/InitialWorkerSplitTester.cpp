@@ -4,6 +4,8 @@
 
 #include <BWAPI/SimulateGatherPathOptions.h>
 #include <BWAPI/SimulateGatherPathResult.h>
+#include <BWAPI/PrepareGatherPathOptions.h>
+#include <BWAPI/PrepareGatherPathResult.h>
 
 #include "OrderProcessTimer.h"
 
@@ -201,6 +203,19 @@ namespace MiningOptimizationTraining
                     if (worker->getOrder() == BWAPI::Orders::ReturnMinerals)
                     {
                         status.state++;
+
+                        if (worker->getID() == 0 && currentFrame == 131)
+                        {
+                            auto simulateResult =
+                                    worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(status.gatherPlan.firstReturn.resends)
+                                                                       .setIncludeAllPositions());
+                            Log::Get() << worker->getID() << ": Simulated path:";
+                            for (const auto &pos : simulateResult->positions)
+                            {
+                                Log::Get() << pos;
+                            }
+                            Log::Get() << simulateResult->positions.size();
+                        }
                     }
                     break;
                 case 3:
@@ -228,8 +243,10 @@ namespace MiningOptimizationTraining
                                             << worker->getID() << ": Failed to issue gather command: " << BWAPI::Broodwar->getLastError();
                         CherryVis::log(worker->getID()) << "Resent gather";
                     }
-                    if (worker->getOrder() == BWAPI::Orders::MiningMinerals)
+                    if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
                     {
+                        EXPECT_TRUE(status.gatherPlan.secondGather.containsActionFrame(currentFrame))
+                            << worker->getID() << ": " << currentFrame << " is not an expected second gather action frame";
                         status.state++;
                     }
                     break;
@@ -242,6 +259,8 @@ namespace MiningOptimizationTraining
                     }
                     if (!worker->isCarryingMinerals())
                     {
+                        EXPECT_TRUE(status.gatherPlan.secondReturn.containsActionFrame(currentFrame))
+                                            << worker->getID() << ": " << currentFrame << " is not an expected second return action frame";
                         status.state++;
                     }
                     break;
@@ -276,6 +295,7 @@ namespace MiningOptimizationTraining
         auto planPath = [&]<typename ObservationType, typename NextObservationType>(
                 int startFrame,
                 std::optional<int> requireResendAfterFrame,
+                std::optional<int> requireMiningEndBeforeFrame,
                 bool pathStartsWithGatherCommand,
                 const InitialWorkerPathNode<ObservationType> &rootNode,
                 const std::map<BWAPI::ExactPosition, NextObservationType> *nextRootNodes = nullptr)
@@ -305,7 +325,7 @@ namespace MiningOptimizationTraining
                 int frame = node.frame;
                 while (current)
                 {
-                    if (frame >= (startFrame + BWAPI::Broodwar->getLatencyFrames() + 1) &&
+                    if (frame >= (startFrame + BWAPI::Broodwar->getLatencyFrames() + 2) &&
                         (!requireResendAfterFrame || frame > (*requireResendAfterFrame)) &&
                         current->type != NodeType::PoorResendNode &&
                         !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()) &&
@@ -342,7 +362,11 @@ namespace MiningOptimizationTraining
             PlannedPath result;
             while (true)
             {
-                EXPECT_FALSE(results.empty()) << worker->getID() << ": No valid paths from start position " << rootNode.pos;
+                if (results.empty())
+                {
+                    Log::Get() << "WARNING: No valid paths for worker " << worker->getID();
+                    return result;
+                }
 
                 std::uniform_int_distribution<size_t> dist(0, results.size() - 1);
                 size_t resultIndex = dist(rng);
@@ -354,31 +378,45 @@ namespace MiningOptimizationTraining
                         chosenResult.resends.empty() ? std::nullopt : (std::optional<int>)*chosenResult.resends.rbegin(),
                         orderProcessTimerResetValues);
 
-                if (pathResults.size() > 1)
+                bool validResult = true;
+
+                // If we want to require mining end before a certain frame, validate that all paths satisfy this
+                if (requireMiningEndBeforeFrame)
                 {
-                    pathResults = chosenResult.arrivalData.computePathResult(
-                            startFrame,
-                            pathStartsWithGatherCommand,
-                            chosenResult.resends.empty() ? std::nullopt : (std::optional<int>)*chosenResult.resends.rbegin(),
-                            orderProcessTimerResetValues);
+                    for (const auto &[actionFrame, _, _2] : pathResults)
+                    {
+                        if ((actionFrame + 84) >= *requireMiningEndBeforeFrame)
+                        {
+                            validResult = false;
+                            break;
+                        }
+                    }
                 }
 
                 // If we have been provided with next root nodes, validate that all of the paths have all of the positions covered
                 if (nextRootNodes)
                 {
-                    bool allExist = true;
                     for (const auto &[_, _2, pos] : pathResults)
                     {
-                        allExist = allExist && nextRootNodes->contains(pos);
-                    }
-
-                    // Positions were missing, so reject this result and pick a new one
-                    if (!allExist)
-                    {
-                        results.erase(results.begin() + resultIndex);
-                        continue;
+                        if (!nextRootNodes->contains(pos))
+                        {
+                            validResult = false;
+                            break;
+                        }
                     }
                 }
+
+                if (!validResult)
+                {
+                    results.erase(results.begin() + resultIndex);
+                    continue;
+                }
+
+                pathResults = chosenResult.arrivalData.computePathResult(
+                        startFrame,
+                        pathStartsWithGatherCommand,
+                        chosenResult.resends.empty() ? std::nullopt : (std::optional<int>)*chosenResult.resends.rbegin(),
+                        orderProcessTimerResetValues);
 
                 // Use this result
                 result.resends = chosenResult.resends;
@@ -402,22 +440,50 @@ namespace MiningOptimizationTraining
                 .at(worker->getExactPosition())
                 .at(TilePosition::fromBWAPI(firstPatch->getTilePosition()));
 
-        workerGatherPlan.firstGather = planPath(0, 8, true, firstGatherRootNode, &firstReturnNodes);
-
-        // TODO: Need to figure out how to handle multiple action frames
-        EXPECT_EQ(1, workerGatherPlan.firstGather.actionFrames.size());
+        workerGatherPlan.firstGather = planPath(0,
+                                                8,
+                                                158,
+                                                true,
+                                                firstGatherRootNode,
+                                                &firstReturnNodes);
+        if (workerGatherPlan.firstGather.actionFrames.empty()) return workerGatherPlan;
 
 //        auto &secondGatherNodes = mapData
 //                .startingWorkerPositionToPatchesToSecondGatherPaths
 //                .at(worker->getExactPosition())
 //                .at(std::make_pair(TilePosition::fromBWAPI(firstPatch->getTilePosition()), TilePosition::fromBWAPI(secondPatch->getTilePosition())));
-
-        workerGatherPlan.firstReturn = planPath(*workerGatherPlan.firstGather.actionFrames.begin() + 84,
+        int startFrame = *workerGatherPlan.firstGather.actionFrames.begin() + 84;
+        workerGatherPlan.firstReturn = planPath(startFrame + 1,
+                                                std::nullopt,
                                                 std::nullopt,
                                                 false,
                                                 firstReturnNodes.at(*workerGatherPlan.firstGather.nextPathStartPositions.begin()),
                                                 (std::map<BWAPI::ExactPosition, int>*)nullptr);
 
+#if VERBOSE_LOGGING
+        if (!workerGatherPlan.firstReturn.resends.empty())
+        {
+            auto resendDelta = *workerGatherPlan.firstReturn.resends.begin() - startFrame;
+            Log::Get() << worker->getID() << ": Resend delta " << resendDelta;
+
+            auto prepareResult = worker->prepareGatherPath(
+                    BWAPI::PrepareGatherPathOptions(*workerGatherPlan.firstGather.nextPathStartPositions.begin())
+                    .prepareReturnFrom(firstPatch->getBWIndex()));
+            auto normalSimResult = worker->simulateGatherPath(
+                BWAPI::SimulateGatherPathOptions(prepareResult->state).setIncludeAllPositions());
+            for (int i = -1; i <= 1; i++)
+            {
+                auto resendSimResult = worker->simulateGatherPath(
+                    BWAPI::SimulateGatherPathOptions({prepareResult->startFrame + resendDelta + i}, prepareResult->state)
+                    .setIncludeAllPositions());
+                Log::Get() << i << ": " << resendSimResult->positions.size();
+                for (auto pos : resendSimResult->positions)
+                {
+                    Log::Get() << "   " << pos;
+                }
+            }
+        }
+#endif
 
 //        std::vector<Result<InitialWorkerGatherArrivalData>> results;
 //
@@ -514,21 +580,21 @@ namespace MiningOptimizationTraining
 //                   << "; last resend frame " << (*chosenResult.resends.rbegin())
 //                   << "; action frame " << *actionFrames.begin();
 
-        Log::Get() << "Expected path:";
-        auto current = &rootNode;
-        while (current)
-        {
-            Log::Get() << current->pos;
-            if (chosenResult.resendNodes.contains(current))
-            {
-                Log::Get() << "resend takes effect";
-                current = current->nextPositionAfterResend.get();
-            }
-            else
-            {
-                current = current->nextPosition.get();
-            }
-        }
+//        Log::Get() << "Expected path:";
+//        auto current = &rootNode;
+//        while (current)
+//        {
+//            Log::Get() << current->pos;
+//            if (chosenResult.resendNodes.contains(current))
+//            {
+//                Log::Get() << "resend takes effect";
+//                current = current->nextPositionAfterResend.get();
+//            }
+//            else
+//            {
+//                current = current->nextPosition.get();
+//            }
+//        }
 #endif
 
 //        WorkerGatherPlan result;

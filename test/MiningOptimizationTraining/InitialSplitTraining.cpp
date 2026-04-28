@@ -140,13 +140,13 @@ namespace
             test.run();
         };
 
-//        BWTest test;
-//        test.maps = {map};
-//        test.randomSeed = 10638;
-//        test.opponentRace = BWAPI::Races::Random;
-////        knownEnemyRace = BWAPI::Races::Zerg;
-//        runner(test);
-//        return;
+//         BWTest test;
+//         test.maps = {map};
+//         test.randomSeed = 53681;
+//         test.opponentRace = BWAPI::Races::Random;
+// //        knownEnemyRace = BWAPI::Races::Zerg;
+//         runner(test);
+//         return;
 
         // Run with zerg and non-zerg where we don't know the enemy race
         Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);

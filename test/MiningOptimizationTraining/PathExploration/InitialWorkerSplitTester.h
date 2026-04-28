@@ -13,6 +13,9 @@ namespace MiningOptimizationTraining
 
         [[nodiscard]] bool containsActionFrame(int frame) const
         {
+            // If this is a non-plan, just return true
+            if (actionFrames.empty()) return true;
+
             for (auto actionFrame : actionFrames)
             {
                 if (frame == actionFrame) return true;

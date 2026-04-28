@@ -1,7 +1,5 @@
 #include "GatherArrivalData.h"
 
-#include "OrderProcessTimer.h"
-
 namespace MiningOptimizationTraining
 {
     namespace
@@ -145,7 +143,7 @@ namespace MiningOptimizationTraining
             int orderProcessTimer = initialOrderProcessTimer;
             while (true)
             {
-                if (OrderProcessTimer::isResetFrame(frame + 1) && frame > referenceFrame)
+                if (frame == 158 && frame > referenceFrame)
                 {
                     orderProcessTimer = resetValue;
                 }

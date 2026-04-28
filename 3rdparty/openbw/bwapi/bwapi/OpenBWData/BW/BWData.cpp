@@ -2444,9 +2444,10 @@ std::unique_ptr<BWAPI::PrepareGatherPathResult> Unit::prepareGatherPath(const BW
 
     // Checks if we have hit the limit to how many frames we are allowed to simulate
     // This is intended to guard against the unit getting stuck and the simulation never returning
+    int depthLimit = impl->st.mining_training ? 20 : 120;
     auto depthLimitExceeded = [&]()
     {
-        if ((state_copy.current_frame - impl->st.current_frame) < 20) return false;
+        if ((state_copy.current_frame - impl->st.current_frame) < depthLimit) return false;
         return true;
     };
 

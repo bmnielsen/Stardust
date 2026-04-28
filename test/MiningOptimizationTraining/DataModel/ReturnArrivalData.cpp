@@ -1,7 +1,5 @@
 #include "ReturnArrivalData.h"
 
-#include "OrderProcessTimer.h"
-
 namespace MiningOptimizationTraining
 {
     int ReturnArrivalData::delayAfterAction(int orderProcessTimerAtArrival) const
@@ -134,10 +132,9 @@ namespace MiningOptimizationTraining
         int initialOrderProcessTimer;
         if (lastResendFrame)
         {
-            // When we have a resend, the order process timer stays at 0 for an extra frame, so we set the value to 9 and increment the reference
-            // frame
-            referenceFrame++;
-            initialOrderProcessTimer = 9;
+            // When we have a resend, the order process timer stays at 0 for an extra frame, so we fast-forward a couple of frames
+            referenceFrame += 2;
+            initialOrderProcessTimer = 8;
         }
         else
         {
@@ -153,7 +150,7 @@ namespace MiningOptimizationTraining
             int orderProcessTimer = initialOrderProcessTimer;
             while (true)
             {
-                if (OrderProcessTimer::isResetFrame(frame + 1) && frame > referenceFrame)
+                if (frame == 158)
                 {
                     orderProcessTimer = resetValue;
                 }

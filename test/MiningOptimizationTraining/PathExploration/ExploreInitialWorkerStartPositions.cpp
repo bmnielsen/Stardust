@@ -185,6 +185,8 @@ namespace MiningOptimizationTraining
                         if (!simulatedPathWithDeliveryAtArrivalResult || !simulatedPathWithDeliveryAfterArrivalResult)
                         {
                             Log::Get() << "ERROR: Path could not be simulated";
+                            simulatedPathWithDeliveryAtArrivalResult = simulate(true);
+                            simulatedPathWithDeliveryAfterArrivalResult = simulate(false);
                         }
 
                         return InitialWorkerReturnArrivalData::createFromSimulatedPath(*simulatedPathWithDeliveryAtArrivalResult,
@@ -380,19 +382,23 @@ namespace MiningOptimizationTraining
             auto returnPrepareResult = simWorker->prepareGatherPath(
                     BWAPI::PrepareGatherPathOptions(pos, initialStateWithNoCannons.state)
                     .prepareReturnFrom(startPosition.patch->getBWIndex()));
-            if (!prepareResult)
+            if (!returnPrepareResult)
             {
                 Log::Get() << "ERROR: Failed to prepare return path for position " << pos;
+                return;
+            }
+            if (returnPrepareResult->startPosition != pos)
+            {
+                Log::Get() << "ERROR: Prepared path is not at correct position; expected " << pos << " actual " << returnPrepareResult->startPosition;
                 return;
             }
 
             auto rootNodeResult = returnPaths.emplace(pos, pos);
             makePathObservations({RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
                                  rootNodeResult.first->second,
-                                 prepareResult->startFrame,
-                                 prepareResult->state,
-                                 firstReturnResults,
-                                 startPosition.patch);
+                                 returnPrepareResult->startFrame,
+                                 returnPrepareResult->state,
+                                 firstReturnResults);
         }
     }
 }
