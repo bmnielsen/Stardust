@@ -198,8 +198,8 @@ namespace MiningOptimizationTraining
                             other.nextPathStartPositionDeliveryAfterArrival);
         }
 
-        // Computes the possible action frames, delays, and next path starting positions for this path
-        std::set<std::tuple<int, int, BWAPI::ExactPosition>> computePathResult(
+        // Computes the possible action frames, delays, next path starting positions, and whether action happens on arrival for this path
+        std::set<std::tuple<int, int, BWAPI::ExactPosition, bool>> computePathResult(
                 int pathStartFrame,
                 bool pathStartsWithGatherCommand,
                 std::optional<int> lastResendFrame,

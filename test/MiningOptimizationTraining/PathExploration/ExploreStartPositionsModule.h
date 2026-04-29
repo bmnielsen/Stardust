@@ -106,7 +106,14 @@ namespace MiningOptimizationTraining
                 // Save the map data every five minutes
                 if (elapsed - lastSaved >= 300)
                 {
-                    Serialization::writeMapData(mapData);
+                    if (options.loadMapData && options.saveMapData)
+                    {
+                        Serialization::writeMapData(mapData);
+                    }
+                    if (options.loadInitialWorkerMapData && options.saveInitialWorkerMapData)
+                    {
+                        Serialization::writeMapData(initialWorkerMapData);
+                    }
                     lastSaved = elapsed;
                 }
             }

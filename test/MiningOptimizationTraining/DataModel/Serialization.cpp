@@ -210,7 +210,7 @@ namespace MiningOptimizationTraining::Serialization
                                   });
                               });
                     });
-            ser.ext(data.startingWorkerPositionToPatchToFirstReturnPaths,
+            ser.ext(data.startingWorkerPositionToPatchToReturnPaths,
                     bitsery::ext::StdMap{INT_MAX},
                     [&](S &s,
                         BWAPI::ExactPosition &key,
@@ -222,26 +222,6 @@ namespace MiningOptimizationTraining::Serialization
                               [&](S &s, TilePosition &key, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode> &v)
                               {
                                   s.object(key);
-                                  s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S &s, BWAPI::ExactPosition &key, InitialWorkerReturnPathNode &v)
-                                  {
-                                      s.object(key);
-                                      s.object(v, pathNodeSerializer);
-                                  });
-                              });
-                    });
-            ser.ext(data.startingWorkerPositionToPatchesToSecondReturnPaths,
-                    bitsery::ext::StdMap{INT_MAX},
-                    [&](S &s,
-                        BWAPI::ExactPosition &key,
-                        std::map<std::pair<TilePosition, TilePosition>, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode>> &v)
-                    {
-                        s.object(key);
-                        s.ext(v,
-                              bitsery::ext::StdMap{INT_MAX},
-                              [&](S &s, std::pair<TilePosition, TilePosition> &key, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode> &v)
-                              {
-                                  s.object(key.first);
-                                  s.object(key.second);
                                   s.ext(v, bitsery::ext::StdMap{INT_MAX}, [&](S &s, BWAPI::ExactPosition &key, InitialWorkerReturnPathNode &v)
                                   {
                                       s.object(key);

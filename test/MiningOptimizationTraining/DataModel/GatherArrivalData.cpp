@@ -107,7 +107,7 @@ namespace MiningOptimizationTraining
                       PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition});
     }
 
-    std::set<std::tuple<int, int, BWAPI::ExactPosition>> InitialWorkerGatherArrivalData::computePathResult(
+    std::set<std::tuple<int, int, BWAPI::ExactPosition, bool>> InitialWorkerGatherArrivalData::computePathResult(
             int pathStartFrame,
             bool pathStartsWithGatherCommand,
             std::optional<int> lastResendFrame,
@@ -136,7 +136,7 @@ namespace MiningOptimizationTraining
         }
 
         // Run the order process timer cycle for each reset value until action and record the results
-        std::set<std::tuple<int, int, BWAPI::ExactPosition>> results;
+        std::set<std::tuple<int, int, BWAPI::ExactPosition, bool>> results;
         for (auto resetValue : orderProcessTimerResetValues)
         {
             int frame = referenceFrame;
@@ -150,7 +150,7 @@ namespace MiningOptimizationTraining
 
                 if (orderProcessTimer == 0 && frame >= arrivalFrame)
                 {
-                    results.emplace(frame, collision ? 9 : 0, nextPathStartPosition);
+                    results.emplace(frame, collision ? 9 : 0, nextPathStartPosition, true);
                     break;
                 }
 

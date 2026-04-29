@@ -72,9 +72,7 @@ namespace MiningOptimizationTraining
         std::map<BWAPI::ExactPosition, std::map<std::pair<TilePosition, TilePosition>, std::map<BWAPI::ExactPosition, InitialWorkerGatherPathNode>>>
                 startingWorkerPositionToPatchesToSecondGatherPaths;
         std::map<BWAPI::ExactPosition, std::map<TilePosition, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode>>>
-                startingWorkerPositionToPatchToFirstReturnPaths;
-        std::map<BWAPI::ExactPosition, std::map<std::pair<TilePosition, TilePosition>, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode>>>
-                startingWorkerPositionToPatchesToSecondReturnPaths;
+                startingWorkerPositionToPatchToReturnPaths;
 
         void clear(const std::string &_mapHash)
         {

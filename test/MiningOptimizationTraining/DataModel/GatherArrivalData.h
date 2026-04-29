@@ -144,7 +144,8 @@ namespace MiningOptimizationTraining
         }
 
         // Computes the possible action frames, delays, and next path starting positions for this path
-        std::set<std::tuple<int, int, BWAPI::ExactPosition>> computePathResult(
+        // The last part of the tuple is whether the result has action on arrival, which for gather is meaningless so we always return true
+        std::set<std::tuple<int, int, BWAPI::ExactPosition, bool>> computePathResult(
                 int pathStartFrame,
                 bool pathStartsWithGatherCommand,
                 std::optional<int> lastResendFrame,

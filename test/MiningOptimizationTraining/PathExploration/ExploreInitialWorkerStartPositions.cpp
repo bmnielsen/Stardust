@@ -40,6 +40,7 @@ namespace MiningOptimizationTraining
         {
             ObservationType arrivalData;
             std::set<int> resends;
+            std::unique_ptr<bwgame::state> *initialState;
 
             [[nodiscard]] bool isPoor() const;
         };
@@ -124,6 +125,8 @@ namespace MiningOptimizationTraining
             }
         }
 
+        auto firstPatchPos = TilePosition::fromBWAPI(startPosition.patch->getTilePosition());
+
         // Prepare the state so that the worker is at this start position
         auto prepareResult = simWorker->prepareGatherPath(
                 BWAPI::PrepareGatherPathOptions(startPosition.pos, initialStateWithNoCannons.state));
@@ -204,7 +207,8 @@ namespace MiningOptimizationTraining
 
                     // This is always called last, so we can use move semantics
                     results.emplace_back(std::move(arrivalData),
-                                         std::move(resendFrames));
+                                         std::move(resendFrames),
+                                         &initialState);
                 };
 
                 // If this is a resend node, check if the path changed
@@ -315,9 +319,9 @@ namespace MiningOptimizationTraining
         };
 
         // Start by simulating the first gather path and gathering all results
-        auto result = initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath[startPosition.pos]
-                                                   .emplace(TilePosition::fromBWAPI(startPosition.patch->getTilePosition()), startPosition.pos);
-        auto &firstGatherRootNode = result.first->second;
+        auto &firstGatherRootNode = initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath[startPosition.pos]
+                .emplace(firstPatchPos, startPosition.pos)
+                .first->second;
         std::vector<NodeExplorationResult<InitialWorkerGatherArrivalData>> firstGatherResults;
         makePathObservations({GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
                              firstGatherRootNode,
@@ -333,7 +337,7 @@ namespace MiningOptimizationTraining
                 bool pathStartsWithGatherCommand)
         {
             // Score all of the results based on the action frame and delay
-            std::vector<std::tuple<int, int, BWAPI::ExactPosition>> resultsWithActionFrameAndScore;
+            std::vector<std::tuple<int, int, BWAPI::ExactPosition, NodeExplorationResult<ObservationType>*, bool>> resultsWithActionFrameAndScore;
             int bestScore = INT_MAX;
             for (auto &result : results)
             {
@@ -347,23 +351,23 @@ namespace MiningOptimizationTraining
                         orderProcessTimerResetValues);
 
                 // Add the results
-                for (const auto &[actionFrame, delay, pos] : pathResult)
+                for (const auto &[actionFrame, delay, pos, actionAtArrival] : pathResult)
                 {
                     int score = actionFrame + delay;
                     bestScore = std::min(bestScore, score);
-                    resultsWithActionFrameAndScore.emplace_back(actionFrame, score, pos);
+                    resultsWithActionFrameAndScore.emplace_back(actionFrame, score, pos, &result, actionAtArrival);
                 }
             }
 
             // Return all of the unique start positions that are within the frame threshold of the best score
-            std::map<BWAPI::ExactPosition, int> result;
-            for (const auto &[actionFrame, score, pos] : resultsWithActionFrameAndScore)
+            std::map<BWAPI::ExactPosition, std::tuple<int, NodeExplorationResult<ObservationType>*, bool>> result;
+            for (const auto &[actionFrame, score, pos, ptrResult, actionAtArrival] : resultsWithActionFrameAndScore)
             {
                 if (score > (bestScore + RESULT_FRAME_THRESHOLD)) continue;
 
-                if (!result.contains(pos) || result[pos] > actionFrame)
+                if (!result.contains(pos) || std::get<0>(result[pos]) > actionFrame)
                 {
-                    result[pos] = actionFrame;
+                    result[pos] = std::make_tuple(actionFrame, ptrResult, actionAtArrival);
                 }
             }
 
@@ -372,33 +376,103 @@ namespace MiningOptimizationTraining
 
         // Explore the first return paths
         auto firstReturnPaths = findUniqueNextPathStartPositions(firstGatherResults, 0, true);
-        std::vector<NodeExplorationResult<InitialWorkerReturnArrivalData>> firstReturnResults;
-        auto &returnPaths = initialWorkerMapData.startingWorkerPositionToPatchToFirstReturnPaths
-                [startPosition.pos][TilePosition::fromBWAPI(startPosition.patch->getTilePosition())];
-
-        for (const auto &[pos, previousActionFrame] : firstReturnPaths)
+        auto &returnPaths = initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths
+                [startPosition.pos][firstPatchPos];
+        for (const auto &[firstReturnStartPos, firstReturnData] : firstReturnPaths)
         {
+            auto &[firstReturnStartFrame, _, _2] = firstReturnData;
+
             // Prepare the return path
             auto returnPrepareResult = simWorker->prepareGatherPath(
-                    BWAPI::PrepareGatherPathOptions(pos, initialStateWithNoCannons.state)
+                    BWAPI::PrepareGatherPathOptions(firstReturnStartPos, initialStateWithNoCannons.state)
                     .prepareReturnFrom(startPosition.patch->getBWIndex()));
             if (!returnPrepareResult)
             {
-                Log::Get() << "ERROR: Failed to prepare return path for position " << pos;
+                Log::Get() << "ERROR: Failed to prepare return path for position " << firstReturnStartPos;
                 return;
             }
-            if (returnPrepareResult->startPosition != pos)
+            if (returnPrepareResult->startPosition != firstReturnStartPos)
             {
-                Log::Get() << "ERROR: Prepared path is not at correct position; expected " << pos << " actual " << returnPrepareResult->startPosition;
+                Log::Get() << "ERROR: Prepared path is not at correct position; expected " << firstReturnStartPos
+                           << " actual " << returnPrepareResult->startPosition;
                 return;
             }
 
-            auto rootNodeResult = returnPaths.emplace(pos, pos);
+            std::vector<NodeExplorationResult<InitialWorkerReturnArrivalData>> firstReturnResults;
+            auto &rootNode = returnPaths.emplace(firstReturnStartPos, firstReturnStartPos).first->second;
             makePathObservations({RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
-                                 rootNodeResult.first->second,
+                                 rootNode,
                                  returnPrepareResult->startFrame,
                                  returnPrepareResult->state,
                                  firstReturnResults);
+
+            auto secondGatherPaths = findUniqueNextPathStartPositions(firstReturnResults, firstReturnStartFrame + 84, false);
+            for (const auto &[secondGatherStartPos, secondGatherData] : secondGatherPaths)
+            {
+                auto &[secondGatherStartFrame, secondGatherResult, secondGatherActionAtArrival] = secondGatherData;
+                auto gatherPrepareResult = simWorker->simulateGatherPath(
+                        BWAPI::SimulateGatherPathOptions(secondGatherResult->resends, *secondGatherResult->initialState)
+                                .setForceAction(secondGatherActionAtArrival)
+                                .setReturnStateAtStartOfNextPath());
+                if (!gatherPrepareResult)
+                {
+                    Log::Get() << "ERROR: Path could not be simulated";
+                    return;
+                }
+                if (gatherPrepareResult->nextPathStartPosition != secondGatherStartPos)
+                {
+                    Log::Get() << "ERROR: Path does not have proper start position";
+                    return;
+                }
+
+                for (auto &secondPatch : base->mineralPatches())
+                {
+                    auto secondPatchPos = TilePosition::fromBWAPI(secondPatch->tile);
+                    auto &secondGatherRootNode =
+                            initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths
+                            [startPosition.pos]
+                            [std::make_pair(firstPatchPos, secondPatchPos)]
+                            .emplace(secondGatherStartPos, secondGatherStartPos)
+                            .first->second;
+                    std::vector<NodeExplorationResult<InitialWorkerGatherArrivalData>> secondGatherResults;
+                    makePathObservations({GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
+                                         secondGatherRootNode,
+                                         gatherPrepareResult->startFrame,
+                                         gatherPrepareResult->stateAtStartOfNextPath,
+                                         secondGatherResults,
+                                         secondPatch->getBwapiUnitIfVisible());
+
+                    auto secondReturnPaths = findUniqueNextPathStartPositions(secondGatherResults, secondGatherStartFrame, firstPatchPos != secondPatchPos);
+                    for (const auto &[secondReturnStartPos, _] : secondReturnPaths)
+                    {
+                        if (returnPaths.contains(secondReturnStartPos)) continue;
+
+                        // Prepare the return path
+                        auto secondReturnPrepareResult = simWorker->prepareGatherPath(
+                                BWAPI::PrepareGatherPathOptions(secondReturnStartPos, initialStateWithNoCannons.state)
+                                .prepareReturnFrom(secondPatch->getBwapiUnitIfVisible()->getBWIndex()));
+                        if (!secondReturnPrepareResult)
+                        {
+                            Log::Get() << "ERROR: Failed to prepare return path for position " << firstReturnStartPos;
+                            return;
+                        }
+                        if (secondReturnPrepareResult->startPosition != secondReturnStartPos)
+                        {
+                            Log::Get() << "ERROR: Prepared path is not at correct position; expected " << secondReturnStartPos
+                                       << " actual " << secondReturnPrepareResult->startPosition;
+                            return;
+                        }
+
+                        std::vector<NodeExplorationResult<InitialWorkerReturnArrivalData>> secondReturnResults;
+                        auto &secondReturnRootNode = returnPaths.emplace(secondReturnStartPos, secondReturnStartPos).first->second;
+                        makePathObservations({RETURN_EXPLORATION_WINDOW_START, RETURN_EXPLORATION_WINDOW_END, RETURN_RESEND_LIMIT},
+                                             secondReturnRootNode,
+                                             secondReturnPrepareResult->startFrame,
+                                             secondReturnPrepareResult->state,
+                                             secondReturnResults);
+                    }
+                }
+            }
         }
     }
 }

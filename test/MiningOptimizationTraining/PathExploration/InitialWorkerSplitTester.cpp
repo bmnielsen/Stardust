@@ -383,7 +383,7 @@ namespace MiningOptimizationTraining
                 // If we want to require mining end before a certain frame, validate that all paths satisfy this
                 if (requireMiningEndBeforeFrame)
                 {
-                    for (const auto &[actionFrame, _, _2] : pathResults)
+                    for (const auto &[actionFrame, _, _2, _3] : pathResults)
                     {
                         if ((actionFrame + 84) >= *requireMiningEndBeforeFrame)
                         {
@@ -396,7 +396,7 @@ namespace MiningOptimizationTraining
                 // If we have been provided with next root nodes, validate that all of the paths have all of the positions covered
                 if (nextRootNodes)
                 {
-                    for (const auto &[_, _2, pos] : pathResults)
+                    for (const auto &[_, _2, pos, _3] : pathResults)
                     {
                         if (!nextRootNodes->contains(pos))
                         {
@@ -420,7 +420,7 @@ namespace MiningOptimizationTraining
 
                 // Use this result
                 result.resends = chosenResult.resends;
-                for (const auto &[actionFrame, _, pos] : pathResults)
+                for (const auto &[actionFrame, _, pos, _2] : pathResults)
                 {
                     result.actionFrames.emplace_back(actionFrame);
                     result.nextPathStartPositions.emplace_back(pos);
@@ -436,7 +436,7 @@ namespace MiningOptimizationTraining
                 .at(TilePosition::fromBWAPI(firstPatch->getTilePosition()));
 
         auto &firstReturnNodes = mapData
-                .startingWorkerPositionToPatchToFirstReturnPaths
+                .startingWorkerPositionToPatchToReturnPaths
                 .at(worker->getExactPosition())
                 .at(TilePosition::fromBWAPI(firstPatch->getTilePosition()));
 
