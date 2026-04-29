@@ -2,6 +2,7 @@
 
 #include "BWAPI/SimulateGatherPathResult.h"
 
+#include "InitialWorkerComputePathResult.h"
 #include "PositionAndVelocity.h"
 #include "Path.h"
 #include "Geo.h"
@@ -145,7 +146,7 @@ namespace MiningOptimizationTraining
 
         // Computes the possible action frames, delays, and next path starting positions for this path
         // The last part of the tuple is whether the result has action on arrival, which for gather is meaningless so we always return true
-        std::set<std::tuple<int, int, BWAPI::ExactPosition, bool>> computePathResult(
+        std::vector<InitialWorkerComputePathResult> computePathResult(
                 int pathStartFrame,
                 bool pathStartsWithGatherCommand,
                 std::optional<int> lastResendFrame,

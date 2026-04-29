@@ -344,18 +344,22 @@ namespace MiningOptimizationTraining
                 if (result.isPoor()) continue;
 
                 // Compute the action frame, delay, and next start position for each potential order process timer reset value
-                auto pathResult = result.arrivalData.computePathResult(
+                auto pathResults = result.arrivalData.computePathResult(
                         pathStartFrame,
                         pathStartsWithGatherCommand,
                         result.resends.empty() ? std::nullopt : (std::optional<int>)*result.resends.rbegin(),
                         orderProcessTimerResetValues);
 
                 // Add the results
-                for (const auto &[actionFrame, delay, pos, actionAtArrival] : pathResult)
+                for (const auto &pathResult : pathResults)
                 {
-                    int score = actionFrame + delay;
+                    int score = pathResult.actionFrame + pathResult.postActionDelay;
                     bestScore = std::min(bestScore, score);
-                    resultsWithActionFrameAndScore.emplace_back(actionFrame, score, pos, &result, actionAtArrival);
+                    resultsWithActionFrameAndScore.emplace_back(pathResult.actionFrame,
+                                                                score,
+                                                                pathResult.nextPathStartPosition,
+                                                                &result,
+                                                                pathResult.actionAtArrival);
                 }
             }
 

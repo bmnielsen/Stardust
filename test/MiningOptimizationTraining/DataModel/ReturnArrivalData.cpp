@@ -115,7 +115,7 @@ namespace MiningOptimizationTraining
                       PositionAndVelocity{simulatedPathWithActionAfterArrival.nextPathStartPosition});
     }
 
-    std::set<std::tuple<int, int, BWAPI::ExactPosition, bool>> InitialWorkerReturnArrivalData::computePathResult(
+    std::vector<InitialWorkerComputePathResult> InitialWorkerReturnArrivalData::computePathResult(
             int pathStartFrame,
             bool pathStartsWithGatherCommand,
             std::optional<int> lastResendFrame,
@@ -143,16 +143,18 @@ namespace MiningOptimizationTraining
         }
 
         // Run the order process timer cycle for each reset value until action and record the results
-        std::set<std::tuple<int, int, BWAPI::ExactPosition, bool>> results;
+        std::vector<InitialWorkerComputePathResult> results;
         for (auto resetValue : orderProcessTimerResetValues)
         {
             int frame = referenceFrame;
             int orderProcessTimer = initialOrderProcessTimer;
+            bool orderProcessTimerResets = false;
             while (true)
             {
                 if (frame == 158)
                 {
                     orderProcessTimer = resetValue;
+                    orderProcessTimerResets = true;
                 }
 
                 // Delivery at arrival
@@ -174,14 +176,22 @@ namespace MiningOptimizationTraining
                             delay = -4;
                             break;
                     }
-                    results.emplace(frame, delay, nextPathStartPositionDeliveryAtArrival, true);
+                    results.emplace_back(frame,
+                                         true,
+                                         delay,
+                                         nextPathStartPositionDeliveryAtArrival,
+                                         orderProcessTimerResets ? (std::optional<int>)resetValue : std::nullopt);
                     break;
                 }
 
                 // Delivery after arrival
                 if (orderProcessTimer == 0 && frame > arrivalFrame)
                 {
-                    results.emplace(frame, collisionDeliveryAfterArrival, nextPathStartPositionDeliveryAfterArrival, false);
+                    results.emplace_back(frame,
+                                         false,
+                                         collisionDeliveryAfterArrival ? 9 : 0,
+                                         nextPathStartPositionDeliveryAfterArrival,
+                                         orderProcessTimerResets ? (std::optional<int>)resetValue : std::nullopt);
                     break;
                 }
 
@@ -190,6 +200,7 @@ namespace MiningOptimizationTraining
 
                 frame++;
             }
+            if (!orderProcessTimerResets) return results;
         }
 
         return results;

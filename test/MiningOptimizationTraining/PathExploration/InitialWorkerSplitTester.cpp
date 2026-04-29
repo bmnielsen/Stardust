@@ -383,9 +383,9 @@ namespace MiningOptimizationTraining
                 // If we want to require mining end before a certain frame, validate that all paths satisfy this
                 if (requireMiningEndBeforeFrame)
                 {
-                    for (const auto &[actionFrame, _, _2, _3] : pathResults)
+                    for (const auto &pathResult : pathResults)
                     {
-                        if ((actionFrame + 84) >= *requireMiningEndBeforeFrame)
+                        if ((pathResult.actionFrame + 84) >= *requireMiningEndBeforeFrame)
                         {
                             validResult = false;
                             break;
@@ -396,9 +396,9 @@ namespace MiningOptimizationTraining
                 // If we have been provided with next root nodes, validate that all of the paths have all of the positions covered
                 if (nextRootNodes)
                 {
-                    for (const auto &[_, _2, pos, _3] : pathResults)
+                    for (const auto &pathResult : pathResults)
                     {
-                        if (!nextRootNodes->contains(pos))
+                        if (!nextRootNodes->contains(pathResult.nextPathStartPosition))
                         {
                             validResult = false;
                             break;
@@ -412,18 +412,12 @@ namespace MiningOptimizationTraining
                     continue;
                 }
 
-                pathResults = chosenResult.arrivalData.computePathResult(
-                        startFrame,
-                        pathStartsWithGatherCommand,
-                        chosenResult.resends.empty() ? std::nullopt : (std::optional<int>)*chosenResult.resends.rbegin(),
-                        orderProcessTimerResetValues);
-
                 // Use this result
                 result.resends = chosenResult.resends;
-                for (const auto &[actionFrame, _, pos, _2] : pathResults)
+                for (const auto &pathResult : pathResults)
                 {
-                    result.actionFrames.emplace_back(actionFrame);
-                    result.nextPathStartPositions.emplace_back(pos);
+                    result.actionFrames.emplace_back(pathResult.actionFrame);
+                    result.nextPathStartPositions.emplace_back(pathResult.nextPathStartPosition);
                 }
                 break;
             }

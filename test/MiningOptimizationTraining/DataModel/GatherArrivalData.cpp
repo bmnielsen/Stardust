@@ -107,7 +107,7 @@ namespace MiningOptimizationTraining
                       PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition});
     }
 
-    std::set<std::tuple<int, int, BWAPI::ExactPosition, bool>> InitialWorkerGatherArrivalData::computePathResult(
+    std::vector<InitialWorkerComputePathResult> InitialWorkerGatherArrivalData::computePathResult(
             int pathStartFrame,
             bool pathStartsWithGatherCommand,
             std::optional<int> lastResendFrame,
@@ -136,21 +136,27 @@ namespace MiningOptimizationTraining
         }
 
         // Run the order process timer cycle for each reset value until action and record the results
-        std::set<std::tuple<int, int, BWAPI::ExactPosition, bool>> results;
+        std::vector<InitialWorkerComputePathResult> results;
         for (auto resetValue : orderProcessTimerResetValues)
         {
             int frame = referenceFrame;
             int orderProcessTimer = initialOrderProcessTimer;
+            bool orderProcessTimerResets = false;
             while (true)
             {
                 if (frame == 158 && frame > referenceFrame)
                 {
                     orderProcessTimer = resetValue;
+                    orderProcessTimerResets = true;
                 }
 
                 if (orderProcessTimer == 0 && frame >= arrivalFrame)
                 {
-                    results.emplace(frame, collision ? 9 : 0, nextPathStartPosition, true);
+                    results.emplace_back(frame,
+                                         true,
+                                         collision ? 9 : 0,
+                                         nextPathStartPosition,
+                                         orderProcessTimerResets ? (std::optional<int>)resetValue : std::nullopt);
                     break;
                 }
 
@@ -159,6 +165,7 @@ namespace MiningOptimizationTraining
 
                 frame++;
             }
+            if (!orderProcessTimerResets) return results;
         }
 
         return results;
