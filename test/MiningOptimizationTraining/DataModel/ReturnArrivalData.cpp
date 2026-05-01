@@ -176,7 +176,8 @@ namespace MiningOptimizationTraining
                             delay = -4;
                             break;
                     }
-                    results.emplace_back(frame,
+                    results.emplace_back(arrivalFrame,
+                                         frame,
                                          true,
                                          delay,
                                          nextPathStartPositionDeliveryAtArrival,
@@ -187,7 +188,8 @@ namespace MiningOptimizationTraining
                 // Delivery after arrival
                 if (orderProcessTimer == 0 && frame > arrivalFrame)
                 {
-                    results.emplace_back(frame,
+                    results.emplace_back(arrivalFrame,
+                                         frame,
                                          false,
                                          collisionDeliveryAfterArrival ? 9 : 0,
                                          nextPathStartPositionDeliveryAfterArrival,

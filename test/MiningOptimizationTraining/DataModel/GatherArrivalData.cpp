@@ -152,7 +152,8 @@ namespace MiningOptimizationTraining
 
                 if (orderProcessTimer == 0 && frame >= arrivalFrame)
                 {
-                    results.emplace_back(frame,
+                    results.emplace_back(arrivalFrame,
+                                         frame,
                                          true,
                                          collision ? 9 : 0,
                                          nextPathStartPosition,

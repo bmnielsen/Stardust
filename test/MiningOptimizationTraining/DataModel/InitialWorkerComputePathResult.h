@@ -7,6 +7,7 @@ namespace MiningOptimizationTraining
 {
     struct InitialWorkerComputePathResult
     {
+        int arrivalFrame;
         int actionFrame;
         bool actionAtArrival;
         int postActionDelay;

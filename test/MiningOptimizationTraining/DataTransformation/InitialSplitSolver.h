@@ -22,7 +22,7 @@ namespace MiningOptimizationTraining
         {}
 
         // Executes the solver
-        MiningOptimization::InitialSplitData execute();
+        std::optional<MiningOptimization::InitialSplitData> execute();
 
     private:
         // We keep a reference to the map data so we can interpret some of the data correctly
