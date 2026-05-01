@@ -26,6 +26,8 @@ namespace MiningOptimizationTraining
 {
     namespace
     {
+        std::set<int> allOrderProcessTimerResetValues = {0, 1, 2, 3, 4, 5, 6, 7};
+
         template <typename ObservationType>
         struct QueuedNode
         {
@@ -39,6 +41,26 @@ namespace MiningOptimizationTraining
             std::vector<InitialWorkerComputePathResult> pathResults;
             std::set<int> resends;
             const PathResult* previousPathResult;
+
+            [[nodiscard]] int worstActionFrame() const
+            {
+                int worst = 0;
+                for (const auto &result : pathResults)
+                {
+                    worst = std::max(worst, result.actionFrame);
+                }
+                return worst;
+            }
+
+            [[nodiscard]] int worstActionFrameAndDelay() const
+            {
+                int worst = 0;
+                for (const auto &result : pathResults)
+                {
+                    worst = std::max(worst, result.actionFrame + result.postActionDelay);
+                }
+                return worst;
+            }
 
             [[nodiscard]] bool equivalentTo(const PathResult &other) const
             {
@@ -153,7 +175,7 @@ namespace MiningOptimizationTraining
                         startFrame,
                         pathStartsWithGatherCommand,
                         resends.empty() ? std::nullopt : static_cast<std::optional<int>>(*resends.rbegin()),
-                        orderProcessTimerResetValues);
+                        (startFrame > 158) ? allOrderProcessTimerResetValues : orderProcessTimerResetValues);
 
                 bool validResult = true;
 
@@ -175,10 +197,6 @@ namespace MiningOptimizationTraining
             // Add the no-resend result
             if (!requireResendAfterFrame || startFrame > (*requireResendAfterFrame))
             {
-                if (previousPathResult && previousPathResult->resends.contains(12) && previousPathResult->resends.size() == 1)
-                {
-                    Log::Get() << "Hey there!";
-                }
                 addResult(rootNode.arrivalData, {});
             }
 
@@ -236,11 +254,7 @@ namespace MiningOptimizationTraining
             int bestScore = INT_MAX;
             for (const auto &pathResult : pathResults)
             {
-                int score = 0;
-                for (const auto &resetResult : pathResult.pathResults)
-                {
-                    score = std::max(score, resetResult.actionFrame + resetResult.postActionDelay);
-                }
+                int score = pathResult.worstActionFrameAndDelay();
                 resultsAndScore.emplace_back(&pathResult, score);
                 bestScore = std::min(bestScore, score);
             }
@@ -311,16 +325,104 @@ namespace MiningOptimizationTraining
         }
         if (firstReturnPathResults.empty()) return std::nullopt;
 
-        // Pick the first return path result
-        // TODO: Check if there is any reasonable way to pick the best one
-        auto selectedFirstRotation = *getBestPaths(firstReturnPathResults).begin();
-        auto firstRotation = selectedFirstRotation->toInitialSplitRotation();
+        // We now have a set of best results for the first rotation, which may have several action frames depending on our knowledge of the order
+        // process timer resets
+        // For each of these possibilities, plan the best second rotation
 
-        // TODO: Implement second rotation
+        auto &secondGatherRootNodes = mapData
+                .startingWorkerPositionToPatchesToSecondGatherPaths
+                .at(exactStartPosition)
+                .at(patchPair);
 
+        std::vector<std::pair<const PathResult*, std::map<int, std::pair<PathResult, PathResult>>>> firstRotationAndActionFrameToSecondRotation;
+        for (const auto &firstReturnPathResult : getBestPaths(firstReturnPathResults))
+        {
+            std::map<int, std::pair<PathResult, PathResult>> actionFrameToSecondRotation;
+            for (const auto &returnPathResult : firstReturnPathResult->pathResults)
+            {
+                auto secondGatherRootNodeIt = secondGatherRootNodes.find(returnPathResult.nextPathStartPosition);
+                if (secondGatherRootNodeIt == secondGatherRootNodes.end())
+                {
+                    Log::Get() << "WARNING: Second gather nodes don't contain nextPathStartPosition from first return "
+                               << returnPathResult.nextPathStartPosition;
+                    break;
+                }
 
-        return MiningOptimization::InitialSplitData{
-            firstRotation
+                std::vector<PathResult> secondGatherPathResults;
+                getPaths(secondGatherPathResults,
+                         returnPathResult.actionFrame,
+                         158,
+                         std::nullopt,
+                         firstPatch != secondPatch,
+                         secondGatherRootNodeIt->second,
+                         nullptr);
+                if (secondGatherPathResults.empty()) break;
+
+                std::vector<PathResult> secondReturnPathResults;
+                for (const auto &secondGatherPathResult : getBestPaths(secondGatherPathResults))
+                {
+                    EXPECT_EQ(1, secondGatherPathResult->pathResults.size()) << "Second gather has more than one result";
+                    auto &gatherPathResult = *secondGatherPathResult->pathResults.begin();
+
+                    auto secondReturnRootNodeIt = returnNodes.find(gatherPathResult.nextPathStartPosition);
+                    if (secondReturnRootNodeIt == returnNodes.end())
+                    {
+                        Log::Get() << "WARNING: Return nodes don't contain nextPathStartPosition from second gather "
+                                   << gatherPathResult.nextPathStartPosition;
+                        continue;
+                    }
+
+                    getPaths(secondReturnPathResults,
+                             gatherPathResult.actionFrame + 85,
+                             std::nullopt,
+                             std::nullopt,
+                             false,
+                             secondReturnRootNodeIt->second,
+                             secondGatherPathResult);
+                }
+                if (secondReturnPathResults.empty()) break;
+
+                // Just pick the first of the best second return paths
+                // TODO: Figure out if there is a more intelligent way to select this
+                auto bestSecondRotation = *getBestPaths(secondReturnPathResults).begin();
+
+                // Move the results since they will go out of scope momentarily
+                actionFrameToSecondRotation.try_emplace(returnPathResult.actionFrame,
+                                                        std::move(*bestSecondRotation->previousPathResult),
+                                                        std::move(*bestSecondRotation));
+            }
+            if (actionFrameToSecondRotation.size() != firstReturnPathResult->pathResults.size()) continue;
+
+            firstRotationAndActionFrameToSecondRotation.emplace_back(firstReturnPathResult, std::move(actionFrameToSecondRotation));
+        }
+        if (firstRotationAndActionFrameToSecondRotation.empty()) return std::nullopt;
+
+        // Find the best solution
+        int bestSolutionFrame = INT_MAX;
+        std::pair<const PathResult*, std::map<int, std::pair<PathResult, PathResult>>> *bestSolution = nullptr;
+        for (auto &solution : firstRotationAndActionFrameToSecondRotation)
+        {
+            int worstSolution = 0;
+            for (const auto &[_, secondRotation] : solution.second)
+            {
+                worstSolution = std::max(worstSolution, secondRotation.second.worstActionFrame());
+            }
+            if (worstSolution < bestSolutionFrame)
+            {
+                bestSolutionFrame = worstSolution;
+                bestSolution = &solution;
+            }
+        }
+
+        MiningOptimization::InitialSplitData result{
+            bestSolution->first->toInitialSplitRotation()
         };
+        for (auto &[frame, solution] : bestSolution->second)
+        {
+            solution.second.previousPathResult = &solution.first; // Needed since we've moved stuff around since setting the original pointer
+            result.firstRotationDeliveryToSecondRotation[frame] = solution.second.toInitialSplitRotation();
+        }
+
+        return result;
     }
 }
