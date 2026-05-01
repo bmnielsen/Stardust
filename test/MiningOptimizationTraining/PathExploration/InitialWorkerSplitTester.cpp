@@ -99,12 +99,13 @@ namespace MiningOptimizationTraining
 
                 workerStatuses[worker] = {
                         planPatchCombinationRandomly(worker, firstPatches[i], secondPatches[i]),
+                        std::nullopt,
                         firstPatches[i],
                         secondPatches[i]
                 };
                 i++;
 
-                CherryVis::log(worker->getID()) << "First gather plan: " << workerStatuses[worker].gatherPlan.firstGather;
+                CherryVis::log(worker->getID()) << "First gather plan: " << workerStatuses[worker].gatherPlan->firstGather;
             }
             return;
         }
@@ -126,18 +127,14 @@ namespace MiningOptimizationTraining
             auto solver = InitialSplitSolver(mapData, PositionAndVelocity(worker), firstPatch, secondPatch, enemyRace);
             auto result = solver.execute();
 
-            WorkerGatherPlan plan;
             if (result)
             {
-                std::set<int> resends;
-                for (auto resend : result->firstRotation.resendFrames) resends.insert(resend);
-                plan.firstGather.resends = resends;
-                plan.firstReturn.resends = resends;
-
-                plan.firstGather.actionFrames = {result->firstRotation.gatherActionFrame};
-                std::vector<int> actionFrames;
-                for (auto frame : result->firstRotation.returnActionFrames) actionFrames.push_back(frame);
-                plan.firstReturn.actionFrames = std::move(actionFrames);
+                workerStatuses[worker] = {
+                    std::nullopt,
+                    *result,
+                    firstPatches[i],
+                    secondPatches[i]
+                };
 
 #if VERBOSE_LOGGING
                 Log::Get() << worker->getID() << " first rotation: " << result->firstRotation;
@@ -147,13 +144,14 @@ namespace MiningOptimizationTraining
             else
             {
                 Log::Get() << "WARNING: Worker " << worker->getID() << " could not execute solver";
+                workerStatuses[worker] = {
+                    std::nullopt,
+                    std::nullopt,
+                    firstPatches[i],
+                    secondPatches[i]
+                };
             }
 
-            workerStatuses[worker] = {
-                std::move(plan),
-                firstPatches[i],
-                secondPatches[i]
-            };
             i++;
         }
 
@@ -199,43 +197,13 @@ namespace MiningOptimizationTraining
             {
                 case 0:
                 {
-                    if (worker->getID() == 0)
-                    {
-                        std::set<int> resends;
-                        for (auto resend : status.gatherPlan.firstGather.resends)
-                        {
-                            resends.insert(resend + 1);
-                        }
-                        auto simulateResult =
-                                worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(resends)
-                                                                   .switchToPatch(status.firstPatch->getBWIndex())
-                                                                   );
-                        Log::Get() << worker->getID() << ": Simulated path:";
-                        for (const auto &pos : simulateResult->positions)
-                        {
-                            Log::Get() << pos;
-                        }
-                        Log::Get() << worker->getID() << ": Arrival " << simulateResult->positions.size();
-                    }
-
                     EXPECT_TRUE(worker->gather(status.firstPatch))
                                         << worker->getID() << ": Failed to issue gather command: " << BWAPI::Broodwar->getLastError();
                     status.state++;
                     break;
                 }
                 case 1:
-                    if (worker->getID() == 0 && currentFrame == 3)
-                    {
-                        auto simulateResult =
-                                worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(status.gatherPlan.firstGather.resends)
-                                                                   .setIncludeAllPositions());
-                        Log::Get() << worker->getID() << ": Simulated path:";
-                        for (const auto &pos : simulateResult->positions)
-                        {
-                            Log::Get() << pos;
-                        }
-                    }
-                    if (status.gatherPlan.firstGather.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    if (status.isResendFrame())
                     {
                         EXPECT_TRUE(worker->gather(status.firstPatch))
                             << worker->getID() << ": Failed to issue gather command: " << BWAPI::Broodwar->getLastError();
@@ -243,7 +211,7 @@ namespace MiningOptimizationTraining
                     }
                     if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
                     {
-                        EXPECT_TRUE(status.gatherPlan.firstGather.containsActionFrame(currentFrame))
+                        EXPECT_TRUE(status.isFirstGatherActionFrame())
                             << worker->getID() << ": " << currentFrame << " is not an expected first gather action frame";
                         status.state++;
                     }
@@ -253,23 +221,10 @@ namespace MiningOptimizationTraining
                     if (worker->getOrder() == BWAPI::Orders::ReturnMinerals)
                     {
                         status.state++;
-
-                        if (worker->getID() == 0 && currentFrame == 131)
-                        {
-                            auto simulateResult =
-                                    worker->simulateGatherPath(BWAPI::SimulateGatherPathOptions(status.gatherPlan.firstReturn.resends)
-                                                                       .setIncludeAllPositions());
-                            Log::Get() << worker->getID() << ": Simulated path:";
-                            for (const auto &pos : simulateResult->positions)
-                            {
-                                Log::Get() << pos;
-                            }
-                            Log::Get() << simulateResult->positions.size();
-                        }
                     }
                     break;
                 case 3:
-                    if (status.gatherPlan.firstReturn.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    if (status.isResendFrame())
                     {
                         EXPECT_TRUE(worker->returnCargo())
                                             << worker->getID() << ": Failed to issue return command: " << BWAPI::Broodwar->getLastError();
@@ -277,17 +232,33 @@ namespace MiningOptimizationTraining
                     }
                     if (!worker->isCarryingMinerals())
                     {
-                        EXPECT_TRUE(status.gatherPlan.firstReturn.containsActionFrame(currentFrame))
+                        EXPECT_TRUE(status.isFirstReturnActionFrame())
                                             << worker->getID() << ": " << currentFrame << " is not an expected first return action frame";
                         if (status.firstPatch != status.secondPatch)
                         {
                             worker->gather(status.secondPatch);
                         }
                         status.state++;
+
+                        if (status.initialSplitData)
+                        {
+                            for (auto &[frame, rotation] : status.initialSplitData->firstRotationDeliveryToSecondRotation)
+                            {
+                                if (frame == currentFrame)
+                                {
+                                    status.chosenSecondRotation = rotation;
+#if VERBOSE_LOGGING
+                                    Log::Get() << worker->getID() << " second rotation: " << rotation;
+#endif
+                                    CherryVis::log(worker->getID()) << "second rotation: " << rotation;
+                                    break;
+                                }
+                            }
+                        }
                     }
                     break;
                 case 4:
-                    if (status.gatherPlan.secondGather.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    if (status.isResendFrame())
                     {
                         EXPECT_TRUE(worker->gather(status.secondPatch))
                                             << worker->getID() << ": Failed to issue gather command: " << BWAPI::Broodwar->getLastError();
@@ -295,13 +266,13 @@ namespace MiningOptimizationTraining
                     }
                     if (worker->getOrder() == BWAPI::Orders::WaitForMinerals)
                     {
-                        EXPECT_TRUE(status.gatherPlan.secondGather.containsActionFrame(currentFrame))
+                        EXPECT_TRUE(status.isSecondGatherActionFrame())
                             << worker->getID() << ": " << currentFrame << " is not an expected second gather action frame";
                         status.state++;
                     }
                     break;
                 case 6:
-                    if (status.gatherPlan.secondReturn.resends.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                    if (status.isResendFrame())
                     {
                         EXPECT_TRUE(worker->returnCargo())
                                             << worker->getID() << ": Failed to issue return command: " << BWAPI::Broodwar->getLastError();
@@ -309,7 +280,7 @@ namespace MiningOptimizationTraining
                     }
                     if (!worker->isCarryingMinerals())
                     {
-                        EXPECT_TRUE(status.gatherPlan.secondReturn.containsActionFrame(currentFrame))
+                        EXPECT_TRUE(status.isSecondReturnActionFrame())
                                             << worker->getID() << ": " << currentFrame << " is not an expected second return action frame";
                         status.state++;
                     }
