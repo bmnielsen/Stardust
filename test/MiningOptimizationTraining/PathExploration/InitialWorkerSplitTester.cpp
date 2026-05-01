@@ -9,6 +9,8 @@
 
 #include "OrderProcessTimer.h"
 
+#include "../DataTransformation/InitialSplitSolver.h"
+
 #define VERBOSE_LOGGING false
 
 namespace MiningOptimizationTraining
@@ -105,6 +107,54 @@ namespace MiningOptimizationTraining
                 CherryVis::log(worker->getID()) << "First gather plan: " << workerStatuses[worker].gatherPlan.firstGather;
             }
             return;
+        }
+
+        // Temporary logic: still pick the patches randomly, but use the solver to plan the resends
+        auto firstPatches = patches;
+        auto secondPatches = patches;
+        std::shuffle(std::begin(firstPatches), std::end(firstPatches), rng);
+        std::shuffle(std::begin(secondPatches), std::end(secondPatches), rng);
+        size_t i = 0;
+        for (auto worker : workers)
+        {
+#if VERBOSE_LOGGING
+            Log::Get() << "Planning worker " << worker->getID();
+#endif
+
+            auto firstPatch = TilePosition::fromBWAPI(firstPatches[i]->getTilePosition());
+            auto secondPatch = TilePosition::fromBWAPI(secondPatches[i]->getTilePosition());
+            auto solver = InitialSplitSolver(mapData, PositionAndVelocity(worker), firstPatch, secondPatch, enemyRace);
+            auto result = solver.execute();
+
+            WorkerGatherPlan plan;
+            if (result)
+            {
+                std::set<int> resends;
+                for (auto resend : result->firstRotation.resendFrames) resends.insert(resend);
+                plan.firstGather.resends = resends;
+                plan.firstReturn.resends = resends;
+
+                plan.firstGather.actionFrames = {result->firstRotation.gatherActionFrame};
+                std::vector<int> actionFrames;
+                for (auto frame : result->firstRotation.returnActionFrames) actionFrames.push_back(frame);
+                plan.firstReturn.actionFrames = std::move(actionFrames);
+
+#if VERBOSE_LOGGING
+                Log::Get() << worker->getID() << " first rotation: " << result->firstRotation;
+#endif
+                CherryVis::log(worker->getID()) << "first rotation: " << result->firstRotation;
+            }
+            else
+            {
+                Log::Get() << "WARNING: Worker " << worker->getID() << " could not execute solver";
+            }
+
+            workerStatuses[worker] = {
+                std::move(plan),
+                firstPatches[i],
+                secondPatches[i]
+            };
+            i++;
         }
 
         // TODO: Implement logic to choose the best combination

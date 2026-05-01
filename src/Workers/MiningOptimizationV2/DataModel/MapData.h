@@ -19,6 +19,31 @@ namespace MiningOptimization
         uint16_t gatherActionFrame;
         uint16_t returnArrivalFrame;
         std::set<uint16_t> returnActionFrames;
+
+        friend std::ostream &operator<<(std::ostream &os, const InitialSplitRotation &rotation)
+        {
+            auto outIntCollection = [&os]<typename T>(const T &intCollection)
+            {
+                os << "[";
+                std::string sep;
+                for (auto val : intCollection)
+                {
+                    os << sep << val;
+                    sep = ",";
+                }
+                os << "]";
+            };
+
+            os << "resends: ";
+            outIntCollection(rotation.resendFrames);
+            os << "; gather arrival: " << rotation.gatherArrivalFrame;
+            os << "; gather action: " << rotation.gatherActionFrame;
+            os << "; return arrival: " << rotation.returnArrivalFrame;
+            os << "; return actions: ";
+            outIntCollection(rotation.returnActionFrames);
+
+            return os;
+        }
     };
 
     struct InitialSplitData

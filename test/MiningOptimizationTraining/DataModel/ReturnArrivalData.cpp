@@ -138,7 +138,8 @@ namespace MiningOptimizationTraining
         }
         else
         {
-            // At path start the value is 0 because we just gained minerals
+            // At path start the value is 0 because we just gained minerals, but we need to rewind one frame
+            referenceFrame--;
             initialOrderProcessTimer = 0;
         }
 

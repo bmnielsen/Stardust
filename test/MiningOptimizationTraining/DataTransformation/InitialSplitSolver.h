@@ -29,7 +29,7 @@ namespace MiningOptimizationTraining
         const InitialWorkerMapData &mapData;
 
         // The start position of this solver execution
-        const PositionAndVelocity &startPosition;
+        PositionAndVelocity startPosition;
 
         // The patches to use
         TilePosition firstPatch;

@@ -99,7 +99,11 @@ namespace MiningOptimizationTraining
         // If there is variance in the possible order process timer resets, we use the worst case
         // TODO: Test if it is better to use the average case
 
-        auto exactStartPosition = BWAPI::ExactPosition(startPosition.x * 256, startPosition.y * 256, startPosition.heading, 0, 0);
+        auto exactStartPosition = BWAPI::ExactPosition((uint32_t)startPosition.x * 256,
+                                                       (uint32_t)startPosition.y * 256,
+                                                       startPosition.heading,
+                                                       0,
+                                                       0);
 
         EXPECT_TRUE(mapData.startingWorkerPositionToOrderProcessTimerReset.contains(startPosition))
                             << "No order process timer reset value data for start position " << startPosition;
@@ -171,6 +175,10 @@ namespace MiningOptimizationTraining
             // Add the no-resend result
             if (!requireResendAfterFrame || startFrame > (*requireResendAfterFrame))
             {
+                if (previousPathResult && previousPathResult->resends.contains(12) && previousPathResult->resends.size() == 1)
+                {
+                    Log::Get() << "Hey there!";
+                }
                 addResult(rootNode.arrivalData, {});
             }
 
@@ -285,16 +293,20 @@ namespace MiningOptimizationTraining
         {
             EXPECT_EQ(1, firstGatherPathResult->pathResults.size()) << "First gather has more than one result";
             auto &pathResult = *firstGatherPathResult->pathResults.begin();
-            EXPECT_TRUE(returnNodes.contains(pathResult.nextPathStartPosition))
-                << "Return nodes don't contain nextPathStartPosition from first gather " << pathResult.nextPathStartPosition;
-            auto &firstReturnRootNode = returnNodes.at(pathResult.nextPathStartPosition);
+
+            auto firstReturnRootNodeIt = returnNodes.find(pathResult.nextPathStartPosition);
+            if (firstReturnRootNodeIt == returnNodes.end())
+            {
+                Log::Get() << "WARNING: Return nodes don't contain nextPathStartPosition from first gather " << pathResult.nextPathStartPosition;
+                continue;
+            }
 
             getPaths(firstReturnPathResults,
                      pathResult.actionFrame + 85,
                      std::nullopt,
                      std::nullopt,
                      false,
-                     firstReturnRootNode,
+                     firstReturnRootNodeIt->second,
                      firstGatherPathResult);
         }
         if (firstReturnPathResults.empty()) return std::nullopt;

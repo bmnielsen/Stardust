@@ -131,7 +131,7 @@ namespace
             };
             test.myModule = [&]()
             {
-                return new InitialWorkerSplitTesterModule(data, knownEnemyRace, true);
+                return new InitialWorkerSplitTesterModule(data, knownEnemyRace, false);
             };
             test.allowOpponentOutput = false;
             test.expectWin = false;
@@ -142,7 +142,7 @@ namespace
 
 //         BWTest test;
 //         test.maps = {map};
-//         test.randomSeed = 53681;
+//         test.randomSeed = 61581;
 //         test.opponentRace = BWAPI::Races::Random;
 // //        knownEnemyRace = BWAPI::Races::Zerg;
 //         runner(test);
