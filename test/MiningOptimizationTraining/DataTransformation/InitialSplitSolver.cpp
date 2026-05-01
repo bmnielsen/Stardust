@@ -169,8 +169,14 @@ namespace MiningOptimizationTraining
         {
             std::deque<QueuedNode<ObservationType>> nodeQueue;
 
-            auto addResult = [&](const ObservationType &arrivalData, std::set<int> resends)
+            auto addResult = [&](const ObservationType &arrivalData, const std::set<int> &resends)
             {
+                // Don't add a gather path that isn't facing the patch
+                if constexpr (std::is_same_v<ObservationType, InitialWorkerGatherArrivalData>)
+                {
+                    if (!arrivalData.facingPatch) return;
+                }
+
                 auto pathResults = arrivalData.computePathResult(
                         startFrame,
                         pathStartsWithGatherCommand,
@@ -191,7 +197,7 @@ namespace MiningOptimizationTraining
                     }
                 }
 
-                if (validResult) results.emplace_back(std::move(pathResults), std::move(resends), previousPathResult);
+                if (validResult) results.emplace_back(std::move(pathResults), resends, previousPathResult);
             };
 
             // Add the no-resend result

@@ -61,14 +61,18 @@ namespace MiningOptimizationTraining
     template <>
     void ExploreStartPositionsModule<ExploreInitialWorkerStartPosition>::initializeStartPositions()
     {
-//        for (auto patch : BWAPI::Broodwar->getStaticNeutralUnits())
-//        {
-//            if (!patch->getType().isMineralField()) continue;
-//            if (patch->getTilePosition() == BWAPI::TilePosition(2,11))
-//            {
-//                startPositions.emplace_back(ExploreInitialWorkerStartPosition{BWAPI::ExactPosition{264*32,296*32,48,0,0}, patch});
-//            }
-//        }
+        for (auto patch : BWAPI::Broodwar->getStaticNeutralUnits())
+        {
+            if (!patch->getType().isMineralField()) continue;
+            if (patch->getTilePosition() == BWAPI::TilePosition(3,12))
+            {
+                startPositions.emplace_back(ExploreInitialWorkerStartPosition{BWAPI::ExactPosition{61440,75776,48,0,0}, patch});
+            }
+        }
+
+        initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath.clear();
+        initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths.clear();
+        initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths.clear();
 
         for (const auto &[spawnPosition, _] : initialWorkerMapData.startingWorkerPositionToOrderProcessTimerReset)
         {
@@ -220,8 +224,9 @@ namespace MiningOptimizationTraining
                         if (pathsEqual(noResendPath, simulatedPath))
                         {
                             resendNode->type = NodeType::StableNode;
+                            addResult();
 
-                            // We can just jump out now, since stable nodes don't need to be explored for resends
+                            // We can just jump out now, since stable nodes don't need to be explored for additional resends
                             return;
                         }
 
@@ -334,8 +339,17 @@ namespace MiningOptimizationTraining
         auto findUniqueNextPathStartPositions = [&]<typename ObservationType>(
                 std::vector<NodeExplorationResult<ObservationType>> &results,
                 int pathStartFrame,
+                int simStartFrame,
                 bool pathStartsWithGatherCommand)
         {
+            auto lastResendFrame = [&](const std::set<int> &resendFrames) -> std::optional<int>
+            {
+                if (resendFrames.empty()) return std::nullopt;
+
+                int simResendFrame = *resendFrames.rbegin();
+                return simResendFrame - simStartFrame + pathStartFrame - 1;
+            };
+
             // Score all of the results based on the action frame and delay
             std::vector<std::tuple<int, int, BWAPI::ExactPosition, NodeExplorationResult<ObservationType>*, bool>> resultsWithActionFrameAndScore;
             int bestScore = INT_MAX;
@@ -347,7 +361,7 @@ namespace MiningOptimizationTraining
                 auto pathResults = result.arrivalData.computePathResult(
                         pathStartFrame,
                         pathStartsWithGatherCommand,
-                        result.resends.empty() ? std::nullopt : (std::optional<int>)*result.resends.rbegin(),
+                        lastResendFrame(result.resends),
                         orderProcessTimerResetValues);
 
                 // Add the results
@@ -379,7 +393,10 @@ namespace MiningOptimizationTraining
         };
 
         // Explore the first return paths
-        auto firstReturnPaths = findUniqueNextPathStartPositions(firstGatherResults, 0, true);
+        auto firstReturnPaths = findUniqueNextPathStartPositions(firstGatherResults,
+                                                                 0,
+                                                                 prepareResult->startFrame,
+                                                                 true);
         auto &returnPaths = initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths
                 [startPosition.pos][firstPatchPos];
         for (const auto &[firstReturnStartPos, firstReturnData] : firstReturnPaths)
@@ -410,7 +427,10 @@ namespace MiningOptimizationTraining
                                  returnPrepareResult->state,
                                  firstReturnResults);
 
-            auto secondGatherPaths = findUniqueNextPathStartPositions(firstReturnResults, firstReturnStartFrame + 84, false);
+            auto secondGatherPaths = findUniqueNextPathStartPositions(firstReturnResults,
+                firstReturnStartFrame + 84,
+                returnPrepareResult->startFrame,
+                false);
             for (const auto &[secondGatherStartPos, secondGatherData] : secondGatherPaths)
             {
                 auto &[secondGatherStartFrame, secondGatherResult, secondGatherActionAtArrival] = secondGatherData;
@@ -446,7 +466,10 @@ namespace MiningOptimizationTraining
                                          secondGatherResults,
                                          secondPatch->getBwapiUnitIfVisible());
 
-                    auto secondReturnPaths = findUniqueNextPathStartPositions(secondGatherResults, secondGatherStartFrame, firstPatchPos != secondPatchPos);
+                    auto secondReturnPaths = findUniqueNextPathStartPositions(secondGatherResults,
+                                                                              secondGatherStartFrame,
+                                                                              gatherPrepareResult->startFrame,
+                                                                              firstPatchPos != secondPatchPos);
                     for (const auto &[secondReturnStartPos, _] : secondReturnPaths)
                     {
                         if (returnPaths.contains(secondReturnStartPos)) continue;
