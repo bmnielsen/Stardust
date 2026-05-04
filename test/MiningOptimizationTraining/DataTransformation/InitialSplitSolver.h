@@ -5,12 +5,35 @@
 
 namespace MiningOptimizationTraining
 {
+    template <typename StartPositionState>
+    class ExploreStartPositionsModule;
+    struct ExploreInitialWorkerStartPosition;
+
     class InitialSplitSolver
     {
     public:
+        friend class ExploreStartPositionsModule<ExploreInitialWorkerStartPosition>;
+
+        struct PathResult
+        {
+            BWAPI::ExactPosition startPosition;
+            int startFrame;
+            std::vector<InitialWorkerComputePathResult> pathResults;
+            std::set<int> resends;
+            const PathResult* previousPathResult;
+
+            [[nodiscard]] int worstActionFrame() const;
+
+            [[nodiscard]] int worstActionFrameAndDelay() const;
+
+            [[nodiscard]] bool equivalentTo(const PathResult &other) const;
+
+            [[nodiscard]] MiningOptimization::InitialSplitRotation toInitialSplitRotation() const;
+        };
+
         // Constructor used for single-worker gathering and return
         InitialSplitSolver(const InitialWorkerMapData &mapData,
-                           const PositionAndVelocity &startPosition,
+                           PositionAndVelocity startPosition,
                            TilePosition firstPatch,
                            TilePosition secondPatch,
                            BWAPI::Race opponentRace)
@@ -19,7 +42,24 @@ namespace MiningOptimizationTraining
                 , firstPatch(firstPatch)
                 , secondPatch(secondPatch)
                 , opponentRace(opponentRace)
-        {}
+        {
+            exactStartPosition = BWAPI::ExactPosition((uint32_t)startPosition.x * 256,
+                                                                   (uint32_t)startPosition.y * 256,
+                                                                   startPosition.heading,
+                                                                   0,
+                                                                   0);
+
+            EXPECT_TRUE(mapData.startingWorkerPositionToOrderProcessTimerReset.contains(startPosition))
+                                << "No order process timer reset value data for start position " << startPosition;
+
+            for (const auto &resetData : mapData.startingWorkerPositionToOrderProcessTimerReset.at(startPosition))
+            {
+                if (resetData.opponentIsZerg && (opponentRace == BWAPI::Races::Protoss || opponentRace == BWAPI::Races::Terran)) continue;
+                if (!resetData.opponentIsZerg && (opponentRace == BWAPI::Races::Zerg)) continue;
+
+                orderProcessTimerResetValues.insert(resetData.value);
+            }
+        }
 
         // Executes the solver
         std::optional<MiningOptimization::InitialSplitData> execute();
@@ -30,6 +70,7 @@ namespace MiningOptimizationTraining
 
         // The start position of this solver execution
         PositionAndVelocity startPosition;
+        BWAPI::ExactPosition exactStartPosition;
 
         // The patches to use
         TilePosition firstPatch;
@@ -37,5 +78,20 @@ namespace MiningOptimizationTraining
 
         // The opponent race, where it is important to know if the opponent is Zerg, isn't Zerg, or is unknown
         BWAPI::Race opponentRace;
+
+        // The possible order process timer reset values
+        std::set<int> orderProcessTimerResetValues;
+
+        // These data structures store the results as the solver executes
+        std::vector<PathResult> firstGatherPathResults;
+        std::vector<PathResult> firstReturnPathResults;
+        std::map<PathResult*, std::vector<std::vector<PathResult>>> secondGatherPathResults;
+        std::vector<std::pair<const PathResult*, std::map<int, std::pair<PathResult, PathResult>>>> secondReturnPathResults;
+
+        // These methods execute each phase of the solver
+        void executeFirstGather();
+        void executeFirstReturn();
+        void executeSecondGather();
+        void executeSecondReturn();
     };
 }
