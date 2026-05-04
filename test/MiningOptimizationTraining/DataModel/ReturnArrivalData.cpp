@@ -152,7 +152,7 @@ namespace MiningOptimizationTraining
             bool orderProcessTimerResets = false;
             while (true)
             {
-                if (frame == 158)
+                if (frame == 158 || frame == 308)
                 {
                     orderProcessTimer = resetValue;
                     orderProcessTimerResets = true;

@@ -84,11 +84,8 @@ namespace MiningOptimizationTraining
             }
             if (initialSplitData)
             {
-                return initialSplitData->firstRotation.resendFrames.contains(resendFrame);
-            }
-            if (chosenSecondRotation)
-            {
-                return chosenSecondRotation->resendFrames.contains(resendFrame);
+                if (initialSplitData->firstRotation.resendFrames.contains(resendFrame)) return true;
+                return (chosenSecondRotation && chosenSecondRotation->resendFrames.contains(resendFrame));
             }
             return false;
         }

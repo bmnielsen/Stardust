@@ -118,13 +118,15 @@ namespace MiningOptimizationTraining
         size_t i = 0;
         for (auto worker : workers)
         {
-#if VERBOSE_LOGGING
-            Log::Get() << "Planning worker " << worker->getID();
-#endif
-
             auto firstPatch = TilePosition::fromBWAPI(firstPatches[i]->getTilePosition());
             auto secondPatch = TilePosition::fromBWAPI(secondPatches[i]->getTilePosition());
+
+#if VERBOSE_LOGGING
+            Log::Get() << "Planning worker " << worker->getID() << "; assigned to patch " << firstPatch << " and " << secondPatch;
+#endif
+
             auto solver = InitialSplitSolver(mapData, PositionAndVelocity(worker), firstPatch, secondPatch, enemyRace);
+
             auto result = solver.execute();
 
             if (result)
@@ -236,7 +238,13 @@ namespace MiningOptimizationTraining
                                             << worker->getID() << ": " << currentFrame << " is not an expected first return action frame";
                         if (status.firstPatch != status.secondPatch)
                         {
-                            worker->gather(status.secondPatch);
+                            EXPECT_TRUE(worker->gather(status.secondPatch))
+                                            << worker->getID() << ": Failed to issue gather command: " << BWAPI::Broodwar->getLastError();
+                            CherryVis::log(worker->getID()) << "Issued gather to second patch";
+                        }
+                        else
+                        {
+                            CherryVis::log(worker->getID()) << "Continuing with same patch";
                         }
                         status.state++;
 

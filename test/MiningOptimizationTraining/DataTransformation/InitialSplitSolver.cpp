@@ -225,7 +225,7 @@ namespace MiningOptimizationTraining
                 .at(exactStartPosition)
                 .at(firstPatch);
         getPaths(firstGatherPathResults,
-                 0,
+                 1,
                  8,
                  158,
                  true,
@@ -305,9 +305,9 @@ namespace MiningOptimizationTraining
 
                 std::vector<PathResult> currentSecondGatherPathResults;
                 getPaths(currentSecondGatherPathResults,
-                         returnPathResult.actionFrame,
+                         returnPathResult.actionFrame + 1,
                          158,
-                         std::nullopt,
+                         308,
                          firstPatch != secondPatch,
                          (returnPathResult.actionFrame > 158) ? allOrderProcessTimerResetValues : orderProcessTimerResetValues,
                          secondGatherRootNodeIt->second,

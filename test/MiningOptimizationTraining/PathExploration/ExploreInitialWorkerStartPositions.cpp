@@ -168,7 +168,10 @@ namespace MiningOptimizationTraining
                     auto simulateOptions =
                             BWAPI::SimulateGatherPathOptions(resendFrames, initialState)
                                     .setForceAction(forceAction);
-                    if (gatherPatch) simulateOptions.switchToPatch(gatherPatch->getBWIndex());
+                    if (gatherPatch)
+                    {
+                        simulateOptions.switchToPatch(gatherPatch->getBWIndex());
+                    }
                     return simWorker->simulateGatherPath(simulateOptions);
                 };
 
@@ -185,7 +188,9 @@ namespace MiningOptimizationTraining
                             Log::Get() << "ERROR: Path could not be simulated";
                         }
 
-                        return InitialWorkerGatherArrivalData::createFromSimulatedPath(*simulatedPathWithDeliveryAtArrivalResult, gatherPatch);
+                        return InitialWorkerGatherArrivalData::createFromSimulatedPath(
+                            *simulatedPathWithDeliveryAtArrivalResult,
+                            gatherPatch ? gatherPatch : startPosition.patch);
                     };
                 }
                 else
@@ -425,9 +430,9 @@ namespace MiningOptimizationTraining
                             .first->second;
                     makePathObservations({GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
                                          secondGatherRootNode,
-                                         gatherPrepareResult->startFrame,
+                                         gatherPrepareResult->actionFrame,
                                          gatherPrepareResult->stateAtStartOfNextPath,
-                                         secondPatch);
+                                         (secondPatch == startPosition.patch) ? nullptr : secondPatch);
                 };
 
                 // Simulate either once or twice depending on whether we have multiple possible outcomes

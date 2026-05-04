@@ -132,7 +132,12 @@ namespace MiningOptimizationTraining
         {
             // When there is no resend, but the path started with a gather command, we adjust the reference frame to account for the gather command
             // and latency
-            referenceFrame += BWAPI::Broodwar->getLatencyFrames() + 1;
+            referenceFrame += BWAPI::Broodwar->getLatencyFrames();
+        }
+        else
+        {
+            // Rewind one frame to have the order process timer cycle line up with the start frame
+            referenceFrame--;
         }
 
         // Run the order process timer cycle for each reset value until action and record the results
@@ -144,7 +149,7 @@ namespace MiningOptimizationTraining
             bool orderProcessTimerResets = false;
             while (true)
             {
-                if (frame == 158 && frame > referenceFrame)
+                if ((frame == 158 || frame == 308) && frame > referenceFrame)
                 {
                     orderProcessTimer = resetValue;
                     orderProcessTimerResets = true;
