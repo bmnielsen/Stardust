@@ -201,9 +201,8 @@ namespace MiningOptimizationTraining
             }
         }
 
-        MiningOptimization::InitialSplitData result{
-            bestSolution->first->toInitialSplitRotation()
-        };
+        MiningOptimization::InitialSplitData result;
+        result.firstRotation = bestSolution->first->toInitialSplitRotation();
         for (auto &[frame, solution] : bestSolution->second)
         {
             solution.second.previousPathResult = &solution.first; // Needed since we've moved stuff around since setting the original pointer

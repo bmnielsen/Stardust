@@ -111,78 +111,210 @@ namespace MiningOptimizationTraining
         }
 
         // Temporary logic: still pick the patches randomly, but use the solver to plan the resends
-        auto firstPatches = patches;
-        auto secondPatches = patches;
-        std::shuffle(std::begin(firstPatches), std::end(firstPatches), rng);
-        std::shuffle(std::begin(secondPatches), std::end(secondPatches), rng);
-        size_t i = 0;
+//         {
+//             auto firstPatches = patches;
+//             auto secondPatches = patches;
+//             std::shuffle(std::begin(firstPatches), std::end(firstPatches), rng);
+//             std::shuffle(std::begin(secondPatches), std::end(secondPatches), rng);
+//             size_t i = 0;
+//             for (auto worker : workers)
+//             {
+//                 auto firstPatch = TilePosition::fromBWAPI(firstPatches[i]->getTilePosition());
+//                 auto secondPatch = TilePosition::fromBWAPI(secondPatches[i]->getTilePosition());
+//
+// #if VERBOSE_LOGGING
+//                 Log::Get() << "Planning worker " << worker->getID() << "; assigned to patch " << firstPatch << " and " << secondPatch;
+// #endif
+//
+//                 auto solver = InitialSplitSolver(mapData, PositionAndVelocity(worker), firstPatch, secondPatch, enemyRace);
+//
+//                 auto result = solver.execute();
+//
+//                 if (result)
+//                 {
+//                     workerStatuses[worker] = {
+//                         std::nullopt,
+//                         *result,
+//                         firstPatches[i],
+//                         secondPatches[i]
+//                     };
+//
+// #if VERBOSE_LOGGING
+//                     Log::Get() << worker->getID() << " first rotation: " << result->firstRotation;
+// #endif
+//                     CherryVis::log(worker->getID()) << "first rotation: " << result->firstRotation;
+//                 }
+//                 else
+//                 {
+//                     Log::Get() << "WARNING: Worker " << worker->getID() << " could not execute solver";
+//                     workerStatuses[worker] = {
+//                         std::nullopt,
+//                         std::nullopt,
+//                         firstPatches[i],
+//                         secondPatches[i]
+//                     };
+//                 }
+//
+//                 i++;
+//             }
+//         }
+
+        // For each worker, run the solver for each combination of patches and condense it to have the top 16 permutations for each
+        std::map<BWAPI::Unit, std::map<std::pair<TilePosition, TilePosition>, MiningOptimization::InitialSplitData>>
+            workerToPatchPermutationToInitialSplitData;
         for (auto worker : workers)
         {
-            auto firstPatch = TilePosition::fromBWAPI(firstPatches[i]->getTilePosition());
-            auto secondPatch = TilePosition::fromBWAPI(secondPatches[i]->getTilePosition());
-
-#if VERBOSE_LOGGING
-            Log::Get() << "Planning worker " << worker->getID() << "; assigned to patch " << firstPatch << " and " << secondPatch;
-#endif
-
-            auto solver = InitialSplitSolver(mapData, PositionAndVelocity(worker), firstPatch, secondPatch, enemyRace);
-
-            auto result = solver.execute();
-
-            if (result)
+            auto positionAndVelocity = PositionAndVelocity(worker);
+            std::vector<std::tuple<TilePosition, std::vector<std::pair<TilePosition, MiningOptimization::InitialSplitData>>, uint16_t>>
+                firstPatchResults;
+            for (auto firstPatchUnit : patches)
             {
-                workerStatuses[worker] = {
-                    std::nullopt,
-                    *result,
-                    firstPatches[i],
-                    secondPatches[i]
-                };
+                auto firstPatch = TilePosition::fromBWAPI(firstPatchUnit->getTilePosition());
+                std::vector<std::pair<TilePosition, MiningOptimization::InitialSplitData>> secondPatchResults;
+                for (auto secondPatchUnit : patches)
+                {
+                    auto secondPatch = TilePosition::fromBWAPI(secondPatchUnit->getTilePosition());
+                    auto result = InitialSplitSolver(mapData,
+                        positionAndVelocity,
+                        firstPatch,
+                        secondPatch,
+                        enemyRace).execute();
+                    if (!result) continue;
 
-#if VERBOSE_LOGGING
-                Log::Get() << worker->getID() << " first rotation: " << result->firstRotation;
-#endif
-                CherryVis::log(worker->getID()) << "first rotation: " << result->firstRotation;
+                    if (secondPatchResults.size() < 4)
+                    {
+                        secondPatchResults.emplace_back(secondPatch, std::move(*result));
+                        continue;
+                    }
+
+                    for (auto &existingSecondPatchResult : secondPatchResults)
+                    {
+                        if (result->worstSecondRotationActionFrame() < existingSecondPatchResult.second.worstSecondRotationActionFrame())
+                        {
+                            existingSecondPatchResult.first = secondPatch;
+                            existingSecondPatchResult.second = std::move(*result);
+                            break;
+                        }
+                    }
+                }
+
+                uint16_t bestScore = UINT16_MAX;
+                for (auto &secondPatchResult : secondPatchResults)
+                {
+                    bestScore = std::min(bestScore, secondPatchResult.second.worstSecondRotationActionFrame());
+                }
+
+                if (firstPatchResults.size() < 4)
+                {
+                    firstPatchResults.emplace_back(firstPatch, std::move(secondPatchResults), bestScore);
+                    continue;
+                }
+
+                for (auto &[existingPatch, existingSecondPatchResults, existingScore]
+                        : firstPatchResults)
+                {
+                    if (bestScore < existingScore)
+                    {
+                        existingPatch = firstPatch;
+                        existingSecondPatchResults = std::move(secondPatchResults);
+                        existingScore = bestScore;
+                        break;
+                    }
+                }
             }
-            else
+
+            auto &workerData = workerToPatchPermutationToInitialSplitData[worker];
+            for (auto &[firstPatch, secondPatchResults, _] : firstPatchResults)
             {
-                Log::Get() << "WARNING: Worker " << worker->getID() << " could not execute solver";
-                workerStatuses[worker] = {
-                    std::nullopt,
-                    std::nullopt,
-                    firstPatches[i],
-                    secondPatches[i]
-                };
+                for (auto &[secondPatch, initialSplitData] : secondPatchResults)
+                {
+                    workerData.emplace(std::make_pair(firstPatch, secondPatch), initialSplitData);
+                }
             }
-
-            i++;
         }
 
-        // TODO: Implement logic to choose the best combination
+        // Generate combinations for all four workers to find the best solution
+        uint16_t bestSeventhDelivery = UINT16_MAX;
+        uint16_t bestEighthDelivery = UINT16_MAX;
+        std::array<std::pair<TilePosition, TilePosition>, 4> bestSolution;
+        for (auto &[firstWorkerAssignment, firstWorkerResult]
+                : workerToPatchPermutationToInitialSplitData[workers[0]])
+        {
+            for (auto &[secondWorkerAssignment, secondWorkerResult]
+                    : workerToPatchPermutationToInitialSplitData[workers[1]])
+            {
+                if (secondWorkerAssignment.first == firstWorkerAssignment.first) continue;
+                if (secondWorkerAssignment.second == firstWorkerAssignment.second) continue;
 
-        // Find the best path for each worker on each combination of patches
-//        std::map<BWAPI::Unit, std::map<std::pair<TilePosition, TilePosition>, WorkerGatherPlan>> allGatherPlans;
-//        for (auto worker : BWAPI::Broodwar->self()->getUnits())
-//        {
-//            if (!worker->getType().isWorker()) continue;
-//
-//            // Plan all of the patch combinations for this worker
-//            auto &workerPlans = allGatherPlans[worker];
-//            for (auto firstPatch : patches)
-//            {
-//                for (auto secondPatch : patches)
-//                {
-//                    workerPlans.emplace(std::make_pair(firstPatch, secondPatch),
-//                                        planPatchCombination(worker->getExactPosition(), firstPatch, secondPatch));
-//                }
-//            }
-//        }
+                for (auto &[thirdWorkerAssignment, thirdWorkerResult]
+                        : workerToPatchPermutationToInitialSplitData[workers[2]])
+                {
+                    if (thirdWorkerAssignment.first == firstWorkerAssignment.first) continue;
+                    if (thirdWorkerAssignment.second == firstWorkerAssignment.second) continue;
+                    if (thirdWorkerAssignment.first == secondWorkerAssignment.first) continue;
+                    if (thirdWorkerAssignment.second == secondWorkerAssignment.second) continue;
 
-        // Select the best combination of patch pairs for all of the workers
-        // We do this by evaluating all of the possible combinations and scoring them based on (in order):
-        // - earliest 7th collection, capped at frame 300 (so we can build our second worker as early as possible)
-        // - fastest average second collection (so the workers are assigned to fast patches after the initial split)
-        // TODO: How to handle uncertainty in order process timer resets in the scoring
+                    for (auto &[fourthWorkerAssignment, fourthWorkerResult]
+                            : workerToPatchPermutationToInitialSplitData[workers[3]])
+                    {
+                        if (fourthWorkerAssignment.first == firstWorkerAssignment.first) continue;
+                        if (fourthWorkerAssignment.second == firstWorkerAssignment.second) continue;
+                        if (fourthWorkerAssignment.first == secondWorkerAssignment.first) continue;
+                        if (fourthWorkerAssignment.second == secondWorkerAssignment.second) continue;
+                        if (fourthWorkerAssignment.first == thirdWorkerAssignment.first) continue;
+                        if (fourthWorkerAssignment.second == thirdWorkerAssignment.second) continue;
 
+                        std::multiset<uint16_t> result = {
+                            firstWorkerResult.worstSecondRotationActionFrame(),
+                            secondWorkerResult.worstSecondRotationActionFrame(),
+                            thirdWorkerResult.worstSecondRotationActionFrame(),
+                            fourthWorkerResult.worstSecondRotationActionFrame()
+                        };
+
+                        uint16_t seventhDelivery = *(std::prev(result.end(), 2));
+                        uint16_t eighthDelivery = *result.rbegin();
+                        if (seventhDelivery < bestSeventhDelivery || (seventhDelivery == bestSeventhDelivery && eighthDelivery < bestEighthDelivery))
+                        {
+                            bestSeventhDelivery = seventhDelivery;
+                            bestEighthDelivery = eighthDelivery;
+                            bestSolution = {
+                                firstWorkerAssignment,
+                                secondWorkerAssignment,
+                                thirdWorkerAssignment,
+                                fourthWorkerAssignment,
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        if (bestSeventhDelivery == UINT16_MAX)
+        {
+            Log::Get() << "ERROR: No worker combination found!";
+            return;
+        }
+
+        for (size_t workerIndex = 0; workerIndex < 4; workerIndex++)
+        {
+            auto &worker = workers[workerIndex];
+            auto &assignment = bestSolution[workerIndex];
+            auto &solveResult = workerToPatchPermutationToInitialSplitData[worker][assignment];
+
+#if VERBOSE_LOGGING
+            Log::Get() << worker->getID() << " assigned to " << assignment.first << " and " << assignment.second;
+            Log::Get() << worker->getID() << " first rotation: " << solveResult.firstRotation;
+#endif
+            CherryVis::log(worker->getID()) << " assigned to " << assignment.first << " and " << assignment.second;
+            CherryVis::log(worker->getID()) << "first rotation: " << solveResult.firstRotation;
+
+            workerStatuses[worker] = {
+                std::nullopt,
+                solveResult,
+                patchAt(assignment.first),
+                patchAt(assignment.second)
+            };
+        }
     }
 
     void InitialWorkerSplitTesterModule::onFrame()

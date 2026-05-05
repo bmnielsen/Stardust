@@ -48,8 +48,26 @@ namespace MiningOptimization
 
     struct InitialSplitData
     {
+    public:
         InitialSplitRotation firstRotation;
         std::map<uint16_t, InitialSplitRotation> firstRotationDeliveryToSecondRotation;
+
+        uint16_t worstSecondRotationActionFrame() const
+        {
+            if (!_worstSecondRotationActionFrame)
+            {
+                _worstSecondRotationActionFrame = 0;
+                for (const auto &[_, secondRotation] : firstRotationDeliveryToSecondRotation)
+                {
+                    _worstSecondRotationActionFrame = std::max(*_worstSecondRotationActionFrame, *secondRotation.returnActionFrames.rbegin());
+                }
+            }
+
+            return *_worstSecondRotationActionFrame;
+        }
+
+    private:
+        mutable std::optional<uint16_t> _worstSecondRotationActionFrame;
     };
 
     class MapData
