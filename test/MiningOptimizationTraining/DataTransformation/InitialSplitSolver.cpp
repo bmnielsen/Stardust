@@ -45,6 +45,7 @@ namespace MiningOptimizationTraining
                 int startFrame,
                 std::optional<int> requireResendAfterFrame,
                 std::optional<int> requireMiningEndBeforeFrame,
+                std::optional<int> avoidActionAtFrame,
                 bool pathStartsWithGatherCommand,
                 const std::set<int> &orderProcessTimerResetValues,
                 const InitialWorkerPathNode<ObservationType> &rootNode,
@@ -73,6 +74,18 @@ namespace MiningOptimizationTraining
                     for (const auto &pathResult : pathResults)
                     {
                         if ((pathResult.actionFrame + 84) >= *requireMiningEndBeforeFrame)
+                        {
+                            validResult = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (avoidActionAtFrame)
+                {
+                    for (const auto &pathResult : pathResults)
+                    {
+                        if (pathResult.actionFrame == *avoidActionAtFrame)
                         {
                             validResult = false;
                             break;
@@ -224,9 +237,10 @@ namespace MiningOptimizationTraining
                 .at(exactStartPosition)
                 .at(firstPatch);
         getPaths(firstGatherPathResults,
-                 1,
+                 0,
                  8,
                  158,
+                 std::nullopt,
                  true,
                  orderProcessTimerResetValues,
                  firstGatherRootNode,
@@ -265,6 +279,7 @@ namespace MiningOptimizationTraining
                      pathResult.actionFrame + 85,
                      std::nullopt,
                      std::nullopt,
+                     157,
                      false,
                      orderProcessTimerResetValues,
                      firstReturnRootNodeIt->second,
@@ -307,6 +322,7 @@ namespace MiningOptimizationTraining
                          returnPathResult.actionFrame + 1,
                          158,
                          308,
+                         std::nullopt,
                          firstPatch != secondPatch,
                          (returnPathResult.actionFrame > 158) ? allOrderProcessTimerResetValues : orderProcessTimerResetValues,
                          secondGatherRootNodeIt->second,
@@ -358,6 +374,7 @@ namespace MiningOptimizationTraining
                              gatherPathResult.actionFrame + 85,
                              std::nullopt,
                              std::nullopt,
+                             307,
                              false,
                              ((gatherPathResult.actionFrame + 85) > 158) ? allOrderProcessTimerResetValues : orderProcessTimerResetValues,
                              secondReturnRootNodeIt->second,

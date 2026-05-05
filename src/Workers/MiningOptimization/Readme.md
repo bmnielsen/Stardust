@@ -156,6 +156,12 @@ Since reissuing the return cargo command changes the path, we cannot simply obse
 
 A worker will stop completely while waiting at the depot to return its cargo. However, if the timing works out that the worker delivers its cargo at the exact frame it arrives, it will maintain some of its speed. In some cases, this is an advantage, as the worker reaches its maximum speed back towards the patch more quickly. However, subpixel collisions are also more likely to happen when the worker has higher speed, so for some paths it is a net benefit to optimize to return resources the frame after arriving at the depot.
 
+The exact order processing when returning minerals is as follows:
+- When the worker has order ReturnMinerals, its distance to the depot is 0, and its order process timer is 0, it processes the delivery of minerals and queues the next order MoveToMinerals with order state 0 to take effect on the next frame.
+- When the worker has order MoveToMinerals in order state 0 and its order process timer is 0, it resets its movement state to start moving towards the patch again and sets the order state to 1.
+
+If an order process timer reset happens between these two steps (i.e. on the frame after delivery of minerals), the worker will stall in MoveToMinerals with order state 0 until the order process timer cycle reaches 0 again. Returning minerals on the frame before an order process timer reset should therefore be avoided.  
+
 ## A note of caution about frame timing
 
 A frame in BW with BWAPI is executed in this order:

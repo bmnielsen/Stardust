@@ -229,13 +229,13 @@ namespace MiningOptimizationTraining
                         }
 
                         // Set the type of resend node
-                        if (noResendPath.size() > limits.startOfExplorationWindow && noResendPath.size() < simulatedPath.size())
-                        {
-                            resendNode->type = NodeType::PoorResendNode;
-                        }
-                        else if (resendFrames.size() >= limits.resends)
+                        if (resendFrames.size() >= limits.resends)
                         {
                             resendNode->type = NodeType::FinalResendNode;
+                        }
+                        else if (noResendPath.size() > limits.startOfExplorationWindow && noResendPath.size() < simulatedPath.size())
+                        {
+                            resendNode->type = NodeType::PoorResendNode;
                         }
                         else
                         {
