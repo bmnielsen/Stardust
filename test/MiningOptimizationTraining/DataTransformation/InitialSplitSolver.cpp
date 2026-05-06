@@ -29,6 +29,14 @@ namespace MiningOptimizationTraining
     {
         std::set<int> allOrderProcessTimerResetValues = {0, 1, 2, 3, 4, 5, 6, 7};
 
+        // On the first return, we avoid action on frame 153 and 157 to avoid complications due to order process timer resets
+        // For 153, if we switch to a different patch, the order process timer reset will happen during the gather command processing
+        // For 157, the order process timer reset happens between delivery and initializing the move to the patch
+        std::set<int> avoidActionFramesFirstReturn = {153, 157};
+
+        // On the second return, we don't switch patches again so we only have to consider the second case from above
+        std::set<int> avoidActionFramesSecondReturn = {307};
+
         template <typename ObservationType>
         struct QueuedNode
         {
@@ -43,7 +51,7 @@ namespace MiningOptimizationTraining
                 int startFrame,
                 std::optional<int> requireResendAfterFrame,
                 std::optional<int> requireMiningEndBeforeFrame,
-                std::optional<int> avoidActionAtFrame,
+                std::optional<std::set<int>*> avoidActionAtFrames,
                 bool pathStartsWithGatherCommand,
                 const std::set<int> &orderProcessTimerResetValues,
                 const InitialWorkerPathNode<ObservationType> &rootNode,
@@ -79,11 +87,11 @@ namespace MiningOptimizationTraining
                     }
                 }
 
-                if (avoidActionAtFrame)
+                if (avoidActionAtFrames)
                 {
                     for (const auto &pathResult : pathResults)
                     {
-                        if (pathResult.actionFrame == *avoidActionAtFrame)
+                        if ((*avoidActionAtFrames)->contains(pathResult.actionFrame))
                         {
                             validResult = false;
                             break;
@@ -277,7 +285,7 @@ namespace MiningOptimizationTraining
                      pathResult.actionFrame + 85,
                      std::nullopt,
                      std::nullopt,
-                     157,
+                     &avoidActionFramesFirstReturn,
                      false,
                      orderProcessTimerResetValues,
                      firstReturnRootNodeIt->second,
@@ -374,7 +382,7 @@ namespace MiningOptimizationTraining
                              gatherPathResult.actionFrame + 85,
                              std::nullopt,
                              std::nullopt,
-                             307,
+                             &avoidActionFramesSecondReturn,
                              false,
                              ((gatherPathResult.actionFrame + 85) > 158) ? allOrderProcessTimerResetValues : orderProcessTimerResetValues,
                              secondReturnRootNodeIt->second,
