@@ -393,6 +393,8 @@ namespace MiningOptimizationTraining
                     }
                     if (!worker->isCarryingMinerals())
                     {
+                        deliveryCount++;
+
                         EXPECT_TRUE(status.isFirstReturnActionFrame())
                                             << worker->getID() << ": " << currentFrame << " is not an expected first return action frame";
                         if (status.firstPatch != status.secondPatch)
@@ -447,6 +449,9 @@ namespace MiningOptimizationTraining
                     }
                     if (!worker->isCarryingMinerals())
                     {
+                        deliveryCount++;
+                        if (deliveryCount == 7) seventhDeliveryFrame = currentFrame;
+
                         EXPECT_TRUE(status.isSecondReturnActionFrame())
                                             << worker->getID() << ": " << currentFrame << " is not an expected second return action frame";
                         status.state++;

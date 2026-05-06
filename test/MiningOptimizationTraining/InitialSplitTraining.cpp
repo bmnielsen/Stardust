@@ -125,19 +125,21 @@ namespace
         BWAPI::Race knownEnemyRace = BWAPI::Races::Unknown;
         auto runner = [&](BWTest test)
         {
+            auto module = InitialWorkerSplitTesterModule(data, knownEnemyRace, false);
             test.opponentModule = []()
             {
                 return new DoNothingModule();
             };
             test.myModule = [&]()
             {
-                return new InitialWorkerSplitTesterModule(data, knownEnemyRace, false);
+                return &module;
             };
             test.allowOpponentOutput = false;
             test.expectWin = false;
             test.writeReplay = false;
             test.frameLimit = 500;
             test.run();
+            std::cout << "Seventh delivery: " << module.seventhDeliveryFrame << std::endl;
         };
 
 //         BWTest test;

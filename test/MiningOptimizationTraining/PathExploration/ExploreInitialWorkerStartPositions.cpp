@@ -128,8 +128,9 @@ namespace MiningOptimizationTraining
 
         auto firstPatchPos = TilePosition::fromBWAPI(startPosition.patch->getTilePosition());
 
-        // Initialize a solver for each second patch that we will use to guide which positions we need to explore at each step
-        std::map<TilePosition, InitialSplitSolver> solvers;
+        // Initialize a solver for each second patch and enemy race that we will use to guide which positions we need to explore at each step
+        auto races = {BWAPI::Races::Unknown, BWAPI::Races::Zerg, BWAPI::Races::Protoss};
+        std::map<TilePosition, std::map<BWAPI::Race, InitialSplitSolver>> secondPatchToSolvers;
         {
             auto startPositionAndVelocity = PositionAndVelocity(startPosition.pos.x >> 8,
                                                                 startPosition.pos.y >> 8,
@@ -139,12 +140,16 @@ namespace MiningOptimizationTraining
             for (const auto &secondPatch : base->mineralPatches())
             {
                 auto secondPatchPos = TilePosition::fromBWAPI(secondPatch->tile);
-                solvers.try_emplace(secondPatchPos,
-                    initialWorkerMapData,
-                    startPositionAndVelocity,
-                    firstPatchPos,
-                    secondPatchPos,
-                    BWAPI::Races::Unknown);
+                auto &secondPatchSolvers = secondPatchToSolvers[secondPatchPos];
+                for (const auto &race : races)
+                {
+                    secondPatchSolvers.try_emplace(race,
+                        initialWorkerMapData,
+                        startPositionAndVelocity,
+                        firstPatchPos,
+                        secondPatchPos,
+                        race);
+                }
             }
         }
 
@@ -336,9 +341,12 @@ namespace MiningOptimizationTraining
                              startPosition.patch);
 
         // Run the first gather of all of the solvers
-        for (auto &[_, solver] : solvers)
+        for (auto &[_, raceSolvers] : secondPatchToSolvers)
         {
-            solver.executeFirstGather();
+            for (auto &[_, solver] : raceSolvers)
+            {
+                solver.executeFirstGather();
+            }
         }
 
         auto &returnPaths = initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths[startPosition.pos][firstPatchPos];
@@ -371,15 +379,21 @@ namespace MiningOptimizationTraining
         };
 
         // Explore the first return paths for each start position found by solving the first gather paths
-        for (auto &firstGatherPathResult : solvers.begin()->second.firstGatherPathResults)
+        for (auto &[_, solver] : secondPatchToSolvers.begin()->second)
         {
-            observeReturn(firstGatherPathResult.pathResults.begin()->nextPathStartPosition, startPosition.patch);
+            for (auto &firstGatherPathResult : solver.firstGatherPathResults)
+            {
+                observeReturn(firstGatherPathResult.pathResults.begin()->nextPathStartPosition, startPosition.patch);
+            }
         }
 
         // Run the first return of all of the solvers
-        for (auto &[_, solver] : solvers)
+        for (auto &[_, raceSolvers] : secondPatchToSolvers)
         {
-            solver.executeFirstReturn();
+            for (auto &[_, solver] : raceSolvers)
+            {
+                solver.executeFirstReturn();
+            }
         }
 
         // After the first rotation we explore switching to each patch
@@ -388,11 +402,29 @@ namespace MiningOptimizationTraining
             auto secondPatch = secondPatchResource->getBwapiUnitIfVisible();
             auto secondPatchPos = TilePosition::fromBWAPI(secondPatchResource->tile);
             auto patchPair = std::make_pair(firstPatchPos, secondPatchPos);
-            auto &solver = solvers.at(secondPatchPos);
+            auto &solvers = secondPatchToSolvers.at(secondPatchPos);
+
+            // Gather all of the unique start positions from the race-specific solvers
+            std::map<BWAPI::ExactPosition, std::pair<InitialSplitSolver::PathResult*, bool>> uniquePositionsAndRotationResult;
+            for (auto &[_, solver] : solvers)
+            {
+                for (auto &firstRotationResult : solver.firstReturnPathResults)
+                {
+                    for (auto &result : firstRotationResult.pathResults)
+                    {
+                        if (uniquePositionsAndRotationResult.contains(result.nextPathStartPosition)) continue;
+
+                        uniquePositionsAndRotationResult.try_emplace(result.nextPathStartPosition, &firstRotationResult, result.actionAtArrival);
+                    }
+                }
+            }
 
             // Explore all of the start positions resulting from the first rotation
-            for (auto &firstRotationResult : solver.firstReturnPathResults)
+            for (auto &[secondGatherStartPosition, firstRotationResultAndActionAtArrival]
+                    : uniquePositionsAndRotationResult)
             {
+                auto &firstRotationResult = *firstRotationResultAndActionAtArrival.first;
+
                 // Prepare the previous return path
                 auto returnPrepareResult = simWorker->prepareGatherPath(
                     BWAPI::PrepareGatherPathOptions(firstRotationResult.startPosition, initialStateWithNoCannons.state)
@@ -416,71 +448,46 @@ namespace MiningOptimizationTraining
                     resends.insert(returnPrepareResult->startFrame + (resend - firstRotationResult.startFrame) + 1);
                 }
 
-                auto observeSecondGatherPath = [&](bool forceAction, BWAPI::ExactPosition pathStartPosition)
+                auto gatherPrepareResult = simWorker->simulateGatherPath(
+                        BWAPI::SimulateGatherPathOptions(resends, returnPrepareResult->state)
+                                .setForceAction(firstRotationResultAndActionAtArrival.second)
+                                .setReturnStateAtStartOfNextPath());
+                if (!gatherPrepareResult)
                 {
-                    auto gatherPrepareResult = simWorker->simulateGatherPath(
-                            BWAPI::SimulateGatherPathOptions(resends, returnPrepareResult->state)
-                                    .setForceAction(forceAction)
-                                    .setReturnStateAtStartOfNextPath());
-                    if (!gatherPrepareResult)
-                    {
-                        Log::Get() << "ERROR: Path could not be simulated";
-                        return;
-                    }
-                    if (gatherPrepareResult->nextPathStartPosition != pathStartPosition)
-                    {
-                        Log::Get() << "ERROR: Path does not have proper start position";
-                        return;
-                    }
-
-                    auto &secondGatherRootNode =
-                            initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths
-                            [startPosition.pos]
-                            [patchPair]
-                            .emplace(pathStartPosition, pathStartPosition)
-                            .first->second;
-                    makePathObservations({GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
-                                         secondGatherRootNode,
-                                         gatherPrepareResult->actionFrame,
-                                         gatherPrepareResult->stateAtStartOfNextPath,
-                                         (secondPatch == startPosition.patch) ? nullptr : secondPatch);
-                };
-
-                // Simulate either once or twice depending on whether we have multiple possible outcomes
-                bool deliveryAtArrival = false;
-                bool deliveryAfterArrival = false;
-                for (auto &result : firstRotationResult.pathResults)
-                {
-                    if (result.actionAtArrival)
-                    {
-                        if (!deliveryAtArrival)
-                        {
-                            observeSecondGatherPath(true, result.nextPathStartPosition);
-                        }
-                        deliveryAtArrival = true;
-                    }
-                    else
-                    {
-                        if (!deliveryAfterArrival)
-                        {
-                            observeSecondGatherPath(false, result.nextPathStartPosition);
-                        }
-                        deliveryAfterArrival = true;
-                    }
+                    Log::Get() << "ERROR: Path could not be simulated";
+                    return;
                 }
+                if (gatherPrepareResult->nextPathStartPosition != secondGatherStartPosition)
+                {
+                    Log::Get() << "ERROR: Path does not have proper start position";
+                    return;
+                }
+
+                auto &secondGatherRootNode =
+                        initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths
+                        [startPosition.pos]
+                        [patchPair]
+                        .emplace(secondGatherStartPosition, secondGatherStartPosition)
+                        .first->second;
+                makePathObservations({GATHER_EXPLORATION_WINDOW_START, GATHER_EXPLORATION_WINDOW_END, GATHER_RESEND_LIMIT},
+                                     secondGatherRootNode,
+                                     gatherPrepareResult->actionFrame,
+                                     gatherPrepareResult->stateAtStartOfNextPath,
+                                     (secondPatch == startPosition.patch) ? nullptr : secondPatch);
             }
 
-            // Run the solver to get the best second gather paths
-            solver.executeSecondGather();
-
-            // Explore every second return path that comes up in the solver
-            for (auto &[_, v1] : solver.secondGatherPathResults)
+            // Explore every second return path that comes up in each solver
+            for (auto &[_, solver] : solvers)
             {
-                for (auto &v2 : v1)
+                solver.executeSecondGather();
+                for (auto &[_, v1] : solver.secondGatherPathResults)
                 {
-                    for (auto &result : v2)
+                    for (auto &v2 : v1)
                     {
-                        observeReturn(result.pathResults.begin()->nextPathStartPosition, secondPatch);
+                        for (auto &result : v2)
+                        {
+                            observeReturn(result.pathResults.begin()->nextPathStartPosition, secondPatch);
+                        }
                     }
                 }
             }

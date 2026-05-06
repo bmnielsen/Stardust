@@ -139,6 +139,8 @@ namespace MiningOptimizationTraining
         void onStart() override;
         void onFrame() override;
 
+        int seventhDeliveryFrame = -1;
+
     private:
         const InitialWorkerMapData &mapData;
         BWAPI::Race enemyRace;
@@ -150,5 +152,7 @@ namespace MiningOptimizationTraining
         std::map<BWAPI::Unit, WorkerStatus> workerStatuses;
 
         WorkerGatherPlan planPatchCombinationRandomly(BWAPI::Unit worker, BWAPI::Unit firstPatch, BWAPI::Unit secondPatch);
+
+        int deliveryCount = 0;
     };
 }
