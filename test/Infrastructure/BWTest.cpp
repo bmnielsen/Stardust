@@ -320,6 +320,8 @@ void BWTest::addClockPositionToReplayName()
 
 void BWTest::runGame(bool opponent)
 {
+    if (!writeReplay) Log::SetOutputToLogFile(false);
+
     BW::GameOwner gameOwner;
     BWAPI::BroodwarImpl_handle h(gameOwner.getGame());
     h->setCharacterName(opponent ? opponentName : "Startest");

@@ -15,6 +15,7 @@ namespace Log
     namespace
     {
         bool isOutputtingToConsole = false;
+        bool isOutputtingToLogFile = true;
         std::chrono::system_clock::time_point startTime;
         std::ofstream *log;
 #if DEBUG_LOGGING_ENABLED
@@ -50,7 +51,7 @@ namespace Log
             , csv(csv)
             , first(true)
     {
-        if (!logFile) return;
+        if (!logFile && !outputToConsole) return;
         if (csv) return;
 
         int seconds = currentFrame / 24;
@@ -144,9 +145,14 @@ namespace Log
         isOutputtingToConsole = outputToConsole;
     }
 
+    void SetOutputToLogFile(bool outputToLogFile)
+    {
+        isOutputtingToLogFile = outputToLogFile;
+    }
+
     LogWrapper Get()
     {
-        if (!log)
+        if (!log && isOutputtingToLogFile)
         {
             log = new std::ofstream();
             log->open(logFileName("Stardust_log"), std::ofstream::trunc);
@@ -160,7 +166,7 @@ namespace Log
 #if DEBUG_LOGGING_ENABLED
         if (!isDebugLogging) return {nullptr, false};
 
-        if (!debugLog)
+        if (!debugLog && isOutputtingToLogFile)
         {
             debugLog = new std::ofstream();
             debugLog->open(logFileName("Stardust_debug"), std::ofstream::trunc);

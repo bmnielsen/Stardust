@@ -40,7 +40,7 @@ namespace Log
         template<typename T> LogWrapper &operator<<(T const &value)
         {
 #if LOGGING_ENABLED
-            if (logFile)
+            if (logFile || outputToConsole)
             {
                 if (csv && !first) (*os) << ',';
                 (*os) << value;
@@ -58,6 +58,8 @@ namespace Log
     void SetDebug(bool debug);
 
     void SetOutputToConsole(bool outputToConsole);
+
+    void SetOutputToLogFile(bool outputToLogFile);
 
     LogWrapper Get();
 
