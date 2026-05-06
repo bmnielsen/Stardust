@@ -1,7 +1,5 @@
 #include "InitialSplitSolver.h"
 
-#include "OrderProcessTimer.h"
-
 /*
  * The initial split solver takes the trained initial split data (all of the likely useful paths on the first two rotations from all starting position
  * headings) and finds the best solution for a given combination of patches.
@@ -117,11 +115,10 @@ namespace MiningOptimizationTraining
                 int frame = node.frame;
                 while (current)
                 {
-                    if (frame >= (startFrame + BWAPI::Broodwar->getLatencyFrames() + 2) &&
+                    if (frame >= (startFrame + (BWAPI::Broodwar->getLatencyFrames() * (pathStartsWithGatherCommand ? 2 : 1)) + 2) &&
                         (!requireResendAfterFrame || frame > (*requireResendAfterFrame)) &&
                         current->type != NodeType::PoorResendNode &&
-                        !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()) &&
-                        !OrderProcessTimer::isResetFrame(frame + 3))
+                        !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
                     {
                         std::set<int> resends = node.resends;
                         resends.insert(frame);
@@ -271,7 +268,8 @@ namespace MiningOptimizationTraining
             auto firstReturnRootNodeIt = returnNodes.find(pathResult.nextPathStartPosition);
             if (firstReturnRootNodeIt == returnNodes.end())
             {
-                Log::Get() << "WARNING: Return nodes don't contain nextPathStartPosition from first gather " << pathResult.nextPathStartPosition;
+                Log::Get() << "WARNING: " << startPosition << "-" << firstPatch << "-" << secondPatch
+                           << ": Return nodes don't contain nextPathStartPosition from first gather " << pathResult.nextPathStartPosition;
                 continue;
             }
 
@@ -312,7 +310,8 @@ namespace MiningOptimizationTraining
                 auto secondGatherRootNodeIt = secondGatherRootNodes.find(returnPathResult.nextPathStartPosition);
                 if (secondGatherRootNodeIt == secondGatherRootNodes.end())
                 {
-                    Log::Get() << "WARNING: Second gather nodes don't contain nextPathStartPosition from first return "
+                    Log::Get() << "WARNING: " << startPosition << "-" << firstPatch << "-" << secondPatch
+                               << ": Second gather nodes don't contain nextPathStartPosition from first return "
                                << returnPathResult.nextPathStartPosition;
                     break;
                 }
@@ -365,7 +364,8 @@ namespace MiningOptimizationTraining
                     auto secondReturnRootNodeIt = returnNodes.find(gatherPathResult.nextPathStartPosition);
                     if (secondReturnRootNodeIt == returnNodes.end())
                     {
-                        Log::Get() << "WARNING: Return nodes don't contain nextPathStartPosition from second gather "
+                        Log::Get() << "WARNING: " << startPosition << "-" << firstPatch << "-" << secondPatch
+                                   << ": Return nodes don't contain nextPathStartPosition from second gather "
                                    << gatherPathResult.nextPathStartPosition;
                         continue;
                     }

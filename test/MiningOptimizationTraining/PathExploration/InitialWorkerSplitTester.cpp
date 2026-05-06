@@ -67,7 +67,7 @@ namespace MiningOptimizationTraining
 
             workers.emplace_back(worker);
 
-            if (!patches.empty()) continue;
+            if (!patches.empty() || firstGatherPaths == mapData.startingWorkerPositionToPatchToFirstGatherPath.end()) continue;
 
             for (const auto &[patchTile, _] : firstGatherPaths->second)
             {
@@ -82,6 +82,33 @@ namespace MiningOptimizationTraining
         };
         std::sort(workers.begin(), workers.end(), positionSorter);
         std::sort(patches.begin(), patches.end(), positionSorter);
+
+        // Testing a single worker patch combination
+        // {
+        //     auto workerIndex = 2;
+        //     auto firstPatch = TilePosition(123,13);
+        //     auto secondPatch = TilePosition(123,13);
+        //
+        //     auto solver2 = InitialSplitSolver(mapData,
+        //         PositionAndVelocity(workers[workerIndex]),
+        //         firstPatch,
+        //         secondPatch,
+        //         enemyRace);
+        //     auto result = solver2.execute();
+        //     if (result)
+        //     {
+        //         workerStatuses[workers[workerIndex]] = {
+        //             std::nullopt,
+        //             *result,
+        //             patchAt(firstPatch),
+        //             patchAt(secondPatch)
+        //         };
+        //
+        //         Log::Get() << workers[workerIndex]->getID() << " first rotation: " << result->firstRotation;
+        //         CherryVis::log(workers[workerIndex]->getID()) << "first rotation: " << result->firstRotation;
+        //     }
+        //     return;
+        // }
 
         if (chooseRandomResends)
         {

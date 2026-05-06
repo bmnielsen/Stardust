@@ -38,32 +38,43 @@ namespace MiningOptimizationTraining
     template <>
     void ExploreStartPositionsModule<ExploreInitialWorkerStartPosition>::initializeStartPositions()
     {
-        {
-            auto positions = {
-                PositionAndVelocity(264, 296, 32, 0, 0),
-                PositionAndVelocity(312, 296, -32, 0, 0),
-                PositionAndVelocity(240, 296, -16, 0, 0),
-                PositionAndVelocity(288, 296, 32, 0, 0)
-            };
-            auto testBase = Map::baseNear(*positions.begin());
-            for (auto patch : testBase->mineralPatches())
-            {
-                for (auto pos : positions)
-                {
-                    startPositions.emplace_back(ExploreInitialWorkerStartPosition{
-                        BWAPI::ExactPosition{
-                            (uint32_t)pos.x * 256,
-                            (uint32_t)pos.y * 256,
-                            pos.heading,
-                            0,
-                            0
-                        },
-                        patch->getBwapiUnitIfVisible()
-                    });
-                }
-            }
-            return;
-        }
+        // auto startPositionAndVelocity = PositionAndVelocity(3808, 328, -120, 0, 0);
+        // auto secondPatchPos = TilePosition(123, 13);
+        // auto solver = InitialSplitSolver(
+        //     initialWorkerMapData,
+        //     startPositionAndVelocity,
+        //     secondPatchPos,
+        //     secondPatchPos,
+        //     BWAPI::Races::Unknown);
+        // solver.execute();
+        // return;
+        //
+        // {
+        //     auto positions = {
+        //         PositionAndVelocity(3808, 328, -120, 0, 0),
+        //         // PositionAndVelocity(264, 296, 16, 0, 0),
+        //         // PositionAndVelocity(288, 296, 72, 0, 0),
+        //         // PositionAndVelocity(312, 296, -40, 0, 0)
+        //     };
+        //     auto testBase = Map::baseNear(*positions.begin());
+        //     for (auto patch : testBase->mineralPatches())
+        //     {
+        //         for (auto pos : positions)
+        //         {
+        //             startPositions.emplace_back(ExploreInitialWorkerStartPosition{
+        //                 BWAPI::ExactPosition{
+        //                     (uint32_t)pos.x * 256,
+        //                     (uint32_t)pos.y * 256,
+        //                     pos.heading,
+        //                     0,
+        //                     0
+        //                 },
+        //                 patch->getBwapiUnitIfVisible()
+        //             });
+        //         }
+        //     }
+        //     return;
+        // }
 
         initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath.clear();
         initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths.clear();
