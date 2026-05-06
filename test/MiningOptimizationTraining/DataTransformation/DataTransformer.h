@@ -4,5 +4,5 @@
 
 namespace MiningOptimizationTraining::DataTransformer
 {
-    void transform(const MapData &trainingData);
+    void transform(const MapData &trainingData, const InitialWorkerMapData &initialWorkerTrainingData);
 }

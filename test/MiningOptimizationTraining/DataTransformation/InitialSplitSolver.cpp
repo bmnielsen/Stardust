@@ -115,10 +115,10 @@ namespace MiningOptimizationTraining
                 int frame = node.frame;
                 while (current)
                 {
-                    if (frame >= (startFrame + (BWAPI::Broodwar->getLatencyFrames() * (pathStartsWithGatherCommand ? 2 : 1)) + 2) &&
+                    if (frame >= (startFrame + (3 * (pathStartsWithGatherCommand ? 2 : 1)) + 2) &&
                         (!requireResendAfterFrame || frame > (*requireResendAfterFrame)) &&
                         current->type != NodeType::PoorResendNode &&
-                        !node.resends.contains(frame - BWAPI::Broodwar->getLatencyFrames()))
+                        !node.resends.contains(frame - 3))
                     {
                         std::set<int> resends = node.resends;
                         resends.insert(frame);

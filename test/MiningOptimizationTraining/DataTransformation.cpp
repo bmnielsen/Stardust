@@ -10,17 +10,24 @@ namespace
     void transform(const std::string &mapHash)
     {
         MapData data;
+        InitialWorkerMapData initialWorkerData;
 
         Serialization::setGameParameters(mapHash);
         Serialization::readMapData(data);
+        Serialization::readMapData(initialWorkerData);
 
-        DataTransformer::transform(data);
+        DataTransformer::transform(data, initialWorkerData);
     }
 }
 
 TEST(DataTransformation, Vermeer)
 {
     transform(Maps::GetOne("Vermeer")->openbwHash);
+}
+
+TEST(DataTransformation, Benzene)
+{
+    transform(Maps::GetOne("Benzene")->openbwHash);
 }
 
 TEST(DataTransformation, AllSSCAIT)

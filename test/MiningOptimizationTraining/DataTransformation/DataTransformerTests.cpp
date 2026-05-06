@@ -6,6 +6,7 @@
 TEST(DataTransformerTests, PositionDeltaIndex)
 {
     MiningOptimizationTraining::MapData trainingData;
+    MiningOptimizationTraining::InitialWorkerMapData initialWorkerTrainingData;
     trainingData.mapHash = "test";
 
     MiningOptimizationTraining::PositionAndVelocity rootPos(100, 100, 10, 10, 10);
@@ -27,7 +28,7 @@ TEST(DataTransformerTests, PositionDeltaIndex)
 
     trainingData.resourceToGatherPaths.emplace(TilePosition(0, 0), std::move(rootNodes));
 
-    MiningOptimizationTraining::DataTransformer::transform(trainingData);
+    MiningOptimizationTraining::DataTransformer::transform(trainingData, initialWorkerTrainingData);
 
     MiningOptimization::MapData outputData;
     MiningOptimization::Serialization::setGameParameters("test");
@@ -63,6 +64,7 @@ TEST(DataTransformerTests, PositionDeltaIndex)
 TEST(DataTransformerTests, OccurrenceRounding)
 {
     MiningOptimizationTraining::MapData trainingData;
+    MiningOptimizationTraining::InitialWorkerMapData initialWorkerTrainingData;
     trainingData.mapHash = "test";
 
     MiningOptimizationTraining::PositionAndVelocity rootPos(100, 100, 10, 10, 10);
@@ -107,7 +109,7 @@ TEST(DataTransformerTests, OccurrenceRounding)
 
     trainingData.resourceToGatherPaths.emplace(TilePosition(1, 0), std::move(rootNodes2));
 
-    MiningOptimizationTraining::DataTransformer::transform(trainingData);
+    MiningOptimizationTraining::DataTransformer::transform(trainingData, initialWorkerTrainingData);
 
     MiningOptimization::MapData outputData;
     MiningOptimization::Serialization::setGameParameters("test");
@@ -135,6 +137,7 @@ TEST(DataTransformerTests, OccurrenceRounding)
 TEST(DataTransformerTests, GatherArrivalPacking)
 {
     MiningOptimizationTraining::MapData trainingData;
+    MiningOptimizationTraining::InitialWorkerMapData initialWorkerTrainingData;
     trainingData.mapHash = "test";
 
     // Set up the root node data for the return paths
@@ -202,7 +205,7 @@ TEST(DataTransformerTests, GatherArrivalPacking)
 
     trainingData.resourceToGatherPaths.emplace(TilePosition(0, 0), std::move(rootNodes));
 
-    MiningOptimizationTraining::DataTransformer::transform(trainingData);
+    MiningOptimizationTraining::DataTransformer::transform(trainingData, initialWorkerTrainingData);
 
     MiningOptimization::MapData outputData;
     MiningOptimization::Serialization::setGameParameters("test");
@@ -254,6 +257,7 @@ TEST(DataTransformerTests, GatherArrivalPacking)
 TEST(DataTransformerTests, ReturnArrivalPacking)
 {
     MiningOptimizationTraining::MapData trainingData;
+    MiningOptimizationTraining::InitialWorkerMapData initialWorkerTrainingData;
     trainingData.mapHash = "test";
 
     // Set up the root node data for the gather paths
@@ -320,7 +324,7 @@ TEST(DataTransformerTests, ReturnArrivalPacking)
 
     trainingData.resourceToReturnPaths.emplace(TilePosition(0, 0), std::move(rootNodes));
 
-    MiningOptimizationTraining::DataTransformer::transform(trainingData);
+    MiningOptimizationTraining::DataTransformer::transform(trainingData, initialWorkerTrainingData);
 
     MiningOptimization::MapData outputData;
     MiningOptimization::Serialization::setGameParameters("test");

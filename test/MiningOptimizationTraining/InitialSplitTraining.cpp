@@ -191,7 +191,17 @@ TEST(ExploreInitialStartPositions, Vermeer)
     initialPathExploration(*Maps::GetOne("Vermeer"));
 }
 
+TEST(ExploreInitialStartPositions, Benzene)
+{
+    initialPathExploration(*Maps::GetOne("Benzene"));
+}
+
 TEST(InitialSplitTest, Vermeer)
 {
     initialSplitTest(*Maps::GetOne("Vermeer"));
+}
+
+TEST(InitialSplitTest, Benzene)
+{
+    initialSplitTest(*Maps::GetOne("Benzene"));
 }

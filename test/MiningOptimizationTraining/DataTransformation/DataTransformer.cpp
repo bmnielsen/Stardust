@@ -1,5 +1,6 @@
 #include "DataTransformer.h"
 
+#include "InitialSplitSolver.h"
 #include "MiningOptimizationV2/DataModel/MapData.h"
 #include "MiningOptimizationV2/DataModel/Serialization.h"
 
@@ -467,7 +468,7 @@ namespace MiningOptimizationTraining::DataTransformer
         }
     }
 
-    void transform(const MapData &trainingData)
+    void transform(const MapData &trainingData, const InitialWorkerMapData &initialWorkerTrainingData)
     {
         MiningOptimization::MapData outputData;
         outputData.mapHash = trainingData.mapHash;
@@ -563,6 +564,76 @@ namespace MiningOptimizationTraining::DataTransformer
                   outputData.resourceToSerializedReturnPaths,
                   positionDeltaToIndex,
                   tenDistanceAndResendAlwaysArrivesToIndex);
+        std::cout << "...done!" << std::endl;
+
+        std::cout << "Running initial worker split solver..." << std::endl;
+        for (const auto &[spawnPosition, _] : initialWorkerTrainingData.startingWorkerPositionToOrderProcessTimerReset)
+        {
+            auto position = MiningOptimization::PositionAndVelocity(
+                spawnPosition.x,
+                spawnPosition.y,
+                0,
+                0,
+                0,
+                false);
+            auto trainingPosition = PositionAndVelocity(
+                spawnPosition.x,
+                spawnPosition.y,
+                0,
+                0,
+                0);
+            auto exactPosition = BWAPI::ExactPosition{
+                (uint32_t)spawnPosition.x * 256,
+                (uint32_t)spawnPosition.y * 256,
+                0, 0, 0
+            };
+            if (!initialWorkerTrainingData.startingWorkerPositionToPatchToFirstGatherPath.contains(exactPosition)) continue;
+
+            std::vector<TilePosition> patches;
+            for (const auto &[tile, _]
+                    : initialWorkerTrainingData.startingWorkerPositionToPatchToFirstGatherPath.at(exactPosition))
+            {
+                patches.emplace_back(tile);
+            }
+
+            for (int heading = INT8_MIN; heading <= INT8_MAX; heading += 8)
+            {
+                position.heading = (int8_t)heading;
+                trainingPosition.heading = (int8_t)heading;
+                exactPosition.heading = (int8_t)heading;
+
+                auto &unknown = outputData.startLocationToPatchPairToInitialSplitDataUnknown[position];
+                auto &zerg = outputData.startLocationToPatchPairToInitialSplitDataZerg[position];
+                auto &notZerg = outputData.startLocationToPatchPairToInitialSplitDataNotZerg[position];
+
+                for (const auto &firstPatch : patches)
+                {
+                    for (const auto &secondPatch : patches)
+                    {
+                        auto patchPair = std::make_pair(firstPatch, secondPatch);
+
+                        auto runSolver = [&](BWAPI::Race race,
+                                             std::map<std::pair<TilePosition, TilePosition>, MiningOptimization::InitialSplitData> &output)
+                        {
+                            auto result = InitialSplitSolver(
+                                initialWorkerTrainingData,
+                                trainingPosition,
+                                firstPatch,
+                                secondPatch,
+                                race).execute();
+                            if (result)
+                            {
+                                output.emplace(patchPair, std::move(*result));
+                            }
+                        };
+                        runSolver(BWAPI::Races::Unknown, unknown);
+                        runSolver(BWAPI::Races::Zerg, zerg);
+                        runSolver(BWAPI::Races::Protoss, notZerg);
+                    }
+                }
+            }
+        }
+
         std::cout << "...done!" << std::endl;
 
         // Finally serialize everything

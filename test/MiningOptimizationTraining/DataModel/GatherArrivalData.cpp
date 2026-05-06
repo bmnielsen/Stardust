@@ -132,7 +132,7 @@ namespace MiningOptimizationTraining
         {
             // When there is no resend, but the path started with a gather command, we adjust the reference frame to account for the gather command
             // and latency
-            referenceFrame += BWAPI::Broodwar->getLatencyFrames();
+            referenceFrame += 3;
         }
         else
         {
