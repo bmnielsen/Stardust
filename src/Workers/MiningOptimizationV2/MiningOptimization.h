@@ -3,6 +3,7 @@
 #include "Common.h"
 #include "MyWorker.h"
 #include "Resource.h"
+#include "DataModel/MapData.h"
 
 namespace MiningOptimization
 {
@@ -21,4 +22,7 @@ namespace MiningOptimization
 
     // Optimizes returning a resource
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
+
+    // Performs the initial worker split, assigning each initial worker to a patch
+    std::map<MyWorker, std::tuple<Resource, Resource, std::optional<InitialSplitData>>> initialWorkerSplit();
 }

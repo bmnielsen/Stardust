@@ -3,13 +3,18 @@
 
 #include "WorkerMiningOptimization.h"
 
+#include "Map.h"
 #include "ObservationDataFiles.h"
 
 #include "TilePosition.h"
 #include "PositionAndVelocity.h"
+#include "Units.h"
 
 #if INSTRUMENTATION_ENABLED
 #define OUTPUT_METADATA_ANALYSIS false
+#endif
+#if INSTRUMENTATION_ENABLED_VERBOSE
+#define WARN_ON_NO_RESOURCE_DATA true
 #endif
 
 namespace WorkerMiningOptimization
@@ -315,5 +320,113 @@ namespace WorkerMiningOptimization
     void setUpdateResourceObservations(bool newUpdateResourceObservations)
     {
         updatingResourceObservations = newUpdateResourceObservations;
+    }
+
+    std::map<MyWorker, std::tuple<Resource, Resource, std::optional<MiningOptimization::InitialSplitData>>> initialWorkerSplit()
+    {
+        // There can be quite a bit of variance in the timings for each initial worker depending on its initial heading and how its order timer
+        // is reset. We therefore are a bit conservative here by penalizing positions with high variance and optimizing all four workers even
+        // though we only need returns from three to reach the 50 mineral mark
+
+        auto &mineralPatches = Map::getMyMain()->mineralPatches();
+        std::vector<std::pair<std::array<unsigned int, 4>, unsigned int>> resourceData;
+        for (auto &patch : mineralPatches)
+        {
+            auto &observations = resourceObservationsFor(patch);
+
+            resourceData.emplace_back(std::array<unsigned int, 4>{
+                    observations.startingWorkerObservationsFor(0).averageWithVariance(),
+                    observations.startingWorkerObservationsFor(1).averageWithVariance(),
+                    observations.startingWorkerObservationsFor(2).averageWithVariance(),
+                    observations.startingWorkerObservationsFor(3).averageWithVariance(),
+            }, observations.singleWorkerRotations.average);
+
+            if (resourceData.back().first[0] == 0 ||
+                resourceData.back().first[1] == 0 ||
+                resourceData.back().first[2] == 0 ||
+                resourceData.back().first[3] == 0)
+            {
+    #if WARN_ON_NO_RESOURCE_DATA
+                Log::Get() << "WARNING: No resource observation data available for initial split";
+    #endif
+                return {};
+            }
+        }
+
+        std::array<int, 4> bestAssignments = {-1, -1, -1, -1};
+        unsigned int bestCollectionTime = UINT32_MAX;
+        unsigned int bestRotationTime = UINT32_MAX;
+        for (int index1 = 0; index1 < mineralPatches.size(); index1++)
+        {
+            auto collection1 = resourceData[index1].first[0];
+
+            for (int index2 = 0; index2 < mineralPatches.size(); index2++)
+            {
+                if (index1 == index2) continue;
+
+                auto collection2 = resourceData[index2].first[1];
+
+                for (int index3 = 0; index3 < mineralPatches.size(); index3++)
+                {
+                    if (index1 == index3) continue;
+                    if (index2 == index3) continue;
+
+                    auto collection3 = resourceData[index3].first[2];
+
+                    for (int index4 = 0; index4 < mineralPatches.size(); index4++)
+                    {
+                        if (index1 == index4) continue;
+                        if (index2 == index4) continue;
+                        if (index3 == index4) continue;
+
+                        auto largestCollectionTime = std::max({collection1, collection2, collection3, resourceData[index4].first[3]});
+                        if (largestCollectionTime > bestCollectionTime) continue;
+
+                        uint32_t rotationTime =
+                                resourceData[index1].second +
+                                resourceData[index2].second +
+                                resourceData[index3].second +
+                                resourceData[index4].second;
+                        if (largestCollectionTime == bestCollectionTime && rotationTime >= bestRotationTime) continue;
+
+                        bestCollectionTime = largestCollectionTime;
+                        bestRotationTime = rotationTime;
+                        bestAssignments[0] = index1;
+                        bestAssignments[1] = index2;
+                        bestAssignments[2] = index3;
+                        bestAssignments[3] = index4;
+                    }
+                }
+            }
+        }
+        if (bestAssignments[0] == -1) return {};
+
+        // Now assign the workers appropriately
+        auto startingWorkerPositions = Map::mapSpecificOverride()->startingWorkerPositions(BWAPI::Broodwar->self()->getStartLocation());
+        if (startingWorkerPositions.size() != 4) return {};
+
+        std::map<MyWorker, std::tuple<Resource, Resource, std::optional<MiningOptimization::InitialSplitData>>> assignments;
+        for (int i = 0; i < startingWorkerPositions.size(); i++)
+        {
+            // Find the worker
+            MyWorker worker = nullptr;
+            for (auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+            {
+                if (unit->lastPosition != startingWorkerPositions[i]) continue;
+                worker = std::static_pointer_cast<MyWorkerImpl>(unit);
+                break;
+            }
+            if (!worker)
+            {
+                Log::Get() << "ERROR: No starting worker found at " << startingWorkerPositions[i];
+                return {};
+            }
+
+            // Assign it to the patch
+            assignments.try_emplace(worker, mineralPatches[bestAssignments[i]], mineralPatches[bestAssignments[i]], std::nullopt);
+        }
+
+        Log::Get() << "Initial worker split made from observations; expect 7th collection before frame " << bestCollectionTime;
+        return assignments;
     }
 }

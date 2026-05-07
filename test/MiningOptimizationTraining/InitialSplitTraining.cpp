@@ -6,6 +6,8 @@
 #include "MiningOptimizationTraining/PathExploration/InitialWorkerSplitTester.h"
 #include "ClearOpponentUnitsModule.h"
 
+#include <random>
+
 #define VERBOSE_LOGGING false
 
 using namespace MiningOptimizationTraining;
@@ -171,11 +173,64 @@ namespace
             runner(test);
         }
     }
+
+    void initialSplitMeasurement(const Maps::MapMetadata &map)
+    {
+        auto rng = std::default_random_engine(42);
+        std::uniform_int_distribution<> randomSeedDistribution(1, 100000);
+
+        unsigned long accumulator = 0;
+        unsigned long count = 0;
+        auto runner = [&](BWTest test, BWAPI::Race opponentRace)
+        {
+            test.opponentModule = []()
+            {
+                return new DoNothingModule();
+            };
+            test.opponentRace = opponentRace;
+            test.allowOpponentOutput = false;
+            test.randomSeed = randomSeedDistribution(rng);
+            test.expectWin = false;
+            test.writeReplay = false;
+            test.frameLimit = 500;
+            bool seventhCollectionDone = false;
+            test.onFrameMine = [&]()
+            {
+                if (seventhCollectionDone) return;
+                if (BWAPI::Broodwar->self()->gatheredMinerals() >= 100)
+                {
+                    seventhCollectionDone = true;
+                    accumulator += currentFrame;
+                    count++;
+                    BWAPI::Broodwar->leaveGame();
+                }
+            };
+            test.run();
+        };
+
+        std::vector<BWAPI::Race> races = {BWAPI::Races::Random, BWAPI::Races::Zerg, BWAPI::Races::Terran};
+        for (int i = 0; i < 30; i++)
+        {
+            BWTest test;
+            test.maps = {map};
+            runner(test, races[i % 3]);
+        }
+
+        std::cout << std::fixed << std::setprecision(1)
+                  << "Overall results: " << std::endl
+                  << " Count of games: " << count << std::endl
+                  << " Average seventh collection frame: " << ((double)accumulator / (double)count);
+    }
 }
 
 TEST(InitializeOrderProcessTimerResetValues, Vermeer)
 {
     initializeOrderProcessTimerResetValues(*Maps::GetOne("Vermeer"));
+}
+
+TEST(InitializeOrderProcessTimerResetValues, Benzene)
+{
+    initializeOrderProcessTimerResetValues(*Maps::GetOne("Benzene"));
 }
 
 TEST(InitializeOrderProcessTimerResetValues, AllSSCAIT)
@@ -204,4 +259,9 @@ TEST(InitialSplitTest, Vermeer)
 TEST(InitialSplitTest, Benzene)
 {
     initialSplitTest(*Maps::GetOne("Benzene"));
+}
+
+TEST(InitialSplitMeasurement, Benzene)
+{
+    initialSplitMeasurement(*Maps::GetOne("Benzene"));
 }

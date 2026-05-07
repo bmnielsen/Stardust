@@ -10,13 +10,13 @@
 #include "Strategist.h"
 
 #include "DebugFlag_UnitOrders.h"
+#include "MiningOptimizationV2/DataModel/MapData.h"
 
 #if INSTRUMENTATION_ENABLED
 #define CVIS_LOG_WORKER_ASSIGNMENTS true
 #endif
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE false
-#define WARN_ON_NO_RESOURCE_DATA true
 #endif
 
 namespace Workers
@@ -28,6 +28,129 @@ namespace Workers
             None, Minerals, Gas, Reserved
         };
 
+        struct InitialWorkerState
+        {
+            MyWorker worker;
+            Resource firstPatch;
+            Resource secondPatch;
+            MiningOptimization::InitialSplitData initialSplitData;
+            MiningOptimization::InitialSplitRotation* secondRotation = nullptr;
+            int state = 0;
+
+            bool execute()
+            {
+                auto sendGather = [&](const Resource &patch)
+                {
+                    auto patchUnit = patch->getBwapiUnitIfVisible();
+                    if (!patchUnit)
+                    {
+                        Log::Get() << "ERROR: Initial split patch " << patch->tile << " is not accessible";
+                        return;
+                    }
+
+                    if (!worker->gather(patchUnit))
+                    {
+                        Log::Get() << "ERROR: Initial split worker " << *worker << " could not gather patch " << patch->tile
+                                   << ": " << BWAPI::Broodwar->getLastError();
+                    }
+                    else
+                    {
+                        CherryVis::log(worker->id) << "Sent gather command to patch " << *patch;
+                    }
+                };
+                auto sendReturn = [&]()
+                {
+                    if (!worker->returnCargo())
+                    {
+                        Log::Get() << "ERROR: Initial split worker " << *worker << " could not return cargo"
+                                   << ": " << BWAPI::Broodwar->getLastError();
+                    }
+                    else
+                    {
+                        CherryVis::log(worker->id) << "Sent return cargo command";
+                    }
+                };
+
+                switch (state)
+                {
+                    case 0:
+                    {
+                        CherryVis::log(worker->id) << "First rotation: " << initialSplitData.firstRotation;
+                        sendGather(firstPatch);
+                        ++state;
+                        break;
+                    }
+                    case 1:
+                    case 4:
+                    {
+                        auto &activeRotation = (state == 1) ? initialSplitData.firstRotation : *secondRotation;
+                        auto &activePatch = (state == 1) ? firstPatch : secondPatch;
+                        if (activeRotation.resendFrames.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                        {
+                            sendGather(activePatch);
+                        }
+                        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
+                        {
+                            if (currentFrame != activeRotation.gatherActionFrame)
+                            {
+                                Log::Get() << "ERROR: Worker " << *worker << " gather action frame incorrect; expected "
+                                           << activeRotation.gatherActionFrame;
+                                return false;
+                            }
+                            ++state;
+                        }
+                        break;
+                    }
+                    case 2:
+                    case 5:
+                        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::ReturnMinerals)
+                        {
+                            ++state;
+                        }
+                        break;
+                    case 3:
+                        if (initialSplitData.firstRotation.resendFrames.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                        {
+                            sendReturn();
+                        }
+                        if (!worker->carryingResource)
+                        {
+                            if (firstPatch->tile != secondPatch->tile)
+                            {
+                                sendGather(secondPatch);
+                            }
+
+                            auto secondRotationIt = initialSplitData.firstRotationDeliveryToSecondRotation.find(currentFrame);
+                            if (secondRotationIt == initialSplitData.firstRotationDeliveryToSecondRotation.end())
+                            {
+                                Log::Get() << "ERROR: Worker " << *worker << " first return action frame incorrect";
+                                return false;
+                            }
+                            secondRotation = &secondRotationIt->second;
+                            CherryVis::log(worker->id) << "Second rotation: " << *secondRotation;
+
+                            ++state;
+                        }
+                        break;
+                    case 6:
+                        if (secondRotation->resendFrames.contains(currentFrame + BWAPI::Broodwar->getLatencyFrames()))
+                        {
+                            sendReturn();
+                        }
+                        if (!worker->carryingResource)
+                        {
+                            if (!secondRotation->returnActionFrames.contains(currentFrame))
+                            {
+                                Log::Get() << "ERROR: Worker " << *worker << " second return action frame incorrect";
+                            }
+                            return false;
+                        }
+                        break;
+                }
+                return true;
+            }
+        };
+
         int _desiredGasWorkerDelta;
         std::map<MyWorker, Job> workerJob;
         std::map<MyWorker, Base *> workerBase;
@@ -36,6 +159,8 @@ namespace Workers
         std::map<Resource, std::set<MyWorker>> mineralPatchWorkers;
         std::map<MyWorker, Resource> workerRefinery;
         std::map<Resource, std::set<MyWorker>> refineryWorkers;
+
+        std::map<MyWorker, InitialWorkerState> initialSplitState;
 
         int mineralWorkerCount;
         std::pair<int, int> gasWorkerCount;
@@ -119,187 +244,26 @@ namespace Workers
             return count;
         }
 
-        bool assignInitialMineralWorkersFromObservations()
-        {
-            // TODO: Implement new initial worker optimizer
-            return false;
-
-//            // There can be quite a bit of variance in the timings for each initial worker depending on its initial heading and how its order timer
-//            // is reset. We therefore are a bit conservative here by penalizing positions with high variance and optimizing all four workers even
-//            // though we only need returns from three to reach the 50 mineral mark
-//
-//            auto &mineralPatches = Map::getMyMain()->mineralPatches();
-//            std::vector<std::pair<std::array<unsigned int, 4>, unsigned int>> resourceData;
-//            for (auto &patch : mineralPatches)
-//            {
-//                auto &observations = WorkerMiningOptimization::resourceObservationsFor(patch);
-//
-//                resourceData.emplace_back(std::array<unsigned int, 4>{
-//                        observations.startingWorkerObservationsFor(0).averageWithVariance(),
-//                        observations.startingWorkerObservationsFor(1).averageWithVariance(),
-//                        observations.startingWorkerObservationsFor(2).averageWithVariance(),
-//                        observations.startingWorkerObservationsFor(3).averageWithVariance(),
-//                }, observations.singleWorkerRotations.average);
-//
-//                if (resourceData.back().first[0] == 0 ||
-//                    resourceData.back().first[1] == 0 ||
-//                    resourceData.back().first[2] == 0 ||
-//                    resourceData.back().first[3] == 0)
-//                {
-//#if WARN_ON_NO_RESOURCE_DATA
-//                    Log::Get() << "WARNING: No resource observation data available for initial split";
-//#endif
-//                    return false;
-//                }
-//            }
-//
-//            std::array<int, 4> bestAssignments = {-1, -1, -1, -1};
-//            unsigned int bestCollectionTime = UINT32_MAX;
-//            unsigned int bestRotationTime = UINT32_MAX;
-//            for (int index1 = 0; index1 < mineralPatches.size(); index1++)
-//            {
-//                auto collection1 = resourceData[index1].first[0];
-//
-//                for (int index2 = 0; index2 < mineralPatches.size(); index2++)
-//                {
-//                    if (index1 == index2) continue;
-//
-//                    auto collection2 = resourceData[index2].first[1];
-//
-//                    for (int index3 = 0; index3 < mineralPatches.size(); index3++)
-//                    {
-//                        if (index1 == index3) continue;
-//                        if (index2 == index3) continue;
-//
-//                        auto collection3 = resourceData[index3].first[2];
-//
-//                        for (int index4 = 0; index4 < mineralPatches.size(); index4++)
-//                        {
-//                            if (index1 == index4) continue;
-//                            if (index2 == index4) continue;
-//                            if (index3 == index4) continue;
-//
-//                            auto largestCollectionTime = std::max({collection1, collection2, collection3, resourceData[index4].first[3]});
-//                            if (largestCollectionTime > bestCollectionTime) continue;
-//
-//                            uint32_t rotationTime =
-//                                    resourceData[index1].second +
-//                                    resourceData[index2].second +
-//                                    resourceData[index3].second +
-//                                    resourceData[index4].second;
-//                            if (largestCollectionTime == bestCollectionTime && rotationTime >= bestRotationTime) continue;
-//
-//                            bestCollectionTime = largestCollectionTime;
-//                            bestRotationTime = rotationTime;
-//                            bestAssignments[0] = index1;
-//                            bestAssignments[1] = index2;
-//                            bestAssignments[2] = index3;
-//                            bestAssignments[3] = index4;
-//                        }
-//                    }
-//                }
-//            }
-//            if (bestAssignments[0] == -1) return false;
-//
-//            // Now assign the workers appropriately
-//            auto base = Map::getMyMain();
-//            auto startingWorkerPositions = Map::mapSpecificOverride()->startingWorkerPositions(BWAPI::Broodwar->self()->getStartLocation());
-//            if (startingWorkerPositions.size() != 4) return false;
-//            for (int i = 0; i < startingWorkerPositions.size(); i++)
-//            {
-//                // Find the worker
-//                MyWorker worker = nullptr;
-//                for (auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
-//                {
-//                    if (unit->lastPosition != startingWorkerPositions[i]) continue;
-//                    worker = std::static_pointer_cast<MyWorkerImpl>(unit);
-//                    break;
-//                }
-//                if (!worker)
-//                {
-//                    Log::Get() << "ERROR: No starting worker found at " << startingWorkerPositions[i];
-//                    return false;
-//                }
-//
-//                // Assign it to the patch
-//                workerJob[worker] = Job::Minerals;
-//#if CVIS_LOG_WORKER_ASSIGNMENTS
-//                CherryVis::log(worker->id) << "Assigned to base @ " << BWAPI::WalkPosition(base->getPosition());
-//                CherryVis::log(worker->id) << "Assigned to Minerals";
-//                auto &observations =
-//                        WorkerMiningOptimization::resourceObservationsFor(mineralPatches[bestAssignments[i]]).startingWorkerObservationsFor(i);
-//                CherryVis::log(worker->id) << "Expected second collection at frame " << observations.average
-//                                           << " with variance " << observations.variance;
-//#endif
-//
-//                workerBase[worker] = base;
-//                baseWorkers[base].insert(worker);
-//                workerMineralPatch[worker] = mineralPatches[bestAssignments[i]];
-//                mineralPatchWorkers[mineralPatches[bestAssignments[i]]].insert(worker);
-//            }
-//
-//            Log::Get() << "Initial worker split made from observations; expect 7th collection before frame " << bestCollectionTime;
-//            return true;
-        }
-
         void assignInitialMineralWorkers()
         {
-            if (assignInitialMineralWorkersFromObservations()) return;
+            // Run the optimizer to get the initial split, which maps each worker to the first two patches they should mine
+            auto assignments = WORKERGATHEROPTIMIZER::initialWorkerSplit();
 
-            auto base = Map::getMyMain();
-
-            // Sort the mineral patches by proximity to the nexus
-            auto mineralPatches = base->mineralPatches();
-            std::sort(mineralPatches.begin(), mineralPatches.end(), [&](const Resource &a, const Resource &b) -> bool
+            // Assign the workers to the first patch, and if the optimizer implementation provides initial split data, initialize the state
+            auto mainBase = Map::getMyMain();
+            for (auto &[worker, assignmentData] : assignments)
             {
-                return a->getDistance(BWAPI::UnitTypes::Protoss_Nexus, base->getPosition()) <
-                       b->getDistance(BWAPI::UnitTypes::Protoss_Nexus, base->getPosition());
-            });
+                auto &[firstPatch, secondPatch, initialSplitData] = assignmentData;
 
-            // We are only interested in the first four
-            mineralPatches.resize(4);
-            std::set<Resource> availablePatches(mineralPatches.begin(), mineralPatches.end());
+                workerJob[worker] = Job::Minerals;
+                workerBase[worker] = mainBase;
+                baseWorkers[mainBase].insert(worker);
+                workerMineralPatch[worker] = firstPatch;
+                mineralPatchWorkers[firstPatch].insert(worker);
 
-            // Greedily take the closest matches until all probes are assigned
-            // TODO: Should really be optimizing for 7th collection
-            for (int i = 0; i < 4; i++)
-            {
-                int bestDist = INT_MAX;
-                MyWorker bestWorker = nullptr;
-                Resource bestPatch = nullptr;
-                for (auto &unit : Units::allMine())
+                if (initialSplitData)
                 {
-                    if (!unit->type.isWorker()) continue;
-
-                    auto worker = std::static_pointer_cast<MyWorkerImpl>(unit);
-                    if (!worker->completed) continue;
-                    if (workerMineralPatch[worker]) continue;
-
-                    for (auto &patch : availablePatches)
-                    {
-                        int dist = patch->getDistance(worker);
-                        if (dist < bestDist)
-                        {
-                            bestDist = dist;
-                            bestWorker = worker;
-                            bestPatch = patch;
-                        }
-                    }
-                }
-
-                if (bestWorker && bestPatch)
-                {
-                    workerJob[bestWorker] = Job::Minerals;
-#if CVIS_LOG_WORKER_ASSIGNMENTS
-                    CherryVis::log(bestWorker->id) << "Assigned to base @ " << BWAPI::WalkPosition(base->getPosition());
-                    CherryVis::log(bestWorker->id) << "Assigned to Minerals";
-#endif
-
-                    workerBase[bestWorker] = base;
-                    baseWorkers[base].insert(bestWorker);
-                    workerMineralPatch[bestWorker] = bestPatch;
-                    mineralPatchWorkers[bestPatch].insert(bestWorker);
-                    availablePatches.erase(bestPatch);
+                    initialSplitState.try_emplace(worker, worker, firstPatch, secondPatch, std::move(*initialSplitData));
                 }
             }
         }
@@ -592,6 +556,7 @@ namespace Workers
         mineralPatchWorkers.clear();
         workerRefinery.clear();
         refineryWorkers.clear();
+        initialSplitState.clear();
     }
 
     void onUnitDestroy(const Unit &unit)
@@ -646,7 +611,7 @@ namespace Workers
         };
 
         // Special case on frame 0: try to optimize for earliest possible seventh mineral returned
-        if (currentFrame == 0)
+        if (currentFrame == 0 && initialSplitState.empty())
         {
             assignInitialMineralWorkers();
         }
@@ -817,6 +782,17 @@ namespace Workers
             if (pair.second == Job::Reserved) continue;
 
             auto &worker = pair.first;
+
+            // Execute initial split workers until they are finished with the two first rotations
+            auto initialSplitIt = initialSplitState.find(worker);
+            if (initialSplitIt != initialSplitState.end())
+            {
+                if (initialSplitIt->second.execute())
+                {
+                    continue;
+                }
+                initialSplitState.erase(initialSplitIt);
+            }
 
             // Move to avoid a no-go area
             // Move always if there is danger, otherwise only if we aren't mining

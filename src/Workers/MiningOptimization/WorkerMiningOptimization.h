@@ -11,6 +11,8 @@
 
 #include <optional>
 
+#include "MiningOptimizationV2/DataModel/MapData.h"
+
 #define ENABLE_GATHER_OPTIMIZATION true
 #define ENABLE_RETURN_OPTIMIZATION true
 #define ENABLE_PATH_BASED_TAKEOVER true
@@ -88,4 +90,7 @@ namespace WorkerMiningOptimization
     bool isUpdatingResourceObservations();
 
     void setUpdateResourceObservations(bool newUpdateResourceObservations);
+
+    // Performs the initial worker split, assigning each initial worker to a patch
+    std::map<MyWorker, std::tuple<Resource, Resource, std::optional<MiningOptimization::InitialSplitData>>> initialWorkerSplit();
 }

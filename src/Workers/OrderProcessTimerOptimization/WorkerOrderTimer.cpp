@@ -2,7 +2,10 @@
 
 #include <fstream>
 #include <filesystem>
+#include "Map.h"
 #include "Units.h"
+
+#include "../MineralLockingOptimization/MineralLockingOptimization.h"
 
 namespace WorkerOrderTimer
 {
@@ -210,5 +213,10 @@ namespace WorkerOrderTimer
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
         // Not implemented
+    }
+
+    std::map<MyWorker, std::tuple<Resource, Resource, std::optional<MiningOptimization::InitialSplitData>>> initialWorkerSplit()
+    {
+        return MineralLockingOptimization::initialWorkerSplit();
     }
 }
