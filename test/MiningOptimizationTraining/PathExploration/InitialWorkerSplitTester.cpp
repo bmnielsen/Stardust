@@ -225,7 +225,7 @@ namespace MiningOptimizationTraining
                     }
                 }
 
-                uint16_t bestScore = UINT16_MAX;
+                unsigned int bestScore = UINT_MAX;
                 for (auto &secondPatchResult : secondPatchResults)
                 {
                     bestScore = std::min(bestScore, secondPatchResult.second.worstSecondRotationActionFrame());
@@ -261,8 +261,8 @@ namespace MiningOptimizationTraining
         }
 
         // Generate combinations for all four workers to find the best solution
-        uint16_t bestSeventhDelivery = UINT16_MAX;
-        uint16_t bestEighthDelivery = UINT16_MAX;
+        unsigned int bestSeventhDelivery = UINT_MAX;
+        unsigned int bestEighthDelivery = UINT_MAX;
         std::array<std::pair<TilePosition, TilePosition>, 4> bestSolution;
         for (auto &[firstWorkerAssignment, firstWorkerResult]
                 : workerToPatchPermutationToInitialSplitData[workers[0]])
@@ -291,15 +291,15 @@ namespace MiningOptimizationTraining
                         if (fourthWorkerAssignment.first == thirdWorkerAssignment.first) continue;
                         if (fourthWorkerAssignment.second == thirdWorkerAssignment.second) continue;
 
-                        std::multiset<uint16_t> result = {
+                        std::multiset<unsigned int> result = {
                             firstWorkerResult.worstSecondRotationActionFrame(),
                             secondWorkerResult.worstSecondRotationActionFrame(),
                             thirdWorkerResult.worstSecondRotationActionFrame(),
                             fourthWorkerResult.worstSecondRotationActionFrame()
                         };
 
-                        uint16_t seventhDelivery = *(std::prev(result.end(), 2));
-                        uint16_t eighthDelivery = *result.rbegin();
+                        unsigned int seventhDelivery = *(std::prev(result.end(), 2));
+                        unsigned int eighthDelivery = *result.rbegin();
                         if (seventhDelivery < bestSeventhDelivery || (seventhDelivery == bestSeventhDelivery && eighthDelivery < bestEighthDelivery))
                         {
                             bestSeventhDelivery = seventhDelivery;
@@ -316,7 +316,7 @@ namespace MiningOptimizationTraining
             }
         }
 
-        if (bestSeventhDelivery == UINT16_MAX)
+        if (bestSeventhDelivery == UINT_MAX)
         {
             Log::Get() << "ERROR: No worker combination found!";
             return;

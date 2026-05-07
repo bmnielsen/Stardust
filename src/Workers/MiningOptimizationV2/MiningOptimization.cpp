@@ -11,6 +11,9 @@
 #include "PathStatistics.h"
 #endif
 
+// #define SCORING_STRATEGY(x) x.worstSecondRotationActionFrame()
+#define SCORING_STRATEGY(x) x.averageSecondRotationActionFrame()
+
 namespace MiningOptimization
 {
     namespace
@@ -151,8 +154,8 @@ namespace MiningOptimization
         auto &initialSplitData = getInitialSplitDataForRace(BWAPI::Broodwar->enemy()->getRace());
 
         // Generate combinations for all four workers to find the best solution
-        uint16_t bestSeventhDelivery = UINT16_MAX;
-        uint16_t bestEighthDelivery = UINT16_MAX;
+        unsigned int bestSeventhDelivery = UINT_MAX;
+        unsigned int bestEighthDelivery = UINT_MAX;
         std::array<std::pair<TilePosition, TilePosition>, 4> bestSolution;
         for (auto &[firstWorkerAssignment, firstWorkerResult]
                 : initialSplitData[workerPositionAndVelocity[0]])
@@ -181,15 +184,15 @@ namespace MiningOptimization
                         if (fourthWorkerAssignment.first == thirdWorkerAssignment.first) continue;
                         if (fourthWorkerAssignment.second == thirdWorkerAssignment.second) continue;
 
-                        std::multiset<uint16_t> result = {
-                            firstWorkerResult.worstSecondRotationActionFrame(),
-                            secondWorkerResult.worstSecondRotationActionFrame(),
-                            thirdWorkerResult.worstSecondRotationActionFrame(),
-                            fourthWorkerResult.worstSecondRotationActionFrame()
+                        std::multiset<unsigned int> result = {
+                            SCORING_STRATEGY(firstWorkerResult),
+                            SCORING_STRATEGY(secondWorkerResult),
+                            SCORING_STRATEGY(thirdWorkerResult),
+                            SCORING_STRATEGY(fourthWorkerResult)
                         };
 
-                        uint16_t seventhDelivery = *(std::prev(result.end(), 2));
-                        uint16_t eighthDelivery = *result.rbegin();
+                        unsigned int seventhDelivery = *(std::prev(result.end(), 2));
+                        unsigned int eighthDelivery = *result.rbegin();
                         if (seventhDelivery < bestSeventhDelivery || (seventhDelivery == bestSeventhDelivery && eighthDelivery < bestEighthDelivery))
                         {
                             bestSeventhDelivery = seventhDelivery;
@@ -206,7 +209,7 @@ namespace MiningOptimization
             }
         }
 
-        if (bestSeventhDelivery == INT16_MAX) return {};
+        if (bestSeventhDelivery == UINT_MAX) return {};
 
         std::map<TilePosition, Resource> tileToPatch;
         for (auto &patch : patches)

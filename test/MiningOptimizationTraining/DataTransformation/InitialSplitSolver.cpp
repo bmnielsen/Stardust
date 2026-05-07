@@ -23,6 +23,11 @@
  * The solver is implemented such that each mining phase can be run piecewise, so that we can use the solver's logic to guide which positions we need
  * to explore during the path exploration.
  */
+
+#define FIRST_GATHER_TOLERANCE 5
+#define FIRST_RETURN_TOLERANCE 4
+#define SECOND_GATHER_TOLERANCE 3
+
 namespace MiningOptimizationTraining
 {
     namespace
@@ -153,7 +158,8 @@ namespace MiningOptimizationTraining
             }
         }
 
-        void filterBestPaths(std::vector<InitialSplitSolver::PathResult> &pathResults)
+        void filterBestPaths(std::vector<InitialSplitSolver::PathResult> &pathResults,
+                             int tolerance)
         {
             if (pathResults.empty()) return;
 
@@ -171,7 +177,7 @@ namespace MiningOptimizationTraining
             std::vector<InitialSplitSolver::PathResult> bestResults;
             for (auto &[result, score] : resultsAndScore)
             {
-                if (score > bestScore) continue;
+                if (score > (bestScore + tolerance)) continue;
 
                 bool matchesExisting = false;
                 for (const auto &existing : bestResults)
@@ -251,7 +257,7 @@ namespace MiningOptimizationTraining
                  firstGatherRootNode,
                  nullptr);
 
-        filterBestPaths(firstGatherPathResults);
+        filterBestPaths(firstGatherPathResults, FIRST_GATHER_TOLERANCE);
     }
 
     void InitialSplitSolver::executeFirstReturn()
@@ -292,7 +298,7 @@ namespace MiningOptimizationTraining
                      &firstGatherPathResult);
         }
 
-        filterBestPaths(firstReturnPathResults);
+        filterBestPaths(firstReturnPathResults, FIRST_RETURN_TOLERANCE);
     }
 
     void InitialSplitSolver::executeSecondGather()
@@ -334,7 +340,7 @@ namespace MiningOptimizationTraining
                          (returnPathResult.actionFrame > 158) ? allOrderProcessTimerResetValues : orderProcessTimerResetValues,
                          secondGatherRootNodeIt->second,
                          nullptr);
-                filterBestPaths(currentSecondGatherPathResults);
+                filterBestPaths(currentSecondGatherPathResults, SECOND_GATHER_TOLERANCE);
 
                 resultsForThisFirstRotation.emplace_back(std::move(currentSecondGatherPathResults));
             }
@@ -389,7 +395,7 @@ namespace MiningOptimizationTraining
                              &secondGatherPathResult);
                 }
 
-                filterBestPaths(currentSecondReturnPathResults);
+                filterBestPaths(currentSecondReturnPathResults, 0);
 
                 if (currentSecondReturnPathResults.empty()) break;
 
@@ -436,8 +442,8 @@ namespace MiningOptimizationTraining
             bool found = false;
             for (const auto &otherPathResult : other.pathResults)
             {
-                if (pathResult.actionFrame == otherPathResult.actionFrame ||
-                    pathResult.postActionDelay == otherPathResult.postActionDelay ||
+                if (pathResult.actionFrame == otherPathResult.actionFrame &&
+                    pathResult.postActionDelay == otherPathResult.postActionDelay &&
                     pathResult.nextPathStartPosition == otherPathResult.nextPathStartPosition)
                 {
                     found = true;

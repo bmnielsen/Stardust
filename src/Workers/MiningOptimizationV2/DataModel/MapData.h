@@ -52,22 +52,44 @@ namespace MiningOptimization
         InitialSplitRotation firstRotation;
         std::map<uint16_t, InitialSplitRotation> firstRotationDeliveryToSecondRotation;
 
-        uint16_t worstSecondRotationActionFrame() const
+        unsigned int worstSecondRotationActionFrame() const
         {
             if (!_worstSecondRotationActionFrame)
             {
                 _worstSecondRotationActionFrame = 0;
                 for (const auto &[_, secondRotation] : firstRotationDeliveryToSecondRotation)
                 {
-                    _worstSecondRotationActionFrame = std::max(*_worstSecondRotationActionFrame, *secondRotation.returnActionFrames.rbegin());
+                    _worstSecondRotationActionFrame = std::max(*_worstSecondRotationActionFrame,
+                                                               (unsigned int)*secondRotation.returnActionFrames.rbegin());
                 }
             }
 
             return *_worstSecondRotationActionFrame;
         }
 
+        unsigned int averageSecondRotationActionFrame() const
+        {
+            if (!_averageSecondRotationActionFrame)
+            {
+                unsigned long accumulator = 0;
+                unsigned long count = 0;
+                for (const auto &[_, secondRotation] : firstRotationDeliveryToSecondRotation)
+                {
+                    for (const auto &frame : secondRotation.returnActionFrames)
+                    {
+                        accumulator += frame * 100;
+                        count++;
+                    }
+                }
+                _averageSecondRotationActionFrame = (unsigned int)std::round((double)accumulator / (double)count);
+            }
+
+            return *_averageSecondRotationActionFrame;
+        }
+
     private:
-        mutable std::optional<uint16_t> _worstSecondRotationActionFrame;
+        mutable std::optional<unsigned int> _worstSecondRotationActionFrame;
+        mutable std::optional<unsigned int> _averageSecondRotationActionFrame;
     };
 
     class MapData
