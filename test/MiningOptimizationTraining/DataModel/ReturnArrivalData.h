@@ -211,11 +211,17 @@ namespace MiningOptimizationTraining
 
         template <typename S>
         void serialize(S& s) {
-            s.value2b(arrivalDelay);
-            s.value2b(exitSpeedDeliveryAtArrival);
-            s.boolValue(collisionDeliveryAfterArrival);
+            uint16_t packed = ((uint16_t)std::min(UINT13_MAX, (unsigned int)arrivalDelay)) << 3;
+            packed += (uint16_t)exitSpeedDeliveryAtArrival;
+            if (collisionDeliveryAfterArrival) packed |= 0b0000000000000100;
+
+            s.value2b(packed);
             s.object(nextPathStartPositionDeliveryAtArrival);
             s.object(nextPathStartPositionDeliveryAfterArrival);
+
+            arrivalDelay = packed >> 3;
+            exitSpeedDeliveryAtArrival = (ReturnExitSpeed)(packed & 0b0000000000000011);
+            collisionDeliveryAfterArrival = (packed & 0b00000100) == 0b00000100;
         }
     };
 

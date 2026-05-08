@@ -157,10 +157,16 @@ namespace MiningOptimizationTraining
 
         template <typename S>
         void serialize(S& s) {
-            s.value2b(arrivalDelay);
-            s.boolValue(facingPatch);
-            s.boolValue(collision);
+            uint16_t packed = ((uint16_t)std::min(UINT14_MAX, (unsigned int)arrivalDelay)) << 2;
+            if (!facingPatch) packed |= 0b00000001;
+            if (collision) packed |= 0b00000010;
+
+            s.value2b(packed);
             s.object(nextPathStartPosition);
+
+            arrivalDelay = packed >> 2;
+            facingPatch = (packed & 0b00000001) == 0;
+            collision = (packed & 0b00000010) == 0b00000010;
         }
     };
 
