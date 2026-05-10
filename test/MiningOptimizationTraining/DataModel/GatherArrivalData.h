@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <algorithm>
+#include <ranges>
 
 #define UINT14_MAX 16383U
 
@@ -150,7 +151,71 @@ namespace MiningOptimizationTraining
                 int pathStartFrame,
                 bool pathStartsWithGatherCommand,
                 std::optional<int> lastResendFrame,
-                const std::set<int> &orderProcessTimerResetValues) const;
+                const auto &orderProcessTimerResetValues) const
+        {
+            // The reference frame (where we know the order process timer value) is either the path start or the last resend
+            int referenceFrame = (lastResendFrame.has_value()) ? *lastResendFrame : pathStartFrame;
+
+            // The arrival frame adds the delay from here
+            int arrivalFrame = referenceFrame + arrivalDelay;
+
+            // Adjust the reference frame to where we know the order process timer value
+            // The order process timer value here is the value at the start of the frame
+            // It is in reality in the range 0-8, but always starts with an extra frame at 0 so using 10 makes the math work
+            int initialOrderProcessTimer = 10;
+            if (lastResendFrame)
+            {
+                // When we have a resend, the order process timer stays at 0 for two frames, so we increment the reference frame
+                referenceFrame++;
+            }
+            else if (pathStartsWithGatherCommand)
+            {
+                // When there is no resend, but the path started with a gather command, we adjust the reference frame to account for the gather command
+                // and latency
+                referenceFrame += 3;
+            }
+            else
+            {
+                // Rewind one frame to have the order process timer cycle line up with the start frame
+                referenceFrame--;
+            }
+
+            // Run the order process timer cycle for each reset value until action and record the results
+            std::vector<InitialWorkerComputePathResult> results;
+            for (auto resetValue : orderProcessTimerResetValues)
+            {
+                int frame = referenceFrame;
+                int orderProcessTimer = initialOrderProcessTimer;
+                bool orderProcessTimerResets = false;
+                while (true)
+                {
+                    if ((frame == 158 || frame == 308) && frame > referenceFrame)
+                    {
+                        orderProcessTimer = resetValue;
+                        orderProcessTimerResets = true;
+                    }
+
+                    if (orderProcessTimer == 0 && frame >= arrivalFrame)
+                    {
+                        results.emplace_back(arrivalFrame,
+                                             frame,
+                                             true,
+                                             collision ? 9 : 0,
+                                             nextPathStartPosition,
+                                             orderProcessTimerResets ? (std::optional<int>)resetValue : std::nullopt);
+                        break;
+                    }
+
+                    orderProcessTimer--;
+                    if (orderProcessTimer < 0) orderProcessTimer = 8;
+
+                    frame++;
+                }
+                if (!orderProcessTimerResets) return results;
+            }
+
+            return results;
+        }
 
         // Creates the struct from a simulated path
         static InitialWorkerGatherArrivalData createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPath, BWAPI::Unit patch);

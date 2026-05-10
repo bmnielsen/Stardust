@@ -11,9 +11,6 @@
 #include "PathStatistics.h"
 #endif
 
-// #define SCORING_STRATEGY(x) x.worstSecondRotationActionFrame()
-#define SCORING_STRATEGY(x) x.averageSecondRotationActionFrame()
-
 namespace MiningOptimization
 {
     namespace
@@ -185,10 +182,10 @@ namespace MiningOptimization
                         if (fourthWorkerAssignment.second == thirdWorkerAssignment.second) continue;
 
                         std::multiset<unsigned int> result = {
-                            SCORING_STRATEGY(firstWorkerResult),
-                            SCORING_STRATEGY(secondWorkerResult),
-                            SCORING_STRATEGY(thirdWorkerResult),
-                            SCORING_STRATEGY(fourthWorkerResult)
+                            firstWorkerResult.score(),
+                            secondWorkerResult.score(),
+                            thirdWorkerResult.score(),
+                            fourthWorkerResult.score()
                         };
 
                         unsigned int seventhDelivery = *(std::prev(result.end(), 2));

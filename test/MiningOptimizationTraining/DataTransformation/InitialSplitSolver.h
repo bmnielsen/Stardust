@@ -28,7 +28,8 @@ namespace MiningOptimizationTraining
 
             [[nodiscard]] bool equivalentTo(const PathResult &other) const;
 
-            [[nodiscard]] MiningOptimization::InitialSplitRotation toInitialSplitRotation() const;
+            [[nodiscard]] MiningOptimization::InitialSplitRotation toInitialSplitRotation(
+                const std::map<int, unsigned int> *orderProcessTimerResetValues) const;
         };
 
         // Constructor used for single-worker gathering and return
@@ -52,12 +53,26 @@ namespace MiningOptimizationTraining
             EXPECT_TRUE(mapData.startingWorkerPositionToOrderProcessTimerReset.contains(startPosition))
                                 << "No order process timer reset value data for start position " << startPosition;
 
+            bool opponentRaceUnknown = (
+                opponentRace != BWAPI::Races::Protoss &&
+                opponentRace != BWAPI::Races::Terran &&
+                opponentRace != BWAPI::Races::Zerg);
+
             for (const auto &resetData : mapData.startingWorkerPositionToOrderProcessTimerReset.at(startPosition))
             {
+                // If we don't know the opponent's race, we multiply the weighting to indicate that getting either protoss or terran is twice as
+                // likely as getting zerg
+                if (opponentRaceUnknown)
+                {
+                    orderProcessTimerResetValues[resetData.value] += resetData.opponentStartLocationsCount * (resetData.opponentIsZerg ? 1 : 2);
+                    continue;
+                }
+
+                // Skip this value if it doesn't match the known race
                 if (resetData.opponentIsZerg && (opponentRace == BWAPI::Races::Protoss || opponentRace == BWAPI::Races::Terran)) continue;
                 if (!resetData.opponentIsZerg && (opponentRace == BWAPI::Races::Zerg)) continue;
 
-                orderProcessTimerResetValues.insert(resetData.value);
+                orderProcessTimerResetValues[resetData.value] += resetData.opponentStartLocationsCount;
             }
         }
 
@@ -79,8 +94,8 @@ namespace MiningOptimizationTraining
         // The opponent race, where it is important to know if the opponent is Zerg, isn't Zerg, or is unknown
         BWAPI::Race opponentRace;
 
-        // The possible order process timer reset values
-        std::set<int> orderProcessTimerResetValues;
+        // The possible order process timer reset values and their occurrence rates
+        std::map<int, unsigned int> orderProcessTimerResetValues;
 
         // These data structures store the results as the solver executes
         std::vector<PathResult> firstGatherPathResults;

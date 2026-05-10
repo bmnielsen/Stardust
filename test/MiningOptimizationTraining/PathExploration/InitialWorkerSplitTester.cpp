@@ -216,7 +216,7 @@ namespace MiningOptimizationTraining
 
                     for (auto &existingSecondPatchResult : secondPatchResults)
                     {
-                        if (result->worstSecondRotationActionFrame() < existingSecondPatchResult.second.worstSecondRotationActionFrame())
+                        if (result->score() < existingSecondPatchResult.second.score())
                         {
                             existingSecondPatchResult.first = secondPatch;
                             existingSecondPatchResult.second = std::move(*result);
@@ -228,7 +228,7 @@ namespace MiningOptimizationTraining
                 unsigned int bestScore = UINT_MAX;
                 for (auto &secondPatchResult : secondPatchResults)
                 {
-                    bestScore = std::min(bestScore, secondPatchResult.second.worstSecondRotationActionFrame());
+                    bestScore = std::min(bestScore, secondPatchResult.second.score());
                 }
 
                 if (firstPatchResults.size() < 4)
@@ -292,10 +292,10 @@ namespace MiningOptimizationTraining
                         if (fourthWorkerAssignment.second == thirdWorkerAssignment.second) continue;
 
                         std::multiset<unsigned int> result = {
-                            firstWorkerResult.worstSecondRotationActionFrame(),
-                            secondWorkerResult.worstSecondRotationActionFrame(),
-                            thirdWorkerResult.worstSecondRotationActionFrame(),
-                            fourthWorkerResult.worstSecondRotationActionFrame()
+                            firstWorkerResult.score(),
+                            secondWorkerResult.score(),
+                            thirdWorkerResult.score(),
+                            fourthWorkerResult.score()
                         };
 
                         unsigned int seventhDelivery = *(std::prev(result.end(), 2));

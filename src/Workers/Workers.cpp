@@ -139,7 +139,7 @@ namespace Workers
                         }
                         if (!worker->carryingResource)
                         {
-                            if (!secondRotation->returnActionFrames.contains(currentFrame))
+                            if (!secondRotation->returnActionFramesToOccurrences.contains(currentFrame))
                             {
                                 Log::Get() << "ERROR: Worker " << *worker << " second return action frame incorrect";
                             }

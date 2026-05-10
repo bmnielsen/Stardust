@@ -100,7 +100,7 @@ namespace MiningOptimizationTraining
         [[nodiscard]] bool isFirstReturnActionFrame() const
         {
             if (gatherPlan) return gatherPlan->firstReturn.containsActionFrame(currentFrame);
-            if (initialSplitData) return initialSplitData->firstRotation.returnActionFrames.contains(currentFrame);
+            if (initialSplitData) return initialSplitData->firstRotation.returnActionFramesToOccurrences.contains(currentFrame);
             return true;
         }
 
@@ -114,7 +114,7 @@ namespace MiningOptimizationTraining
         [[nodiscard]] bool isSecondReturnActionFrame() const
         {
             if (gatherPlan) return gatherPlan->secondReturn.containsActionFrame(currentFrame);
-            if (chosenSecondRotation) return chosenSecondRotation->returnActionFrames.contains(currentFrame);
+            if (chosenSecondRotation) return chosenSecondRotation->returnActionFramesToOccurrences.contains(currentFrame);
             return true;
         }
     };

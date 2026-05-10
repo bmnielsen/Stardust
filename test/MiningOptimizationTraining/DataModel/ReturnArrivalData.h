@@ -204,7 +204,95 @@ namespace MiningOptimizationTraining
                 int pathStartFrame,
                 bool pathStartsWithGatherCommand,
                 std::optional<int> lastResendFrame,
-                const std::set<int> &orderProcessTimerResetValues) const;
+                const auto &orderProcessTimerResetValues) const
+        {
+            // The reference frame (where we know the order process timer value) is either the path start or the last resend
+            int referenceFrame = (lastResendFrame.has_value()) ? *lastResendFrame : pathStartFrame;
+
+            // The arrival frame adds the delay from here
+            int arrivalFrame = referenceFrame + arrivalDelay;
+
+            // Set the reference frame and order process timer to where we know the order process timer value
+            // The order process timer value here is the value at the start of the frame
+            int initialOrderProcessTimer;
+            if (lastResendFrame)
+            {
+                // When we have a resend, the order process timer stays at 0 for an extra frame, so we fast-forward a couple of frames
+                referenceFrame += 2;
+                initialOrderProcessTimer = 8;
+            }
+            else
+            {
+                // At path start the value is 0 because we just gained minerals, but we need to rewind one frame
+                referenceFrame--;
+                initialOrderProcessTimer = 0;
+            }
+
+            // Run the order process timer cycle for each reset value until action and record the results
+            std::vector<InitialWorkerComputePathResult> results;
+            for (auto resetValue : orderProcessTimerResetValues)
+            {
+                int frame = referenceFrame;
+                int orderProcessTimer = initialOrderProcessTimer;
+                bool orderProcessTimerResets = false;
+                while (true)
+                {
+                    if (frame == 158 || frame == 308)
+                    {
+                        orderProcessTimer = resetValue;
+                        orderProcessTimerResets = true;
+                    }
+
+                    // Delivery at arrival
+                    if (orderProcessTimer == 0 && frame == arrivalFrame)
+                    {
+                        int delay;
+                        switch (exitSpeedDeliveryAtArrival)
+                        {
+                            case ReturnExitSpeed::Collision:
+                                delay = 9;
+                                break;
+                            case ReturnExitSpeed::Low:
+                                delay = 0;
+                                break;
+                            case ReturnExitSpeed::Medium:
+                                delay = -2;
+                                break;
+                            case ReturnExitSpeed::High:
+                                delay = -4;
+                                break;
+                        }
+                        results.emplace_back(arrivalFrame,
+                                             frame,
+                                             true,
+                                             delay,
+                                             nextPathStartPositionDeliveryAtArrival,
+                                             orderProcessTimerResets ? (std::optional<int>)resetValue : std::nullopt);
+                        break;
+                    }
+
+                    // Delivery after arrival
+                    if (orderProcessTimer == 0 && frame > arrivalFrame)
+                    {
+                        results.emplace_back(arrivalFrame,
+                                             frame,
+                                             false,
+                                             collisionDeliveryAfterArrival ? 9 : 0,
+                                             nextPathStartPositionDeliveryAfterArrival,
+                                             orderProcessTimerResets ? (std::optional<int>)resetValue : std::nullopt);
+                        break;
+                    }
+
+                    orderProcessTimer--;
+                    if (orderProcessTimer < 0) orderProcessTimer = 8;
+
+                    frame++;
+                }
+                if (!orderProcessTimerResets) return results;
+            }
+
+            return results;
+        }
 
         static InitialWorkerReturnArrivalData createFromSimulatedPath(const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAtArrival,
                                                                       const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAfterArrival);

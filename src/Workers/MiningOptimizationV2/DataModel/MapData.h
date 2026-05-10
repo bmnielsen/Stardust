@@ -8,6 +8,8 @@
 #include "GatherArrivalData.h"
 #include "ReturnArrivalData.h"
 
+#include <ranges>
+
 #define OCCURRENCE_SCALE 127
 
 namespace MiningOptimization
@@ -18,7 +20,7 @@ namespace MiningOptimization
         uint16_t gatherArrivalFrame;
         uint16_t gatherActionFrame;
         uint16_t returnArrivalFrame;
-        std::set<uint16_t> returnActionFrames;
+        std::map<uint16_t, uint8_t> returnActionFramesToOccurrences;
 
         friend std::ostream &operator<<(std::ostream &os, const InitialSplitRotation &rotation)
         {
@@ -40,7 +42,7 @@ namespace MiningOptimization
             os << "; gather action: " << rotation.gatherActionFrame;
             os << "; return arrival: " << rotation.returnArrivalFrame;
             os << "; return actions: ";
-            outIntCollection(rotation.returnActionFrames);
+            outIntCollection(std::views::keys(rotation.returnActionFramesToOccurrences));
 
             return os;
         }
@@ -52,43 +54,36 @@ namespace MiningOptimization
         InitialSplitRotation firstRotation;
         std::map<uint16_t, InitialSplitRotation> firstRotationDeliveryToSecondRotation;
 
-        unsigned int worstSecondRotationActionFrame() const
+        unsigned int score() const
         {
-            if (!_worstSecondRotationActionFrame)
+            if (_score) return *_score;
+
+            // First get the total occurrences
+            unsigned int totalOccurrences = 0;
+            for (const auto &[_, occurrences] : firstRotation.returnActionFramesToOccurrences)
             {
-                _worstSecondRotationActionFrame = 0;
-                for (const auto &[_, secondRotation] : firstRotationDeliveryToSecondRotation)
+                totalOccurrences += occurrences;
+            }
+
+            // Now sum up the average delivery frames weighted by occurrences
+            double result = 0.0;
+            for (const auto &[firstDeliveryFrame, occurrences] : firstRotation.returnActionFramesToOccurrences)
+            {
+                double thisProbability = (double)occurrences / (double)totalOccurrences;
+
+                const auto &secondReturnFrames =
+                    firstRotationDeliveryToSecondRotation.at(firstDeliveryFrame).returnActionFramesToOccurrences;
+                for (const auto &[secondReturnFrame, _] : secondReturnFrames)
                 {
-                    _worstSecondRotationActionFrame = std::max(*_worstSecondRotationActionFrame,
-                                                               (unsigned int)*secondRotation.returnActionFrames.rbegin());
+                    result += ((double)secondReturnFrame / (double)secondReturnFrames.size()) * thisProbability;
                 }
             }
 
-            return *_worstSecondRotationActionFrame;
-        }
-
-        unsigned int averageSecondRotationActionFrame() const
-        {
-            if (!_averageSecondRotationActionFrame)
-            {
-                unsigned long accumulator = 0;
-                unsigned long count = 0;
-                for (const auto &[_, secondRotation] : firstRotationDeliveryToSecondRotation)
-                {
-                    for (const auto &frame : secondRotation.returnActionFrames)
-                    {
-                        accumulator += frame * 100;
-                        count++;
-                    }
-                }
-                _averageSecondRotationActionFrame = (unsigned int)std::round((double)accumulator / (double)count);
-            }
-
-            return *_averageSecondRotationActionFrame;
+            return (unsigned int)std::round(result * 10000.0);
         }
 
     private:
-        mutable std::optional<unsigned int> _worstSecondRotationActionFrame;
+        mutable std::optional<unsigned int> _score;
         mutable std::optional<unsigned int> _averageSecondRotationActionFrame;
     };
 

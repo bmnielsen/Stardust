@@ -1,5 +1,7 @@
 #include "InitialSplitSolver.h"
 
+#include <ranges>
+
 /*
  * The initial split solver takes the trained initial split data (all of the likely useful paths on the first two rotations from all starting position
  * headings) and finds the best solution for a given combination of patches.
@@ -32,7 +34,17 @@ namespace MiningOptimizationTraining
 {
     namespace
     {
-        std::set<int> allOrderProcessTimerResetValues = {0, 1, 2, 3, 4, 5, 6, 7};
+        // Used as the order process timer reset values when we don't know what result we will get
+        std::map<int, unsigned int> unknownOrderProcessTimerResetValues = {
+            {0, 1},
+            {1, 1},
+            {2, 1},
+            {3, 1},
+            {4, 1},
+            {5, 1},
+            {6, 1},
+            {7, 1}
+        };
 
         // On the first return, we avoid action on frame 153 and 157 to avoid complications due to order process timer resets
         // For 153, if we switch to a different patch, the order process timer reset will happen during the gather command processing
@@ -58,7 +70,7 @@ namespace MiningOptimizationTraining
                 std::optional<int> requireMiningEndBeforeFrame,
                 std::optional<std::set<int>*> avoidActionAtFrames,
                 bool pathStartsWithGatherCommand,
-                const std::set<int> &orderProcessTimerResetValues,
+                const std::map<int, unsigned int> &orderProcessTimerResetValues,
                 const InitialWorkerPathNode<ObservationType> &rootNode,
                 const InitialSplitSolver::PathResult* previousPathResult)
         {
@@ -76,7 +88,7 @@ namespace MiningOptimizationTraining
                         startFrame,
                         pathStartsWithGatherCommand,
                         resends.empty() ? std::nullopt : static_cast<std::optional<int>>(*resends.rbegin()),
-                        orderProcessTimerResetValues);
+                        std::views::keys(orderProcessTimerResetValues));
 
                 bool validResult = true;
 
@@ -226,11 +238,11 @@ namespace MiningOptimizationTraining
         }
 
         MiningOptimization::InitialSplitData result;
-        result.firstRotation = bestSolution->first->toInitialSplitRotation();
+        result.firstRotation = bestSolution->first->toInitialSplitRotation(&orderProcessTimerResetValues);
         for (auto &[frame, solution] : bestSolution->second)
         {
             solution.second.previousPathResult = &solution.first; // Needed since we've moved stuff around since setting the original pointer
-            result.firstRotationDeliveryToSecondRotation[frame] = solution.second.toInitialSplitRotation();
+            result.firstRotationDeliveryToSecondRotation[frame] = solution.second.toInitialSplitRotation(nullptr);
         }
 
         return result;
@@ -337,7 +349,7 @@ namespace MiningOptimizationTraining
                          308,
                          std::nullopt,
                          firstPatch != secondPatch,
-                         (returnPathResult.actionFrame > 158) ? allOrderProcessTimerResetValues : orderProcessTimerResetValues,
+                         (returnPathResult.actionFrame > 158) ? unknownOrderProcessTimerResetValues : orderProcessTimerResetValues,
                          secondGatherRootNodeIt->second,
                          nullptr);
                 filterBestPaths(currentSecondGatherPathResults, SECOND_GATHER_TOLERANCE);
@@ -390,7 +402,7 @@ namespace MiningOptimizationTraining
                              std::nullopt,
                              &avoidActionFramesSecondReturn,
                              false,
-                             ((gatherPathResult.actionFrame + 85) > 158) ? allOrderProcessTimerResetValues : orderProcessTimerResetValues,
+                             ((gatherPathResult.actionFrame + 85) > 158) ? unknownOrderProcessTimerResetValues : orderProcessTimerResetValues,
                              secondReturnRootNodeIt->second,
                              &secondGatherPathResult);
                 }
@@ -455,7 +467,8 @@ namespace MiningOptimizationTraining
         return true;
     }
 
-    [[nodiscard]] MiningOptimization::InitialSplitRotation InitialSplitSolver::PathResult::toInitialSplitRotation() const
+    [[nodiscard]] MiningOptimization::InitialSplitRotation InitialSplitSolver::PathResult::toInitialSplitRotation(
+        const std::map<int, unsigned int> *resetValueAndOccurrenceRate) const
     {
         EXPECT_NE(nullptr, previousPathResult) << "Trying to make an initial split rotation from a gather path result";
         EXPECT_EQ(1, previousPathResult->pathResults.size()) << "Gather path has multiple results";
@@ -465,13 +478,21 @@ namespace MiningOptimizationTraining
         for (const auto resend : resends) combinedResends.insert(resend);
 
         int returnArrivalFrame = -1;
-        std::set<uint16_t> returnActionFrames;
+        std::map<uint16_t, uint8_t> returnActionFrames;
         for (const auto &returnPathResult : pathResults)
         {
             EXPECT_TRUE((returnArrivalFrame == -1) || (returnArrivalFrame == returnPathResult.arrivalFrame))
                     << "Inconsistent arrival frames on return paths";
             returnArrivalFrame = returnPathResult.arrivalFrame;
-            returnActionFrames.insert(returnPathResult.actionFrame);
+            if (!resetValueAndOccurrenceRate || !returnPathResult.orderProcessTimerResetValue)
+            {
+                returnActionFrames.emplace(returnPathResult.actionFrame, 1);
+            }
+            else
+            {
+                returnActionFrames.emplace(returnPathResult.actionFrame,
+                                           resetValueAndOccurrenceRate->at(*returnPathResult.orderProcessTimerResetValue));
+            }
         }
 
         return MiningOptimization::InitialSplitRotation

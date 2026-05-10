@@ -79,8 +79,9 @@ namespace MiningOptimization::Serialization
                 s.value2b(v.gatherArrivalFrame);
                 s.value2b(v.gatherActionFrame);
                 s.value2b(v.returnArrivalFrame);
-                s.ext(v.returnActionFrames, bitsery::ext::StdSet{INT_MAX}, [&](S& s, uint16_t &v) {
-                    s.value2b(v);
+                s.ext(v.returnActionFramesToOccurrences, bitsery::ext::StdMap{INT_MAX}, [&](S& s, uint16_t &key, uint8_t &val) {
+                    s.value2b(key);
+                    s.value1b(val);
                 });
             };
             auto initialSplitDataSerializer = [&initialSplitRotationSerializer](
