@@ -1,5 +1,7 @@
 #include "ReturnArrivalData.h"
 
+#include "OrderProcessTimer.h"
+
 namespace MiningOptimization
 {
     void ReturnArrivalData::addDelayAfterAction(std::map<int, double> &delaysWithProbabilities,
@@ -31,7 +33,18 @@ namespace MiningOptimization
             delay = 9;
         }
 
-        delaysWithProbabilities[delay] += baseProbability;
+        if (OrderProcessTimer::isResetFrame(actionFrame + 1))
+        {
+            double additionalDelayBaseProbability = baseProbability / 8.0;
+            for (int additionalDelay = 0; additionalDelay < 8; additionalDelay++)
+            {
+                delaysWithProbabilities[delay + additionalDelay] += additionalDelayBaseProbability;
+            }
+        }
+        else
+        {
+            delaysWithProbabilities[delay] += baseProbability;
+        }
     }
 
     std::ostream &operator<<(std::ostream &os, const ReturnExitSpeed &exitSpeed)

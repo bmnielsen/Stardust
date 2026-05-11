@@ -15,7 +15,7 @@ namespace MiningOptimization
         // processing.
         if (OrderProcessTimer::isResetFrame(frame + BWAPI::Broodwar->getLatencyFrames() + 2)) return false;
 
-        // Resends cannot be send LF from each other, as this gives a Unit_Busy error
+        // Resends cannot be sent LF from each other, as this gives a Unit_Busy error
         return !previousResendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames());
     }
 

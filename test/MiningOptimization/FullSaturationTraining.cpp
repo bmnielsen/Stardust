@@ -1293,3 +1293,14 @@ TEST(FullSaturationTraining, AllSSCAITMeasure)
 {
     testRunWithResults("sscai", 0, true, true);
 }
+
+TEST(FullSaturationTraining, BenzeneSingleMeasure)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Benzene");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 1, 0, false, true, false);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl;
+}
