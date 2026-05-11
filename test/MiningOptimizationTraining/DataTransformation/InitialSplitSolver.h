@@ -18,6 +18,7 @@ namespace MiningOptimizationTraining
         {
             BWAPI::ExactPosition startPosition;
             int startFrame;
+            int frameDelay;
             std::vector<InitialWorkerComputePathResult> pathResults;
             std::set<int> resends;
             const PathResult* previousPathResult;

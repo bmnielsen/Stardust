@@ -16,6 +16,7 @@ namespace MiningOptimization
 {
     struct InitialSplitRotation
     {
+        uint8_t delayFrames;
         std::set<uint16_t> resendFrames;
         uint16_t gatherArrivalFrame;
         uint16_t gatherActionFrame;

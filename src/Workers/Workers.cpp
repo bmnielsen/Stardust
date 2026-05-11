@@ -76,8 +76,13 @@ namespace Workers
                     case 0:
                     {
                         CherryVis::log(worker->id) << "First rotation: " << initialSplitData.firstRotation;
-                        sendGather(firstPatch);
-                        ++state;
+
+                        // For evaluating the delay frames, we use getFrameCount since our currentFrame has two frame 0s
+                        if (BWAPI::Broodwar->getFrameCount() == initialSplitData.firstRotation.delayFrames)
+                        {
+                            sendGather(firstPatch);
+                            ++state;
+                        }
                         break;
                     }
                     case 1:

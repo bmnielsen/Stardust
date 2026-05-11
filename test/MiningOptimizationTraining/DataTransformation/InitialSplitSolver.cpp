@@ -70,13 +70,14 @@ namespace MiningOptimizationTraining
                 std::optional<int> requireMiningEndBeforeFrame,
                 std::optional<std::set<int>*> avoidActionAtFrames,
                 bool pathStartsWithGatherCommand,
+                std::optional<int> considerWaitingAtStartToResendAtFrame,
                 const std::map<int, unsigned int> &orderProcessTimerResetValues,
                 const InitialWorkerPathNode<ObservationType> &rootNode,
                 const InitialSplitSolver::PathResult* previousPathResult)
         {
             std::deque<QueuedNode<ObservationType>> nodeQueue;
 
-            auto addResult = [&](const ObservationType &arrivalData, const std::set<int> &resends)
+            auto addResult = [&](const ObservationType &arrivalData, const std::set<int> &resends, int frameDelay = 0)
             {
                 // Don't add a gather path that isn't facing the patch
                 if constexpr (std::is_same_v<ObservationType, InitialWorkerGatherArrivalData>)
@@ -85,7 +86,7 @@ namespace MiningOptimizationTraining
                 }
 
                 auto pathResults = arrivalData.computePathResult(
-                        startFrame,
+                        startFrame + frameDelay,
                         pathStartsWithGatherCommand,
                         resends.empty() ? std::nullopt : static_cast<std::optional<int>>(*resends.rbegin()),
                         std::views::keys(orderProcessTimerResetValues));
@@ -116,7 +117,10 @@ namespace MiningOptimizationTraining
                     }
                 }
 
-                if (validResult) results.emplace_back(rootNode.pos, startFrame, std::move(pathResults), resends, previousPathResult);
+                if (validResult)
+                {
+                    results.emplace_back(rootNode.pos, startFrame + frameDelay, frameDelay, std::move(pathResults), resends, previousPathResult);
+                }
             };
 
             // Add the no-resend result
@@ -155,6 +159,17 @@ namespace MiningOptimizationTraining
                         else if (current->arrivalDataAfterResend)
                         {
                             addResult(*current->arrivalDataAfterResend, resends);
+
+                            if (considerWaitingAtStartToResendAtFrame && current->arrivalDataAfterResend->arrivalDelay == 10 &&
+                                frame < *considerWaitingAtStartToResendAtFrame)
+                            {
+                                int frameDelay = *considerWaitingAtStartToResendAtFrame - frame;
+                                if (frameDelay <= 4)
+                                {
+                                    addResult(*current->arrivalDataAfterResend, {frame + frameDelay}, frameDelay);
+                                }
+                            }
+
                             if (current->nextPositionAfterResend)
                             {
                                 nodeQueue.emplace_back(current->nextPositionAfterResend.get(), resends, frame + 1);
@@ -203,6 +218,29 @@ namespace MiningOptimizationTraining
 
                 if (!matchesExisting)
                 {
+                    // if (result->frameDelay > 0)
+                    // {
+                    //     std::cout << "Got a result with frame delay: delay " << result->frameDelay << "; resend at " << *result->resends.begin()
+                    //               << "; results " << result->pathResults.size() << "; arrival frame " << result->pathResults.begin()->arrivalFrame
+                    //               << "; action frame " << result->pathResults.begin()->actionFrame
+                    //               << "; post action delay " << result->pathResults.begin()->postActionDelay
+                    //     << std::endl;
+                    //
+                    //     for (auto &[otherResult, otherScore] : resultsAndScore)
+                    //     {
+                    //         if (otherResult->resends.size() == 1 && otherResult->frameDelay == 0 &&
+                    //             *otherResult->resends.begin() == (*result->resends.begin() - result->frameDelay) &&
+                    //             result->previousPathResult == otherResult->previousPathResult)
+                    //         {
+                    //             std::cout << "Corresponding non-delay result: delay " << otherResult->frameDelay << "; resend at " << *otherResult->resends.begin()
+                    //                       << "; results " << otherResult->pathResults.size() << "; arrival frame " << otherResult->pathResults.begin()->arrivalFrame
+                    //                       << "; action frame " << otherResult->pathResults.begin()->actionFrame
+                    //                       << "; post action delay " << otherResult->pathResults.begin()->postActionDelay
+                    //             << std::endl;
+                    //         }
+                    //     }
+                    // }
+
                     bestResults.emplace_back(std::move(*result));
                 }
             }
@@ -265,6 +303,7 @@ namespace MiningOptimizationTraining
                  158,
                  std::nullopt,
                  true,
+                 std::nullopt,
                  orderProcessTimerResetValues,
                  firstGatherRootNode,
                  nullptr);
@@ -305,6 +344,7 @@ namespace MiningOptimizationTraining
                      std::nullopt,
                      &avoidActionFramesFirstReturn,
                      false,
+                     157,
                      orderProcessTimerResetValues,
                      firstReturnRootNodeIt->second,
                      &firstGatherPathResult);
@@ -349,6 +389,7 @@ namespace MiningOptimizationTraining
                          308,
                          std::nullopt,
                          firstPatch != secondPatch,
+                         std::nullopt,
                          (returnPathResult.actionFrame > 158) ? unknownOrderProcessTimerResetValues : orderProcessTimerResetValues,
                          secondGatherRootNodeIt->second,
                          nullptr);
@@ -402,6 +443,7 @@ namespace MiningOptimizationTraining
                              std::nullopt,
                              &avoidActionFramesSecondReturn,
                              false,
+                             std::nullopt,
                              ((gatherPathResult.actionFrame + 85) > 158) ? unknownOrderProcessTimerResetValues : orderProcessTimerResetValues,
                              secondReturnRootNodeIt->second,
                              &secondGatherPathResult);
@@ -474,7 +516,7 @@ namespace MiningOptimizationTraining
         EXPECT_EQ(1, previousPathResult->pathResults.size()) << "Gather path has multiple results";
 
         std::set<uint16_t> combinedResends;
-        for (const auto resend : previousPathResult->resends) combinedResends.insert(resend);
+        for (const auto resend : previousPathResult->resends) combinedResends.insert(resend + frameDelay);
         for (const auto resend : resends) combinedResends.insert(resend);
 
         int returnArrivalFrame = -1;
@@ -497,9 +539,10 @@ namespace MiningOptimizationTraining
 
         return MiningOptimization::InitialSplitRotation
         {
+            (uint8_t)frameDelay,
             std::move(combinedResends),
-            (uint16_t)previousPathResult->pathResults.begin()->arrivalFrame,
-            (uint16_t)previousPathResult->pathResults.begin()->actionFrame,
+            (uint16_t)(previousPathResult->pathResults.begin()->arrivalFrame + frameDelay),
+            (uint16_t)(previousPathResult->pathResults.begin()->actionFrame + frameDelay),
             (uint16_t)returnArrivalFrame,
             std::move(returnActionFrames)
         };

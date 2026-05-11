@@ -208,6 +208,12 @@ namespace
             test.run();
         };
 
+        // BWTest test;
+        // test.maps = {map};
+        // test.randomSeed = 61302;
+        // runner(test, BWAPI::Races::Random);
+        // return;
+
         std::vector<BWAPI::Race> races = {BWAPI::Races::Random, BWAPI::Races::Zerg, BWAPI::Races::Terran};
         for (int i = 0; i < 30; i++)
         {

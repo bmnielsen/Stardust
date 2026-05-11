@@ -73,6 +73,7 @@ namespace MiningOptimization::Serialization
 
             auto initialSplitRotationSerializer = [](S &s, InitialSplitRotation &v)
             {
+                s.value1b(v.delayFrames);
                 s.ext(v.resendFrames, bitsery::ext::StdSet{INT_MAX}, [&](S& s, uint16_t &v) {
                     s.value2b(v);
                 });
