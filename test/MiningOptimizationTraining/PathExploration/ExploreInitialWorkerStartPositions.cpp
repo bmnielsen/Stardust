@@ -75,10 +75,9 @@ namespace MiningOptimizationTraining
         //     }
         //     return;
         // }
-
-        initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath.clear();
-        initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths.clear();
-        initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths.clear();
+        // initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath.clear();
+        // initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths.clear();
+        // initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths.clear();
 
         for (const auto &[spawnPosition, _] : initialWorkerMapData.startingWorkerPositionToOrderProcessTimerReset)
         {

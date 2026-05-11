@@ -174,7 +174,7 @@ namespace
         }
     }
 
-    void initialSplitMeasurement(const Maps::MapMetadata &map)
+    double initialSplitMeasurement(const Maps::MapMetadata &map)
     {
         auto rng = std::default_random_engine(42);
         std::uniform_int_distribution<> randomSeedDistribution(1, 100000);
@@ -222,10 +222,13 @@ namespace
             runner(test, races[i % 3]);
         }
 
+        double result = ((double)accumulator / (double)count);
         std::cout << std::fixed << std::setprecision(1)
                   << "Overall results: " << std::endl
                   << " Count of games: " << count << std::endl
-                  << " Average seventh collection frame: " << ((double)accumulator / (double)count);
+                  << " Average seventh collection frame: " << result;
+
+        return result;
     }
 }
 
@@ -257,6 +260,14 @@ TEST(ExploreInitialStartPositions, Benzene)
     initialPathExploration(*Maps::GetOne("Benzene"));
 }
 
+TEST(ExploreInitialStartPositions, AllSSCAIT)
+{
+    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        initialPathExploration(*test.map);
+    });
+}
+
 TEST(InitialSplitTest, Vermeer)
 {
     initialSplitTest(*Maps::GetOne("Vermeer"));
@@ -270,4 +281,24 @@ TEST(InitialSplitTest, Benzene)
 TEST(InitialSplitMeasurement, Benzene)
 {
     initialSplitMeasurement(*Maps::GetOne("Benzene"));
+}
+
+TEST(InitialSplitMeasurement, AllSSCAIT)
+{
+    std::vector<std::pair<std::string, double>> results;
+    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        results.emplace_back(test.map->shortname(), initialSplitMeasurement(*test.map));
+    });
+
+    std::cout << "All results: " << std::endl;
+    double average = 0.0;
+    for (const auto &[map, result] : results)
+    {
+        std::cout << std::fixed << std::setprecision(1)
+                  << " " << map << ": " << result << std::endl;
+        average += result / (double)results.size();
+    }
+    std::cout << std::fixed << std::setprecision(1)
+              << "Overall average: " << average << std::endl;
 }

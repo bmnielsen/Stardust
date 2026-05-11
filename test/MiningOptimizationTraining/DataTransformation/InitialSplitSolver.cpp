@@ -26,8 +26,8 @@
  * to explore during the path exploration.
  */
 
-#define FIRST_GATHER_TOLERANCE 5
-#define FIRST_RETURN_TOLERANCE 4
+#define FIRST_GATHER_TOLERANCE 3
+#define FIRST_RETURN_TOLERANCE 3
 #define SECOND_GATHER_TOLERANCE 3
 
 namespace MiningOptimizationTraining
