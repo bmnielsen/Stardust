@@ -273,3 +273,17 @@ TEST(BuildOrderTests, OneBaseDragoons_VermeerOne)
     test.map = Maps::GetOne("aiide2024/(4)Vermeer");
     runTest<OneBaseDragoonsStrategyEngine>(test);
 }
+
+TEST(BuildOrderTests, OneBaseZealots_Benzene)
+{
+    BWTest test;
+    test.map = Maps::GetOne("sscai/(2)Benzene");
+    measure<OneBaseZealotsStrategyEngine>(test, 5);
+}
+
+TEST(BuildOrderTests, OneBaseDragoons_Benzene)
+{
+    BWTest test;
+    test.map = Maps::GetOne("sscai/(2)Benzene");
+    measure<OneBaseDragoonsStrategyEngine>(test, 5);
+}
