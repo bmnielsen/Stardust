@@ -98,6 +98,10 @@ namespace MiningOptimization
 
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
+        // This happens for the final return after a patch has been mined out - we should really still be able to optimize, but it's probably not
+        // worth the effort to refactor it
+        if (!resource) return;
+
         returnOptimizer->forWorker(worker, depot, resource).optimize();
     }
 
