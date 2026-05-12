@@ -13,7 +13,9 @@ namespace
         InitialWorkerMapData initialWorkerData;
 
         Serialization::setGameParameters(mapHash);
+        std::cout << "Loading path data for " << mapHash << "..." << std::endl;
         Serialization::readMapData(data);
+        std::cout << "Loading initial split data for " << mapHash << "..." << std::endl;
         Serialization::readMapData(initialWorkerData);
 
         DataTransformer::transform(data, initialWorkerData);
@@ -28,6 +30,11 @@ TEST(DataTransformation, Vermeer)
 TEST(DataTransformation, Benzene)
 {
     transform(Maps::GetOne("Benzene")->openbwHash);
+}
+
+TEST(DataTransformation, Destination)
+{
+    transform(Maps::GetOne("sscai/(2)Destination")->openbwHash);
 }
 
 TEST(DataTransformation, AllSSCAIT)

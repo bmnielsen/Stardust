@@ -103,12 +103,15 @@ namespace
         {
             return new ClearOpponentUnitsModule();
         };
+
+        ExploreStartPositionsModuleOptions options;
+        options.loadMapData = false;
+        ExploreStartPositionsModule<ExploreInitialWorkerStartPosition> myModule(options);
         test.myModule = [&]()
         {
-            ExploreStartPositionsModuleOptions options;
-            options.loadMapData = false;
-            return new ExploreStartPositionsModule<ExploreInitialWorkerStartPosition>(options);
+            return &myModule;
         };
+
         test.allowOpponentOutput = false;
         test.expectWin = false;
         test.randomSeed = 42;
@@ -242,6 +245,11 @@ TEST(InitializeOrderProcessTimerResetValues, Benzene)
     initializeOrderProcessTimerResetValues(*Maps::GetOne("Benzene"));
 }
 
+TEST(InitializeOrderProcessTimerResetValues, Destination)
+{
+    initializeOrderProcessTimerResetValues(*Maps::GetOne("sscai/(2)Destination"));
+}
+
 TEST(InitializeOrderProcessTimerResetValues, AllSSCAIT)
 {
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
@@ -258,6 +266,21 @@ TEST(ExploreInitialStartPositions, Vermeer)
 TEST(ExploreInitialStartPositions, Benzene)
 {
     initialPathExploration(*Maps::GetOne("Benzene"));
+}
+
+TEST(ExploreInitialStartPositions, CircuitBreaker)
+{
+    initialPathExploration(*Maps::GetOne("(4)Circuit Breaker"));
+}
+
+TEST(ExploreInitialStartPositions, Roadrunner)
+{
+    initialPathExploration(*Maps::GetOne("sscai/(4)Roadrunner"));
+}
+
+TEST(ExploreInitialStartPositions, Destination)
+{
+    initialPathExploration(*Maps::GetOne("sscai/(2)Destination"));
 }
 
 TEST(ExploreInitialStartPositions, AllSSCAIT)
