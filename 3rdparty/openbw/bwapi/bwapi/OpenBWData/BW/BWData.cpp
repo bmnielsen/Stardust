@@ -2623,9 +2623,34 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
 
     // Checks if we have hit the limit to how many frames we are allowed to simulate
     // This is intended to guard against the unit getting stuck and the simulation never returning
+    // We give a larger limit if we are simulating without "mining training" mode activated, or if we are simulating with switch patches
+    // (used for initial split training where paths are sometimes quite a bit longer than usual)
+    int depthLimit;
+    if (options.switchPatches)
+    {
+        if (impl->st.mining_training)
+        {
+            depthLimit = 500;
+        }
+        else
+        {
+            depthLimit = 600;
+        }
+    }
+    else
+    {
+        if (impl->st.mining_training)
+        {
+            depthLimit = 250;
+        }
+        else
+        {
+            depthLimit = 350;
+        }
+    }
     auto depthLimitExceeded = [&]()
     {
-        if ((state_copy.current_frame - sourceState.current_frame) < 250) return false;
+        if ((state_copy.current_frame - sourceState.current_frame) < depthLimit) return false;
         return true;
     };
 
