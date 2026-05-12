@@ -80,16 +80,16 @@ TEST(BananaBrain, RunThirty)
         BWTest test;
         test.opponentName = "BananaBrain";
         BananaBrain* bbModule;
-        test.maps = Maps::Get("cog2022");
+        test.maps = Maps::Get("sscai");
         test.opponentRace = BWAPI::Races::Protoss;
-        test.frameLimit = 8000;
+        // test.frameLimit = 8000;
         test.opponentModule = [&]()
         {
             bbModule = new BananaBrain();
             bbModule->strategyName = randomOpening();
             bbModule->strategyName = randomZealotOpening();
             bbModule->strategyName = randomOpening();
-            bbModule->strategyName = ProtossStrategy::kPvP_ZZCore;
+            // bbModule->strategyName = ProtossStrategy::kPvP_ZZCore;
             return bbModule;
         };
         test.onStartOpponent = [&]()
