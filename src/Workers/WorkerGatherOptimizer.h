@@ -12,26 +12,26 @@
 // This is heavily map and base dependent, however, since it varies depending on how BW does its pathing.
 
 // Simple backend that only ensures mineral locking
-// #import "MineralLockingOptimization/MineralLockingOptimization.h"
+// #include "MineralLockingOptimization/MineralLockingOptimization.h"
 // #define WORKERGATHEROPTIMIZER MineralLockingOptimization
 // #define MINERALS_PER_WORKER_FRAME 0.0465
 
 // Backend that tries to optimize the order process timer only
-// #import "OrderProcessTimerOptimization/WorkerOrderTimer.h"
+// #include "OrderProcessTimerOptimization/WorkerOrderTimer.h"
 // #define WORKERGATHEROPTIMIZER WorkerOrderTimer
 // #define MINERALS_PER_WORKER_FRAME 0.0465
 // #define GAS_PER_WORKER_FRAME 0.071
 // #define MINERALS_PER_GAS_UNIT 0.655
 
 // First implementation of the path-based optimizer
-// #import "MiningOptimization/WorkerMiningOptimization.h"
+// #include "MiningOptimization/WorkerMiningOptimization.h"
 // #define WORKERGATHEROPTIMIZER WorkerMiningOptimization
 // #define MINERALS_PER_WORKER_FRAME 0.0472
 // #define GAS_PER_WORKER_FRAME 0.071
 // #define MINERALS_PER_GAS_UNIT 0.665
 
 // Current implementation of the path-based optimizer
-#import "MiningOptimizationV2/MiningOptimization.h"
+#include "MiningOptimizationV2/MiningOptimization.h"
 #define WORKERGATHEROPTIMIZER MiningOptimization
 #define MINERALS_PER_WORKER_FRAME 0.0488
 #define GAS_PER_WORKER_FRAME 0.071
