@@ -156,6 +156,8 @@ void StardustAIModule::onEnd(bool isWinner)
 
 void StardustAIModule::onFrame()
 {
+    Log::Get() << "onFrame " << BWAPI::Broodwar->getFrameCount();
+
     if (currentFrame < frameSkip)
     {
         // We skip one frame at the start so our frame aligns with the game data, see readme in mining optimization for rationale
