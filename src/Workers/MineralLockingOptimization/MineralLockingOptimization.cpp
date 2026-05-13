@@ -93,4 +93,9 @@ namespace MineralLockingOptimization
 
         return assignments;
     }
+
+    std::optional<int> averageRotationTimeFor(const Resource &resource)
+    {
+        return std::nullopt;
+    }
 }

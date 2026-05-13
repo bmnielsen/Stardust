@@ -117,6 +117,8 @@ namespace MiningOptimization
         std::unordered_map<PositionAndVelocity, std::map<std::pair<TilePosition, TilePosition>, InitialSplitData>>
             startLocationToPatchPairToInitialSplitDataUnknown;
 
+        std::unordered_map<TilePosition, uint8_t> resourceToAverageSingleWorkerRotationTime;
+
         void clear(const std::string &_mapHash)
         {
             mapHash = _mapHash;

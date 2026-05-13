@@ -394,67 +394,47 @@ namespace Workers
         {
             if (!workerBase[unit]) return nullptr;
 
-            Resource best = nullptr;
-
-            // TODO: Re-implement observation-based resource assignment
-//            // First attempt to choose the patch using our resource observations
-//            // If any patch has no observations, we fall back to using the distance to the nexus
-//            unsigned long bestRotation = ULONG_MAX;
-//            for (const auto &mineralPatch : workerBase[unit]->mineralPatches())
-//            {
-//                size_t workers = mineralPatchWorkers[mineralPatch].size();
-//                if (workers >= 2) continue;
-//
-//                auto &observations = WorkerMiningOptimization::resourceObservationsFor(mineralPatch);
-//                unsigned long rotationAverage = (workers == 0)
-//                        ? observations.singleWorkerRotations.average
-//                        : ((unsigned long)observations.doubleWorkerRotations.average * 4UL - observations.singleWorkerRotations.average);
-//                if (rotationAverage == 0)
-//                {
-//#if WARN_ON_NO_RESOURCE_DATA
-//                    Log::Get() << "WARNING: No resource observation data available for choosing patch";
-//#endif
-//                    best = nullptr;
-//                    break;
-//                }
-//
-//                if (rotationAverage < bestRotation)
-//                {
-//                    bestRotation = rotationAverage;
-//                    best = mineralPatch;
-//                }
-//            }
-//
-//            if (best)
-//            {
-//                workerMineralPatch[unit] = best;
-//                mineralPatchWorkers[best].insert(unit);
-//                return best;
-//            }
-
-            int closestDist = INT_MAX;
-            int furthestDist = 0;
-            Resource closest = nullptr;
-            Resource furthest = nullptr;
+            // First scan to figure out if there are any patches with no workers assigned
+            bool patchWithoutWorkers = false;
             for (const auto &mineralPatch : workerBase[unit]->mineralPatches())
             {
-                size_t workers = mineralPatchWorkers[mineralPatch].size();
-                if (workers >= 2) continue;
-
-                int dist = mineralPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, workerBase[unit]->getPosition());
-                if (workers == 0 && dist < closestDist)
+                if (mineralPatchWorkers[mineralPatch].empty())
                 {
-                    closestDist = dist;
-                    closest = mineralPatch;
-                }
-                else if (workers == 1 && dist > furthestDist)
-                {
-                    furthestDist = dist;
-                    furthest = mineralPatch;
+                    patchWithoutWorkers = true;
+                    break;
                 }
             }
 
-            best = closest ? closest : furthest;
+            // Now scan the patches and score them based on how quickly a single worker gathers from it (lower is faster)
+            // If we have a patch without workers, we choose the patch without workers with the lowest score
+            // If not, we choose the available patch with the highest score, since the second worker will help this one the most
+            int bestScore = (patchWithoutWorkers ? INT_MAX : 0);
+            Resource best = nullptr;
+            for (const auto &mineralPatch : workerBase[unit]->mineralPatches())
+            {
+                // Skip this patch if it isn't available
+                if (mineralPatchWorkers[mineralPatch].size() != (patchWithoutWorkers ? 0 : 1)) continue;
+
+                // If the optimization engine provides patch rotation times, use them for scoring, otherwise fall back to distance from nexus
+                int score;
+                auto rotationTime = WORKERGATHEROPTIMIZER::averageRotationTimeFor(mineralPatch);
+                if (rotationTime)
+                {
+                    score = *rotationTime;
+                }
+                else
+                {
+                    score = mineralPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, workerBase[unit]->getPosition());
+                }
+
+                // Update the best result if needed
+                if ((patchWithoutWorkers && score < bestScore) || (!patchWithoutWorkers && score > bestScore))
+                {
+                    bestScore = score;
+                    best = mineralPatch;
+                }
+            }
+
             if (best)
             {
                 workerMineralPatch[unit] = best;
@@ -517,9 +497,9 @@ namespace Workers
                         continue;
                     }
 
-                    // TODO: Consider depleted geysers
-
+                    // We penalize depleted or nearly-depleted geysers by 10x
                     int dist = refinery->getDistance(worker);
+                    if (refinery->currentAmount < 100) dist *= 10;
                     if (dist < bestDist)
                     {
                         bestDist = dist;

@@ -429,4 +429,12 @@ namespace WorkerMiningOptimization
         Log::Get() << "Initial worker split made from observations; expect 7th collection before frame " << bestCollectionTime;
         return assignments;
     }
+
+    std::optional<int> averageRotationTimeFor(const Resource &resource)
+    {
+        auto averageRotationTime = resourceObservationsFor(resource).singleWorkerRotations.average;
+        if (averageRotationTime == 0) return std::nullopt;
+
+        return averageRotationTime;
+    }
 }

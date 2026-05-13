@@ -23,4 +23,7 @@ namespace MineralLockingOptimization
 
     // Performs the initial worker split, assigning each initial worker to a patch
     std::map<MyWorker, std::tuple<Resource, Resource, std::optional<MiningOptimization::InitialSplitData>>> initialWorkerSplit();
+
+    // Gets the average rotation time for a single worker gathering from the resource
+    std::optional<int> averageRotationTimeFor(const Resource &resource);
 }

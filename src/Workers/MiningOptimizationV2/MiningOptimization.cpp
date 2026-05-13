@@ -233,4 +233,9 @@ namespace MiningOptimization
         }
         return result;
     }
+
+    std::optional<int> averageRotationTimeFor(const Resource &resource)
+    {
+        return std::nullopt;
+    }
 }

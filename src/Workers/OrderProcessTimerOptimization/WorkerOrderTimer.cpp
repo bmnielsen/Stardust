@@ -219,4 +219,9 @@ namespace WorkerOrderTimer
     {
         return MineralLockingOptimization::initialWorkerSplit();
     }
+
+    std::optional<int> averageRotationTimeFor(const Resource &resource)
+    {
+        return std::nullopt;
+    }
 }

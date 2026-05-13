@@ -114,6 +114,16 @@ namespace MiningOptimization::Serialization
             ser.object(data.startLocationToPatchPairToInitialSplitDataZerg, initialSplitDataSerializer);
             ser.object(data.startLocationToPatchPairToInitialSplitDataNotZerg, initialSplitDataSerializer);
             ser.object(data.startLocationToPatchPairToInitialSplitDataUnknown, initialSplitDataSerializer);
+
+            ser.ext(data.resourceToAverageSingleWorkerRotationTime,
+                    bitsery::ext::StdMap{INT_MAX},
+                    [&](S &s,
+                        TilePosition &key,
+                        uint8_t &v)
+                    {
+                        s.object(key);
+                        s.value1b(v);
+                    });
         }
     }
 
