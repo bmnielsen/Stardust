@@ -9,6 +9,7 @@
 #include "ReturnArrivalData.h"
 
 #include <ranges>
+#include <optional>
 
 #define OCCURRENCE_SCALE 127
 

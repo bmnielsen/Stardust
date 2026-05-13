@@ -5,6 +5,8 @@
 #include "Resource.h"
 #include "MiningOptimizationV2/DataModel/MapData.h"
 
+#include <optional>
+
 namespace WorkerOrderTimer
 {
     void initialize();

@@ -36,6 +36,7 @@ namespace MiningOptimization
                 , ignoreHeadingAndVelocity(ignoreHeadingAndVelocity)
         {}
 
+#if IS_OPENBW
         explicit PositionAndVelocity(const BWAPI::ExactPosition &exactPosition)
                 : x((uint16_t)exactPosition.pos().x)
                 , y((uint16_t)exactPosition.pos().y)
@@ -44,6 +45,7 @@ namespace MiningOptimization
                 , velocityY(exactPosition.velocityY)
                 , ignoreHeadingAndVelocity(false)
         {}
+#endif
 
         explicit PositionAndVelocity(const MyWorker &worker)
                 : x(worker->lastPosition.x)

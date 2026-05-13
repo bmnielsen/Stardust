@@ -5,6 +5,8 @@
 #include "Resource.h"
 #include "DataModel/MapData.h"
 
+#include <optional>
+
 namespace MiningOptimization
 {
     // Called on game start; loads the required data files and initializes data structures
