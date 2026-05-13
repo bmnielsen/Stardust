@@ -214,9 +214,9 @@ TEST(BananaBrain, BBS)
 {
     BWTest test;
     test.opponentRace = BWAPI::Races::Terran;
-    test.map = Maps::GetOne("Outsider");
-    test.randomSeed = 37141;
-    test.frameLimit = 8000;
+    test.map = Maps::GetOne("sscai/(2)Destination");
+    test.randomSeed = 1844;
+    test.frameLimit = 2000;
     test.opponentModule = []()
     {
         auto bbModule = new BananaBrain();
