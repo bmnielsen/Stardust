@@ -167,8 +167,7 @@ namespace MiningOptimizationTraining
                             BWAPI::SimulateGatherPathOptions(plannedResendFrames, initialState.state)
                                 .setReturnStateAtStartOfNextPath()
                                 .switchToPatch(firstPatch->getBWIndex())
-                                .setIncludeAllPositions()
-                                .setSkipFirstFrame());
+                                .setIncludeAllPositions());
                     if (!simulatedGatherPath)
                     {
                         Log::Get() << "ERROR: Unable to simulate gather path";

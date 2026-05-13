@@ -27,11 +27,7 @@ namespace CherryVis
 
         int cvisFrame()
         {
-            // Subtract one from the frame to align it with the engine data seen by the bot
-            // More discussion of why we do this is in the readme for mining optimization
-            int frame = BWAPI::Broodwar->getFrameCount();
-            if (frame == 0) return 0;
-            return frame - 1;
+            return BWAPI::Broodwar->getFrameCount();
         }
 
         enum DataFileType {

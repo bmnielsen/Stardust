@@ -55,10 +55,4 @@ namespace BWAPI
         includeAllPositions = true;
         return *this;
     }
-
-    SimulateGatherPathOptions &SimulateGatherPathOptions::setSkipFirstFrame()
-    {
-        skipFirstFrame = true;
-        return *this;
-    }
 }

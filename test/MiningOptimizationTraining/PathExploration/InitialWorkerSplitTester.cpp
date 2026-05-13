@@ -358,6 +358,8 @@ namespace MiningOptimizationTraining
             {
                 case 0:
                 {
+                    if (status.initialSplitData && status.initialSplitData->firstRotation.delayFrames > currentFrame) break;
+
                     EXPECT_TRUE(worker->gather(status.firstPatch))
                                         << worker->getID() << ": Failed to issue gather command: " << BWAPI::Broodwar->getLastError();
                     status.state++;

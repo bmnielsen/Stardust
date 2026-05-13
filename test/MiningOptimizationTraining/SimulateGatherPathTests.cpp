@@ -75,7 +75,7 @@ namespace
                 test.addClockPositionToReplayName();
             };
 #else
-            test.writeReplay = false;
+            test.writeReplay = (iterations == 1);
 #endif
             test.run();
         }
@@ -159,5 +159,5 @@ TEST(SimulateGatherPathTests, VermeerInitialWorkers)
 {
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    runInitialWorkersTest(test);
+    runInitialWorkersTest(test, 1);
 }

@@ -8,6 +8,8 @@
 
 #include <random>
 
+#include "DataTransformation/DataTransformer.h"
+
 #define VERBOSE_LOGGING false
 
 using namespace MiningOptimizationTraining;
@@ -141,19 +143,19 @@ namespace
             };
             test.allowOpponentOutput = false;
             test.expectWin = false;
-            test.writeReplay = false;
+            test.writeReplay = true;
             test.frameLimit = 500;
             test.run();
             std::cout << "Seventh delivery: " << module.seventhDeliveryFrame << std::endl;
         };
 
-//         BWTest test;
-//         test.maps = {map};
-//         test.randomSeed = 61581;
-//         test.opponentRace = BWAPI::Races::Random;
-// //        knownEnemyRace = BWAPI::Races::Zerg;
-//         runner(test);
-//         return;
+        // BWTest test;
+        // test.maps = {map};
+        // test.randomSeed = 61302;
+        // test.opponentRace = BWAPI::Races::Zerg;
+        // knownEnemyRace = BWAPI::Races::Zerg;
+        // runner(test);
+        // return;
 
         // Run with zerg and non-zerg where we don't know the enemy race
         Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
@@ -184,7 +186,7 @@ namespace
 
         unsigned long accumulator = 0;
         unsigned long count = 0;
-        auto runner = [&](BWTest test, BWAPI::Race opponentRace)
+        auto runner = [&](BWTest test, BWAPI::Race opponentRace, bool writeReplay)
         {
             test.opponentModule = []()
             {
@@ -213,16 +215,16 @@ namespace
 
         // BWTest test;
         // test.maps = {map};
-        // test.randomSeed = 61302;
-        // runner(test, BWAPI::Races::Random);
-        // return;
+        // test.randomSeed = 27415;
+        // runner(test, BWAPI::Races::Zerg, true);
+        // return 0.0;
 
         std::vector<BWAPI::Race> races = {BWAPI::Races::Random, BWAPI::Races::Zerg, BWAPI::Races::Terran};
         for (int i = 0; i < 30; i++)
         {
             BWTest test;
             test.maps = {map};
-            runner(test, races[i % 3]);
+            runner(test, races[i % 3], false);
         }
 
         double result = ((double)accumulator / (double)count);
@@ -324,4 +326,20 @@ TEST(InitialSplitMeasurement, AllSSCAIT)
     }
     std::cout << std::fixed << std::setprecision(1)
               << "Overall average: " << average << std::endl;
+}
+
+TEST(FullInitialSplit, Benzene)
+{
+    auto map = *Maps::GetOne("Benzene");
+    initialPathExploration(map);
+    initialSplitTest(map);
+
+    MapData data;
+    data.mapHash = map.openbwHash;
+    InitialWorkerMapData initialWorkerData;
+    Serialization::setGameParameters(map.openbwHash);
+    Serialization::readMapData(initialWorkerData);
+    DataTransformer::transform(data, initialWorkerData);
+
+    initialSplitMeasurement(map);
 }

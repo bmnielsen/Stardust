@@ -2532,8 +2532,6 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
         }
     };
 
-    if (options.skipFirstFrame) nextFrame();
-
     std::vector<BWAPI::ExactPosition> positions;
     auto recordPosition = [&positions, &unit]()
     {

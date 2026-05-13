@@ -481,13 +481,14 @@ void BWTest::runGame(bool opponent)
 
         for (int f = 0; f < 4; f++)
         {
-            h->update();
             gameOwner.getGame().nextFrame();
+            h->update();
         }
     }
 
     for (int frame = 0; frame <= initialUnitFrames; frame++)
     {
+        gameOwner.getGame().nextFrame();
         h->update();
 
         auto &initialUnits = opponent ? opponentInitialUnitsByFrame[frame] : myInitialUnitsByFrame[frame];
@@ -495,8 +496,6 @@ void BWTest::runGame(bool opponent)
         {
             h->createUnit(h->self(), unitAndPosition.type, unitAndPosition.getCenterPosition());
         }
-
-        gameOwner.getGame().nextFrame();
     }
 
     frameLimit += initialUnitFrames;
@@ -507,6 +506,7 @@ void BWTest::runGame(bool opponent)
     {
         try
         {
+            gameOwner.getGame().nextFrame();
             h->update();
 
             if (!isStardustModule && !leftGame)
@@ -538,8 +538,6 @@ void BWTest::runGame(bool opponent)
                     h->leaveGame();
                 }
             }
-
-            gameOwner.getGame().nextFrame();
         }
         catch (std::exception &ex)
         {
@@ -555,6 +553,7 @@ void BWTest::runGame(bool opponent)
 
     std::cout << "Game over " << (opponent ? "(opponent) " : "") << "after " << h->getFrameCount() << " frames" << std::endl;
 
+    gameOwner.getGame().nextFrame();
     h->update();
 
     if (!isStardustModule)

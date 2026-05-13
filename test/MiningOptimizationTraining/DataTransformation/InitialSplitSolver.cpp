@@ -298,7 +298,7 @@ namespace MiningOptimizationTraining
                 .at(exactStartPosition)
                 .at(firstPatch);
         getPaths(firstGatherPathResults,
-                 0,
+                 1,
                  8,
                  158,
                  std::nullopt,

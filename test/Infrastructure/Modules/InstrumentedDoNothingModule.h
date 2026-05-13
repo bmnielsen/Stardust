@@ -48,7 +48,7 @@ public:
 
     void onFrameEnd()
     {
-        if (BWAPI::Broodwar->getFrameCount() > 0) currentFrame++;
+        currentFrame++;
         CherryVis::frameEnd();
     }
 

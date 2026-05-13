@@ -39,6 +39,7 @@ namespace MiningOptimization
             };
 
             os << "resends: ";
+            if (rotation.delayFrames > 0) os << "delay " << (unsigned int)rotation.delayFrames << "; ";
             outIntCollection(rotation.resendFrames);
             os << "; gather arrival: " << rotation.gatherArrivalFrame;
             os << "; gather action: " << rotation.gatherActionFrame;

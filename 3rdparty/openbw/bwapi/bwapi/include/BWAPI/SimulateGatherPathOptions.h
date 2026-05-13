@@ -36,11 +36,6 @@ namespace BWAPI
         // Indicate that the result should include all positions visited by the worker, not just positions after the last resend
         SimulateGatherPathOptions &setIncludeAllPositions();
 
-        // Have the simulation skip the first frame
-        // Chaining simulated results together ends up skipping the first frame of each step, as it is the end frame of the last one, so this lets
-        // us align the first result to this pattern
-        SimulateGatherPathOptions &setSkipFirstFrame();
-
         const std::set<int> &resendFrames;
         const std::unique_ptr<bwgame::state> &startingState;
         bool forceActionAtArrival = false;
@@ -49,6 +44,5 @@ namespace BWAPI
         bool switchPatches = false;
         size_t patchUnitIndex = 0;
         bool includeAllPositions = false;
-        bool skipFirstFrame = false;
     };
 }
