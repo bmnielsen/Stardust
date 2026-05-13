@@ -37,6 +37,7 @@ namespace
         destinationFilenameBuilder << EXPORT_PATH;
         destinationFilenameBuilder << "mining-optimization";
         destinationFilenameBuilder << "_" << mapHash;
+        destinationFilenameBuilder << ".bin.zstd";
         auto destinationFilename = destinationFilenameBuilder.str();
 
         std::filesystem::copy(sourceFilename, destinationFilename, std::filesystem::copy_options::overwrite_existing);
