@@ -2709,9 +2709,11 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
 
     // Remove duplicated positions at the end of the path, these are the positions while the worker was waiting to gather or deliver
     // We ignore the heading as the worker may turn while waiting, but this would not affect its ability to transition earlier
+    int arrivalFrame = actionFrame;
     while (lastTwoPositionsEqual())
     {
         positions.pop_back();
+        --arrivalFrame;
     }
 
     // Continue simulating until the unit reaches its next order
@@ -2759,6 +2761,7 @@ std::unique_ptr<BWAPI::SimulateGatherPathResult> Unit::simulateGatherPath(const 
 
     return std::make_unique<BWAPI::SimulateGatherPathResult>(
             startFrame,
+            arrivalFrame,
             actionFrame,
             lastOrderProcessTimerOverrideFrame,
             std::move(positions),

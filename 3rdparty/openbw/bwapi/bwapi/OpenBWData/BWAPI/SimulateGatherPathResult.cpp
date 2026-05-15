@@ -5,6 +5,7 @@
 namespace BWAPI
 {
     SimulateGatherPathResult::SimulateGatherPathResult(int startFrame,
+                                                       int arrivalFrame,
                                                        int actionFrame,
                                                        int lastOrderProcessTimerOverrideFrame,
                                                        std::vector<ExactPosition> positions,
@@ -13,6 +14,7 @@ namespace BWAPI
                                                        uint64_t squaredSpeedEightFramesAlongNextPath,
                                                        std::unique_ptr<bwgame::state> stateAtStartOfNextPath)
             : startFrame(startFrame)
+            , arrivalFrame(arrivalFrame)
             , actionFrame(actionFrame)
             , lastOrderProcessTimerOverrideFrame(lastOrderProcessTimerOverrideFrame)
             , positions(std::move(positions))

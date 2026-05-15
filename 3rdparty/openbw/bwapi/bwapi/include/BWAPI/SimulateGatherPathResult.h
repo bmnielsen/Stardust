@@ -16,6 +16,7 @@ namespace BWAPI
     struct SimulateGatherPathResult
     {
         SimulateGatherPathResult(int startFrame,
+                                 int arrivalFrame,
                                  int actionFrame,
                                  int lastOrderProcessTimerOverrideFrame,
                                  std::vector<ExactPosition> positions,
@@ -26,6 +27,7 @@ namespace BWAPI
         ~SimulateGatherPathResult();
 
         int startFrame;
+        int arrivalFrame;
         int actionFrame;
         int lastOrderProcessTimerOverrideFrame;
 
