@@ -9,18 +9,9 @@ namespace
 {
     int botFrameToGameFrame(int botFrame)
     {
-        // Convert based on the current difference between the engine and bot frames
+        // Convert based on the current difference between the engine and bot frames to handle pauses
         // Note that this might not be correct if a pause happens / happened between the current frame and the frame we are converting
-        // Some more explanation for this:
-        // The normal BWAPI flow calls the bot prior to running the game engine on a given frame. This is somewhat confusing, since if we look at
-        // our bot's log output on a frame and compare it with the game data at the end of that frame in e.g. CherryVis, they are misaligned.
-        // As a result of this, we subtract one from the bot's currentFrame at the start of the game, such that from the bot's perspective, it gets
-        // called at the end of the frame rather than at the start.
-        // This makes things like order process timer resets a bit more tricky to handle. The calculation here makes it so that the methods in
-        // this file treat an order process timer reset as happening on the bot frame on which the reset happened. So for example, the order process
-        // timer reset on game frame 158 will be reported as happening on bot frame 158, even though the game frame will have advanced again by the
-        // time bot frame 158 is being processed.
-        return botFrame + (BWAPI::Broodwar->getFrameCount() - currentFrame) - 1;
+        return botFrame + (BWAPI::Broodwar->getFrameCount() - currentFrame);
     }
 }
 
@@ -66,12 +57,12 @@ namespace OrderProcessTimer
         return previousResetFrame(currentFrame);
     }
 
-    int isResetFrame(int frame)
+    bool isResetFrame(int frame)
     {
         return framesToPreviousReset(frame) == 0;
     }
 
-    int isResetFrame()
+    bool isResetFrame()
     {
         return isResetFrame(currentFrame);
     }

@@ -110,12 +110,20 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
         {
             orderProcessTimer = 0;
         }
+        if (!carryingResource)
+        {
+            // Clear return command frames, since we might have queued one up that hasn't taken effect yet
+            returnCommandFrames.clear();
+        }
     }
     else if (bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
     {
         // Record the transition to mining order
         if (previousOrder != BWAPI::Orders::MiningMinerals)
         {
+            // Clear gather command frames, since we might have queued one up that hasn't taken effect yet
+            returnCommandFrames.clear();
+            gatherCommandFrames.clear();
             lastTransitionedToMiningOrder = currentFrame;
             if (!isResetFrame)
             {
