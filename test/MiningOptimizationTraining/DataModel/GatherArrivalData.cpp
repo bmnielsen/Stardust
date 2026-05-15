@@ -112,9 +112,17 @@ namespace MiningOptimizationTraining
     {
         if (simulatedPath.positions.empty()) return {};
 
+        // For gather, we always simulate with action at arrival, so we expect the action frame to equal the arrival frame
+        // If it doesn't, it means the worker arrived with its pathing messed up, which is equivalent in effect to not facing the patch
+        bool atMoveTarget = true;
+        if (simulatedPath.actionFrame != (simulatedPath.startFrame + simulatedPath.positions.size()))
+        {
+            atMoveTarget = false;
+        }
+
         return {
                 (uint16_t)simulatedPath.positions.size(),
-                isFacingPatch(simulatedPath.actionPosition, patch),
+                isFacingPatch(simulatedPath.actionPosition, patch) && atMoveTarget,
                 simulatedPath.squaredSpeedEightFramesAlongNextPath == 0,
                 simulatedPath.nextPathStartPosition
         };
