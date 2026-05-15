@@ -39,11 +39,14 @@ namespace MiningOptimizationTraining
     void ExploreStartPositionsModule<ExploreInitialWorkerStartPosition>::initializeStartPositions()
     {
         // {
+        //     initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath.clear();
+        //     initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths.clear();
+        //     initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths.clear();
         //     auto positions = {
-        //         PositionAndVelocity(3760, 520, -96, 0, 0),
-        //         PositionAndVelocity(3784, 520, 88, 0, 0),
-        //         PositionAndVelocity(3808, 520, 40, 0, 0),
-        //         PositionAndVelocity(3832, 520, -80, 0, 0)
+        //         PositionAndVelocity(240, 3176, -32, 0, 0),
+        //         PositionAndVelocity(264, 3176, 48, 0, 0),
+        //         PositionAndVelocity(288, 3176, -96, 0, 0),
+        //         PositionAndVelocity(312, 3176, -16, 0, 0)
         //     };
         //     auto testBase = Map::baseNear(*positions.begin());
         //     for (auto patch : testBase->mineralPatches())
@@ -64,9 +67,6 @@ namespace MiningOptimizationTraining
         //     }
         //     return;
         // }
-        // initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath.clear();
-        // initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths.clear();
-        // initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths.clear();
 
         for (const auto &[spawnPosition, _] : initialWorkerMapData.startingWorkerPositionToOrderProcessTimerReset)
         {

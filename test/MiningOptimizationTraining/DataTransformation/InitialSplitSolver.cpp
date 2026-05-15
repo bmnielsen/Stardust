@@ -164,7 +164,7 @@ namespace MiningOptimizationTraining
                                 frame < *considerWaitingAtStartToResendAtFrame)
                             {
                                 int frameDelay = *considerWaitingAtStartToResendAtFrame - frame;
-                                if (frameDelay <= 4)
+                                if (frameDelay < 4)
                                 {
                                     addResult(*current->arrivalDataAfterResend, {frame + frameDelay}, frameDelay);
                                 }

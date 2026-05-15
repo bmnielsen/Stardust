@@ -587,20 +587,23 @@ namespace MiningOptimizationTraining::DataTransformer
                 (uint32_t)spawnPosition.y * 256,
                 0, 0, 0
             };
-            if (!initialWorkerTrainingData.startingWorkerPositionToPatchToFirstGatherPath.contains(exactPosition)) continue;
 
             std::vector<TilePosition> patches;
-            for (const auto &[tile, _]
-                    : initialWorkerTrainingData.startingWorkerPositionToPatchToFirstGatherPath.at(exactPosition))
-            {
-                patches.emplace_back(tile);
-            }
-
             for (int heading = INT8_MIN; heading <= INT8_MAX; heading += 8)
             {
                 position.heading = (int8_t)heading;
                 trainingPosition.heading = (int8_t)heading;
                 exactPosition.heading = (int8_t)heading;
+                if (!initialWorkerTrainingData.startingWorkerPositionToPatchToFirstGatherPath.contains(exactPosition)) continue;
+
+                if (patches.empty())
+                {
+                    for (const auto &[tile, _]
+                        : initialWorkerTrainingData.startingWorkerPositionToPatchToFirstGatherPath.at(exactPosition))
+                    {
+                        patches.emplace_back(tile);
+                    }
+                }
 
                 auto &unknown = outputData.startLocationToPatchPairToInitialSplitDataUnknown[position];
                 auto &zerg = outputData.startLocationToPatchPairToInitialSplitDataZerg[position];

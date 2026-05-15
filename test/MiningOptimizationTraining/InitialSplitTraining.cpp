@@ -42,8 +42,8 @@ namespace
             test.onFrameMine = [&]()
             {
                 // The timer changes on the engine's frame 8, but there is misalignment due to how the test hooks are applied so we need to look at
-                // frame 10
-                if (BWAPI::Broodwar->getFrameCount() != 10) return;
+                // frame 9
+                if (BWAPI::Broodwar->getFrameCount() != 9) return;
 
                 for (auto unit : BWAPI::Broodwar->self()->getUnits())
                 {
@@ -186,7 +186,7 @@ namespace
 
         unsigned long accumulator = 0;
         unsigned long count = 0;
-        auto runner = [&](BWTest test, BWAPI::Race opponentRace, bool writeReplay)
+        auto runner = [&](BWTest test, BWAPI::Race opponentRace, bool writeReplay, std::optional<int> randomSeed)
         {
             test.opponentModule = []()
             {
@@ -194,13 +194,21 @@ namespace
             };
             test.opponentRace = opponentRace;
             test.allowOpponentOutput = false;
-            test.randomSeed = randomSeedDistribution(rng);
+            test.randomSeed = randomSeed ? *randomSeed : randomSeedDistribution(rng);
             test.expectWin = false;
-            test.writeReplay = false;
+            test.writeReplay = writeReplay;
             test.frameLimit = 500;
             bool seventhCollectionDone = false;
             test.onFrameMine = [&]()
             {
+                if (writeReplay && currentFrame == 0)
+                {
+                    for (auto worker : BWAPI::Broodwar->self()->getUnits())
+                    {
+                        if (worker->getType().isWorker()) std::cout << PositionAndVelocity(worker) << std::endl;
+                    }
+                }
+
                 if (seventhCollectionDone) return;
                 if (BWAPI::Broodwar->self()->gatheredMinerals() >= 100)
                 {
@@ -215,8 +223,7 @@ namespace
 
         // BWTest test;
         // test.maps = {map};
-        // test.randomSeed = 27415;
-        // runner(test, BWAPI::Races::Zerg, true);
+        // runner(test, BWAPI::Races::Random, true, 89767);
         // return 0.0;
 
         std::vector<BWAPI::Race> races = {BWAPI::Races::Random, BWAPI::Races::Zerg, BWAPI::Races::Terran};
@@ -224,7 +231,7 @@ namespace
         {
             BWTest test;
             test.maps = {map};
-            runner(test, races[i % 3], false);
+            runner(test, races[i % 3], false, std::nullopt);
         }
 
         double result = ((double)accumulator / (double)count);

@@ -68,6 +68,12 @@ TEST(DataTransformation, AllSSCAIT)
     });
 }
 
+TEST(ExportDataFiles, Benzene)
+{
+    auto map = Maps::GetOne("Benzene");
+    exportDataFile(map->openbwHash, map->hash);
+}
+
 TEST(ExportDataFiles, AllSSCAIT)
 {
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
