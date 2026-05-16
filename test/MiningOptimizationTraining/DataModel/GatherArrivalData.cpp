@@ -85,6 +85,14 @@ namespace MiningOptimizationTraining
         bool facingTarget = isFacingPatch(simulatedPathWithActionAtArrival.actionPosition, patch)
                             && isFacingPatch(simulatedPathWithActionAfterArrival.actionPosition, patch);
 
+        // We expect the action frame for action at arrival to equal the arrival frame
+        // If it doesn't, it means the worker arrived with its pathing messed up, which is equivalent in effect to not facing the patch
+        bool atMoveTarget = true;
+        if (simulatedPathWithActionAtArrival.actionFrame != simulatedPathWithActionAtArrival.arrivalFrame)
+        {
+            atMoveTarget = false;
+        }
+
         // Find the index of the first position that is 10 distance from the patch
         int i = 0;
         for (auto it = simulatedPathWithActionAtArrival.positions.rbegin();
@@ -100,7 +108,7 @@ namespace MiningOptimizationTraining
         }
 
         return create(simulatedPathWithActionAtArrival.positions.size(),
-                      facingTarget,
+                      facingTarget && atMoveTarget,
                       simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath == 0
                       || simulatedPathWithActionAfterArrival.squaredSpeedEightFramesAlongNextPath == 0,
                       (uint8_t)std::min(i, 255),
@@ -115,7 +123,7 @@ namespace MiningOptimizationTraining
         // For gather, we always simulate with action at arrival, so we expect the action frame to equal the arrival frame
         // If it doesn't, it means the worker arrived with its pathing messed up, which is equivalent in effect to not facing the patch
         bool atMoveTarget = true;
-        if (simulatedPath.actionFrame != (simulatedPath.startFrame + simulatedPath.positions.size()))
+        if (simulatedPath.actionFrame != simulatedPath.arrivalFrame)
         {
             atMoveTarget = false;
         }
