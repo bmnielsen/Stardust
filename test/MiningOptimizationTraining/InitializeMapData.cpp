@@ -7,8 +7,10 @@ using namespace MiningOptimizationTraining;
 
 namespace
 {
-    void run(BWTest &test, const ExploreStartPositionsModuleOptions &options)
+    void run(BWTest &test, ExploreStartPositionsModuleOptions options)
     {
+        options.loadInitialWorkerMapData = false;
+
         test.opponentRace = BWAPI::Races::Terran;
         test.opponentModule = []()
         {
@@ -67,6 +69,16 @@ TEST(InitializeMapData, Benzene)
     BWTest test;
     test.map = Maps::GetOne("Benzene");
     run(test, {});
+}
+
+TEST(InitializeMapData, BenzeneOneBase)
+{
+    ExploreStartPositionsModuleOptions options;
+    options.oneBase = BWAPI::TilePosition(7, 96);
+
+    BWTest test;
+    test.map = Maps::GetOne("Benzene");
+    run(test, options);
 }
 
 TEST(InitializeMapData, Destination)

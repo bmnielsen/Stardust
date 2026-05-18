@@ -14,14 +14,14 @@ namespace MiningOptimization
         {
             switch (exitSpeed())
             {
+                case ReturnExitSpeed::NotFacingDepot:
+                    delay = 18; // Not really, but we really really want to avoid these paths since they mess with our timings so much
+                    break;
                 case ReturnExitSpeed::Collision:
                     delay = 9;
                     break;
                 case ReturnExitSpeed::Low:
                     delay = 0;
-                    break;
-                case ReturnExitSpeed::Medium:
-                    delay = -2;
                     break;
                 case ReturnExitSpeed::High:
                     delay = -4;
@@ -57,11 +57,11 @@ namespace MiningOptimization
             case ReturnExitSpeed::Low:
                 os << "Low";
                 break;
-            case ReturnExitSpeed::Medium:
-                os << "Medium";
-                break;
             case ReturnExitSpeed::High:
                 os << "High";
+                break;
+            case ReturnExitSpeed::NotFacingDepot:
+                os << "NotFacingDepot";
                 break;
         }
         return os;

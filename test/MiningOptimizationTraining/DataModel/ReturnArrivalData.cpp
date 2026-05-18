@@ -2,24 +2,36 @@
 
 namespace MiningOptimizationTraining
 {
+    namespace
+    {
+        uint8_t convertSquaredSpeed(uint64_t squaredSpeed)
+        {
+            if (squaredSpeed >= 1638400) return 128;
+            return (uint8_t)std::round(std::sqrt((double)squaredSpeed) / 10.0);
+        }
+    }
+
+    int returnExitSpeedToDelay(uint8_t exitSpeed)
+    {
+        // The exit speed is stored as a 7-bit integer reflecting the worker's speed as a percentage of maximum
+        // If it is 0, the worker collided with the depot after delivery
+        // Otherwise we bucket the delay numbers based on what percentage of speed is preserved
+
+        if (exitSpeed == 0) return 9;
+
+        if (exitSpeed >= 102) return -4; // Approx. 80% of speed
+        if (exitSpeed >= 64) return -2; // 50% of max speed
+        return 0;
+    }
+
     int ReturnArrivalData::delayAfterAction(int orderProcessTimerAtArrival) const
     {
         if (orderProcessTimerAtArrival == 0)
         {
-            switch (exitSpeed())
-            {
-                case ReturnExitSpeed::Collision:
-                    return 9;
-                case ReturnExitSpeed::Low:
-                    return 0;
-                case ReturnExitSpeed::Medium:
-                    return -2;
-                case ReturnExitSpeed::High:
-                    return -4;
-            }
+            return returnExitSpeedToDelay(exitSpeedDeliveryAtArrival);
         }
 
-        return (collision() ? 9 : 0);
+        return (collisionDeliveryAfterArrival ? 9 : 0);
     }
 
     std::pair<int, int> ReturnArrivalData::computeActionFrame(int pathStartFrame,
@@ -27,7 +39,7 @@ namespace MiningOptimizationTraining
                                                               std::optional<int> orderProcessTimerResetFrame) const
     {
         // Compute the arrival frame, using the start frame as either the resend or the path start frame if no resend occurred
-        int arrivalFrame = ((lastResendFrame.has_value()) ? *lastResendFrame : pathStartFrame) + (int)arrivalDelay();
+        int arrivalFrame = ((lastResendFrame.has_value()) ? *lastResendFrame : pathStartFrame) + (int)arrivalDelay;
 
         // Compute the order process timer value at the start of the frame where the worker is at this node (i.e. where this arrival delay is
         // measured from)
@@ -36,7 +48,7 @@ namespace MiningOptimizationTraining
         int orderProcessTimerAtNode = (lastResendFrame.has_value()) ? 10 : 0;
 
         // Compute the order process timer value at arrival ignoring resets
-        int orderProcessTimerAtArrival = orderProcessTimerAtNode - (int)arrivalDelay();
+        int orderProcessTimerAtArrival = orderProcessTimerAtNode - (int)arrivalDelay;
         while (orderProcessTimerAtArrival < 0)
         {
             orderProcessTimerAtArrival += 9;
@@ -58,61 +70,18 @@ namespace MiningOptimizationTraining
         return std::make_pair(std::max(arrivalFrame, *orderProcessTimerResetFrame) + 4, averageDelay);
     }
 
-    ReturnArrivalData ReturnArrivalData::create(unsigned int arrivalDelay,
-                                                ReturnExitSpeed exitSpeed,
-                                                bool collision,
-                                                PositionAndVelocity nextPathStartPositionDeliveryAtArrival,
-                                                PositionAndVelocity nextPathStartPositionDeliveryAfterArrival)
-    {
-        // Arrival delay values outside the range of 14 bits are clamped
-        // This is fine since such long arrival delays would never be useful for optimization anyway
-        arrivalDelay = std::min(UINT13_MAX, arrivalDelay);
-
-        // Shift to the left to make room for the exit speed and collision
-        uint16_t packed = (uint16_t)arrivalDelay << 3;
-
-        // Add the exit speed
-        packed += (uint16_t)exitSpeed;
-
-        // Add the collision
-        if (collision) packed |= 0b0000000000000100;
-
-        return ReturnArrivalData{packed,
-                                 std::move(nextPathStartPositionDeliveryAtArrival),
-                                 std::move(nextPathStartPositionDeliveryAfterArrival)};
-    }
-
     ReturnArrivalData ReturnArrivalData::createFromSimulatedPaths(
             const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAtArrival,
             const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAfterArrival)
     {
-        // The return exit speed is bucketed based on the squared speed
-        // The max speed of a worker is 5 pixels per frame, which corresponds to 5*256=1280 subpixels per frame or 1638400 squared
-        ReturnExitSpeed returnExitSpeed;
-        if (simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath > 1048576) // 80% of top speed
-        {
-            returnExitSpeed = ReturnExitSpeed::High;
-        }
-        else if (simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath > 409600) // 50% of top speed
-        {
-            returnExitSpeed = ReturnExitSpeed::Medium;
-        }
-        else if (simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath == 0)
-        {
-            returnExitSpeed = ReturnExitSpeed::Collision;
-        }
-        else
-        {
-            returnExitSpeed = ReturnExitSpeed::Low;
-        }
-
-        bool collision = (simulatedPathWithActionAfterArrival.squaredSpeedEightFramesAlongNextPath == 0);
-
-        return create(simulatedPathWithActionAtArrival.positions.size(),
-                      returnExitSpeed,
-                      collision,
-                      PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition},
-                      PositionAndVelocity{simulatedPathWithActionAfterArrival.nextPathStartPosition});
+        return ReturnArrivalData{
+            (uint8_t)std::min(UINT7_MAX, (unsigned int)simulatedPathWithActionAtArrival.positions.size()),
+            (simulatedPathWithActionAfterArrival.squaredSpeedEightFramesAlongNextPath == 0),
+            convertSquaredSpeed(simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath),
+            (simulatedPathWithActionAtArrival.actionFrame == simulatedPathWithActionAtArrival.arrivalFrame),
+            PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition},
+            PositionAndVelocity{simulatedPathWithActionAfterArrival.nextPathStartPosition}
+        };
     }
 
     InitialWorkerReturnArrivalData InitialWorkerReturnArrivalData::createFromSimulatedPath(
@@ -121,54 +90,13 @@ namespace MiningOptimizationTraining
     {
         if (simulatedPathDeliveryAtArrival.positions.empty()) return {};
 
-        // The return exit speed is bucketed based on the squared speed
-        // The max speed of a worker is 5 pixels per frame, which corresponds to 5*256=1280 subpixels per frame or 1638400 squared
-        ReturnExitSpeed returnExitSpeed;
-        if (simulatedPathDeliveryAtArrival.squaredSpeedEightFramesAlongNextPath > 1048576) // 80% of top speed
-        {
-            returnExitSpeed = ReturnExitSpeed::High;
-        }
-        else if (simulatedPathDeliveryAtArrival.squaredSpeedEightFramesAlongNextPath > 409600) // 50% of top speed
-        {
-            returnExitSpeed = ReturnExitSpeed::Medium;
-        }
-        else if (simulatedPathDeliveryAtArrival.squaredSpeedEightFramesAlongNextPath == 0)
-        {
-            returnExitSpeed = ReturnExitSpeed::Collision;
-        }
-        else
-        {
-            returnExitSpeed = ReturnExitSpeed::Low;
-        }
-
-        bool collision = (simulatedPathDeliveryAfterArrival.squaredSpeedEightFramesAlongNextPath == 0);
-
-        return {
-                (uint16_t)simulatedPathDeliveryAtArrival.positions.size(),
-                returnExitSpeed,
-                collision,
-                simulatedPathDeliveryAtArrival.nextPathStartPosition,
-                simulatedPathDeliveryAfterArrival.nextPathStartPosition
+        return InitialWorkerReturnArrivalData{
+            (uint8_t)std::min(UINT7_MAX, (unsigned int)simulatedPathDeliveryAtArrival.positions.size()),
+            (simulatedPathDeliveryAfterArrival.squaredSpeedEightFramesAlongNextPath == 0),
+            convertSquaredSpeed(simulatedPathDeliveryAtArrival.squaredSpeedEightFramesAlongNextPath),
+            (simulatedPathDeliveryAtArrival.actionFrame == simulatedPathDeliveryAtArrival.arrivalFrame),
+            simulatedPathDeliveryAtArrival.nextPathStartPosition,
+            simulatedPathDeliveryAfterArrival.nextPathStartPosition
         };
-    }
-
-    std::ostream &operator<<(std::ostream &os, const ReturnExitSpeed &exitSpeed)
-    {
-        switch (exitSpeed)
-        {
-            case ReturnExitSpeed::Collision:
-                os << "Collision";
-                break;
-            case ReturnExitSpeed::Low:
-                os << "Low";
-                break;
-            case ReturnExitSpeed::Medium:
-                os << "Medium";
-                break;
-            case ReturnExitSpeed::High:
-                os << "High";
-                break;
-        }
-        return os;
     }
 }

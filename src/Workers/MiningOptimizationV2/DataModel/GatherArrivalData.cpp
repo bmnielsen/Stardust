@@ -10,7 +10,8 @@ namespace MiningOptimization
                                                 double baseProbability) const
     {
         // The base delay just uses the collision and facing patch data
-        int baseDelay = (collision() ? 9 : 0) + (!facingTarget() ? 9 : 0);
+        // Not facing patch does not actually incur two rounds of delay, but it messes with our timings so much we really want to avoid them
+        int baseDelay = (collision() ? 9 : 0) + (!facingTarget() ? 18 : 0);
 
         // For gather, the "action frame" is the frame that the worker transitions to MiningMinerals
         // There is an extra delay if the order timer resets on the frame after this, which is when the mining timer starts counting down

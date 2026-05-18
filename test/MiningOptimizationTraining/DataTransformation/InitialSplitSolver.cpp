@@ -79,10 +79,14 @@ namespace MiningOptimizationTraining
 
             auto addResult = [&](const ObservationType &arrivalData, const std::set<int> &resends, int frameDelay = 0)
             {
-                // Don't add a gather path that isn't facing the patch
+                // Don't add a path that isn't facing the target
                 if constexpr (std::is_same_v<ObservationType, InitialWorkerGatherArrivalData>)
                 {
                     if (!arrivalData.facingPatch) return;
+                }
+                else
+                {
+                    if (!arrivalData.facingDepot) return;
                 }
 
                 auto pathResults = arrivalData.computePathResult(

@@ -1,6 +1,5 @@
 #include "Serialization.h"
 
-#include <bitsery/adapter/buffer.h>
 #include <bitsery/adapter/stream.h>
 #include <bitsery/traits/vector.h>
 #include <bitsery/ext/std_map.h>

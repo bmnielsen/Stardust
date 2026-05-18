@@ -380,29 +380,20 @@ namespace MiningOptimizationTraining
             validateStartOfNextPath({expectedReturnArrivalData->nextPathStartPositionDeliveryAtArrival,
                                      expectedReturnArrivalData->nextPathStartPositionDeliveryAfterArrival});
 
-            auto expectedExitSpeed = expectedReturnArrivalData->exitSpeed();
-            validateCollision(expectedExitSpeed == ReturnExitSpeed::Collision);
-            if (expectedExitSpeed == ReturnExitSpeed::Collision) return;
+            auto expectedExitSpeed = expectedReturnArrivalData->exitSpeedDeliveryAtArrival;
+            validateCollision(expectedExitSpeed == 0);
+            if (expectedExitSpeed == 0) return;
 
             // Validate the exit speed, which is measured on the 8th position
             auto &exitSpeedPosition = expectedPath.at(7);
             auto velocityX = ((double)exitSpeedPosition.velocityX) / 256.0;
             auto velocityY = ((double)exitSpeedPosition.velocityY) / 256.0;
-            auto speed = std::sqrt(velocityX * velocityX + velocityY * velocityY);
-            ReturnExitSpeed actualExitSpeed = ReturnExitSpeed::Low;
-            if (speed > 4.0)
-            {
-                actualExitSpeed = ReturnExitSpeed::High;
-            }
-            else if (speed > 2.5)
-            {
-                actualExitSpeed = ReturnExitSpeed::Medium;
-            }
+            auto actualExitSpeed = (uint8_t)std::round(std::sqrt(velocityX * velocityX + velocityY * velocityY) / 10.0);
             if (actualExitSpeed != expectedExitSpeed)
             {
                 Log::Get() << "ERROR: Exit speed mismatch, actual: " << actualExitSpeed
                            << "; expected: " << expectedExitSpeed
-                           << "; actual speed: " << std::fixed << std::setprecision(3) << speed
+                           << "; actual speed: " << actualExitSpeed
                            << "; worker " << worker->getID() << " @ " << worker->getTilePosition();
             }
         };

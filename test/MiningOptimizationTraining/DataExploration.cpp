@@ -382,8 +382,8 @@ TEST(DataExploration, ReturnCollisions)
     {
         for (const auto &[arrivalData, _] : arrivalDataMap)
         {
-            deliveryAtArrivalCollisions[arrivalData.exitSpeed() == ReturnExitSpeed::Collision]++;
-            deliveryAfterArrivalCollisions[arrivalData.collision()]++;
+            deliveryAtArrivalCollisions[arrivalData.exitSpeedDeliveryAtArrival == 0]++;
+            deliveryAfterArrivalCollisions[arrivalData.collisionDeliveryAfterArrival]++;
         }
     };
 

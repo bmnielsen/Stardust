@@ -5,16 +5,15 @@
 #include "Path.h"
 
 #include <cstdint>
-#include <algorithm>
 
 namespace MiningOptimization
 {
     enum class ReturnExitSpeed:uint8_t
     {
-        Collision,  // The worker collided with the depot when trying to leave it
-        Low,        // The worker stopped at the depot and will therefore accelerate slowly towards the patch
-        Medium,     // The worker maintained some speed after delivery
-        High,       // The worker maintained a great deal of speed after delivery
+        Collision,      // The worker collided with the depot when trying to leave it
+        Low,            // The worker stopped at the depot and will therefore accelerate slowly towards the patch
+        High,           // The worker maintained a great deal of speed after delivery
+        NotFacingDepot, // The worker wasn't facing the depot at delivery
     };
 
     std::ostream& operator<<(std::ostream& os, const ReturnExitSpeed &exitSpeed);
@@ -99,11 +98,11 @@ namespace MiningOptimization
                 case ReturnExitSpeed::Low:
                     os << "[l]";
                     break;
-                case ReturnExitSpeed::Medium:
-                    os << "[m]";
-                    break;
                 case ReturnExitSpeed::High:
                     os << "[h]";
+                    break;
+                case ReturnExitSpeed::NotFacingDepot:
+                    os << "[!f]";
                     break;
             }
             if (data.collision)

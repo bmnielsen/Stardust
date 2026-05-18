@@ -211,25 +211,6 @@ namespace MiningOptimizationTraining::DataTransformer
 
         template <typename TrainingObservationType, typename OutputObservationType>
         OutputObservationType convert(const TrainingObservationType &arrivalData,
-                                      const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
-        {
-            // Pack the arrival delay with whatever is already packed in the arrival data
-            // For gather this is the collision and facing patch, for return this is the exit speed
-            uint8_t packed = (std::min(arrivalData.arrivalDelay(), 63U) << 2) + (arrivalData.packed & 0b00000011);
-
-#if USE_NEXT_PATH_LENGTHS
-            // Look up the next path arrival delay, defaulting to the max value if it isn't found
-            auto it = nextPathArrivalDelays.find(arrivalData.nextPathStartPosition);
-            uint8_t nextPathArrivalDelay = (it == nextPathArrivalDelays.end()) ? 255 : (std::min(it->second, (uint8_t)255U));
-
-            return {packed, nextPathArrivalDelay};
-#else
-            return {packed};
-#endif
-        }
-
-        template <typename TrainingObservationType, typename OutputObservationType>
-        OutputObservationType convert(const TrainingObservationType &arrivalData,
                                       const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
                                       const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
@@ -241,7 +222,8 @@ namespace MiningOptimizationTraining::DataTransformer
                                                       const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
                                                       const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
-            auto result = convert<GatherArrivalData, MiningOptimization::GatherArrivalData>(arrivalData, nextPathArrivalDelays);
+            uint8_t packed = (std::min(arrivalData.arrivalDelay(), 63U) << 2) + (arrivalData.packed & 0b00000011);
+            MiningOptimization::GatherArrivalData result{packed};
 
             auto it = tenDistanceAndResendAlwaysArrivesToIndex.find(
                     {arrivalData.tenDistanceDelta, arrivalData.resendAlwaysArrivesDelta});
@@ -258,8 +240,27 @@ namespace MiningOptimizationTraining::DataTransformer
                                                       const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
                                                       const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
-            auto result = convert<ReturnArrivalData, MiningOptimization::ReturnArrivalData>(arrivalData, nextPathArrivalDelays);
-            result.collision = arrivalData.collision();
+            MiningOptimization::ReturnExitSpeed returnExitSpeed;
+            if (!arrivalData.facingDepot)
+            {
+                returnExitSpeed = MiningOptimization::ReturnExitSpeed::NotFacingDepot;
+            }
+            else if (arrivalData.exitSpeedDeliveryAtArrival >= 102) // 80% of top speed
+            {
+                returnExitSpeed = MiningOptimization::ReturnExitSpeed::High;
+            }
+            else if (arrivalData.exitSpeedDeliveryAtArrival == 0)
+            {
+                returnExitSpeed = MiningOptimization::ReturnExitSpeed::Collision;
+            }
+            else
+            {
+                returnExitSpeed = MiningOptimization::ReturnExitSpeed::Low;
+            }
+
+            uint8_t packed = (std::min(arrivalData.arrivalDelay, (uint8_t)63) << 2) + (uint8_t)returnExitSpeed;
+            MiningOptimization::ReturnArrivalData result{packed};
+            result.collision = arrivalData.collisionDeliveryAfterArrival;
             return result;
         }
 
@@ -362,6 +363,8 @@ namespace MiningOptimizationTraining::DataTransformer
                     case NodeType::Test:
                         // No assertions needed, they are handled in the test
                         break;
+                    default:
+                        EXPECT_FALSE(true) << "Unknown node type encountered";
                 }
 
                 // The arrival data is only needed when this is the final node
@@ -372,7 +375,14 @@ namespace MiningOptimizationTraining::DataTransformer
                     EXPECT_FALSE(node.arrivalData.empty());
                     for (const auto &[arrivalData, _] : node.arrivalData)
                     {
-                        EXPECT_EQ(1, arrivalData.arrivalDelay());
+                        if constexpr (std::is_same_v<GatherArrivalData, TrainingObservationType>)
+                        {
+                            EXPECT_EQ(1, arrivalData.arrivalDelay());
+                        }
+                        else
+                        {
+                            EXPECT_EQ(1, arrivalData.arrivalDelay);
+                        }
                     }
                 }
 
