@@ -46,16 +46,14 @@ namespace MiningOptimization
             CherryVis::log(worker->id) << "Trying to find root node @ " << currentPosition;
 #endif
 
-            auto it = pathData.find(currentPosition);
-            if (it != pathData.end())
+            pathBeingFollowed = pathCache.get(std::make_pair(patchTile, currentPosition));
+            if (pathBeingFollowed)
             {
                 setFlag(StatusFlags::CapturedPath);
-                pathBeingFollowed = std::make_unique<Path<ObservationType>>(it->second.get());
-
                 Solver<ObservationType> solver(mapData,
                                                resource,
                                                currentPosition,
-                                               *pathBeingFollowed,
+                                               *pathBeingFollowed->path,
                                                currentFrame,
                                                worker->possibleOrderProcessTimerValues);
                 expectedPath = std::make_unique<SolverResult<ObservationType>>(solver.execute());
@@ -93,8 +91,7 @@ namespace MiningOptimization
             else
             {
                 // We couldn't issue the resend, so bail out
-                expectedPath.reset();
-                pathBeingFollowed.reset();
+                resetPath();
 
 #if VERBOSE_PATH_LOGGING
                 Log::Get() << "Failed to issue planned resend for " << worker->id << " @ " << worker->getTilePosition() << ": "

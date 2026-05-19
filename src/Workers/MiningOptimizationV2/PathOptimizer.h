@@ -3,6 +3,7 @@
 #include "MyWorker.h"
 #include "Resource.h"
 #include "DataModel/MapData.h"
+#include "DataModel/DeserializedPathCache.h"
 #include "WorkerPathOptimizer.h"
 
 #include "DebugFlag_MiningOptimization.h"
@@ -21,6 +22,7 @@ namespace MiningOptimization
                       const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>>> &pathData)
                 : mapData(mapData)
                 , pathData(pathData)
+                , pathCache(PATH_CACHE_IMPLEMENTATION<ObservationType>(pathData))
         {}
 
         WorkerPathOptimizer<ObservationType> &forWorker(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
@@ -29,10 +31,7 @@ namespace MiningOptimization
             if (it == workers.end() || !it->second.matches(depot, resource))
             {
                 workers.erase(worker);
-
-                auto patchTile = TilePosition::fromBWAPI(resource->tile);
-                auto &patchPathData = pathData.contains(patchTile) ? pathData.at(patchTile) : emptyWorkerPathData;
-                auto item = WorkerPathOptimizer<ObservationType>{mapData, patchPathData, worker, depot, resource};
+                auto item = WorkerPathOptimizer<ObservationType>{mapData, pathCache, worker, depot, resource};
                 it = workers.emplace(worker, std::move(item)).first;
             }
             return it->second;
@@ -63,6 +62,7 @@ namespace MiningOptimization
     private:
         const MapData &mapData;
         const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>>> &pathData;
+        PATH_CACHE_IMPLEMENTATION<ObservationType> pathCache;
 
         std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> emptyWorkerPathData;
 

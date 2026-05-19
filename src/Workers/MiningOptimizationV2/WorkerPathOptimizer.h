@@ -3,6 +3,7 @@
 #include "MyWorker.h"
 #include "Resource.h"
 #include "DataModel/MapData.h"
+#include "DataModel/DeserializedPathCache.h"
 #include "Solver/Solver.h"
 
 #include "DebugFlag_MiningOptimization.h"
@@ -35,14 +36,15 @@ namespace MiningOptimization
         int actualPatchLockFrame;
 
         WorkerPathOptimizer(const MapData &mapData,
-                            const std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> &pathData,
+                            PATH_CACHE_IMPLEMENTATION<ObservationType> &pathCache,
                             MyWorker worker,
                             MyUnit depot,
                             Resource resource)
                 : lastProcessedFrame(-2)
                 , actualPatchLockFrame(-1)
                 , mapData(mapData)
-                , pathData(pathData)
+                , pathCache(pathCache)
+                , patchTile(TilePosition::fromBWAPI(resource->tile))
                 , worker(std::move(worker))
                 , depot(std::move(depot))
                 , resource(std::move(resource))
@@ -58,8 +60,7 @@ namespace MiningOptimization
 #if IS_OPENBW
             startPosition.reset();
 #endif
-            pathBeingFollowed.reset();
-            expectedPath.reset();
+            resetPath();
             takeoverFrames.clear();
         }
 
@@ -98,8 +99,9 @@ namespace MiningOptimization
         /* References to the map mining optimization data relevant for this worker */
 
         const MapData &mapData;
-        const std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> &pathData;
+        PATH_CACHE_IMPLEMENTATION<ObservationType> &pathCache;
 
+        TilePosition patchTile;
         MyWorker worker;
         MyUnit depot;
         Resource resource;
@@ -116,8 +118,7 @@ namespace MiningOptimization
 #endif
 
         // The path being followed, if there is one
-        // As we store the paths in serialized form to save on memory, we keep the deserialized path here while we are using it.
-        std::unique_ptr<Path<ObservationType>> pathBeingFollowed;
+        std::optional<typename PATH_CACHE_IMPLEMENTATION<ObservationType>::Item> pathBeingFollowed;
 
         // The expected path tree the worker will visit, returned from the solver
         std::unique_ptr<SolverResult<ObservationType>> expectedPath;
@@ -128,7 +129,11 @@ namespace MiningOptimization
 
         void resetPath()
         {
-            pathBeingFollowed.reset();
+            if (pathBeingFollowed)
+            {
+                pathCache.put(std::move(*pathBeingFollowed));
+                pathBeingFollowed = std::nullopt;
+            }
             expectedPath.reset();
         }
 
