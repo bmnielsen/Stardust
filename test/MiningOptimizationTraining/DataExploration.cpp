@@ -502,3 +502,49 @@ TEST(DataExploration, ReturnStartPositionsByPatch)
 
     std::cout << "Total: " << total << std::endl;
 }
+
+TEST(DataExploration, FindMaintainedSpeedEffect)
+{
+    MapData data;
+    Serialization::setGameParameters(Maps::GetOne("Benzene")->openbwHash);
+    Serialization::readMapData(data);
+
+    std::map<uint8_t, unsigned long> counters;
+    std::map<uint8_t, int> accumulators;
+    for (const auto &[patch, returnPaths] : data.resourceToReturnPaths)
+    {
+        const auto &gatherPaths = data.resourceToGatherPaths[patch];
+        auto gatherPathLength = [&gatherPaths](const PositionAndVelocity &pos)
+        {
+            auto it = gatherPaths.find(pos);
+            EXPECT_NE(gatherPaths.end(), it) << "Could not find gather path for " << pos;
+            return it->second.nextPositions.begin()->second.begin()->first.arrivalData.begin()->first.arrivalDelay();
+        };
+
+        for (const auto &[_, returnPath] : returnPaths)
+        {
+            for (const auto &[_, rootNodes] : returnPath.nextPositions)
+            {
+                for (const auto &[rootNode, _] : rootNodes)
+                {
+                    for (const auto &[arrivalData, _] : rootNode.arrivalData)
+                    {
+                        if (arrivalData.exitSpeedDeliveryAtArrival == 0) continue;
+
+                        counters[arrivalData.exitSpeedDeliveryAtArrival]++;
+
+                        int benefit = gatherPathLength(arrivalData.nextPathStartPositionDeliveryAfterArrival) -
+                            gatherPathLength(arrivalData.nextPathStartPositionDeliveryAtArrival);
+                        accumulators[arrivalData.exitSpeedDeliveryAtArrival] += benefit;
+                    }
+                }
+            }
+        }
+    }
+
+    for (const auto &[exitSpeed, count] : counters)
+    {
+        double benefit = (double)accumulators[exitSpeed] / (double)count;
+        std::cout << std::fixed << std::setprecision(2) << (unsigned int)exitSpeed << ": " << benefit << " (over " << count << " samples)" << std::endl;
+    }
+}

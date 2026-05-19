@@ -15,20 +15,27 @@ namespace MiningOptimization
 
         if (orderProcessTimerAtArrival == 0)
         {
+            // The numbers here have been experimentally derived
             auto speed = exitSpeed();
             if (speed == 0)
             {
                 // Collision
                 delay += 9;
             }
-            else if (speed >= 102)
+            else if (speed > 110)
             {
-                // Approx. 80% of max speed
+                delay -= 5;
+            }
+            else if (speed > 81)
+            {
                 delay -= 4;
             }
-            else if (speed >= 64)
+            else if (speed > 74)
             {
-                // 50% of max speed
+                delay -= 3;
+            }
+            else if (speed > 59)
+            {
                 delay -= 2;
             }
         }
