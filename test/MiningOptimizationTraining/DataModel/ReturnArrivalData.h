@@ -97,21 +97,12 @@ namespace MiningOptimizationTraining
                 const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAtArrival,
                 const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAfterArrival);
 
+        static uint8_t pack(const uint8_t base, const bool extra);
+        static void unpack(const uint8_t packed, uint8_t &base, bool &extra);
+
         template <typename S>
         void serialize(S& s)
         {
-            auto pack = [](const uint8_t base, const bool extra)
-            {
-                uint8_t result = base << 1;
-                if (extra) result += 1;
-                return result;
-            };
-            auto unpack = [](const uint8_t packed, uint8_t &base, bool &extra)
-            {
-                base = packed >> 1;
-                extra = (packed & 0b00000001) == 0b00000001;
-            };
-
             uint8_t first = pack(arrivalDelay, collisionDeliveryAfterArrival);
             s.value1b(first);
             unpack(first, arrivalDelay, collisionDeliveryAfterArrival);
@@ -270,25 +261,13 @@ namespace MiningOptimizationTraining
 
         template <typename S>
         void serialize(S& s) {
-            auto pack = [](const uint8_t base, const bool extra)
-            {
-                uint8_t result = base << 1;
-                if (extra) result += 1;
-                return result;
-            };
-            auto unpack = [](const uint8_t packed, uint8_t &base, bool &extra)
-            {
-                base = packed >> 1;
-                extra = (packed & 0b00000001) == 0b00000001;
-            };
-
-            uint8_t first = pack(arrivalDelay, collisionDeliveryAfterArrival);
+            uint8_t first = ReturnArrivalData::pack(arrivalDelay, collisionDeliveryAfterArrival);
             s.value1b(first);
-            unpack(first, arrivalDelay, collisionDeliveryAfterArrival);
+            ReturnArrivalData::unpack(first, arrivalDelay, collisionDeliveryAfterArrival);
 
-            uint8_t second = pack(exitSpeedDeliveryAtArrival, facingDepot);
+            uint8_t second = ReturnArrivalData::pack(exitSpeedDeliveryAtArrival, facingDepot);
             s.value1b(second);
-            unpack(second, exitSpeedDeliveryAtArrival, facingDepot);
+            ReturnArrivalData::unpack(second, exitSpeedDeliveryAtArrival, facingDepot);
 
             s.object(nextPathStartPositionDeliveryAtArrival);
             s.object(nextPathStartPositionDeliveryAfterArrival);

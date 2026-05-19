@@ -240,28 +240,10 @@ namespace MiningOptimizationTraining::DataTransformer
                                                       const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex,
                                                       const std::unordered_map<PositionAndVelocity, uint8_t> &nextPathArrivalDelays)
         {
-            MiningOptimization::ReturnExitSpeed returnExitSpeed;
-            if (!arrivalData.facingDepot)
-            {
-                returnExitSpeed = MiningOptimization::ReturnExitSpeed::NotFacingDepot;
-            }
-            else if (arrivalData.exitSpeedDeliveryAtArrival >= 102) // 80% of top speed
-            {
-                returnExitSpeed = MiningOptimization::ReturnExitSpeed::High;
-            }
-            else if (arrivalData.exitSpeedDeliveryAtArrival == 0)
-            {
-                returnExitSpeed = MiningOptimization::ReturnExitSpeed::Collision;
-            }
-            else
-            {
-                returnExitSpeed = MiningOptimization::ReturnExitSpeed::Low;
-            }
-
-            uint8_t packed = (std::min(arrivalData.arrivalDelay, (uint8_t)63) << 2) + (uint8_t)returnExitSpeed;
-            MiningOptimization::ReturnArrivalData result{packed};
-            result.collision = arrivalData.collisionDeliveryAfterArrival;
-            return result;
+            return MiningOptimization::ReturnArrivalData{
+                ReturnArrivalData::pack(arrivalData.arrivalDelay, arrivalData.collisionDeliveryAfterArrival),
+                ReturnArrivalData::pack(arrivalData.exitSpeedDeliveryAtArrival, arrivalData.facingDepot),
+            };
         }
 
         template <typename TrainingObservationType, typename OutputObservationType>

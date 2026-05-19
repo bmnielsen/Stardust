@@ -439,8 +439,8 @@ TEST(DataExploration, ReturnCollisionsProductionData)
     {
         for (const auto &[arrivalData, _] : arrivalDataMap)
         {
-            deliveryAtArrivalCollisions[arrivalData.exitSpeed() == MiningOptimization::ReturnExitSpeed::Collision]++;
-            deliveryAfterArrivalCollisions[arrivalData.collision]++;
+            deliveryAtArrivalCollisions[arrivalData.exitSpeed() == 0]++;
+            deliveryAfterArrivalCollisions[arrivalData.collision()]++;
         }
     };
 

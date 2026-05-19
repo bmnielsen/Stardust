@@ -84,6 +84,19 @@ namespace MiningOptimizationTraining
         };
     }
 
+    uint8_t ReturnArrivalData::pack(const uint8_t base, const bool extra)
+    {
+        uint8_t result = base << 1;
+        if (extra) result += 1;
+        return result;
+    }
+
+    void ReturnArrivalData::unpack(const uint8_t packed, uint8_t &base, bool &extra)
+    {
+        base = packed >> 1;
+        extra = (packed & 0b00000001) == 0b00000001;
+    }
+
     InitialWorkerReturnArrivalData InitialWorkerReturnArrivalData::createFromSimulatedPath(
             const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAtArrival,
             const BWAPI::SimulateGatherPathResult &simulatedPathDeliveryAfterArrival)

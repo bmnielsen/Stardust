@@ -10,27 +10,31 @@ namespace MiningOptimization
                                                 double baseProbability) const
     {
         int delay = 0;
+
+        if (!facingTarget()) delay = 18; // Not really, but we really really want to avoid these paths since they mess with our timings so much
+
         if (orderProcessTimerAtArrival == 0)
         {
-            switch (exitSpeed())
+            auto speed = exitSpeed();
+            if (speed == 0)
             {
-                case ReturnExitSpeed::NotFacingDepot:
-                    delay = 18; // Not really, but we really really want to avoid these paths since they mess with our timings so much
-                    break;
-                case ReturnExitSpeed::Collision:
-                    delay = 9;
-                    break;
-                case ReturnExitSpeed::Low:
-                    delay = 0;
-                    break;
-                case ReturnExitSpeed::High:
-                    delay = -4;
-                    break;
+                // Collision
+                delay += 9;
+            }
+            else if (speed >= 102)
+            {
+                // Approx. 80% of max speed
+                delay -= 4;
+            }
+            else if (speed >= 64)
+            {
+                // 50% of max speed
+                delay -= 2;
             }
         }
-        else if (collision)
+        else if (collision())
         {
-            delay = 9;
+            delay += 9;
         }
 
         if (OrderProcessTimer::isResetFrame(actionFrame + 1))
@@ -45,25 +49,5 @@ namespace MiningOptimization
         {
             delaysWithProbabilities[delay] += baseProbability;
         }
-    }
-
-    std::ostream &operator<<(std::ostream &os, const ReturnExitSpeed &exitSpeed)
-    {
-        switch (exitSpeed)
-        {
-            case ReturnExitSpeed::Collision:
-                os << "Collision";
-                break;
-            case ReturnExitSpeed::Low:
-                os << "Low";
-                break;
-            case ReturnExitSpeed::High:
-                os << "High";
-                break;
-            case ReturnExitSpeed::NotFacingDepot:
-                os << "NotFacingDepot";
-                break;
-        }
-        return os;
     }
 }
