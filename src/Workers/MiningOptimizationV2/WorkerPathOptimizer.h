@@ -117,9 +117,6 @@ namespace MiningOptimization
         std::unique_ptr<BWAPI::ExactPosition> startPosition;
 #endif
 
-        // The path being followed, if there is one
-        std::optional<typename PATH_CACHE_IMPLEMENTATION<ObservationType>::Item> pathBeingFollowed;
-
         // The expected path tree the worker will visit, returned from the solver
         std::unique_ptr<SolverResult<ObservationType>> expectedPath;
 
@@ -129,11 +126,6 @@ namespace MiningOptimization
 
         void resetPath()
         {
-            if (pathBeingFollowed)
-            {
-                pathCache.put(std::move(*pathBeingFollowed));
-                pathBeingFollowed = std::nullopt;
-            }
             expectedPath.reset();
         }
 

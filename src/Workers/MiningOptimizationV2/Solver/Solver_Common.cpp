@@ -70,7 +70,6 @@ namespace MiningOptimization
         auto result =
                 processNextNodes(startPosition, path.nextPositions, startFrame + 1, resends, workerOrderProcessTimer);
         result.pathToNextBranch.push_front(startPosition);
-        result.pathNodesToNextBranch.push_front(nullptr); // This should otherwise be the root node, but we know we don't need to use it again
         return result;
     }
 
@@ -91,7 +90,6 @@ namespace MiningOptimization
             auto addPositionTo = [&](SolverResult<ObservationType> &result) -> SolverResult<ObservationType>&
             {
                 result.pathToNextBranch.emplace_front(std::move(here));
-                result.pathNodesToNextBranch.push_front(&node);
                 return result;
             };
 

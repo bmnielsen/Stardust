@@ -71,8 +71,7 @@ namespace MiningOptimization
                 Log::Get() << "Cache purge of " << cache.back().first.first << " / " << cache.back().first.second;
 #endif
 
-                auto indexIt = index.find(cache.back().first);
-                if (indexIt != index.end()) index.erase(indexIt);
+                index.erase(cache.back().first);
                 cache.pop_back();
             }
 
@@ -88,7 +87,7 @@ namespace MiningOptimization
         const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>>> &pathData;
 
         std::list<std::pair<DeserializedPathCacheKey, std::unique_ptr<Path<ObservationType>>>> cache;
-        std::multimap<DeserializedPathCacheKey,
+        std::map<DeserializedPathCacheKey,
             typename std::list<std::pair<DeserializedPathCacheKey, std::unique_ptr<Path<ObservationType>>>>::iterator> index;
     };
 

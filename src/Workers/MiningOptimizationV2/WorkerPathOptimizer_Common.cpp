@@ -46,14 +46,14 @@ namespace MiningOptimization
             CherryVis::log(worker->id) << "Trying to find root node @ " << currentPosition;
 #endif
 
-            pathBeingFollowed = pathCache.get(std::make_pair(patchTile, currentPosition));
-            if (pathBeingFollowed)
+            auto path = pathCache.get(std::make_pair(patchTile, currentPosition));
+            if (path)
             {
                 setFlag(StatusFlags::CapturedPath);
                 Solver<ObservationType> solver(mapData,
                                                resource,
                                                currentPosition,
-                                               *pathBeingFollowed->path,
+                                               *path->path,
                                                currentFrame,
                                                worker->possibleOrderProcessTimerValues);
                 expectedPath = std::make_unique<SolverResult<ObservationType>>(solver.execute());
@@ -64,6 +64,8 @@ namespace MiningOptimization
                 CherryVis::log(worker->id) << worker->bwapiUnit->getExactPosition();
 #endif
 #endif
+
+                pathCache.put(std::move(*path));
             }
 
 #if IS_OPENBW
@@ -106,22 +108,7 @@ namespace MiningOptimization
     void WorkerPathOptimizer<ObservationType>::updatePath()
     {
         // Nothing to do if we didn't have any path data
-        if (!pathBeingFollowed) return;
-
-        auto currentPosition = getCurrentPosition(worker);
-
-        // Guard against null expectedPath
-        if (!expectedPath)
-        {
-#if LOGGING_ENABLED
-            Log::Get() << "ERROR: expectedPath is empty while pathBeingFollowed is not";
-#endif
-            resetPath();
-            return;
-        }
-
-        // TODO: Recalculate patch locking and re-run the solver if the conditions may have changed
-        //       Maybe just store a pointer to the nodes in the solve result
+        if (!expectedPath) return;
 
         // Check if we have reached the end of the path
         if (expectedPath->pathToNextBranch.empty() && expectedPath->nextBranches.empty())
@@ -144,7 +131,6 @@ namespace MiningOptimization
                     // Patch the resend frames into the expected path and clear the remaining path information
                     expectedPath->resendFramesOnThisBranch = std::move(*resendFrames);
                     expectedPath->pathToNextBranch.clear();
-                    expectedPath->pathNodesToNextBranch.clear();
                     expectedPath->nextBranches.clear();
 
                     setFlag(StatusFlags::LostPathWithAssumedResult);
@@ -162,6 +148,8 @@ namespace MiningOptimization
 #endif
         };
 
+        auto currentPosition = getCurrentPosition(worker);
+
         // Ensure we are following the path
         if (!expectedPath->pathToNextBranch.empty())
         {
@@ -173,7 +161,6 @@ namespace MiningOptimization
             }
 
             expectedPath->pathToNextBranch.pop_front();
-            expectedPath->pathNodesToNextBranch.pop_front();
         }
         else
         {
@@ -195,7 +182,6 @@ namespace MiningOptimization
                 {
                     foundNextBranch = true;
                     candidate.pathToNextBranch.pop_front();
-                    candidate.pathNodesToNextBranch.pop_front();
                     expectedPath = std::make_unique<SolverResult<ObservationType>>(std::move(candidate));
 
 #if VERBOSE_PATH_LOGGING

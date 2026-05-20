@@ -44,9 +44,6 @@ namespace MiningOptimization
         // Starts with the position of the node that starts this branch
         std::deque<PositionAndVelocity> pathToNextBranch;
 
-        // Same as the above, but references to the path nodes, for use in debugging and if we need to re-run the solver from a later point.
-        std::deque<const PathNode<ObservationType>*> pathNodesToNextBranch;
-
         // The possible next branches once this branch has been traversed
         // The user can identify which next branch is being followed by checking its first position
         // If this is empty, then this branch is the last part of the path
