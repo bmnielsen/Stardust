@@ -105,7 +105,14 @@ namespace MiningOptimization
                 {
                     // The arrival frame is given by the delay here
                     int arrivalFrame = nextFrame + arrivalData.arrivalDelay();
-                    result.arrivalFramesWithProbabilities[arrivalFrame] += probability;
+                    if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+                    {
+                        result.arrivalDataWithProbabilities[{arrivalFrame, arrivalData.tenDistanceAndResendAlwaysArrivesIndex}] += probability;
+                    }
+                    else
+                    {
+                        result.arrivalDataWithProbabilities[{arrivalFrame, UINT8_MAX}] += probability;
+                    }
 
                     // TODO: Add 10-distance and resend already arrives data here
 
@@ -269,14 +276,14 @@ namespace MiningOptimization
             // Adjust the probabilities by this node's probability
             double nodeProbability = mapData.occurrenceRateToProbability(occurrenceRate);
 
-            auto addObservations = [&](const std::map<int, double> &source, std::map<int, double> &target)
+            auto addObservations = [&]<typename T>(const std::map<T, double> &source, std::map<T, double> &target)
             {
                 for (const auto &[value, probability] : source)
                 {
                     target[value] += (probability * nodeProbability);
                 }
             };
-            addObservations(nodeResult.arrivalFramesWithProbabilities, result.arrivalFramesWithProbabilities);
+            addObservations(nodeResult.arrivalDataWithProbabilities, result.arrivalDataWithProbabilities);
             addObservations(nodeResult.actionFramesWithProbabilities, result.actionFramesWithProbabilities);
             addObservations(nodeResult.delaysWithProbabilities, result.delaysWithProbabilities);
 #if USE_NEXT_PATH_LENGTHS

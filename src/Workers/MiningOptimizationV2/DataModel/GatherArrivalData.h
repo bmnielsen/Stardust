@@ -68,12 +68,12 @@ namespace MiningOptimization
 #else
         bool operator==(const GatherArrivalData &other) const
         {
-            return packed == other.packed;
+            return std::tie(packed, tenDistanceAndResendAlwaysArrivesIndex) == std::tie(other.packed, other.tenDistanceAndResendAlwaysArrivesIndex);
         }
 
         bool operator<(const GatherArrivalData &other) const
         {
-            return packed < other.packed;
+            return std::tie(packed, tenDistanceAndResendAlwaysArrivesIndex) < std::tie(other.packed, other.tenDistanceAndResendAlwaysArrivesIndex);
         }
 #endif
 

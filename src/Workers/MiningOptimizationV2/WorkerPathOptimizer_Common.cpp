@@ -136,7 +136,7 @@ namespace MiningOptimization
             // If all branches from the last node were otherwise stable, assume that the worker will follow the expected path
             // The reason for doing this is to smooth over some path instabilities: we might be on a slightly different subpixel position than we have
             // trained on, but most likely will still get the same result even if an intermediate position differs
-            if (expectedPath->arrivalFramesWithProbabilities.size() == 1)
+            if (expectedPath->arrivalDataWithProbabilities.size() == 1)
             {
                 auto resendFrames = expectedPath->aggregatedResendFramesIfStable();
                 if (resendFrames)

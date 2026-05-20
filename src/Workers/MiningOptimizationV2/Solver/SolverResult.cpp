@@ -33,7 +33,7 @@ namespace MiningOptimization
     std::string SolverResult<ObservationType>::framePredictions() const
     {
         std::ostringstream out;
-        out << "Arrival frames: " << LogFormattingUtil::formatProbabilityMap(arrivalFramesWithProbabilities);
+        out << "Arrival frames: " << LogFormattingUtil::formatProbabilityMap(arrivalDataWithProbabilities);
         out << "\nAction frames: " << LogFormattingUtil::formatProbabilityMap(actionFramesWithProbabilities);
         out << "\nPost-action delays: " << LogFormattingUtil::formatProbabilityMap(delaysWithProbabilities);
         return out.str();
