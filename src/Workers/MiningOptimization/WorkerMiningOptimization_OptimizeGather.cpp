@@ -680,6 +680,11 @@ namespace WorkerMiningOptimization
         }
     }
 
+    bool optimizeStartOfMining(Base *base, std::vector<std::tuple<MyWorker, MyUnit, Resource>> &workersAndDepotsAndResources)
+    {
+        return false;
+    }
+
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
         // Don't touch the worker if it is transitioning to mine

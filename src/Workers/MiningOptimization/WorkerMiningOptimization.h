@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common.h"
+#include "Base.h"
 #include "MyWorker.h"
 #include "Resource.h"
 #include "GatherPositionObservations.h"
@@ -38,6 +39,7 @@ namespace WorkerMiningOptimization
     void gameEnd();
 
     // Optimizes the start of mining
+    bool optimizeStartOfMining(Base *base, std::vector<std::tuple<MyWorker, MyUnit, Resource>> &workersAndDepotsAndResources);
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
     void planGatherResendsSingle(WorkerGatherStatus &workerStatus);

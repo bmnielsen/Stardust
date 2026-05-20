@@ -6,6 +6,7 @@
 #include "MiningOptimizationV2/DataModel/MapData.h"
 
 #include <optional>
+#include "Base.h"
 
 namespace WorkerOrderTimer
 {
@@ -16,6 +17,7 @@ namespace WorkerOrderTimer
     void update();
 
     // Optimizes the start of mining
+    bool optimizeStartOfMining(Base *base, std::vector<std::tuple<MyWorker, MyUnit, Resource>> &workersAndDepotsAndResources);
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
 
     // Optimizes returning a resource

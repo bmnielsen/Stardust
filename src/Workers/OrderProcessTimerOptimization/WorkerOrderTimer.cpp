@@ -146,6 +146,11 @@ namespace WorkerOrderTimer
         // TODO: At some point track the order timers to see if we can predict their reset values
     }
 
+    bool optimizeStartOfMining(Base *base, std::vector<std::tuple<MyWorker, MyUnit, Resource>> &workersAndDepotsAndResources)
+    {
+        return false;
+    }
+
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
         auto resourceBwapiUnit = resource->getBwapiUnitIfVisible();

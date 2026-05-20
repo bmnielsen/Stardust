@@ -766,6 +766,7 @@ namespace Workers
             removeGasWorker();
         }
 
+        std::map<Base*, std::vector<std::tuple<MyWorker, MyUnit, Resource>>> workersForWhichToOptimizeStartOfMining;
         for (auto &pair : workerJob)
         {
             if (pair.second == Job::Reserved) continue;
@@ -938,7 +939,7 @@ namespace Workers
                         auto myDepot = std::dynamic_pointer_cast<MyUnitImpl>(base->resourceDepot);
                         if (myDepot)
                         {
-                            WORKERGATHEROPTIMIZER::optimizeStartOfMining(worker, myDepot, mineralPatch);
+                            workersForWhichToOptimizeStartOfMining[base].emplace_back(worker, myDepot, mineralPatch);
                         }
                         continue;
                     }
@@ -1006,6 +1007,16 @@ namespace Workers
                     // Nothing needed for other cases
                     break;
                 }
+            }
+        }
+
+        for (auto &[base, workersAndDepotsAndResources] : workersForWhichToOptimizeStartOfMining)
+        {
+            if (WORKERGATHEROPTIMIZER::optimizeStartOfMining(base, workersAndDepotsAndResources)) continue;
+
+            for (auto &[worker, depot, resource] : workersAndDepotsAndResources)
+            {
+                WORKERGATHEROPTIMIZER::optimizeStartOfMining(worker, depot, resource);
             }
         }
     }

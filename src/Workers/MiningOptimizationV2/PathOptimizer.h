@@ -64,8 +64,6 @@ namespace MiningOptimization
         const std::unordered_map<TilePosition, std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>>> &pathData;
         PATH_CACHE_IMPLEMENTATION<ObservationType> pathCache;
 
-        std::unordered_map<PositionAndVelocity, SerializedPath<ObservationType>> emptyWorkerPathData;
-
         std::map<MyWorker, WorkerPathOptimizer<ObservationType>> workers;
     };
 }
