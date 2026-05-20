@@ -8,10 +8,6 @@
 
 namespace MiningOptimization
 {
-    namespace {
-        ResourceGatherProbabilityForecast emptyOtherPatchesForecast;
-    }
-
     // Wrapper for the resend frames allowing us to also store some metadata
     struct SolverResends
     {
@@ -39,32 +35,6 @@ namespace MiningOptimization
                 , path(path)
                 , startFrame(startFrame)
                 , possibleWorkerOrderProcessTimerValuesAtStartFrame(std::move(_possibleWorkerOrderProcessTimerValuesAtStartFrame))
-                , takeoverFrame(-1)
-                , otherPatchesForecast(emptyOtherPatchesForecast)
-        {
-            if (possibleWorkerOrderProcessTimerValuesAtStartFrame.empty())
-            {
-                possibleWorkerOrderProcessTimerValuesAtStartFrame = {0, 1, 2, 3, 4, 5, 6, 7, 8};
-            }
-        }
-
-        // Constructor used for double-worker gathering
-        Solver(const MapData &mapData,
-               Resource resource,
-               const PositionAndVelocity &startPosition,
-               const Path<ObservationType> &path,
-               int startFrame,
-               std::multiset<int> _possibleWorkerOrderProcessTimerValuesAtStartFrame,
-               int takeoverFrame,
-               const ResourceGatherProbabilityForecast &otherPatchesForecast)
-                : mapData(mapData)
-                , resource(std::move(resource))
-                , startPosition(startPosition)
-                , path(path)
-                , startFrame(startFrame)
-                , possibleWorkerOrderProcessTimerValuesAtStartFrame(std::move(_possibleWorkerOrderProcessTimerValuesAtStartFrame))
-                , takeoverFrame(takeoverFrame)
-                , otherPatchesForecast(otherPatchesForecast)
         {
             if (possibleWorkerOrderProcessTimerValuesAtStartFrame.empty())
             {
@@ -93,13 +63,6 @@ namespace MiningOptimization
         // The worker's possible order process timer value at the end of the start frame
         // May be empty if the order process timer values are completely unknown
         std::multiset<int> possibleWorkerOrderProcessTimerValuesAtStartFrame;
-
-        // The frame when this worker is guaranteed to be able to take over from another worker, or -1 if this is a single-worker or return case
-        int takeoverFrame;
-
-        // The forecast of whether all other patches will be gathered in the frames after the start frame
-        // Only relevant for two-worker gather, otherwise it will be set to a default value
-        const ResourceGatherProbabilityForecast &otherPatchesForecast;
 
         // Recursively process the given next nodes, returning the best solution for all paths below them
         SolverResult<ObservationType> processNextNodes(

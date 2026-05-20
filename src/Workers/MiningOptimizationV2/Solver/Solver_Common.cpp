@@ -13,24 +13,16 @@
  *
  * The solver has the following outputs:
  * - The best actions to be taken for each possible branch in the path
- * - The expected results (arrival frame, mining/delivery frame, patch lock frame, penalty for collision or not facing patch) with their probabilities
- * - When doing takeover optimization, what other potential patch locking frames can be optimized for, so the solver can be re-run if the patch
- *   locking probabilities change later
+ * - The expected results (arrival frame, mining/delivery frame, penalty for collision or not facing patch) with their probabilities
+ * - Data on what frames can be used for resending close to the patch when optimizing for takeover and patch locking
  *
  * This allows our mining optimization logic to call the solver, then follow the worker's path in the solver result, issuing the desired actions and
  * gradually becoming more confident of the result as any path branches are taken.
- *
- * For takeover optimization, we try to achieve patch locking as the top priority. As patch locking depends on whether all the other patches are
- * being mined, the state of this may change after the initial run of the solver. To help the mining optimization logic determine if this is the
- * case, the solver returns both the patch locking frame(s) it is planning to reach (so the assumptions about viability can be reconsidered later),
- * and what other patch locking frames could be reached if they become viable later. If the mining optimization logic thinks the situation might have
- * changed significantly, it can re-run the solver to get an updated result.
  *
  * Constraints considered by the solver:
  * - Gather resends cannot be issued LF from each other (Unit_Busy)
  * - Gather resends cannot be issued LF+1 frames before an order process timer reset, as this usually puts the worker in a weird state (it will
  *   stay in the ResetCollision order for more than the usual single frame, unless its order process timer resets to 0)
- * - Gather takeover takes the takeover frame into consideration (i.e. the latest frame the patch will be free) unless patch locking can be achieved
  *
  * The algorithm works in the following way:
  * - We start by recursively exploring the next node(s) on the no-resend path
@@ -103,39 +95,6 @@ namespace MiningOptimization
                 return result;
             };
 
-            // Adds patch lock and switch probabilities to the branch
-            // If evaluating a resend branch, we detect patch switches, but patch locks are no longer possible since they will be cleared by the
-            // resend
-            auto addPatchLockAndSwitchProbabilities = [&](SolverResult<ObservationType> &branch, bool canPatchLock)
-            {
-                // Not relevant if it is not gather takeover, the takeover frame has passed, or the worker can't have order process timer 0 here
-                // TODO: Might need to exclude when the order process timer is 0 because of a resend kicking in
-                if (takeoverFrame == -1 || takeoverFrame <= nextFrame || !workerOrderProcessTimer.contains(0)) return;
-
-                // Patch locking and switching kicks in at 10 distance from the patch
-                auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                    here,
-                                                    BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                    resource->center);
-                if (dist > 10) return;
-
-                // There is a possibility of patch lock or switch, so compute the probability based on our forecast
-                auto patchLockProbability = otherPatchesForecast.atFrame(nextFrame);
-                auto patchSwitchProbability = 1.0 - patchLockProbability;
-                if (!canPatchLock) patchLockProbability = 0.0;
-
-                // The probability of each order process timer value occurring is equal
-                auto probabilityWorkerOrderProcessTimerIsZero = (1.0 / (double)workerOrderProcessTimer.size());
-
-                auto add = [&](std::map<int, double> &map, double probability)
-                {
-                    if (probability < EPSILON) return;
-                    map[nextFrame] = probability * probabilityWorkerOrderProcessTimerIsZero;
-                };
-                add(branch.patchLockFramesWithProbabilities, patchLockProbability);
-                add(branch.patchSwitchFramesWithProbabilities, patchSwitchProbability);
-            };
-
             // If we have reached the end of the path, create the new branch and populate it with the arrival data
             auto &next = node.applicableNextPositions(nextFrame, resends.resendFrames);
             if (next.empty())
@@ -147,6 +106,8 @@ namespace MiningOptimization
                     // The arrival frame is given by the delay here
                     int arrivalFrame = nextFrame + arrivalData.arrivalDelay();
                     result.arrivalFramesWithProbabilities[arrivalFrame] += probability;
+
+                    // TODO: Add 10-distance and resend already arrives data here
 
                     // On gather there is an extra frame of delay between arrival and mining (the WaitForMinerals frame)
                     int transitionFrames = transitionFramesToAction();
@@ -180,8 +141,6 @@ namespace MiningOptimization
                     // waiting, since usually the reason for having a set of possible values is that there has already been a reset. However we need
                     // to handle it since we technically can run the solver without knowing the unit's initial order process timer value (like for
                     // a spawned unit).
-
-                    // TODO: Consider the takeover frame? Or will that be handled elsewhere?
 
                     // Get the number of frames from the arrival frame to the next order process timer reset
                     // We do not consider resets at the arrival frame itself, since this is already handled
@@ -249,8 +208,6 @@ namespace MiningOptimization
                     addArrivalData(arrivalData, mapData.occurrenceRateToProbability(occurrenceRate));
                 }
 
-                addPatchLockAndSwitchProbabilities(result, true);
-
                 return std::move(addPositionTo(result));
             }
 
@@ -260,7 +217,6 @@ namespace MiningOptimization
 
             // Get the result from not resending here
             auto result = processNextNodes(here, next, nextFrame + 1, resends, nextWorkerOrderProcessTimer);
-            addPatchLockAndSwitchProbabilities(result, true);
 
             // If there can be a resend, try it
             auto resendViability = isResendViableHere(node, nextFrame, resends);
@@ -274,7 +230,6 @@ namespace MiningOptimization
             // Get the result
             auto resendResult = processNextNodes(here, next, nextFrame + 1, resendsHere, nextWorkerOrderProcessTimer);
             resendResult.resendFramesOnThisBranch.insert(nextFrame);
-            addPatchLockAndSwitchProbabilities(resendResult, false);
 
             // Score the two results and return the best one
             auto scoreResult = [](const SolverResult<ObservationType> &result)
@@ -288,8 +243,6 @@ namespace MiningOptimization
                 //       but facing patch and mining start delays keep the patch busy for longer, which can be good or bad depending
                 //       on whether another worker is waiting to mine or not
                 score += (SolverResult<ObservationType>::mapAverage(result.delaysWithProbabilities) * 1.001);
-
-                // TODO: Consider patch locking and switching
 
 #if USE_NEXT_PATH_LENGTHS
                 score += NEXT_PATH_LENGTH_WEIGHT * SolverResult<ObservationType>::mapAverage(result.nextPathLengthWithProbabilities);
@@ -326,8 +279,6 @@ namespace MiningOptimization
             addObservations(nodeResult.arrivalFramesWithProbabilities, result.arrivalFramesWithProbabilities);
             addObservations(nodeResult.actionFramesWithProbabilities, result.actionFramesWithProbabilities);
             addObservations(nodeResult.delaysWithProbabilities, result.delaysWithProbabilities);
-            addObservations(nodeResult.patchLockFramesWithProbabilities, result.patchLockFramesWithProbabilities);
-            addObservations(nodeResult.patchSwitchFramesWithProbabilities, result.patchSwitchFramesWithProbabilities);
 #if USE_NEXT_PATH_LENGTHS
             addObservations(nodeResult.nextPathLengthWithProbabilities, result.nextPathLengthWithProbabilities);
 #endif
@@ -369,10 +320,6 @@ namespace MiningOptimization
                     if (nextNode.arrivalDataAfterResend.empty() && nextNode.nextPositionsAfterResend.empty())
                     {
                         if (!nextNode.isStableResendNode) return false;
-
-                        // For stable resend nodes, it only makes sense to resend there if it is the final resend, except in the case where we
-                        // are resending to avoid patch switching on the order process timer reset frame
-                        if (takeoverFrame != -1 && OrderProcessTimer::isResetFrame(nextFrame + 1)) anyNonFinalResends = true;
                     }
                     else
                     {

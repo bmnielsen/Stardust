@@ -41,15 +41,6 @@ namespace MiningOptimization
         // The predicted delays (not facing patch, collision); can be negative for returns with preserved speed
         std::map<int, double> delaysWithProbabilities;
 
-        // The predicted patch switch frames with probabilities
-        std::map<int, double> patchSwitchFramesWithProbabilities;
-
-        // The predicted patch lock frames with probabilities
-        // The probability here does not include the probability that patch locking is possible at the given frame, since this changes over time
-        // as our predictions shift
-        // If the solver does not think patch locking is possible, this will be empty
-        std::map<int, double> patchLockFramesWithProbabilities;
-
 #if USE_NEXT_PATH_LENGTHS
         // The expected next path lengths with probabilities
         // This is not expected to be very exact, but can be used to nudge the worker towards picking paths that get it onto a better next path.
