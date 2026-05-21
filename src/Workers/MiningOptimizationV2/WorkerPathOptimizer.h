@@ -29,9 +29,6 @@ namespace MiningOptimization
             LostPathWithAssumedResult       = 1 << 6,
         };
 
-        // The last frame this worker was optimized
-        int lastProcessedFrame;
-
         // The actual frame after patch lock has occurred, or -1 if the worker hasn't patch locked
         int actualPatchLockFrame;
 
@@ -40,14 +37,14 @@ namespace MiningOptimization
                             MyWorker worker,
                             MyUnit depot,
                             Resource resource)
-                : lastProcessedFrame(-2)
-                , actualPatchLockFrame(-1)
+                : actualPatchLockFrame(-1)
                 , mapData(mapData)
                 , pathCache(pathCache)
                 , patchTile(TilePosition::fromBWAPI(resource->tile))
                 , worker(std::move(worker))
                 , depot(std::move(depot))
                 , resource(std::move(resource))
+                , lastProcessedFrame(-2)
                 , statusFlags(0)
         {}
 
@@ -69,9 +66,12 @@ namespace MiningOptimization
             return (depot == _depot) && (resource == _resource);
         }
 
-        // Runs the optimization
-        // Called from Workers each frame during approach to the patch or depot
-        void optimize();
+        // Updates the path being followed by the worker
+        // Returns true if the worker is on a valid path, false otherwise
+        bool updatePath();
+
+        // Issues any orders needed to do path optimization
+        void issueOrders();
 
         // Sets a status flag
         void setFlag(const StatusFlags flag)
@@ -106,6 +106,9 @@ namespace MiningOptimization
         MyUnit depot;
         Resource resource;
 
+        // The last frame this worker was optimized
+        int lastProcessedFrame;
+
         // Status flags
         unsigned int statusFlags;
 
@@ -128,9 +131,6 @@ namespace MiningOptimization
         {
             expectedPath.reset();
         }
-
-        // Captures and follows a path, if possible
-        void updatePath();
 
         /*
          * These methods are where the logic differs between gather and return paths. They are implemented in their own files for each

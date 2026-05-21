@@ -98,7 +98,6 @@ namespace MiningOptimization
 
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
-        gatherOptimizer->forWorker(worker, depot, resource).optimize();
     }
 
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
@@ -107,7 +106,11 @@ namespace MiningOptimization
         // worth the effort to refactor it
         if (!resource) return;
 
-        returnOptimizer->forWorker(worker, depot, resource).optimize();
+        auto &pathOptimizer = returnOptimizer->forWorker(worker, depot, resource);
+        if (pathOptimizer.updatePath())
+        {
+            pathOptimizer.issueOrders();
+        }
     }
 
     std::map<MyWorker, std::tuple<Resource, Resource, std::optional<InitialSplitData>>> initialWorkerSplit()

@@ -29,9 +29,9 @@ namespace MiningOptimization
     }
 
     template <typename ObservationType>
-    void WorkerPathOptimizer<ObservationType>::optimize()
+    bool WorkerPathOptimizer<ObservationType>::updatePath()
     {
-        if (skipPathOptimization()) return;
+        if (skipPathOptimization()) return false;
 
         // If the worker hasn't been optimized last frame, reset the state and initialize the pathing
         if (lastProcessedFrame != (currentFrame - 1))
@@ -74,46 +74,13 @@ namespace MiningOptimization
         }
         lastProcessedFrame = currentFrame;
 
-        // Initialize the takeover frames as needed
-        initializeGatherTakeover();
-
-        updatePath();
-
-        // Send a planned resend for this frame
-        if (expectedPath && expectedPath->resendFramesOnThisBranch.contains(currentFrame))
-        {
-            auto result = issueResend();
-            if (result)
-            {
-                executedResendFrames.insert(currentFrame);
-#if VERBOSE_PATH_LOGGING
-                CherryVis::log(worker->id) << "Issued planned resend";
-#endif
-            }
-            else
-            {
-                // We couldn't issue the resend, so bail out
-                resetPath();
-
-#if VERBOSE_PATH_LOGGING
-                Log::Get() << "Failed to issue planned resend for " << worker->id << " @ " << worker->getTilePosition() << ": "
-                           << BWAPI::Broodwar->getLastError();
-                CherryVis::log(worker->id) << "Failed to issue planned resend; last error " << BWAPI::Broodwar->getLastError();
-#endif
-            }
-        }
-    }
-
-    template <typename ObservationType>
-    void WorkerPathOptimizer<ObservationType>::updatePath()
-    {
-        // Nothing to do if we didn't have any path data
-        if (!expectedPath) return;
+        // Nothing to do if we don't have any path data
+        if (!expectedPath) return false;
 
         // Check if we have reached the end of the path
         if (expectedPath->pathToNextBranch.empty() && expectedPath->nextBranches.empty())
         {
-            return;
+            return true;
         }
 
         auto lostPath = [&]()
@@ -138,7 +105,7 @@ namespace MiningOptimization
 #if VERBOSE_PATH_LOGGING
                     CherryVis::log(worker->id) << "Lost path, but all remaining branches are equivalent, so assuming worker will achieve same result";
 #endif
-                    return;
+                    return true;
                 }
             }
 
@@ -146,6 +113,8 @@ namespace MiningOptimization
 #if VERBOSE_PATH_LOGGING
             CherryVis::log(worker->id) << "Lost path";
 #endif
+
+            return false;
         };
 
         auto currentPosition = getCurrentPosition(worker);
@@ -156,8 +125,7 @@ namespace MiningOptimization
             // We are at a non-branching node, so just validate the next node
             if (expectedPath->pathToNextBranch.front() != currentPosition)
             {
-                lostPath();
-                return;
+                return lostPath();
             }
 
             expectedPath->pathToNextBranch.pop_front();
@@ -175,7 +143,7 @@ namespace MiningOptimization
                     Log::Get() << "ERROR: Empty path in branch";
 #endif
                     resetPath();
-                    return;
+                    return false;
                 }
 
                 if (candidate.pathToNextBranch.front() == currentPosition)
@@ -195,8 +163,36 @@ namespace MiningOptimization
             // If we didn't find the next branch, we lost the path here
             if (!foundNextBranch)
             {
-                lostPath();
-                return;
+                return lostPath();
+            }
+        }
+
+        return true;
+    }
+
+    template <typename ObservationType>
+    void WorkerPathOptimizer<ObservationType>::issueOrders()
+    {
+        if (expectedPath && expectedPath->resendFramesOnThisBranch.contains(currentFrame))
+        {
+            auto result = issueResend();
+            if (result)
+            {
+                executedResendFrames.insert(currentFrame);
+#if VERBOSE_PATH_LOGGING
+                CherryVis::log(worker->id) << "Issued planned resend";
+#endif
+            }
+            else
+            {
+                // We couldn't issue the resend, so bail out
+                resetPath();
+
+#if VERBOSE_PATH_LOGGING
+                Log::Get() << "Failed to issue planned resend for " << worker->id << " @ " << worker->getTilePosition() << ": "
+                           << BWAPI::Broodwar->getLastError();
+                CherryVis::log(worker->id) << "Failed to issue planned resend; last error " << BWAPI::Broodwar->getLastError();
+#endif
             }
         }
     }
