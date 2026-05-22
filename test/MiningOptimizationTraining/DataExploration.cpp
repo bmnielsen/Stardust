@@ -548,3 +548,74 @@ TEST(DataExploration, FindMaintainedSpeedEffect)
         std::cout << std::fixed << std::setprecision(2) << (unsigned int)exitSpeed << ": " << benefit << " (over " << count << " samples)" << std::endl;
     }
 }
+
+TEST(DataExploration, FindDefaultTakeoverMetadata)
+{
+    MapData data;
+    Serialization::setGameParameters(Maps::GetOne("Benzene")->openbwHash);
+    Serialization::readMapData(data);
+
+    auto distAndSpeedAtDelta = [](TilePosition patchTile, const GatherPathNode &node, unsigned int delta)
+    {
+        auto current = &node;
+        while (true)
+        {
+            if (current->arrivalData.begin()->first.arrivalDelay() <= delta)
+            {
+                auto dist = Geo::EdgeToEdgeDistance(
+                    BWAPI::UnitTypes::Protoss_Probe,
+                    current->pos,
+                    BWAPI::UnitTypes::Resource_Mineral_Field,
+                    patchTile);
+
+                double dx = (double)current->pos.velocityX / 256.0;
+                double dy = (double)current->pos.velocityY / 256.0;
+                auto speed = (unsigned int)std::round(std::sqrt(dx * dx + dy * dy));
+
+                return std::make_pair(dist, speed);
+            }
+            current = &current->nextPositions.begin()->first;
+        }
+    };
+
+    std::map<std::pair<int, unsigned int>, unsigned long> tenDistanceCounters;
+    std::map<std::pair<int, unsigned int>, unsigned long> resendAlwaysArrivesCounters;
+    for (const auto &[patch, gatherPaths] : data.resourceToGatherPaths)
+    {
+        for (const auto &[_, gatherPath] : gatherPaths)
+        {
+            for (const auto &[_, rootNodes] : gatherPath.nextPositions)
+            {
+                for (const auto &[rootNode, _] : rootNodes)
+                {
+                    for (const auto &[arrivalData, _] : rootNode.arrivalData)
+                    {
+                        if (arrivalData.tenDistanceDelta != 255)
+                        {
+                            auto tenDistance = distAndSpeedAtDelta(patch, rootNode, arrivalData.tenDistanceDelta + 3);
+                            tenDistanceCounters[tenDistance]++;
+                        }
+                        if (arrivalData.resendAlwaysArrivesDelta != 255)
+                        {
+                            auto resendAlwaysArrives = distAndSpeedAtDelta(patch, rootNode, arrivalData.resendAlwaysArrivesDelta + 3);
+                            resendAlwaysArrivesCounters[resendAlwaysArrives]++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    auto out = [](const std::map<std::pair<int, unsigned int>, unsigned long> &map)
+    {
+        for (const auto &[pair, count] : map)
+        {
+            std::cout << pair.first << " - " << pair.second << ": " << count << std::endl;
+        }
+    };
+
+    std::cout << "10 distance: " << std::endl;
+    out(tenDistanceCounters);
+    std::cout << "resend always arrives: " << std::endl;
+    out(resendAlwaysArrivesCounters);
+}

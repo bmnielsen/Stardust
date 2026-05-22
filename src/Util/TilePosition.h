@@ -24,6 +24,10 @@ public:
     {
         return BWAPI::TilePosition(x, y);
     }
+    operator BWAPI::Position() const
+    {
+        return BWAPI::Position(BWAPI::TilePosition(x, y)) + BWAPI::Position(32, 16);
+    }
 
     friend std::ostream &operator << (std::ostream &os, const TilePosition &pos)
     {

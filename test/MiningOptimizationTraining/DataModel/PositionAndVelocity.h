@@ -11,8 +11,8 @@ namespace MiningOptimizationTraining
         uint16_t x;         // X pixel position, between 0 and 8191 for the default maximum map size of 256 tiles
         uint16_t y;         // Y pixel position, between 0 and 8191 for the default maximum map size of 256 tiles
         int8_t heading;     // The heading in BW representation (1/256th of a circle)
-        int32_t velocityX; // X velocity, in full BW precision
-        int32_t velocityY; // Y velocity, in full BW precision
+        int32_t velocityX;  // X velocity, in full BW precision
+        int32_t velocityY;  // Y velocity, in full BW precision
 
         PositionAndVelocity()
                 : x(0)
