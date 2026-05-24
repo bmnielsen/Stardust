@@ -6,6 +6,7 @@
 #include "DebugFlag_MiningOptimization.h"
 #include "Map.h"
 #include "Units.h"
+#include "Workers.h"
 
 #if OUTPUT_STATISTICS
 #include "PathStatistics.h"
@@ -93,7 +94,41 @@ namespace MiningOptimization
 
     bool optimizeStartOfMining(Base *base, std::vector<std::tuple<MyWorker, MyUnit, Resource>> &workersAndDepotsAndResources)
     {
-        return false;
+        // Loop through the given workers, update their paths, and check if any require takeover optimization
+        bool takeover = false;
+        for (auto it = workersAndDepotsAndResources.begin(); it != workersAndDepotsAndResources.end(); )
+        {
+            auto &[worker, depot, patch] = *it;
+            auto &workerOptimizer = gatherOptimizer->forWorker(worker, depot, patch);
+            if (workerOptimizer.updatePath())
+            {
+                // Detect takeover by checking if there is another worker already mining
+                auto otherWorker = Workers::getOtherWorkerMining(patch, worker);
+                if (otherWorker && otherWorker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                {
+                    takeover = true;
+                    ++it;
+                    continue;
+                }
+
+                // There is no other worker mining the patch, so we can just issue the approach orders normally
+                workerOptimizer.issueOrders();
+            }
+
+            // This worker is either not pathing properly or isn't taking over, so we don't need to consider it any further
+            it = workersAndDepotsAndResources.erase(it);
+        }
+
+        // Nothing further is needed if none of the workers are taking over
+        if (!takeover) return true;
+
+        // At this point we have one or more workers that are approaching their patches where another worker is mining
+        // Our priorities are to try to have them patch lock, or barring that, have them take over mining at the optimal frame
+
+        // Start generating the occupied forecast for each patch
+
+
+        return true;
     }
 
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)

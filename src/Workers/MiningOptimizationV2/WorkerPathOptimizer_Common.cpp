@@ -220,16 +220,6 @@ namespace MiningOptimization
             {
                 pathStatistics.patchSwitches++;
             }
-            else if (!hasFlag(StatusFlags::LostPath) && expectedPath
-                    && SolverResult<ObservationType>::probabilitySum(expectedPath->patchLockFramesWithProbabilities) > PATCH_LOCK_THRESHOLD)
-            {
-                pathStatistics.withPlannedPatchLock++;
-
-                if (actualPatchLockFrame != -1 && expectedPath->patchLockFramesWithProbabilities.contains(actualPatchLockFrame))
-                {
-                    pathStatistics.withExpectedPatchLockFrame++;
-                }
-            }
         }
 
         if (hasFlag(StatusFlags::CapturedPath))
@@ -245,15 +235,16 @@ namespace MiningOptimization
                     int actualActionFrame = currentFrame;
                     if (worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals) actualActionFrame++;
 
-                    if (expectedPath->arrivalFramesWithProbabilities.contains(actualArrivalFrame)) pathStatistics.withExpectedArrivalFrame++;
+                    bool validArrivalFrame = expectedPath->containsArrivalFrame(actualArrivalFrame);
+                    if (validArrivalFrame) pathStatistics.withExpectedArrivalFrame++;
                     if (expectedPath->actionFramesWithProbabilities.contains(actualActionFrame)) pathStatistics.withExpectedActionFrame++;
 
-                    if (!expectedPath->arrivalFramesWithProbabilities.contains(actualArrivalFrame)
+                    if (!validArrivalFrame
                         && !expectedPath->actionFramesWithProbabilities.contains(actualActionFrame))
                     {
                         CherryVis::log(worker->id) << "Unexpected arrival and action frame";
                     }
-                    else if (!expectedPath->arrivalFramesWithProbabilities.contains(actualArrivalFrame))
+                    else if (!validArrivalFrame)
                     {
                         CherryVis::log(worker->id) << "Unexpected arrival frame but expected action frame";
                     }

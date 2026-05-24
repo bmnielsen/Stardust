@@ -30,6 +30,16 @@ namespace MiningOptimization
     }
 
     template <typename ObservationType>
+    [[nodiscard]] bool SolverResult<ObservationType>::containsArrivalFrame(int arrivalFrame) const
+    {
+        for (const auto &[arrivalData, _] : arrivalDataWithProbabilities)
+        {
+            if (arrivalData.arrivalFrame == arrivalFrame) return true;
+        }
+        return false;
+    }
+
+    template <typename ObservationType>
     std::string SolverResult<ObservationType>::framePredictions() const
     {
         std::ostringstream out;

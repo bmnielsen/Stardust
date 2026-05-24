@@ -130,9 +130,9 @@ ResourceGatherProbabilityForecast &ResourceImpl::getAllOtherPatchesGatheredProba
     // any patches that are forecasted to start being mined on the frame when our worker's orders are processed.
     // A more accurate solution to this would actually consider the order process index, but this would require tracking a lot of additional data
     // and would likely make very little difference in practice.
-    // The first frame in the forecast can not be multiplied by the next, so we leave it as-is, but as a frame that early would never be usable
+    // The first frame in the forecast can not be multiplied by the previous, so we leave it as-is, but as a frame that early would never be usable
     // for planning (because of latency), this shouldn't be an issue.
-    for (int i = 1; i < GATHER_FORECAST_FRAMES; i++)
+    for (int i = (GATHER_FORECAST_FRAMES - 1); i > 0; --i)
     {
         forecast[i] *= forecast[i - 1];
     }
