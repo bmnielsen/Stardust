@@ -501,19 +501,49 @@ namespace MiningOptimizationTraining::DataTransformer
         // Now fill in the output data vector and the index lookup map
         outputData.tenDistanceAndResendAlwaysArrives.reserve(std::min(255UL, sortedTenDistanceAndResendAlwaysArrivesToOccurrences.size()));
         std::map<std::pair<int8_t, int8_t>, uint8_t> tenDistanceAndResendAlwaysArrivesToIndex;
+
+        // Add a zero option first as a fallback
+        outputData.tenDistanceAndResendAlwaysArrives.emplace_back(std::make_pair(0, 0));
+        tenDistanceAndResendAlwaysArrivesToIndex[std::make_pair(0, 0)] = 0;
+
         unsigned long handledOccurrences = 0;
         unsigned long unhandledOccurrences = 0;
         for (int i = 0; i < sortedTenDistanceAndResendAlwaysArrivesToOccurrences.size(); i++)
         {
-            tenDistanceAndResendAlwaysArrivesToIndex[sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].first] = std::min(i, 255);
             if (i < 255)
             {
                 outputData.tenDistanceAndResendAlwaysArrives.emplace_back(sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].first);
+                tenDistanceAndResendAlwaysArrivesToIndex[sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].first] = (i + 1);
                 handledOccurrences += sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].second;
             }
             else
             {
                 unhandledOccurrences += sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].second;
+
+                // Find the closest "safe" combination to use instead
+                // This will cause the optimizer to be more careful, but gives a better result than not having anything
+                auto key = sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].first;
+                auto tryAssign = [&]()
+                {
+                    auto it = tenDistanceAndResendAlwaysArrivesToIndex.find(key);
+                    if (it == tenDistanceAndResendAlwaysArrivesToIndex.end()) return false;
+
+                    tenDistanceAndResendAlwaysArrivesToIndex[sortedTenDistanceAndResendAlwaysArrivesToOccurrences[i].first] = it->second;
+                    return true;
+                };
+                while (true)
+                {
+                    if (key.first > 0)
+                    {
+                        --key.first;
+                        if (tryAssign()) break;
+                    }
+                    if (key.second > 0)
+                    {
+                        --key.second;
+                        if (tryAssign()) break;
+                    }
+                }
             }
         }
         std::cout << std::fixed << std::setprecision(2)
