@@ -94,6 +94,7 @@ namespace MiningOptimizationTraining
         }
 
         // Find the index of the first position that is 10 distance from the patch
+        uint8_t tenDistanceDelta = (UINT8_MAX - 1);
         int i = 0;
         for (auto it = simulatedPathWithActionAtArrival.positions.rbegin();
              it != simulatedPathWithActionAtArrival.positions.rend();
@@ -103,7 +104,11 @@ namespace MiningOptimizationTraining
                                                 it->pos(),
                                                 BWAPI::UnitTypes::Resource_Mineral_Field,
                                                 patch->getPosition());
-            if (dist > 10) break;
+            if (dist > 10)
+            {
+                tenDistanceDelta = (uint8_t)std::min(i, (UINT8_MAX - 2));
+                break;
+            }
             i++;
         }
 
@@ -111,7 +116,7 @@ namespace MiningOptimizationTraining
                       facingTarget && atMoveTarget,
                       simulatedPathWithActionAtArrival.squaredSpeedEightFramesAlongNextPath == 0
                       || simulatedPathWithActionAfterArrival.squaredSpeedEightFramesAlongNextPath == 0,
-                      (uint8_t)std::min(i, 255),
+                      tenDistanceDelta,
                       PositionAndVelocity{simulatedPathWithActionAtArrival.nextPathStartPosition});
     }
 

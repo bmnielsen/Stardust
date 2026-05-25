@@ -307,6 +307,7 @@ namespace MiningOptimizationTraining
                                     {
                                         if (resendFrames.contains(lastResendFrame - BWAPI::Broodwar->getLatencyFrames()))
                                         {
+                                            successfulDelta++;
                                             continue;
                                         }
 
@@ -324,7 +325,16 @@ namespace MiningOptimizationTraining
                                         if (result->positions.size() > 11) break;
                                         successfulDelta++;
                                     }
-                                    savedArrivalData.resendAlwaysArrivesDelta = successfulDelta;
+
+                                    // If it succeeds already from the first position, set to a placeholder to indicate such
+                                    if (successfulDelta == (simulatedPath.size() - 1))
+                                    {
+                                        savedArrivalData.resendAlwaysArrivesDelta = (UINT8_MAX - 1);
+                                    }
+                                    else
+                                    {
+                                        savedArrivalData.resendAlwaysArrivesDelta = successfulDelta;
+                                    }
                                 }
                             }
 
