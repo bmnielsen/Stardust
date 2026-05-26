@@ -167,14 +167,14 @@ namespace MiningOptimizationTraining::DataTransformer
 
         template <typename TrainingObservationType, typename OutputObservationType>
         OutputObservationType convert(const TrainingObservationType &arrivalData,
-                                      const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
+                                      const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
         {
             return convert<TrainingObservationType, OutputObservationType>(arrivalData);
         }
 
         template <>
         MiningOptimization::GatherArrivalData convert(const GatherArrivalData &arrivalData,
-                                                      const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
+                                                      const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
         {
             uint8_t packed = (std::min(arrivalData.arrivalDelay(), 63U) << 2) + (arrivalData.packed & 0b00000011);
             MiningOptimization::GatherArrivalData result{packed};
@@ -191,7 +191,7 @@ namespace MiningOptimizationTraining::DataTransformer
 
         template <>
         MiningOptimization::ReturnArrivalData convert(const ReturnArrivalData &arrivalData,
-                                                      const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
+                                                      const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
         {
             return MiningOptimization::ReturnArrivalData{
                 ReturnArrivalData::pack(arrivalData.arrivalDelay, arrivalData.collisionDeliveryAfterArrival),
@@ -204,7 +204,7 @@ namespace MiningOptimizationTraining::DataTransformer
                 const PositionAndVelocity &pos,
                 const std::vector<std::pair<PathNode<TrainingObservationType>, uint32_t>> &nextNodes,
                 const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
-                const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
+                const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
         {
             if (nextNodes.empty()) return {};
 
@@ -364,7 +364,7 @@ namespace MiningOptimizationTraining::DataTransformer
         std::map<MiningOptimization::CannonPlacement, MiningOptimization::Path<OutputObservationType>> convert(
                 const Path<TrainingObservationType> &rootNode,
                 const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
-                const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
+                const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
         {
             std::map<MiningOptimization::CannonPlacement, MiningOptimization::Path<OutputObservationType>> result;
 
@@ -387,7 +387,7 @@ namespace MiningOptimizationTraining::DataTransformer
                 std::unordered_map<TilePosition, std::unordered_map<MiningOptimization::PositionAndVelocity,
                                                                     MiningOptimization::SerializedPath<OutputObservationType>>> &outputData,
                 const std::map<std::pair<int8_t, int8_t>, uint8_t> &positionDeltaToIndex,
-                const std::map<std::pair<int8_t, int8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
+                const std::map<std::pair<uint8_t, uint8_t>, uint8_t> &tenDistanceAndResendAlwaysArrivesToIndex)
         {
             for (const auto &[tile, rootNodes] : pathData)
             {
@@ -443,7 +443,7 @@ namespace MiningOptimizationTraining::DataTransformer
 
         // Now fill in the output data vector and the index lookup map
         outputData.tenDistanceAndResendAlwaysArrives.reserve(std::min(255UL, sortedTenDistanceAndResendAlwaysArrivesToOccurrences.size()));
-        std::map<std::pair<int8_t, int8_t>, uint8_t> tenDistanceAndResendAlwaysArrivesToIndex;
+        std::map<std::pair<uint8_t, uint8_t>, uint8_t> tenDistanceAndResendAlwaysArrivesToIndex;
 
         // Add a zero option first as a fallback
         outputData.tenDistanceAndResendAlwaysArrives.emplace_back(std::make_pair(0, 0));

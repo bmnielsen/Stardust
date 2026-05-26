@@ -23,7 +23,7 @@ namespace MiningOptimization
     struct GatherArrivalData
     {
         uint8_t packed = UINT8_MAX;
-        uint8_t tenDistanceAndResendAlwaysArrivesIndex = UINT8_MAX;
+        uint8_t tenDistanceAndResendAlwaysArrivesIndex = 0;
 
         // The number of frames to arrival at the target
         [[nodiscard]] unsigned int arrivalDelay() const

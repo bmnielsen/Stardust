@@ -67,6 +67,11 @@ namespace MiningOptimization::Serialization
                 s.value1b(v.second);
             });
             if constexpr (!serializing) data.positionDeltas.shrink_to_fit();
+            ser.container(data.tenDistanceAndResendAlwaysArrives, 256, [&](S &s, std::pair<uint8_t, uint8_t> &v) {
+                s.value1b(v.first);
+                s.value1b(v.second);
+            });
+            if constexpr (!serializing) data.tenDistanceAndResendAlwaysArrives.shrink_to_fit();
             ser.value4b(data.minimumNextPathLength);
             ser.object(data.resourceToSerializedGatherPaths, resourceToRootNodesSerializer);
             ser.object(data.resourceToSerializedReturnPaths, resourceToRootNodesSerializer);
