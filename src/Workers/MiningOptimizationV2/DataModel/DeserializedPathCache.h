@@ -33,9 +33,17 @@ namespace MiningOptimization
 
         std::optional<Item> get(const DeserializedPathCacheKey &key)
         {
+            // Try to find the serialized path
+            auto patchDataIt = pathData.find(key.first);
+            if (patchDataIt == pathData.end()) return std::nullopt;
+            auto serializedPathIt = patchDataIt->second.find(key.second);
+            if (serializedPathIt == patchDataIt->second.end()) return std::nullopt;
+            auto cannonPlacement = serializedPathIt->second.activeCannonPlacement();
+            if (!cannonPlacement) return std::nullopt;
+
             // Check if this key is already in the cache
             auto cacheIt = index.find(key);
-            if (cacheIt != index.end())
+            if (cacheIt != index.end() && cacheIt->second->second->cannonPlacement == *cannonPlacement)
             {
                 // We got a cache hit: remove the path from the cache and return it
                 auto result = Item{key, std::move(cacheIt->second->second)};
@@ -48,18 +56,14 @@ namespace MiningOptimization
                 return result;
             }
 
-            // Try to find the serialized path
-            auto patchDataIt = pathData.find(key.first);
-            if (patchDataIt == pathData.end()) return std::nullopt;
-            auto serializedPathIt = patchDataIt->second.find(key.second);
-            if (serializedPathIt == patchDataIt->second.end()) return std::nullopt;
-
 #if LOG_CACHE_OPERATIONS
             Log::Get() << "Cache miss for " << key.first << " / " << key.second;
 #endif
 
-            // Deserialize the path and return it
-            return Item{key, std::make_unique<Path<ObservationType>>(serializedPathIt->second.get())};
+            // Deserialize the path and return
+            auto path = serializedPathIt->second.get(cannonPlacement);
+            if (path.nextPositions.empty()) return std::nullopt;
+            return Item{key, std::make_unique<Path<ObservationType>>(std::move(path))};
         }
 
         void put(Item &&item)

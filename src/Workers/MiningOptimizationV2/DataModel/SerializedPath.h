@@ -3,6 +3,8 @@
 #include "Path.h"
 #include "CannonPlacement.h"
 
+#include <optional>
+
 namespace MiningOptimization
 {
     template <typename ObservationType>
@@ -12,7 +14,9 @@ namespace MiningOptimization
         // The position, including velocity and heading
         PositionAndVelocity pos;
 
-        Path<ObservationType> get() const;
+        [[nodiscard]] std::optional<CannonPlacement> activeCannonPlacement() const;
+
+        [[nodiscard]] Path<ObservationType> get(std::optional<CannonPlacement> cannonPlacement = std::nullopt) const;
 
         static SerializedPath<ObservationType> create(const std::map<CannonPlacement, Path<ObservationType>> &cannonPlacementToPath);
 

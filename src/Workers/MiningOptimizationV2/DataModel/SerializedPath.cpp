@@ -144,20 +144,37 @@ namespace MiningOptimization
     }
 
     template <typename ObservationType>
-    Path<ObservationType> SerializedPath<ObservationType>::get() const
+    std::optional<CannonPlacement> SerializedPath<ObservationType>::activeCannonPlacement() const
     {
-        for (auto &[cannonPlacement, data] : dataByCannonPlacement)
+        for (auto &[cannonPlacement, _] : dataByCannonPlacement)
         {
             if (cannonPlacement.cannonCount > 0 && !Units::myBuildingAt(cannonPlacement.tile)) continue;
 
+            return cannonPlacement;
+        }
+
+        return std::nullopt;
+    }
+
+    template <typename ObservationType>
+    Path<ObservationType> SerializedPath<ObservationType>::get(std::optional<CannonPlacement> cannonPlacement) const
+    {
+        if (!cannonPlacement) cannonPlacement = activeCannonPlacement();
+        if (!cannonPlacement) return {pos};
+
+        for (auto &[placement, data] : dataByCannonPlacement)
+        {
+            if (placement != *cannonPlacement) continue;
+
             Path<ObservationType> result;
             result.pos = pos;
+            result.cannonPlacement = placement;
             bitsery::Deserializer<bitsery::InputBufferAdapter<std::vector<uint8_t>>> ser{data.begin(), data.size()};
             serializePath<false>(ser, result);
             return std::move(result);
         }
 
-        // We don't have data matching the current cannon configuration, so return a path without any data
+        // Shouldn't get here
         return {pos};
     }
 

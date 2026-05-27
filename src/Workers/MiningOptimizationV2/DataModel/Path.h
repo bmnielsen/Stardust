@@ -5,6 +5,7 @@
 
 #include "PositionAndVelocity.h"
 #include "PositionDeltaAndVelocity.h"
+#include "CannonPlacement.h"
 
 namespace MiningOptimization
 {
@@ -77,6 +78,10 @@ namespace MiningOptimization
 
         // All next positions seen from this node
         std::vector<std::pair<PathNode<ObservationType>, uint8_t>> nextPositions;
+
+        // The cannon placement this path applies to
+        // This is added here after deserialization to help with cache invalidation
+        CannonPlacement cannonPlacement;
 
         // Ensure we never copy paths
         [[no_unique_address]] noncopyable _ = {};
