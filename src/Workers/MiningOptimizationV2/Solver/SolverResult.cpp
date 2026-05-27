@@ -40,6 +40,17 @@ namespace MiningOptimization
     }
 
     template <typename ObservationType>
+    [[nodiscard]] int SolverResult<ObservationType>::latestArrivalFrame() const
+    {
+        int result = -1;
+        for (const auto &[arrivalData, _] : arrivalDataWithProbabilities)
+        {
+            result = std::max(result, arrivalData.arrivalFrame);
+        }
+        return result;
+    }
+
+    template <typename ObservationType>
     std::string SolverResult<ObservationType>::framePredictions() const
     {
         std::ostringstream out;

@@ -67,8 +67,14 @@ namespace MiningOptimization
         }
 
         SolverResends resends;
-        auto result =
-                processNextNodes(startPosition, path.nextPositions, startFrame + 1, resends, workerOrderProcessTimer);
+        auto result = processNextNodes(startPosition,
+                                       path.nextPositions,
+                                       startFrame + 1,
+                                       -1,
+                                       -1,
+                                       nullptr,
+                                       resends,
+                                       workerOrderProcessTimer);
         result.pathToNextBranch.push_front(startPosition);
         return result;
     }
@@ -78,7 +84,10 @@ namespace MiningOptimization
             const PositionAndVelocity &pos,
             const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextNodes,
             int nextFrame,
-            const SolverResends &resends,
+            int tenDistanceFrame,
+            int resendAlwaysArrivesFrame,
+            int *noFurtherResendLatestArrivalFrame,
+            const SolverResends &previousResends,
             const std::multiset<int> &workerOrderProcessTimer) const
     {
         // Processes a node and returns its result
@@ -93,8 +102,19 @@ namespace MiningOptimization
                 return result;
             };
 
+            // Update the ten distance for this node
+            // Basically we just find the first frame where the distance is 10 or less and pass it forward
+            int nodeTenDistanceFrame = tenDistanceFrame;
+            if (nodeTenDistanceFrame == -1 && Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                                      here,
+                                                                      BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                                      resource->center) <= 10)
+            {
+                nodeTenDistanceFrame = nextFrame;
+            }
+
             // If we have reached the end of the path, create the new branch and populate it with the arrival data
-            auto &next = node.applicableNextPositions(nextFrame, resends.resendFrames);
+            auto &next = node.applicableNextPositions(nextFrame, previousResends.resendFrames);
             if (next.empty())
             {
                 SolverResult<ObservationType> result;
@@ -102,17 +122,44 @@ namespace MiningOptimization
                 auto addArrivalData = [&](const ObservationType &arrivalData, double probability)
                 {
                     // The arrival frame is given by the delay here
-                    int arrivalFrame = nextFrame + arrivalData.arrivalDelay();
+                    // For final resend nodes the delay will be positive
+                    // For final non-resend nodes the delay will be 0
+                    int delay = arrivalData.arrivalDelay();
+                    int arrivalFrame = nextFrame + delay;
+
+                    int tenDistance = nodeTenDistanceFrame;
+                    int resendAlwaysArrives = -1;
                     if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
                     {
-                        result.arrivalDataWithProbabilities[{arrivalFrame, arrivalData.tenDistanceAndResendAlwaysArrivesIndex}] += probability;
-                    }
-                    else
-                    {
-                        result.arrivalDataWithProbabilities[{arrivalFrame, UINT8_MAX}] += probability;
+                        // If this is a final resend node, take the takeover metadata from the arrival data
+                        if (delay != 0)
+                        {
+                            auto &takeoverMetadata =
+                                mapData.tenDistanceAndResendAlwaysArrives[arrivalData.tenDistanceAndResendAlwaysArrivesIndex];
+
+                            if (tenDistance == -1)
+                            {
+                                if (takeoverMetadata.first == (UINT8_MAX - 1))
+                                {
+#if LOGGING_ENABLED
+                                    Log::Get()
+                                        << "ERROR: Takeover metadata indicates already at 10 distance, but this hasn't been captured in solver";
+#endif
+                                    tenDistance = arrivalFrame;
+                                }
+                                else
+                                {
+                                    tenDistance = arrivalFrame - takeoverMetadata.first;
+                                }
+                            }
+                        }
+
+                        // TODO: Pass along the ten distance and resend always arrives frames while traversing the path tree
+                        // We use those values when stopping at an end node, and use the index when stopping at a final resend node
+
                     }
 
-                    // TODO: Add 10-distance and resend already arrives data here
+                    result.arrivalDataWithProbabilities[{arrivalFrame, tenDistance, resendAlwaysArrives}] += probability;
 
                     // On gather there is an extra frame of delay between arrival and mining (the WaitForMinerals frame)
                     int transitionFrames = transitionFramesToAction();
@@ -121,7 +168,7 @@ namespace MiningOptimization
                     auto possibleOrderProcessTimerValuesAtArrival =
                             orderProcessTimerInFuture<ObservationType>(nextFrame,
                                                                        workerOrderProcessTimer,
-                                                                       resends.resendFrames,
+                                                                       previousResends.resendFrames,
                                                                        arrivalData.arrivalDelay());
 
                     // If there was a recent resend, override the order process timer value to simulate the fact that a 0 value won't actually take
@@ -130,7 +177,7 @@ namespace MiningOptimization
                     {
                         for (int i = 0; i <= transitionFrames; i++)
                         {
-                            if (resends.resendFrames.contains(arrivalFrame - BWAPI::Broodwar->getLatencyFrames() - i - 1))
+                            if (previousResends.resendFrames.contains(arrivalFrame - BWAPI::Broodwar->getLatencyFrames() - i - 1))
                             {
                                 possibleOrderProcessTimerValuesAtArrival = {8 + i + transitionFrames};
                             }
@@ -199,7 +246,8 @@ namespace MiningOptimization
                 };
 
                 // Process the arrival data, weighting by probability if there are unstable results
-                auto &arrivalDataAndOccurrenceRates = node.applicableArrivalData(nextFrame, resends.resendFrames);
+                auto &arrivalDataAndOccurrenceRates =
+                    node.applicableArrivalData(nextFrame, previousResends.resendFrames);
 
 #if LOGGING_ENABLED
                 if (arrivalDataAndOccurrenceRates.empty())
@@ -218,23 +266,61 @@ namespace MiningOptimization
 
             // Compute the order process timer values at the start of the next frame
             auto nextWorkerOrderProcessTimer =
-                    orderProcessTimerInFuture<ObservationType>(nextFrame, workerOrderProcessTimer, resends.resendFrames, 1);
+                    orderProcessTimerInFuture<ObservationType>(nextFrame, workerOrderProcessTimer, previousResends.resendFrames, 1);
 
-            // Get the result from not resending here
-            auto result = processNextNodes(here, next, nextFrame + 1, resends, nextWorkerOrderProcessTimer);
+            // To compute the resend always arrives we need to be careful which branches we explore first
+            // Along the no-resend path we pass the highest frame found so far at which the resend did not arrive
+            // In order to compute this, we need to take into consideration whether the resend from this frame did arrive in time without
+            // additional later resends. For this, we pass the address of an int that gets the highest arrival frame with no additional
+            // resends.
+            // A special case is when we are resending from a stable node, because this is treated as a "final" resend node. For this case
+            // the value will be the same as what is found along the no-resend path, so we pass the address of a different int to get the
+            // resend always arrives frame from the last node.
 
-            // If there can be a resend, try it
-            auto resendViability = isResendViableHere(node, nextFrame, resends);
-            if (!resendViability.first) return std::move(addPositionTo(result));
+            // By default we pass the resend always arrives frame along the no-resend path
+            // If we try a resend here, we check if that resend always arrives and update the frame as needed
+            int nodeResendAlwaysArrivesFrame = resendAlwaysArrivesFrame;
+
+            // Check if a resend is viable here; if not, we return the no-resend result immediately
+            auto resendViability = isResendViableHere(node, nextFrame, previousResends);
+            if (!resendViability.first)
+            {
+                auto result = processNextNodes(here,
+                                               next,
+                                               nextFrame + 1,
+                                               nodeTenDistanceFrame,
+                                               nodeResendAlwaysArrivesFrame,
+                                               previousResends,
+                                               nextWorkerOrderProcessTimer);
+                return std::move(addPositionTo(result));
+            }
 
             // Add the resend frame
-            std::set<int> resendFrames = resends.resendFrames;
+            std::set<int> resendFrames = previousResends.resendFrames;
             resendFrames.insert(nextFrame);
             SolverResends resendsHere{std::move(resendFrames), resendViability.second};
 
             // Get the result
-            auto resendResult = processNextNodes(here, next, nextFrame + 1, resendsHere, nextWorkerOrderProcessTimer);
+            auto resendResult = processNextNodes(here,
+                                                 next,
+                                                 nextFrame + 1,
+                                                 nodeTenDistanceFrame,
+                                                 -1,
+                                                 resendsHere,
+                                                 nextWorkerOrderProcessTimer);
             resendResult.resendFramesOnThisBranch.insert(nextFrame);
+
+            // Check if the resend always arrives on time
+
+
+            // Get the result from not resending here
+            auto result = processNextNodes(here,
+                                           next,
+                                           nextFrame + 1,
+                                           nodeTenDistanceFrame,
+                                           nodeResendAlwaysArrivesFrame,
+                                           previousResends,
+                                           nextWorkerOrderProcessTimer);
 
             // Score the two results and return the best one
             auto scoreResult = [](const SolverResult<ObservationType> &result)
@@ -299,10 +385,6 @@ namespace MiningOptimization
             const PathNode<ObservationType> &node, int frame, const SolverResends &previousResends) const
     {
         if (previousResends.isFinal) return {false, false};
-
-        // Need to update this to consider resends at stable nodes:
-        // - A resend at a stable node to avoid an order process timer reset is fine to resend again after
-        // - A resend at any other stable node only ever makes sense as the last resend, so further resends should be blocked from consideration
 
         // Reject immediately if a resend isn't possible on this frame
         if (!canResendOnFrame(frame, previousResends.resendFrames)) return {false, false};

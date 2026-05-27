@@ -69,6 +69,9 @@ namespace MiningOptimization
                 const PositionAndVelocity &pos,
                 const std::vector<std::pair<PathNode<ObservationType>, uint8_t>> &nextPathNodes,
                 int frame,
+                int tenDistanceFrame,
+                int resendAlwaysArrivesFrame,
+                int *noFurtherResendLatestArrivalFrame,
                 const SolverResends &previousResends,
                 const std::multiset<int> &workerOrderProcessTimer) const;
 

@@ -15,18 +15,19 @@ namespace MiningOptimization
     struct SolverArrivalData
     {
         int arrivalFrame;
-        uint8_t tenDistanceAndResendAlwaysArrivesIndex;
+        int tenDistanceFrame;
+        int resendAlwaysArrivesFrame;
 
         bool operator==(const SolverArrivalData &other) const
         {
-            return std::tie(arrivalFrame, tenDistanceAndResendAlwaysArrivesIndex)
-                == std::tie(other.arrivalFrame, other.tenDistanceAndResendAlwaysArrivesIndex);
+            return std::tie(arrivalFrame, tenDistanceFrame, resendAlwaysArrivesFrame)
+                == std::tie(other.arrivalFrame, other.tenDistanceFrame, other.resendAlwaysArrivesFrame);
         }
 
         bool operator<(const SolverArrivalData &other) const
         {
-            return std::tie(arrivalFrame, tenDistanceAndResendAlwaysArrivesIndex)
-                < std::tie(other.arrivalFrame, other.tenDistanceAndResendAlwaysArrivesIndex);
+            return std::tie(arrivalFrame, tenDistanceFrame, resendAlwaysArrivesFrame)
+                < std::tie(other.arrivalFrame, other.tenDistanceFrame, other.resendAlwaysArrivesFrame);
         }
 
         friend std::ostream& operator<< (std::ostream& os, const SolverArrivalData& data)
@@ -75,6 +76,9 @@ namespace MiningOptimization
 
         // Whether the arrival data contains a given frame
         [[nodiscard]] bool containsArrivalFrame(int arrivalFrame) const;
+
+        // Whether the arrival data contains a given frame
+        [[nodiscard]] int latestArrivalFrame() const;
 
         // Formats the frame predictions as a string
         [[nodiscard]] std::string framePredictions() const;
