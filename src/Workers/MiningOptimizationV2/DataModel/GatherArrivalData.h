@@ -19,11 +19,15 @@ namespace MiningOptimization
      *
      * We store the next path length as an increment from the minimum path length in MapData. This allows it to fit into 6 bits, which allows us
      * to pack the collision and facing target data alongside it in a single 8-bit integer.
+     *
+     * For final resend nodes, we store the ten distance and resend always arrives deltas together, since we need both.
+     * For arrival nodes, we store only the resend always arrives delta, as we can easily pull the 10-distance data from the actual path.
      */
     struct GatherArrivalData
     {
         uint8_t packed = UINT8_MAX;
         uint8_t tenDistanceAndResendAlwaysArrivesIndex = 0;
+        uint8_t resendAlwaysArrivesDelta = UINT8_MAX;
 
         // The number of frames to arrival at the target
         [[nodiscard]] unsigned int arrivalDelay() const
@@ -68,12 +72,14 @@ namespace MiningOptimization
 #else
         bool operator==(const GatherArrivalData &other) const
         {
-            return std::tie(packed, tenDistanceAndResendAlwaysArrivesIndex) == std::tie(other.packed, other.tenDistanceAndResendAlwaysArrivesIndex);
+            return std::tie(packed, tenDistanceAndResendAlwaysArrivesIndex, resendAlwaysArrivesDelta) ==
+                std::tie(other.packed, other.tenDistanceAndResendAlwaysArrivesIndex, other.resendAlwaysArrivesDelta);
         }
 
         bool operator<(const GatherArrivalData &other) const
         {
-            return std::tie(packed, tenDistanceAndResendAlwaysArrivesIndex) < std::tie(other.packed, other.tenDistanceAndResendAlwaysArrivesIndex);
+            return std::tie(packed, tenDistanceAndResendAlwaysArrivesIndex, resendAlwaysArrivesDelta) <
+                std::tie(other.packed, other.tenDistanceAndResendAlwaysArrivesIndex, other.resendAlwaysArrivesDelta);
         }
 #endif
 

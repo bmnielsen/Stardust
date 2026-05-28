@@ -101,12 +101,15 @@ namespace MiningOptimization
             // Update the ten distance for this node
             // Basically we just find the first frame where the distance is 10 or less and pass it forward
             int nodeTenDistanceFrame = tenDistanceFrame;
-            if (nodeTenDistanceFrame == -1 && Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                                      here,
-                                                                      BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                                      resource->center) <= 10)
+            if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
             {
-                nodeTenDistanceFrame = nextFrame;
+                if (nodeTenDistanceFrame == -1 && Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                                          here,
+                                                                          BWAPI::UnitTypes::Resource_Mineral_Field,
+                                                                          resource->center) <= 10)
+                {
+                    nodeTenDistanceFrame = nextFrame;
+                }
             }
 
             // If we have reached the end of the path, create the new branch and populate it with the arrival data
@@ -124,6 +127,7 @@ namespace MiningOptimization
                     int arrivalFrame = nextFrame + delay;
 
                     int tenDistance = nodeTenDistanceFrame;
+                    int resendAlwaysArrives = -1;
                     if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
                     {
                         // If this is a final resend node, take the ten distance frame from the arrival data
@@ -148,9 +152,25 @@ namespace MiningOptimization
                                 }
                             }
                         }
+
+                        // We always have the resend always arrives delta in the arrival data, but it is stored differently depending on whether this
+                        // is a final resend node or an arrival node
+                        uint8_t resendAlwaysArrivesDelta = arrivalData.resendAlwaysArrivesDelta;
+                        if (resendAlwaysArrivesDelta == UINT8_MAX)
+                        {
+                            auto &takeoverMetadata =
+                                mapData.tenDistanceAndResendAlwaysArrives[arrivalData.tenDistanceAndResendAlwaysArrivesIndex];
+                            resendAlwaysArrivesDelta = takeoverMetadata.second;
+                        }
+
+                        resendAlwaysArrives = arrivalFrame - resendAlwaysArrivesDelta + 1;
+                        if (!previousResends.resendFrames.empty())
+                        {
+                            resendAlwaysArrives = std::max(resendAlwaysArrives, *previousResends.resendFrames.rbegin() + 1);
+                        }
                     }
 
-                    result.arrivalDataWithProbabilities[{arrivalFrame, tenDistance}] += probability;
+                    result.arrivalDataWithProbabilities[{arrivalFrame, tenDistance, resendAlwaysArrives}] += probability;
 
                     // On gather there is an extra frame of delay between arrival and mining (the WaitForMinerals frame)
                     int transitionFrames = transitionFramesToAction();

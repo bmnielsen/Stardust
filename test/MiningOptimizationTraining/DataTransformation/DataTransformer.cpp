@@ -186,6 +186,8 @@ namespace MiningOptimizationTraining::DataTransformer
                 result.tenDistanceAndResendAlwaysArrivesIndex = it->second;
             }
 
+            result.resendAlwaysArrivesDelta = arrivalData.resendAlwaysArrivesDelta;
+
             return result;
         }
 

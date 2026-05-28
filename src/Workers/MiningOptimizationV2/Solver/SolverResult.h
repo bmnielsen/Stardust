@@ -16,17 +16,18 @@ namespace MiningOptimization
     {
         int arrivalFrame;
         int tenDistanceFrame;
+        int resendAlwaysArrivesFrame;
 
         bool operator==(const SolverArrivalData &other) const
         {
-            return std::tie(arrivalFrame, tenDistanceFrame)
-                == std::tie(other.arrivalFrame, other.tenDistanceFrame);
+            return std::tie(arrivalFrame, tenDistanceFrame, resendAlwaysArrivesFrame)
+                == std::tie(other.arrivalFrame, other.tenDistanceFrame, other.resendAlwaysArrivesFrame);
         }
 
         bool operator<(const SolverArrivalData &other) const
         {
-            return std::tie(arrivalFrame, tenDistanceFrame)
-                < std::tie(other.arrivalFrame, other.tenDistanceFrame);
+            return std::tie(arrivalFrame, tenDistanceFrame, resendAlwaysArrivesFrame)
+                < std::tie(other.arrivalFrame, other.tenDistanceFrame, other.resendAlwaysArrivesFrame);
         }
 
         friend std::ostream& operator<< (std::ostream& os, const SolverArrivalData& data)

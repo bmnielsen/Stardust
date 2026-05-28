@@ -38,6 +38,7 @@ namespace MiningOptimization
                 if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
                 {
                     s.value1b(arrivalData.packed);
+                    s.value1b(arrivalData.resendAlwaysArrivesDelta);
                 }
                 else
                 {
