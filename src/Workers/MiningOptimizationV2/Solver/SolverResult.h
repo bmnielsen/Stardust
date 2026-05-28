@@ -71,12 +71,12 @@ namespace MiningOptimization
 
         // Gets the resend frames for all branches below this one if they are stable
         // If the resend frames are not stable, returns nullopt
-        std::optional<std::set<int>> aggregatedResendFramesIfStable() const;
+        [[nodiscard]] std::optional<std::set<int>> aggregatedResendFramesIfStable() const;
 
         // Whether the arrival data contains a given frame
         [[nodiscard]] bool containsArrivalFrame(int arrivalFrame) const;
 
-        // Whether the arrival data contains a given frame
+        // The latest arrival frame in the arrival data
         [[nodiscard]] int latestArrivalFrame() const;
 
         // Formats the frame predictions as a string
