@@ -28,6 +28,82 @@ namespace
         test.timeLimit = INT_MAX;
         test.run();
     }
+
+    void addResendAlwaysArrives(const std::string &mapHash)
+    {
+        MapData data;
+        Serialization::setGameParameters(mapHash);
+        std::cout << "Loading path data for " << mapHash << "..." << std::endl;
+        Serialization::readMapData(data);
+
+        std::cout << "Processing paths..." << std::endl;
+
+        std::function<void(std::vector<std::pair<PathNode<GatherArrivalData>, uint32_t>> &, unsigned int, unsigned int)> processNextNodes;
+        processNextNodes = [&processNextNodes](
+            std::vector<std::pair<PathNode<GatherArrivalData>, uint32_t>> &nextNodes,
+            unsigned int successfulDelta,
+            unsigned int countOnNoResendPath)
+        {
+            for (auto &[node, _] : nextNodes)
+            {
+                unsigned int nodeSuccessfulDelta = successfulDelta;
+                if (node.arrivalDataAfterResend.empty())
+                {
+                    ++nodeSuccessfulDelta;
+                }
+                else
+                {
+                    unsigned int maxArrivalDelay = 0;
+                    for (const auto &[resendArrivalData, _] : node.arrivalDataAfterResend)
+                    {
+                        maxArrivalDelay = std::max(maxArrivalDelay, resendArrivalData.arrivalDelay());
+                    }
+                    if (maxArrivalDelay > 11)
+                    {
+                        nodeSuccessfulDelta = 0;
+                    }
+                    else
+                    {
+                        ++nodeSuccessfulDelta;
+                    }
+                }
+
+                if (node.nextPositions.empty())
+                {
+                    for (auto &[savedArrivalData, _] : node.arrivalData)
+                    {
+                        if (nodeSuccessfulDelta == countOnNoResendPath)
+                        {
+                            savedArrivalData.resendAlwaysArrivesDelta = (UINT8_MAX - 1);
+                        }
+                        else
+                        {
+                            savedArrivalData.resendAlwaysArrivesDelta = nodeSuccessfulDelta;
+                        }
+                    }
+                }
+
+                processNextNodes(node.nextPositions, successfulDelta, countOnNoResendPath + 1);
+                processNextNodes(node.nextPositionsAfterResend, 0, 1);
+            }
+        };
+
+        for (auto &[_, rootNodes] : data.resourceToGatherPaths)
+        {
+            for (auto &[_, rootNode] : rootNodes)
+            {
+                for (auto &[_, nodes] : rootNode.nextPositions)
+                {
+                    processNextNodes(nodes, 0, 1);
+                }
+            }
+        }
+
+        std::cout << "Saving path data for " << mapHash << "..." << std::endl;
+        Serialization::writeMapData(data);
+
+        std::cout << "Done!" << std::endl;
+    }
 }
 
 TEST(PathExploration, VermeerSingleWorker)
@@ -80,4 +156,11 @@ TEST(PathExploration, AllSSCAIT)
     {
         run(test, {});
     });
+}
+
+TEST(AddResendAlwaysArrivesToArrivalNodes, Benzene)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Benzene");
+    addResendAlwaysArrives(test.map->openbwHash);
 }

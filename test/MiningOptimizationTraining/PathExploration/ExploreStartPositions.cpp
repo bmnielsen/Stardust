@@ -345,6 +345,7 @@ namespace MiningOptimizationTraining
                 }
 
                 // Loop through the path, creating and updating nodes as needed
+                unsigned int resendAlwaysArrivesDelta = 0;
                 for (auto positionIt = simulatedPath.begin(); positionIt != simulatedPath.end(); positionIt++)
                 {
                     // The arrival delay is the distance to the last position node, which is the arrival position
@@ -406,6 +407,45 @@ namespace MiningOptimizationTraining
                                              simulatedPathWithDeliveryAfterArrivalResult->actionFrame,
                                              simulatedPathWithDeliveryAfterArrivalResult->lastOrderProcessTimerOverrideFrame,
                                              std::move(nextResendFrames));
+                    }
+
+                    if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+                    {
+                        if (node->arrivalDataAfterResend.empty())
+                        {
+                            ++resendAlwaysArrivesDelta;
+                        }
+                        else
+                        {
+                            unsigned int maxArrivalDelay = 0;
+                            for (const auto &[resendArrivalData, _] : node->arrivalDataAfterResend)
+                            {
+                                maxArrivalDelay = std::max(maxArrivalDelay, resendArrivalData.arrivalDelay());
+                            }
+                            if (maxArrivalDelay > 11)
+                            {
+                                resendAlwaysArrivesDelta = 0;
+                            }
+                            else
+                            {
+                                ++resendAlwaysArrivesDelta;
+                            }
+                        }
+
+                        if (arrivalDelay == 1)
+                        {
+                            for (auto &[savedArrivalData, _] : node->arrivalData)
+                            {
+                                if (resendAlwaysArrivesDelta == (simulatedPath.size() - 1))
+                                {
+                                    savedArrivalData.resendAlwaysArrivesDelta = (UINT8_MAX - 1);
+                                }
+                                else
+                                {
+                                    savedArrivalData.resendAlwaysArrivesDelta = resendAlwaysArrivesDelta;
+                                }
+                            }
+                        }
                     }
 
                     nextPositions = &node->nextPositions;
