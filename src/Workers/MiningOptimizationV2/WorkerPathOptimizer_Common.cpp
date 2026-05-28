@@ -77,6 +77,40 @@ namespace MiningOptimization
         // Nothing to do if we don't have any path data
         if (!expectedPath) return false;
 
+        // Validate 10-distance on gather
+        if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+        {
+            if (!hasFlag(StatusFlags::ReachedTenDistance))
+            {
+                int dist = resource->getDistance(worker);
+                if (dist <= 10)
+                {
+                    setFlag(StatusFlags::ReachedTenDistance);
+
+#if LOGGING_ENABLED
+                    if (!hasFlag(StatusFlags::LostPath))
+                    {
+                        int maxTenDistanceFrame = 0;
+                        int minTenDistanceFrame = INT_MAX;
+                        for (const auto &[arrivalData, _] : expectedPath->arrivalDataWithProbabilities)
+                        {
+                            minTenDistanceFrame = std::min(minTenDistanceFrame, arrivalData.tenDistanceFrame);
+                            maxTenDistanceFrame = std::max(maxTenDistanceFrame, arrivalData.tenDistanceFrame);
+                        }
+                        if (currentFrame < minTenDistanceFrame)
+                        {
+                            Log::Get() << "WARNING: Ten distance reached before any predicted arrival value; " << *worker;
+                        }
+                        if (currentFrame > minTenDistanceFrame)
+                        {
+                            Log::Get() << "WARNING: Ten distance reached after any predicted arrival value; " << *worker;
+                        }
+                    }
+#endif
+                }
+            }
+        }
+
         // Check if we have reached the end of the path
         if (expectedPath->pathToNextBranch.empty() && expectedPath->nextBranches.empty())
         {

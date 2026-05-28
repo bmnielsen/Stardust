@@ -27,6 +27,7 @@ namespace MiningOptimization
             GatherTakeover                  = 1 << 4,
             SwitchedPatch                   = 1 << 5,
             LostPathWithAssumedResult       = 1 << 6,
+            ReachedTenDistance              = 1 << 7,
         };
 
         // The actual frame after patch lock has occurred, or -1 if the worker hasn't patch locked

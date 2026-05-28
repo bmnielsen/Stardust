@@ -144,7 +144,7 @@ namespace MiningOptimization
                                 }
                                 else
                                 {
-                                    tenDistance = arrivalFrame - takeoverMetadata.first;
+                                    tenDistance = arrivalFrame - takeoverMetadata.first + 1;
                                 }
                             }
                         }
