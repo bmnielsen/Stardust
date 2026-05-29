@@ -9,6 +9,16 @@
 namespace MiningOptimization
 {
     template <>
+    std::map<int, double> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int desiredTakeoverFrame)
+    {
+        if (!expectedPath) return {};
+
+        // TODO: Implement additional resends
+
+        return expectedPath->actionFramesWithProbabilities;
+    }
+
+    template <>
     bool WorkerPathOptimizer<GatherArrivalData>::isComplete()
     {
         return worker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals

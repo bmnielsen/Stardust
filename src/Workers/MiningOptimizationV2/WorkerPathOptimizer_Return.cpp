@@ -3,6 +3,12 @@
 namespace MiningOptimization
 {
     template <>
+    std::map<int, double> WorkerPathOptimizer<ReturnArrivalData>::takeoverActionFrames(int)
+    {
+        return {};
+    }
+
+    template <>
     bool WorkerPathOptimizer<ReturnArrivalData>::isComplete()
     {
         return !worker->carryingResource;

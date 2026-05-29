@@ -35,9 +35,22 @@ namespace MiningOptimization
             }
         }
 
+        // Process some of the easy cases for a mining worker first
         if (miningWorker)
         {
             miningWorkerOrderProcessIndex = miningWorker->orderProcessIndex;
+
+            // If the worker has transitioned to the mining order but hasn't actually started decrementing its mining timer yet, just mark
+            // the patch as occupied for the entire forecast horizon and call it a day
+            if (miningWorker->lastStartedMining < miningWorker->lastTransitionedToMiningOrder)
+            {
+                miningWorkerEarliestEndFrame = miningWorkerLatestEndFrame = currentFrame + 82;
+                fullySaturated = true;
+                return;
+            }
+
+            // Default values that get refined later
+            miningWorkerEarliestEndFrame = miningWorkerLatestEndFrame = miningWorker->lastStartedMining + 81;
         }
 
         // If the next mining worker is in WaitForMinerals, we can usually deduce that the patch will be mined for the entire forecast horizon:
@@ -51,9 +64,9 @@ namespace MiningOptimization
             if (nextMiningWorker->lastTransitionedToWaitForMineralsOrder >= (currentFrame - 6) &&
                 OrderProcessTimer::isResetFrame(nextMiningWorker->lastTransitionedToWaitForMineralsOrder + 1))
             {
-                int startFrame = nextMiningWorker->lastTransitionedToWaitForMineralsOrder + 1;
-                int endFrame = startFrame + 6;
-                latestTakeoverWorkerFrame = endFrame + 1;
+                int start = nextMiningWorker->lastTransitionedToWaitForMineralsOrder + 1;
+                int end = start + 6;
+                latestTakeoverWorkerFrame = end + 1;
 
                 // Set an ascending probability here if there is no mining worker. If there is a mining worker, this will be handled later as
                 // the logic becomes more complicated.
@@ -61,7 +74,7 @@ namespace MiningOptimization
                 {
                     // Probability starts at 1/8 on the reset frame and increases by 1/8 each subsequent frame
                     double probability = 0.0;
-                    for (int frame = startFrame; frame <= endFrame; ++frame)
+                    for (int frame = start; frame <= end; ++frame)
                     {
                         probability += 0.125;
                         if (frame > currentFrame)
@@ -69,7 +82,7 @@ namespace MiningOptimization
                             forecast[frame - currentFrame - 1] = probability;
                         }
                     }
-                    std::fill(forecast.begin() + (endFrame - currentFrame), forecast.end(), 1.0);
+                    std::fill(forecast.begin() + (end - currentFrame), forecast.end(), 1.0);
                     return;
                 }
             }
@@ -81,14 +94,6 @@ namespace MiningOptimization
         }
 
         if (!miningWorker) return;
-
-        // If the worker has transitioned to the mining order but hasn't actually started decrementing its mining timer yet, just mark
-        // the patch as occupied for the entire forecast horizon and call it a day
-        if (miningWorker->lastStartedMining < miningWorker->lastTransitionedToMiningOrder)
-        {
-            fullySaturated = true;
-            return;
-        }
 
         // Compute the mining end frame if there was no order timer reset
         int miningEndFrame = miningWorker->lastStartedMining + 81;
@@ -234,5 +239,12 @@ namespace MiningOptimization
         }
 
         std::fill(forecast.begin() + (*latestTakeoverWorkerFrame - currentFrame - 1), forecast.end(), 1.0);
+    }
+
+    void PatchOccupiedForecast::useTakeoverFrame(int frame)
+    {
+        // This method is used to indicate that a worker will at the latest take over at the given frame
+        // This means we can just set 1s from that point onwards, taking into consideration that the action will happen one frame later
+        std::fill(forecast.begin() + std::max(0, frame - startFrame - 1), forecast.end(), 1.0);
     }
 }

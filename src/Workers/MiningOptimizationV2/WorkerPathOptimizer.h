@@ -30,6 +30,10 @@ namespace MiningOptimization
             ReachedTenDistance              = 1 << 7,
         };
 
+        MyWorker worker;
+        MyUnit depot;
+        Resource resource;
+
         // The actual frame after patch lock has occurred, or -1 if the worker hasn't patch locked
         int actualPatchLockFrame;
 
@@ -38,14 +42,14 @@ namespace MiningOptimization
                             MyWorker worker,
                             MyUnit depot,
                             Resource resource)
-                : actualPatchLockFrame(-1)
-                , mapData(mapData)
-                , pathCache(pathCache)
-                , patchTile(TilePosition::fromBWAPI(resource->tile))
-                , worker(std::move(worker))
+                : worker(std::move(worker))
                 , depot(std::move(depot))
                 , resource(std::move(resource))
-                , lastProcessedFrame(-2)
+                , actualPatchLockFrame(-1)
+                , mapData(mapData)
+                , pathCache(pathCache)
+                , patchTile(TilePosition::fromBWAPI(this->resource->tile))
+                ,  lastProcessedFrame(-2)
                 , statusFlags(0)
         {}
 
@@ -96,6 +100,13 @@ namespace MiningOptimization
         void updateStatistics(PathStatistics &pathStatistics);
 #endif
 
+        /*
+         * These methods are where the logic differs between gather and return paths. They are implemented in their own files for each
+         * template specialization.
+         */
+
+        std::map<int, double> takeoverActionFrames(int desiredTakeoverFrame);
+
     private:
         /* References to the map mining optimization data relevant for this worker */
 
@@ -103,9 +114,6 @@ namespace MiningOptimization
         PATH_CACHE_IMPLEMENTATION<ObservationType> &pathCache;
 
         TilePosition patchTile;
-        MyWorker worker;
-        MyUnit depot;
-        Resource resource;
 
         // The last frame this worker was optimized
         int lastProcessedFrame;

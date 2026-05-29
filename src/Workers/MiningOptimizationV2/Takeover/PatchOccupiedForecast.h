@@ -44,6 +44,8 @@ namespace MiningOptimization
             return fullySaturated ? 1.0 : forecast[frameIdx];
         }
 
+        void useTakeoverFrame(int frame);
+
     private:
         Resource patch;
         int startFrame;
