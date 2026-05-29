@@ -9,6 +9,8 @@ namespace MiningOptimization
     class PatchOccupiedForecast
     {
     public:
+        friend class OtherPatchesOccupiedForecast;
+
         PatchOccupiedForecast(Resource patch);
 
         friend std::ostream &operator<<(std::ostream &out, const PatchOccupiedForecast &f)
@@ -45,6 +47,8 @@ namespace MiningOptimization
         }
 
         void useTakeoverFrame(int frame);
+
+        void usePatchLockFrame(int frame);
 
     private:
         Resource patch;

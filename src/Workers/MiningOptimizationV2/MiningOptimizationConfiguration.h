@@ -19,7 +19,7 @@
 #define NEXT_PATH_LENGTH_WEIGHT 0.0
 
 // Defines the probability threshold we use to go for patch locking
-#define PATCH_LOCK_THRESHOLD 0.8
+#define PATCH_LOCK_THRESHOLD 0.99
 
 // Defines which path cache to use
 // #define PATH_CACHE_IMPLEMENTATION NullDeserializedPathCache

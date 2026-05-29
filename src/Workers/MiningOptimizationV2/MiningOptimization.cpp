@@ -7,6 +7,7 @@
 #include "Map.h"
 #include "Units.h"
 #include "Workers.h"
+#include "Takeover/OtherPatchesOccupiedForecast.h"
 #include "Takeover/PatchOccupiedForecast.h"
 
 #if OUTPUT_STATISTICS
@@ -152,7 +153,7 @@ namespace MiningOptimization
     bool optimizeStartOfMining(Base *base, std::vector<std::tuple<MyWorker, MyUnit, Resource>> &workersAndDepotsAndResources)
     {
         // Loop through the given workers, update their paths, and check if any require takeover optimization
-        std::vector<WorkerPathOptimizer<GatherArrivalData>*> takeoverWorkers;
+        std::vector<std::pair<WorkerPathOptimizer<GatherArrivalData>*, std::set<int>>> takeoverWorkers;
         for (auto it = workersAndDepotsAndResources.begin(); it != workersAndDepotsAndResources.end(); )
         {
             auto &[worker, depot, patch] = *it;
@@ -163,7 +164,7 @@ namespace MiningOptimization
                 auto otherWorker = Workers::getOtherWorkerMining(patch, worker);
                 if (otherWorker && otherWorker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
                 {
-                    takeoverWorkers.push_back(&workerOptimizer);
+                    takeoverWorkers.emplace_back(&workerOptimizer, std::set<int>{});
                     ++it;
                     continue;
                 }
@@ -190,7 +191,8 @@ namespace MiningOptimization
         // Any workers that cannot reach the takeover frame will be removed at this phase, since they won't be able to patch lock
         for (auto it = takeoverWorkers.begin(); it != takeoverWorkers.end(); )
         {
-            auto &workerOptimizer = **it;
+            auto &workerOptimizer = *(it->first);
+            auto &takeoverActionFrames = it->second;
 
             auto &forecast = patchToOccupiedForecast.emplace(workerOptimizer.resource, workerOptimizer.resource).first->second;
             if (!forecast.miningWorkerLatestEndFrame)
@@ -208,26 +210,26 @@ namespace MiningOptimization
 
             // Get the set of frames the worker can achieve
             // These are based on the arrival frame along with the possibilities to resend prior to arrival
-            auto takeoverActionFrames = workerOptimizer.takeoverActionFrames(desiredTakeoverFrame);
+            takeoverActionFrames = workerOptimizer.takeoverActionFrames(desiredTakeoverFrame);
 
-            // Pick the earliest action frame after the takeover frame that is guaranteed to succeed
+            // Pick the earliest action frame after the takeover frame
             int earliestTakeoverFrame = INT_MAX;
-            for (const auto &[frame, probability] : takeoverActionFrames)
+            for (const auto frame : takeoverActionFrames)
             {
-                if (probability > 0.999)
-                {
-                    earliestTakeoverFrame = std::min(earliestTakeoverFrame, frame);
-                }
+                if (frame < desiredTakeoverFrame) continue;
+                earliestTakeoverFrame = frame;
+                break;
             }
 
             // Update the forecast using this frame
             if (earliestTakeoverFrame != INT_MAX)
             {
                 forecast.useTakeoverFrame(earliestTakeoverFrame);
+                workerOptimizer.desiredTakeoverFrame = earliestTakeoverFrame;
             }
 
             // If the worker can't arrive before the desired takeover frame, remove it now since it won't be able to patch lock
-            if (earliestTakeoverFrame == INT_MAX || takeoverActionFrames.begin()->first >= desiredTakeoverFrame)
+            if (earliestTakeoverFrame == INT_MAX || *takeoverActionFrames.begin() >= desiredTakeoverFrame)
             {
                 workerOptimizer.issueOrders();
                 it = takeoverWorkers.erase(it);
@@ -249,9 +251,47 @@ namespace MiningOptimization
         // Now we repeatedly try to find earlier frames where a worker can patch lock and use this to update the forecasts
         // Because a worker patch locking might open up for another worker to patch lock, we repeat this as long as any worker has updated
 
-        // TODO: Patch locking logic
+        bool anyUpdated = true;
+        while (anyUpdated)
+        {
+            anyUpdated = false;
 
-        for (auto &workerOptimizer : takeoverWorkers)
+            for (auto it = takeoverWorkers.begin(); it != takeoverWorkers.end(); )
+            {
+                auto &workerOptimizer = *(it->first);
+                auto &takeoverActionFrames = it->second;
+
+                // Compute the forecast of all other workers being mined
+                OtherPatchesOccupiedForecast forecast(workerOptimizer.resource, patchToOccupiedForecast);
+
+                // Try to find an earlier frame than the current desired takeover frame where we probably can patch lock
+                for (auto frame : takeoverActionFrames)
+                {
+                    if (frame >= workerOptimizer.desiredTakeoverFrame) break;
+                    if (forecast.atFrame(frame) > PATCH_LOCK_THRESHOLD)
+                    {
+                        patchToOccupiedForecast.at(workerOptimizer.resource).usePatchLockFrame(frame);
+                        workerOptimizer.desiredTakeoverFrame = frame;
+                        anyUpdated = true;
+                        break;
+                    }
+                }
+
+                // If the desired takeover frame is now the earliest frame we can reach, we no longer need to consider this worker
+                if (workerOptimizer.desiredTakeoverFrame == *takeoverActionFrames.begin())
+                {
+                    workerOptimizer.issueOrders();
+                    it = takeoverWorkers.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+        }
+
+        // All of the workers have been optimized, so issue orders for any that haven't already been handled
+        for (auto &[workerOptimizer, _] : takeoverWorkers)
         {
             workerOptimizer->issueOrders();
         }

@@ -9,13 +9,13 @@
 namespace MiningOptimization
 {
     template <>
-    std::map<int, double> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int desiredTakeoverFrame)
+    std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int desiredTakeoverFrame)
     {
         if (!expectedPath) return {};
 
-        // TODO: Implement additional resends
+        // TODO: Implement
 
-        return expectedPath->actionFramesWithProbabilities;
+        return {};
     }
 
     template <>
