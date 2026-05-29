@@ -7,10 +7,13 @@
 #include "Map.h"
 #include "Units.h"
 #include "Workers.h"
+#include "Takeover/PatchOccupiedForecast.h"
 
 #if OUTPUT_STATISTICS
 #include "PathStatistics.h"
 #endif
+
+#define VALIDATE_PATCH_OCCUPIED_FORECAST false
 
 namespace MiningOptimization
 {
@@ -24,6 +27,10 @@ namespace MiningOptimization
 #if OUTPUT_STATISTICS
         PathStatistics gatherPathStatistics;
         PathStatistics returnPathStatistics;
+#endif
+
+#if VALIDATE_PATCH_OCCUPIED_FORECAST
+        std::map<Resource, PatchOccupiedForecast> previousFramePatchOccupiedForecast;
 #endif
     }
 
@@ -49,6 +56,56 @@ namespace MiningOptimization
 #if OUTPUT_STATISTICS
         gatherOptimizer->updateStatistics(gatherPathStatistics);
         returnOptimizer->updateStatistics(returnPathStatistics);
+#endif
+
+#if VALIDATE_PATCH_OCCUPIED_FORECAST
+        for (const auto &base : Map::allBases())
+        {
+            for (const auto &patch : base->mineralPatches())
+            {
+                auto it = previousFramePatchOccupiedForecast.find(patch);
+                if (it != previousFramePatchOccupiedForecast.end())
+                {
+                    auto &previousFrameForecast = it->second;
+                    MyWorker hasJustStartedMining = nullptr;
+                    MyWorker isMining = nullptr;
+                    MyWorker hasJustFinishedMining = nullptr;
+                    for (auto &worker : Workers::getWorkersAssignedTo(patch))
+                    {
+                        if (worker->lastTransitionedToMiningOrder == currentFrame)
+                        {
+                            hasJustStartedMining = worker;
+                        }
+                        else if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                        {
+                            isMining = worker;
+                        }
+                        if (worker->carryingResource && worker->lastCarryingResourceChange == currentFrame) hasJustFinishedMining = worker;
+                    }
+                    if (hasJustStartedMining && previousFrameForecast.atFrame(currentFrame) < 0.0001)
+                    {
+                        Log::Get() << "ERROR: Forecast says probability is 0 but worker just started mining; " << *hasJustStartedMining;
+                    }
+                    if (isMining && previousFrameForecast.atFrame(currentFrame) < 0.0001)
+                    {
+                        Log::Get() << "ERROR: Forecast says probability is 0 but worker is mining; " << *isMining;
+                    }
+                    if (hasJustFinishedMining && !hasJustStartedMining && previousFrameForecast.atFrame(currentFrame) > 0.9999)
+                    {
+                        Log::Get() << "ERROR: Forecast says probability is 1 but worker has just finished mining; " << *hasJustFinishedMining;
+                    }
+                    if (!isMining && !hasJustStartedMining && previousFrameForecast.atFrame(currentFrame) > 0.9999)
+                    {
+                        Log::Get() << "ERROR: Forecast says probability is 1 but no worker is mining; " << *patch;
+                    }
+                }
+
+                auto forecast = PatchOccupiedForecast(patch);
+                CherryVis::log(patch->id) << forecast;
+                previousFramePatchOccupiedForecast.erase(patch);
+                previousFramePatchOccupiedForecast.emplace(patch, std::move(forecast));
+            }
+        }
 #endif
     }
 
@@ -125,8 +182,15 @@ namespace MiningOptimization
         // At this point we have one or more workers that are approaching their patches where another worker is mining
         // Our priorities are to try to have them patch lock, or barring that, have them take over mining at the optimal frame
 
-        // Start generating the occupied forecast for each patch
+        // Start by generating the occupied forecast for each patch
 
+
+        for (auto it = workersAndDepotsAndResources.begin(); it != workersAndDepotsAndResources.end(); it++)
+        {
+            auto &[worker, depot, patch] = *it;
+            auto &workerOptimizer = gatherOptimizer->forWorker(worker, depot, patch);
+            workerOptimizer.issueOrders();
+        }
 
         return true;
     }
