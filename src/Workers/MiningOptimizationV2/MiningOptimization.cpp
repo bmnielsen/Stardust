@@ -270,7 +270,7 @@ namespace MiningOptimization
                     if (frame >= workerOptimizer.desiredTakeoverFrame) break;
                     if (forecast.atFrame(frame) > PATCH_LOCK_THRESHOLD)
                     {
-                        patchToOccupiedForecast.at(workerOptimizer.resource).usePatchLockFrame(frame);
+                        patchToOccupiedForecast.at(workerOptimizer.resource).usePatchLockFrame(frame, workerOptimizer.worker->orderProcessIndex);
                         workerOptimizer.desiredTakeoverFrame = frame;
                         anyUpdated = true;
                         break;

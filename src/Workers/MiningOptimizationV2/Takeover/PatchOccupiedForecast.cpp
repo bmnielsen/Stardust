@@ -247,4 +247,38 @@ namespace MiningOptimization
         // This means we can just set 1s from that point onwards, taking into consideration that the action will happen one frame later
         std::fill(forecast.begin() + std::max(0, frame - startFrame - 1), forecast.end(), 1.0);
     }
+
+    void PatchOccupiedForecast::usePatchLockFrame(int frame, int takingOverWorkerOrderProcessIndex)
+    {
+        // This method is used to indicate that a worker will patch lock at the given frame
+        // The currently-mining worker may however already be finished with mining, in which case the worker will take over instead
+
+        // This method does not take the situation into account where the frame after patch lock is an order process timer reset frame
+        // We intentionally avoid planning paths that hit this timing, but warn here if we miss one
+        if (OrderProcessTimer::isResetFrame(frame + 1))
+        {
+            Log::Get() << "WARNING: Patch lock frame immediately before a reset; " << *patch;
+        }
+
+        // Start by validating the bounds, and if we know the patch is still being mined at the given frame, mark the forecast as
+        // fully saturated immediately and return
+        int frameIdx = frame - startFrame - 1;
+        if (frameIdx >= GATHER_FORECAST_FRAMES) return;
+        if (frameIdx < 0 || forecast[frameIdx] > 0.9999)
+        {
+            fullySaturated = true;
+            return;
+        }
+
+        // When we get here, we are in a situation where the mining worker may or may not still be mining at the given frame
+        // If the mining worker has finished by the time the taking over worker begins, the patch will be occupied from the next frame
+        // The probability of this happening is the probability at the frame if the mining worker's orders are processed first, or the
+        // probability from the previous frame otherwise
+        if (frameIdx > 0 && miningWorkerOrderProcessIndex && takingOverWorkerOrderProcessIndex > *miningWorkerOrderProcessIndex)
+        {
+            forecast[frameIdx] = forecast[frameIdx - 1];
+        }
+
+        std::fill(forecast.begin() + frameIdx, forecast.end(), 1.0);
+    }
 }

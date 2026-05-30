@@ -46,9 +46,11 @@ namespace MiningOptimization
             return fullySaturated ? 1.0 : forecast[frameIdx];
         }
 
+        // Update the forecast for takeover at the given frame
         void useTakeoverFrame(int frame);
 
-        void usePatchLockFrame(int frame);
+        // Update the forecast for patch locking at the given frame
+        void usePatchLockFrame(int frame, int takingOverWorkerOrderProcessIndex);
 
     private:
         Resource patch;
