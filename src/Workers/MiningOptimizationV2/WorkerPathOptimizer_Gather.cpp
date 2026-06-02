@@ -9,13 +9,81 @@
 namespace MiningOptimization
 {
     template <>
-    std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int desiredTakeoverFrame)
+    std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames()
     {
+        // TODO: Handle case where we don't have a path but are close enough to the patch to be able to make some guarantees about possible frames
         if (!expectedPath) return {};
 
-        // TODO: Implement
+        // Compute this on each solver result leaf node and arregate up at each step up the tree
+        // To compute it at a leaf node, we have the last resend and the arrival data including when resends always arrive, so we can run a
+        // simulation with all potential later resend timings and gather the frames that fall out of that
+        // We only consider frames that are 100% achievable by all possible arrival values
+        // We don't consider solutions that require knowing in advance which path branch we end up on - TODO should we consider equivalent branches?
+        // Order process timer resets within 10-distance should be captured here
+        // Store on the solver result how each frame will be achieved as well, so we don't have to recompute it later
+        // Once the data has been added to the solver result, we don't need to recompute it
 
-        return {};
+        if (expectedPath->takeoverActionFrames)
+        {
+            return *expectedPath->takeoverActionFrames;
+        }
+
+        std::function<void(SolverResult<GatherArrivalData> &, std::set<int>)> processBranch;
+        processBranch = [&](SolverResult<GatherArrivalData> &branch, std::set<int> resendFrames)
+        {
+            resendFrames.insert(branch.resendFramesOnThisBranch.begin(), branch.resendFramesOnThisBranch.end());
+
+            if (branch.nextBranches.empty())
+            {
+                // TODO: Leaf node logic that actually does the simulation
+
+                branch.takeoverActionFrames = {};
+                return;
+            }
+
+            // This is an intermediate branch, so compute the results from all of the next branches and aggregate them here
+            // The aggregation is a set intersection, but it needs to take into account that each set implicitly contains all values after
+            // the highest one
+
+            std::set<int> takeoverActionFrames;
+            for (auto &nextBranch : branch.nextBranches)
+            {
+                processBranch(nextBranch, resendFrames);
+
+                // For the first branch, just assign the frames
+                if (takeoverActionFrames.empty())
+                {
+                    takeoverActionFrames = *nextBranch.takeoverActionFrames;
+                    continue;
+                }
+
+                // Extend the current set if needed
+                if (*nextBranch.takeoverActionFrames->rbegin() > *takeoverActionFrames.rbegin())
+                {
+                    for (int frame = (*takeoverActionFrames.rbegin() + 1); frame <= *nextBranch.takeoverActionFrames->rbegin(); frame++)
+                    {
+                        takeoverActionFrames.insert(frame);
+                    }
+                }
+
+                // Remove items from the current set that aren't in the new one
+                for (auto it = takeoverActionFrames.begin(); it != takeoverActionFrames.end(); )
+                {
+                    if (nextBranch.takeoverActionFrames->contains(*it))
+                    {
+                        ++it;
+                    }
+                    else
+                    {
+                        it = takeoverActionFrames.erase(it);
+                    }
+                }
+            }
+            branch.takeoverActionFrames = std::move(takeoverActionFrames);
+        };
+
+        processBranch(*expectedPath, {});
+        return *expectedPath->takeoverActionFrames;
     }
 
     template <>

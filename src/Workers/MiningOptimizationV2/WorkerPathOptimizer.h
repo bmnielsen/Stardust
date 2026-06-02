@@ -37,8 +37,8 @@ namespace MiningOptimization
         // The actual frame after patch lock has occurred, or -1 if the worker hasn't patch locked
         int actualPatchLockFrame;
 
-        // The target takeover frame
-        int desiredTakeoverFrame;
+        // The current target takeover frame
+        int takeoverFrame;
 
         WorkerPathOptimizer(const MapData &mapData,
                             PATH_CACHE_IMPLEMENTATION<ObservationType> &pathCache,
@@ -49,7 +49,7 @@ namespace MiningOptimization
                 , depot(std::move(depot))
                 , resource(std::move(resource))
                 , actualPatchLockFrame(-1)
-                , desiredTakeoverFrame(-1)
+                , takeoverFrame(-1)
                 , mapData(mapData)
                 , pathCache(pathCache)
                 , patchTile(TilePosition::fromBWAPI(this->resource->tile))
@@ -110,7 +110,7 @@ namespace MiningOptimization
          */
 
         // Gets the set of takeover action frames that can be achieved with high probability (assuming that we don't lose our path)
-        std::set<int> takeoverActionFrames(int desiredTakeoverFrame);
+        std::set<int> takeoverActionFrames();
 
     private:
         /* References to the map mining optimization data relevant for this worker */

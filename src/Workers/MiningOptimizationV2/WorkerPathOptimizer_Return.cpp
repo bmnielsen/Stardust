@@ -3,7 +3,7 @@
 namespace MiningOptimization
 {
     template <>
-    std::set<int> WorkerPathOptimizer<ReturnArrivalData>::takeoverActionFrames(int)
+    std::set<int> WorkerPathOptimizer<ReturnArrivalData>::takeoverActionFrames()
     {
         return {};
     }

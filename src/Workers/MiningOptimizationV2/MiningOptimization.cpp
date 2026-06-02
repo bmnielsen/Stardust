@@ -210,7 +210,7 @@ namespace MiningOptimization
 
             // Get the set of frames the worker can achieve
             // These are based on the arrival frame along with the possibilities to resend prior to arrival
-            takeoverActionFrames = workerOptimizer.takeoverActionFrames(desiredTakeoverFrame);
+            takeoverActionFrames = workerOptimizer.takeoverActionFrames();
 
             // Pick the earliest action frame after the takeover frame
             int earliestTakeoverFrame = INT_MAX;
@@ -225,7 +225,7 @@ namespace MiningOptimization
             if (earliestTakeoverFrame != INT_MAX)
             {
                 forecast.useTakeoverFrame(earliestTakeoverFrame);
-                workerOptimizer.desiredTakeoverFrame = earliestTakeoverFrame;
+                workerOptimizer.takeoverFrame = earliestTakeoverFrame;
             }
 
             // If the worker can't arrive before the desired takeover frame, remove it now since it won't be able to patch lock
@@ -267,18 +267,18 @@ namespace MiningOptimization
                 // Try to find an earlier frame than the current desired takeover frame where we probably can patch lock
                 for (auto frame : takeoverActionFrames)
                 {
-                    if (frame >= workerOptimizer.desiredTakeoverFrame) break;
+                    if (frame >= workerOptimizer.takeoverFrame) break;
                     if (forecast.atFrame(frame) > PATCH_LOCK_THRESHOLD)
                     {
                         patchToOccupiedForecast.at(workerOptimizer.resource).usePatchLockFrame(frame, workerOptimizer.worker->orderProcessIndex);
-                        workerOptimizer.desiredTakeoverFrame = frame;
+                        workerOptimizer.takeoverFrame = frame;
                         anyUpdated = true;
                         break;
                     }
                 }
 
                 // If the desired takeover frame is now the earliest frame we can reach, we no longer need to consider this worker
-                if (workerOptimizer.desiredTakeoverFrame == *takeoverActionFrames.begin())
+                if (workerOptimizer.takeoverFrame == *takeoverActionFrames.begin())
                 {
                     workerOptimizer.issueOrders();
                     it = takeoverWorkers.erase(it);
