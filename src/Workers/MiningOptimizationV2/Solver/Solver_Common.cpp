@@ -160,7 +160,7 @@ namespace MiningOptimization
                         {
                             auto &takeoverMetadata =
                                 mapData.tenDistanceAndResendAlwaysArrives[arrivalData.tenDistanceAndResendAlwaysArrivesIndex];
-                            resendAlwaysArrivesDelta = takeoverMetadata.second;
+                            resendAlwaysArrivesDelta = takeoverMetadata.second - 1;
                         }
 
                         resendAlwaysArrives = arrivalFrame - resendAlwaysArrivesDelta + 1;

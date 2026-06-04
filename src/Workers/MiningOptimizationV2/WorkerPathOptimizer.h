@@ -110,7 +110,7 @@ namespace MiningOptimization
          */
 
         // Gets the set of takeover action frames that can be achieved with high probability (assuming that we don't lose our path)
-        std::set<int> takeoverActionFrames();
+        std::set<int> takeoverActionFrames(int latestTakeoverFrame);
 
     private:
         /* References to the map mining optimization data relevant for this worker */

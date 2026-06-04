@@ -5,122 +5,52 @@
 #include "LogFormattingUtil.h"
 
 #include "DebugFlag_MiningOptimization.h"
+#include "Timer.h"
 
 namespace MiningOptimization
 {
-    namespace
-    {
-        void takeoverActionFrameSetIntersection(std::set<int> &current, const std::set<int> &intersector)
-        {
-            // Just assign if this is the first intersect
-            if (current.empty())
-            {
-                current = intersector;
-                return;
-            }
-
-            // Extend the current set if needed
-            if (*intersector.rbegin() > *current.rbegin())
-            {
-                for (int frame = (*current.rbegin() + 1); frame <= *intersector.rbegin(); frame++)
-                {
-                    current.insert(frame);
-                }
-            }
-
-            // Remove items from the current set that aren't in the new one
-            for (auto it = current.begin(); it != current.end(); )
-            {
-                if (intersector.contains(*it))
-                {
-                    ++it;
-                }
-                else
-                {
-                    it = current.erase(it);
-                }
-            }
-        }
-    }
-
     template <>
-    std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames()
+    std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int latestTakeoverFrame)
     {
         // TODO: Handle case where we don't have a path but are close enough to the patch to be able to make some guarantees about possible frames
         if (!expectedPath) return {};
 
-        // Compute this on each solver result leaf node and arregate up at each step up the tree
-        // To compute it at a leaf node, we have the last resend and the arrival data including when resends always arrive, so we can run a
-        // simulation with all potential later resend timings and gather the frames that fall out of that
-        // We only consider frames that are 100% achievable by all possible arrival values
-        // We don't consider solutions that require knowing in advance which path branch we end up on - TODO should we consider equivalent branches?
-        // Order process timer resets within 10-distance should be captured here
-        // Store on the solver result how each frame will be achieved as well, so we don't have to recompute it later
-        // Once the data has been added to the solver result, we don't need to recompute it
+        // The possible takeover frames comes directly from the already-compute action frames and resend always arrives frames
+        // As we only return values we can guarantee are achievable (barring losing the path), we use the following logic:
+        // - If there is only one action frame, it is the earliest possible takeover frame
+        // - From here we start with the largest resend always arrives frame and generate possible takeover frames from it
+        // - We skip any resend frames that would have an order process timer reset before the action frame
+        // - We also skip a resend frame that has an order process timer reset immediately after the action frame, since this prolongs mining
 
-        if (expectedPath->takeoverActionFrames)
+        // TODO: Measure impact of patch switching and consider whether we need to include any 10-distance checks here
+
+        std::set<int> result;
+
+        if (expectedPath->actionFramesWithProbabilities.size() == 1)
         {
-            return *expectedPath->takeoverActionFrames;
+            // Subtract one since for takeover we are interested in the WaitForMinerals frame, whereas action frame is first mining frame
+            result.insert(expectedPath->actionFramesWithProbabilities.begin()->first - 1);
         }
 
-        std::function<void(SolverResult<GatherArrivalData> &, std::set<int>, int)> processBranch;
-        processBranch = [&](SolverResult<GatherArrivalData> &branch, std::set<int> resendFrames, int branchStartFrame)
+        int startFrame = 0;
+        for (const auto &[arrivalData, _] : expectedPath->arrivalDataWithProbabilities)
         {
-            resendFrames.insert(branch.resendFramesOnThisBranch.begin(), branch.resendFramesOnThisBranch.end());
+            startFrame = std::max(startFrame, arrivalData.resendAlwaysArrivesFrame);
+        }
 
-            if (branch.nextBranches.empty())
-            {
-                auto processArrivalData = [&](const SolverArrivalData &arrivalData)
-                {
-                    std::set<int> result;
+        if (!result.empty() && (*result.begin()) > (startFrame + 11))
+        {
+            Log::Get() << "ERROR: Start frame gives earlier than action frame";
+        }
 
-                    // Find the first frame a resend can take effect that is guaranteed to reach the patch on time
-                    // This is either the resend always arrives frame, or the frame LF from the start of the branch if this is higher
-                    int startFrame = std::max(arrivalData.resendAlwaysArrivesFrame, branchStartFrame + BWAPI::Broodwar->getLatencyFrames());
+        // Generate frames that don't have an unfortunate order process timer reset
+        for (int frame = startFrame; frame <= latestTakeoverFrame; ++frame)
+        {
+            if (OrderProcessTimer::framesToNextReset(frame) < 12) continue;
+            result.insert(frame + 11);
+        }
 
-                    // Get the worker's order process timer values at this frame
-                    auto orderProcessTimer = OrderProcessTimer::atStartOfFrameAtDelta(
-                        currentFrame,
-                        worker->possibleOrderProcessTimerValues,
-                        resendFrames,
-                        {},
-                        startFrame - currentFrame);
-
-
-                    // Initialize with the state at the start of branch or last resend frame
-
-
-
-                    return result;
-                };
-
-                std::set<int> takeoverActionFrames;
-                for (const auto &[arrivalData, _] : branch.arrivalDataWithProbabilities)
-                {
-                    takeoverActionFrameSetIntersection(takeoverActionFrames, processArrivalData(arrivalData));
-                }
-
-                // TODO: Leaf node logic that actually does the simulation
-
-                branch.takeoverActionFrames = {};
-                return;
-            }
-
-            // This is an intermediate branch, so compute the results from all of the next branches and aggregate them here
-            // The aggregation is a set intersection, but it needs to take into account that each set implicitly contains all values after
-            // the highest one
-
-            std::set<int> takeoverActionFrames;
-            for (auto &nextBranch : branch.nextBranches)
-            {
-                processBranch(nextBranch, resendFrames, branchStartFrame + (int)branch.pathToNextBranch.size());
-                takeoverActionFrameSetIntersection(takeoverActionFrames, *nextBranch.takeoverActionFrames);
-            }
-            branch.takeoverActionFrames = takeoverActionFrames;
-        };
-
-        processBranch(*expectedPath, {}, currentFrame + 1);
-        return *expectedPath->takeoverActionFrames;
+        return result;
     }
 
     template <>

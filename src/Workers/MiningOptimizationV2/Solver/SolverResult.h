@@ -64,12 +64,6 @@ namespace MiningOptimization
         // The predicted delays (not facing patch, collision); can be negative for returns with preserved speed
         std::map<int, double> delaysWithProbabilities;
 
-        // The set of takeover action frames that are guaranteed to be achievable
-        // The last frame is the set is the first frame where all later frames are achievable (since the worker eventually will arrive at
-        // the patch and be capable of resending at will)
-        // Lazily-initialized when the optimizer asks for it, since we don't need this for gathers that aren't takeovers
-        std::optional<std::set<int>> takeoverActionFrames;
-
 #if USE_NEXT_PATH_LENGTHS
         // The expected next path lengths with probabilities
         // This is not expected to be very exact, but can be used to nudge the worker towards picking paths that get it onto a better next path.

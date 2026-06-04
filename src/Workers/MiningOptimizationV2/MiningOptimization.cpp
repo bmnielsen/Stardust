@@ -210,7 +210,7 @@ namespace MiningOptimization
 
             // Get the set of frames the worker can achieve
             // These are based on the arrival frame along with the possibilities to resend prior to arrival
-            takeoverActionFrames = workerOptimizer.takeoverActionFrames();
+            takeoverActionFrames = workerOptimizer.takeoverActionFrames(desiredTakeoverFrame);
 
             // Pick the earliest action frame after the takeover frame
             int earliestTakeoverFrame = INT_MAX;

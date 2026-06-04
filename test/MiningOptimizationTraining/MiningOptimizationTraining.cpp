@@ -38,21 +38,25 @@ namespace
 
         std::cout << "Processing paths..." << std::endl;
 
-        std::function<void(std::vector<std::pair<PathNode<GatherArrivalData>, uint32_t>> &, unsigned int, unsigned int)> processNextNodes;
+        std::function<void(std::vector<std::pair<PathNode<GatherArrivalData>, uint32_t>> &, unsigned int, unsigned int, unsigned int)> processNextNodes;
         processNextNodes = [&processNextNodes](
             std::vector<std::pair<PathNode<GatherArrivalData>, uint32_t>> &nextNodes,
             unsigned int successfulDelta,
-            unsigned int countOnNoResendPath)
+            unsigned int countOnNoResendPath,
+            unsigned int countSinceHadResendData)
         {
             for (auto &[node, _] : nextNodes)
             {
                 unsigned int nodeSuccessfulDelta = successfulDelta;
+                unsigned int nodeCountSinceHadResendData = countSinceHadResendData;
                 if (node.arrivalDataAfterResend.empty())
                 {
                     ++nodeSuccessfulDelta;
+                    ++nodeCountSinceHadResendData;
                 }
                 else
                 {
+                    nodeCountSinceHadResendData = 0;
                     unsigned int maxArrivalDelay = 0;
                     for (const auto &[resendArrivalData, _] : node.arrivalDataAfterResend)
                     {
@@ -70,6 +74,12 @@ namespace
 
                 if (node.nextPositions.empty())
                 {
+                    // If there have been many nodes since having resend data, it is a stable path and therefore match normal resend timing
+                    if (countSinceHadResendData > 11)
+                    {
+                        nodeSuccessfulDelta = 11;
+                    }
+
                     for (auto &[savedArrivalData, _] : node.arrivalData)
                     {
                         if (nodeSuccessfulDelta == countOnNoResendPath)
@@ -83,18 +93,18 @@ namespace
                     }
                 }
 
-                processNextNodes(node.nextPositions, nodeSuccessfulDelta, countOnNoResendPath + 1);
-                processNextNodes(node.nextPositionsAfterResend, 0, 1);
+                processNextNodes(node.nextPositions, nodeSuccessfulDelta, countOnNoResendPath + 1, nodeCountSinceHadResendData);
+                processNextNodes(node.nextPositionsAfterResend, 0, 1, 0);
             }
         };
 
         for (auto &[_, rootNodes] : data.resourceToGatherPaths)
         {
-            for (auto &[_, rootNode] : rootNodes)
+            for (auto &[pos, rootNode] : rootNodes)
             {
                 for (auto &[_, nodes] : rootNode.nextPositions)
                 {
-                    processNextNodes(nodes, 0, 1);
+                    processNextNodes(nodes, 0, 1, 0);
                 }
             }
         }
