@@ -83,7 +83,7 @@ namespace
                     }
                 }
 
-                processNextNodes(node.nextPositions, successfulDelta, countOnNoResendPath + 1);
+                processNextNodes(node.nextPositions, nodeSuccessfulDelta, countOnNoResendPath + 1);
                 processNextNodes(node.nextPositionsAfterResend, 0, 1);
             }
         };

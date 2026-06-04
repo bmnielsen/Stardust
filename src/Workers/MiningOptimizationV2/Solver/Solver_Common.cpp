@@ -166,7 +166,8 @@ namespace MiningOptimization
                         resendAlwaysArrives = arrivalFrame - resendAlwaysArrivesDelta + 1;
                         if (!previousResends.resendFrames.empty())
                         {
-                            resendAlwaysArrives = std::max(resendAlwaysArrives, *previousResends.resendFrames.rbegin() + 1);
+                            resendAlwaysArrives = std::max(resendAlwaysArrives,
+                                *previousResends.resendFrames.rbegin() + BWAPI::Broodwar->getLatencyFrames() + 1);
                         }
                     }
 
