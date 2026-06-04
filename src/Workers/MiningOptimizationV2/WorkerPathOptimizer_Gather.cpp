@@ -8,6 +8,41 @@
 
 namespace MiningOptimization
 {
+    namespace
+    {
+        void takeoverActionFrameSetIntersection(std::set<int> &current, const std::set<int> &intersector)
+        {
+            // Just assign if this is the first intersect
+            if (current.empty())
+            {
+                current = intersector;
+                return;
+            }
+
+            // Extend the current set if needed
+            if (*intersector.rbegin() > *current.rbegin())
+            {
+                for (int frame = (*current.rbegin() + 1); frame <= *intersector.rbegin(); frame++)
+                {
+                    current.insert(frame);
+                }
+            }
+
+            // Remove items from the current set that aren't in the new one
+            for (auto it = current.begin(); it != current.end(); )
+            {
+                if (intersector.contains(*it))
+                {
+                    ++it;
+                }
+                else
+                {
+                    it = current.erase(it);
+                }
+            }
+        }
+    }
+
     template <>
     std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames()
     {
@@ -28,13 +63,43 @@ namespace MiningOptimization
             return *expectedPath->takeoverActionFrames;
         }
 
-        std::function<void(SolverResult<GatherArrivalData> &, std::set<int>)> processBranch;
-        processBranch = [&](SolverResult<GatherArrivalData> &branch, std::set<int> resendFrames)
+        std::function<void(SolverResult<GatherArrivalData> &, std::set<int>, int)> processBranch;
+        processBranch = [&](SolverResult<GatherArrivalData> &branch, std::set<int> resendFrames, int branchStartFrame)
         {
             resendFrames.insert(branch.resendFramesOnThisBranch.begin(), branch.resendFramesOnThisBranch.end());
 
             if (branch.nextBranches.empty())
             {
+                auto processArrivalData = [&](const SolverArrivalData &arrivalData)
+                {
+                    std::set<int> result;
+
+                    // Find the first frame a resend can take effect that is guaranteed to reach the patch on time
+                    // This is either the resend always arrives frame, or the frame LF from the start of the branch if this is higher
+                    int startFrame = std::max(arrivalData.resendAlwaysArrivesFrame, branchStartFrame + BWAPI::Broodwar->getLatencyFrames());
+
+                    // Get the worker's order process timer values at this frame
+                    auto orderProcessTimer = OrderProcessTimer::atStartOfFrameAtDelta(
+                        currentFrame,
+                        worker->possibleOrderProcessTimerValues,
+                        resendFrames,
+                        {},
+                        startFrame - currentFrame);
+
+
+                    // Initialize with the state at the start of branch or last resend frame
+
+
+
+                    return result;
+                };
+
+                std::set<int> takeoverActionFrames;
+                for (const auto &[arrivalData, _] : branch.arrivalDataWithProbabilities)
+                {
+                    takeoverActionFrameSetIntersection(takeoverActionFrames, processArrivalData(arrivalData));
+                }
+
                 // TODO: Leaf node logic that actually does the simulation
 
                 branch.takeoverActionFrames = {};
@@ -48,41 +113,13 @@ namespace MiningOptimization
             std::set<int> takeoverActionFrames;
             for (auto &nextBranch : branch.nextBranches)
             {
-                processBranch(nextBranch, resendFrames);
-
-                // For the first branch, just assign the frames
-                if (takeoverActionFrames.empty())
-                {
-                    takeoverActionFrames = *nextBranch.takeoverActionFrames;
-                    continue;
-                }
-
-                // Extend the current set if needed
-                if (*nextBranch.takeoverActionFrames->rbegin() > *takeoverActionFrames.rbegin())
-                {
-                    for (int frame = (*takeoverActionFrames.rbegin() + 1); frame <= *nextBranch.takeoverActionFrames->rbegin(); frame++)
-                    {
-                        takeoverActionFrames.insert(frame);
-                    }
-                }
-
-                // Remove items from the current set that aren't in the new one
-                for (auto it = takeoverActionFrames.begin(); it != takeoverActionFrames.end(); )
-                {
-                    if (nextBranch.takeoverActionFrames->contains(*it))
-                    {
-                        ++it;
-                    }
-                    else
-                    {
-                        it = takeoverActionFrames.erase(it);
-                    }
-                }
+                processBranch(nextBranch, resendFrames, branchStartFrame + (int)branch.pathToNextBranch.size());
+                takeoverActionFrameSetIntersection(takeoverActionFrames, *nextBranch.takeoverActionFrames);
             }
-            branch.takeoverActionFrames = std::move(takeoverActionFrames);
+            branch.takeoverActionFrames = takeoverActionFrames;
         };
 
-        processBranch(*expectedPath, {});
+        processBranch(*expectedPath, {}, currentFrame + 1);
         return *expectedPath->takeoverActionFrames;
     }
 
