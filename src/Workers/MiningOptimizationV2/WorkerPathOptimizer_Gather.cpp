@@ -115,8 +115,83 @@ namespace MiningOptimization
             {},
             earliestTenDistanceFrame - currentFrame - 1);
         int switchPatchFrame = earliestTenDistanceFrame + *orderProcessTimerValues.begin();
+        int switchPatchResendFrame = switchPatchFrame - BWAPI::Broodwar->getLatencyFrames();
 
-        CherryVis::log(worker->id) << "Switch patch frame " << switchPatchFrame << "; " << orderProcessTimerValues.size() << "; " << pathResendFrames.size();
+        // Compute the resend frame for the next order process timer reset
+        int resetResendFrame = OrderProcessTimer::nextResetFrame(switchPatchFrame) - BWAPI::Broodwar->getLatencyFrames();
+
+        // Compute the resend frame to reach the desired takeover frame
+        int takeoverResendFrame = takeoverFrame - 11 - BWAPI::Broodwar->getLatencyFrames();
+
+        // We now have the three frames we need to compute the resend strategy:
+        // switchPatchResendFrame tells us where we need to resend to avoid having a switch patch at arrival to 10-distance
+        // resetResendFrame tells us where we need to resend to avoid an order process timer reset causing a patch switch
+        // takeoverResendFrame tells us where we need to issue the last resend to achieve the desired takeover
+        // The third is of course always needed, but depending on the timing, the first two may not be needed
+
+        // Start with the takeover resend frame
+        takeoverResendFrames.clear();
+        takeoverResendFrames.insert(takeoverResendFrame);
+
+        // Helper to check if a given resend frame can be issued without being LF from an existing resend
+        auto isResendFrameViable = [&](int frame)
+        {
+            if (takeoverResendFrames.contains(frame + BWAPI::Broodwar->getLatencyFrames())) return false;
+            if (takeoverResendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames())) return false;
+            if (allResendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames())) return false;
+            return true;
+        };
+
+        // Helper to add the next viable resend frame from the given one
+        auto addNextViableResendFrame = [&](int frame, std::set<int> &resendFrames)
+        {
+            // Try three frames before giving up
+            for (int f = frame; f < (frame + 3); f++)
+            {
+                // If the frame goes beyond the takeover resend frame, it won't be needed
+                if (f >= takeoverResendFrame) return;
+                if (isResendFrameViable(f))
+                {
+                    takeoverResendFrames.insert(f);
+                    return;
+                }
+            }
+            Log::Get() << "WARNING: Worker " << *worker << " could not find a viable resend frame";
+        };
+
+        // If the reset resend frame is relevant, add it next
+        if (resetResendFrame < takeoverResendFrame && resetResendFrame > switchPatchResendFrame)
+        {
+            addNextViableResendFrame(resetResendFrame, takeoverResendFrames);
+        }
+
+        // Finally add the patch switch resend frame
+        if (switchPatchResendFrame < takeoverResendFrame)
+        {
+            addNextViableResendFrame(switchPatchResendFrame, takeoverResendFrames);
+        }
+
+        // Now check if there is a gap between any two of the resend frames long enough to cause a patch switch
+        std::set<int> additionalNeededFrames;
+        int previousFrame = *takeoverResendFrames.begin();
+        for (int frame : takeoverResendFrames)
+        {
+            if (frame == previousFrame) continue; // first element
+
+            int delta = (frame - previousFrame);
+            if (delta > 7)
+            {
+                int steps = delta / 5;
+                int step = delta / steps;
+                for (int i = 1; i <= steps; i++)
+                {
+                    addNextViableResendFrame(previousFrame + i * step, additionalNeededFrames);
+                }
+            }
+
+            previousFrame = frame;
+        }
+        takeoverResendFrames.insert(additionalNeededFrames.begin(), additionalNeededFrames.end());
     }
 
     template <>
