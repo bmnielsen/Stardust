@@ -37,9 +37,6 @@ namespace MiningOptimization
         // The actual frame after patch lock has occurred, or -1 if the worker hasn't patch locked
         int actualPatchLockFrame;
 
-        // The current target takeover frame
-        int takeoverFrame;
-
         WorkerPathOptimizer(const MapData &mapData,
                             PATH_CACHE_IMPLEMENTATION<ObservationType> &pathCache,
                             MyWorker worker,
@@ -49,12 +46,12 @@ namespace MiningOptimization
                 , depot(std::move(depot))
                 , resource(std::move(resource))
                 , actualPatchLockFrame(-1)
-                , takeoverFrame(-1)
                 , mapData(mapData)
                 , pathCache(pathCache)
                 , patchTile(TilePosition::fromBWAPI(this->resource->tile))
-                ,  lastProcessedFrame(-2)
+                , lastProcessedFrame(-2)
                 , statusFlags(0)
+                , expectedTakeoverFrame(-1)
         {}
 
         void reset()
@@ -112,6 +109,9 @@ namespace MiningOptimization
         // Gets the set of takeover action frames that can be achieved with high probability (assuming that we don't lose our path)
         std::set<int> takeoverActionFrames(int latestTakeoverFrame);
 
+        // Tells the optimizer to plan for the given takeover frame
+        void useTakeoverFrame(int takeoverFrame);
+
     private:
         /* References to the map mining optimization data relevant for this worker */
 
@@ -140,6 +140,12 @@ namespace MiningOptimization
         // The potential takeover frames from another worker, with the probability of the patch being free at each frame
         // Empty if there is not another worker assigned to the patch
         std::map<int, double> takeoverFrames;
+
+        // The expected takeover frame we are currently planning to reach
+        int expectedTakeoverFrame;
+
+        // The resends needed to achieve the current expected takeover frame
+        std::set<int> takeoverResendFrames;
 
         void resetPath()
         {

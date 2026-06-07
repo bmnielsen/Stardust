@@ -172,4 +172,14 @@ namespace OrderProcessTimer
         }
         return result;
     }
+
+    std::multiset<int> atStartOfNextFrame(int startFrame,
+                                          const std::multiset<int> &atEndOfStartFrame)
+    {
+        if (isResetFrame(startFrame + 1))
+        {
+            return {0, 1, 2, 3, 4, 5, 6, 7};
+        }
+        return atEndOfStartFrame;
+    }
 }

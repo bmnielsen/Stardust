@@ -7,13 +7,33 @@
 #include "DebugFlag_MiningOptimization.h"
 #include "Timer.h"
 
+/*
+ * Most of our takeover logic is in this file, with the rest related to coordination between workers in MiningOptimization.cpp.
+ *
+ * For takeover we basically do it in two phases.
+ *
+ * First, the takeoverActionFrames method is called to get the set of achievable takeover frames with 100% confidence. This looks at the combined
+ * arrival data on the remaining branches focusing on the resend always arrives frame. This comes from our training data and tells us from what
+ * frame a subsequent resend will always get us to the patch before the order process timer reaches 0 (if no reset occurs). Taking these values
+ * and subtracting impossible resend frames and resends that get hit by an order process timer reset results in the set of achievable frames.
+ *
+ * Second, the useTakeoverFrame method is called with the takeover frame the coordinator wants this worker to target. This method then plans the
+ * actual resends needed to achieve this takeover frame. At this point we need to consider the interaction of the 10 distance frame with the
+ * order process timer, detecting frames where there is a possibility of the worker switching patches and planning additional resends to avoid
+ * this. The result of this method is to update the set of resend frames needed to achieve the given takeover frame.
+ *
+ * The result of the takeoverActionFrames method will change over time, both as we become more confident of which specific path branch we are on,
+ * and as certain takeover frames become impossible because of resends sent to target a different frame.
+ */
+
 namespace MiningOptimization
 {
     template <>
     std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int latestTakeoverFrame)
     {
-        // TODO: Handle case where we don't have a path but are close enough to the patch to be able to make some guarantees about possible frames
-        if (!expectedPath) return {};
+        // We assume if the worker is within 10 pixels of the patch, it will arrive after a resend
+        // TODO: Analyze the resend always arrives data to validate this
+        if (!expectedPath && resource->getDistance(worker) > 10) return {};
 
         // The possible takeover frames comes directly from the already-compute action frames and resend always arrives frames
         // As we only return values we can guarantee are achievable (barring losing the path), we use the following logic:
@@ -22,20 +42,21 @@ namespace MiningOptimization
         // - We skip any resend frames that would have an order process timer reset before the action frame
         // - We also skip a resend frame that has an order process timer reset immediately after the action frame, since this prolongs mining
 
-        // TODO: Measure impact of patch switching and consider whether we need to include any 10-distance checks here
-
         std::set<int> result;
 
-        if (expectedPath->actionFramesWithProbabilities.size() == 1)
+        if (expectedPath && expectedPath->actionFramesWithProbabilities.size() == 1)
         {
             // Subtract one since for takeover we are interested in the WaitForMinerals frame, whereas action frame is first mining frame
             result.insert(expectedPath->actionFramesWithProbabilities.begin()->first - 1);
         }
 
-        int startFrame = 0;
-        for (const auto &[arrivalData, _] : expectedPath->arrivalDataWithProbabilities)
+        int startFrame = currentFrame + BWAPI::Broodwar->getLatencyFrames();
+        if (expectedPath)
         {
-            startFrame = std::max(startFrame, arrivalData.resendAlwaysArrivesFrame);
+            for (const auto &[arrivalData, _] : expectedPath->arrivalDataWithProbabilities)
+            {
+                startFrame = std::max(startFrame, arrivalData.resendAlwaysArrivesFrame);
+            }
         }
 
         if (!result.empty() && (*result.begin()) > (startFrame + 11))
@@ -51,6 +72,51 @@ namespace MiningOptimization
         }
 
         return result;
+    }
+
+    template <>
+    void WorkerPathOptimizer<GatherArrivalData>::useTakeoverFrame(int takeoverFrame)
+    {
+        // If the frame doesn't differ from our current plan, just return now
+        if (expectedTakeoverFrame == takeoverFrame) return;
+
+        // Wait to do detailed planning until the remaining resends are stable
+        // If we don't have a path, we also don't have any planned resends, so this also counts as stable
+        std::set<int> pathResendFrames;
+        if (expectedPath)
+        {
+            auto aggregatedResendFrames = expectedPath->aggregatedResendFramesIfStable();
+            if (!aggregatedResendFrames) return;
+            pathResendFrames = std::move(*aggregatedResendFrames);
+        }
+
+        // Get the earliest 10-distance frame
+        int earliestTenDistanceFrame = INT_MAX;
+        if (expectedPath)
+        {
+            for (const auto &[arrivalData, _] : expectedPath->arrivalDataWithProbabilities)
+            {
+                earliestTenDistanceFrame = std::min(earliestTenDistanceFrame, arrivalData.tenDistanceFrame);
+            }
+        }
+        if (earliestTenDistanceFrame == INT_MAX || earliestTenDistanceFrame <= currentFrame)
+        {
+            earliestTenDistanceFrame = currentFrame + 1;
+        }
+
+        // Simulate the worker's order process timer at the earliest ten distance frame to figure out when the worker might try to switch patches
+        // without a resend
+        std::set<int> allResendFrames = executedResendFrames;
+        allResendFrames.insert(pathResendFrames.begin(), pathResendFrames.end());
+        auto orderProcessTimerValues = OrderProcessTimer::atStartOfFrameAtDelta(
+            currentFrame + 1,
+            OrderProcessTimer::atStartOfNextFrame(currentFrame, worker->possibleOrderProcessTimerValues),
+            allResendFrames,
+            {},
+            earliestTenDistanceFrame - currentFrame - 1);
+        int switchPatchFrame = earliestTenDistanceFrame + *orderProcessTimerValues.begin();
+
+        CherryVis::log(worker->id) << "Switch patch frame " << switchPatchFrame << "; " << orderProcessTimerValues.size() << "; " << pathResendFrames.size();
     }
 
     template <>

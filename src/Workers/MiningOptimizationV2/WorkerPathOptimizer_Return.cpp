@@ -9,6 +9,11 @@ namespace MiningOptimization
     }
 
     template <>
+    void WorkerPathOptimizer<ReturnArrivalData>::useTakeoverFrame(int)
+    {
+    }
+
+    template <>
     bool WorkerPathOptimizer<ReturnArrivalData>::isComplete()
     {
         return !worker->carryingResource;

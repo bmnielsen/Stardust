@@ -209,6 +209,8 @@ namespace MiningOptimization
     {
         if (expectedPath && expectedPath->resendFramesOnThisBranch.contains(currentFrame))
         {
+            expectedPath->resendFramesOnThisBranch.erase(currentFrame);
+
             auto result = issueResend();
             if (result)
             {

@@ -51,4 +51,10 @@ namespace OrderProcessTimer
                                              const std::set<int> &gatherCommandFrames,
                                              const std::set<int> &returnCommandFrames,
                                              unsigned int frameDelta);
+
+    // Advances the possible values from the end of this frame to the start of the next frame
+    // Normally this just returns the same set, but if the next frame is a reset frame there are other possible values
+    std::multiset<int> atStartOfNextFrame(int startFrame,
+                                          const std::multiset<int> &atEndOfStartFrame);
+
 }
