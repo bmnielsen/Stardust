@@ -158,7 +158,7 @@ namespace MiningOptimization
         {
             auto &[worker, depot, patch] = *it;
             auto &workerOptimizer = gatherOptimizer->forWorker(worker, depot, patch);
-            if (workerOptimizer.updatePath())
+            if (workerOptimizer.updatePath() || patch->getDistance(worker) <= 10)
             {
                 // Detect takeover by checking if there is another worker already mining
                 auto otherWorker = Workers::getOtherWorkerMining(patch, worker);

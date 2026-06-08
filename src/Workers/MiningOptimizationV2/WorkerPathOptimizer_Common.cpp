@@ -207,10 +207,8 @@ namespace MiningOptimization
     template <typename ObservationType>
     void WorkerPathOptimizer<ObservationType>::issueOrders()
     {
-        if (expectedPath && expectedPath->resendFramesOnThisBranch.contains(currentFrame))
+        auto resend = [&]()
         {
-            expectedPath->resendFramesOnThisBranch.erase(currentFrame);
-
             auto result = issueResend();
             if (result)
             {
@@ -230,6 +228,22 @@ namespace MiningOptimization
                 CherryVis::log(worker->id) << "Failed to issue planned resend; last error " << BWAPI::Broodwar->getLastError();
 #endif
             }
+        };
+
+        if (expectedPath && expectedPath->resendFramesOnThisBranch.contains(currentFrame))
+        {
+            expectedPath->resendFramesOnThisBranch.erase(currentFrame);
+            resend();
+            if (takeoverResendFrames.contains(currentFrame))
+            {
+                takeoverResendFrames.erase(currentFrame);
+            }
+        }
+        else if (takeoverResendFrames.contains(currentFrame))
+        {
+            takeoverResendFrames.erase(currentFrame);
+            resend();
+            setFlag(StatusFlags::IssuedTakeoverResend);
         }
     }
 
@@ -248,7 +262,7 @@ namespace MiningOptimization
 
         pathStatistics.count++;
 
-        if (hasFlag(StatusFlags::GatherTakeover))
+        if (hasFlag(StatusFlags::IssuedTakeoverResend))
         {
             pathStatistics.withTakeover++;
 
@@ -265,7 +279,7 @@ namespace MiningOptimization
             if (!hasFlag(StatusFlags::LostPath) || hasFlag(StatusFlags::LostPathWithAssumedResult))
             {
                 // If we still have a captured path, compare the actual arrival and action frames to the expected
-                if (expectedPath)
+                if (expectedPath && !hasFlag(StatusFlags::IssuedTakeoverResend))
                 {
                     int actualArrivalFrame = worker->frameLastMoved;
                     int actualActionFrame = currentFrame;

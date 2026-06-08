@@ -28,6 +28,24 @@
 
 namespace MiningOptimization
 {
+    namespace
+    {
+        std::string outSet(const std::set<int> &intSet)
+        {
+            std::ostringstream os;
+            std::string sep;
+            os << "[";
+            for (const auto &val : intSet)
+            {
+                os << sep << val;
+                sep = ",";
+            }
+            os << "]";
+            return os.str();
+        }
+
+    }
+
     template <>
     std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int latestTakeoverFrame)
     {
@@ -37,14 +55,19 @@ namespace MiningOptimization
 
         // The possible takeover frames comes directly from the already-compute action frames and resend always arrives frames
         // As we only return values we can guarantee are achievable (barring losing the path), we use the following logic:
-        // - If there is only one action frame, it is the earliest possible takeover frame
+        // - If we haven't started takeover and there is only one action frame, it is the earliest possible takeover frame
+        // - If we have already issued a takeover resend, the currently-targeted takeover frame is achievable
         // - From here we start with the largest resend always arrives frame and generate possible takeover frames from it
         // - We skip any resend frames that would have an order process timer reset before the action frame
         // - We also skip a resend frame that has an order process timer reset immediately after the action frame, since this prolongs mining
 
         std::set<int> result;
 
-        if (expectedPath && expectedPath->actionFramesWithProbabilities.size() == 1)
+        if (hasFlag(StatusFlags::IssuedTakeoverResend))
+        {
+            result.insert(expectedTakeoverFrame);
+        }
+        else if (expectedPath && expectedPath->actionFramesWithProbabilities.size() == 1)
         {
             // Subtract one since for takeover we are interested in the WaitForMinerals frame, whereas action frame is first mining frame
             result.insert(expectedPath->actionFramesWithProbabilities.begin()->first - 1);
@@ -59,17 +82,28 @@ namespace MiningOptimization
             }
         }
 
-        if (!result.empty() && (*result.begin()) > (startFrame + 11))
+        // Gather all of the resend frames we might use
+        std::set<int> allResendFrames = executedResendFrames;
+        std::function<void(const SolverResult<GatherArrivalData>&)> processSolverResult;
+        processSolverResult = [&](const SolverResult<GatherArrivalData> &solverResult)
         {
-            Log::Get() << "ERROR: Start frame gives earlier than action frame";
-        }
+            allResendFrames.insert(solverResult.resendFramesOnThisBranch.begin(), solverResult.resendFramesOnThisBranch.end());
+            for (const auto &next : solverResult.nextBranches)
+            {
+                processSolverResult(next);
+            }
+        };
+        if (expectedPath) processSolverResult(*expectedPath);
 
-        // Generate frames that don't have an unfortunate order process timer reset
+        // Generate frames that don't have an unfortunate order process timer reset or collide with an already-planned resend
         for (int frame = startFrame; frame <= latestTakeoverFrame; ++frame)
         {
             if (OrderProcessTimer::framesToNextReset(frame) < 12) continue;
+            if (allResendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames() * 2)) continue;
             result.insert(frame + 11);
         }
+
+        CherryVis::log(worker->id) << "Possible takeover frames: " << outSet(result);
 
         return result;
     }
@@ -145,6 +179,8 @@ namespace MiningOptimization
         // Helper to add the next viable resend frame from the given one
         auto addNextViableResendFrame = [&](int frame, std::set<int> &resendFrames)
         {
+            if (frame < currentFrame) frame = currentFrame;
+            
             // Try three frames before giving up
             for (int f = frame; f < (frame + 3); f++)
             {
@@ -192,6 +228,16 @@ namespace MiningOptimization
             previousFrame = frame;
         }
         takeoverResendFrames.insert(additionalNeededFrames.begin(), additionalNeededFrames.end());
+
+        expectedTakeoverFrame = takeoverFrame;
+
+#if LOGGING_ENABLED
+        CherryVis::log(worker->id) << "Planned takeover frame of " << takeoverFrame
+                                   << ": takeoverResendFrame=" << takeoverResendFrame
+                                   << "; switchPatchResendFrame=" << switchPatchResendFrame
+                                   << "; resetResendFrame=" << resetResendFrame
+                                   << "; resends=" << outSet(takeoverResendFrames);
+#endif
     }
 
     template <>
@@ -241,6 +287,7 @@ namespace MiningOptimization
         {
 #if LOGGING_ENABLED
             CherryVis::log(worker->id) << "targeting different patch; resending order";
+            Log::Get() << "Patch switch; " << *worker;
 #endif
             // There could be a Unit_Busy failure here, but we will pick up next frame that the command hasn't been issued
             if (worker->gather(resourceBwapiUnit))
@@ -273,92 +320,6 @@ namespace MiningOptimization
         }
 
         return false;
-    }
-
-    template <>
-    void WorkerPathOptimizer<GatherArrivalData>::initializeGatherTakeover()
-    {
-        auto otherWorker = Workers::getOtherWorkerMining(resource, worker);
-        if (!otherWorker)
-        {
-            // There might have been another worker earlier, if so clear all of our state
-            // TODO: Replan if possible
-            if (hasFlag(StatusFlags::GatherTakeover))
-            {
-                reset();
-            }
-            return;
-        }
-
-        setFlag(StatusFlags::GatherTakeover);
-
-        // If the other worker is not mining, clear the takeover frames, as the patch is now available
-        if (otherWorker->bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals || otherWorker->lastStartedMining == -1)
-        {
-            takeoverFrames.clear();
-            return;
-        }
-
-        // Compute the takeover frame probabilities, i.e. the probability at any given frame that we will be able to take over mining from the other
-        // worker
-
-        // Nothing is needed if they have already been computed
-        if (!takeoverFrames.empty()) return;
-
-        // Take into account the relative order process index of the workers: if this worker's orders are processed before the other worker's,
-        // we need an extra frame before the patch is available
-        int extraFrame = (worker->orderProcessIndex <= otherWorker->orderProcessIndex) ? 1 : 0;
-
-        // With no order timer resets, mining will end 81 frames after it starts
-        int miningEndFrame = otherWorker->lastStartedMining + 81;
-
-        // Check for an order process timer reset before mining end
-        int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(miningEndFrame);
-        if (previousOrderTimerReset < otherWorker->lastStartedMining)
-        {
-            // There was no reset, so the patch will be available at the end frame computed earlier
-            takeoverFrames[miningEndFrame + extraFrame] = 1.0;
-
-#if VERBOSE_TAKEOVER_LOGGING
-            CherryVis::log(otherWorker->id) << "Extra frame: " << extraFrame
-                                            << "\nTakeover frame: " << (miningEndFrame + extraFrame);
-#endif
-            return;
-        }
-
-        // There was an order process timer reset, so mining could end at the latest of the following frames:
-        // - Mining timer expiry
-        // - Order process timer reset
-        // - Next frame
-        int earliestMiningEndFrame = std::max({otherWorker->lastStartedMining + 75, previousOrderTimerReset, currentFrame + 1});
-
-        // Get the possible order process timer values at the earliest end frame
-        std::multiset<int> orderProcessTimerValuesAtEarliestMiningEndFrame;
-        if (OrderProcessTimer::isResetFrame(currentFrame + 1))
-        {
-            orderProcessTimerValuesAtEarliestMiningEndFrame = {0, 1, 2, 3, 4, 5, 6, 7};
-        }
-        else
-        {
-            orderProcessTimerValuesAtEarliestMiningEndFrame =
-                    OrderProcessTimer::atStartOfFrameAtDelta(currentFrame + 1,
-                                                             otherWorker->possibleOrderProcessTimerValues,
-                                                             {},
-                                                             {},
-                                                             (earliestMiningEndFrame - (currentFrame + 1)));
-        }
-
-        // Now generate the probabilities of each end frame
-        for (auto orderProcessTimerValue : orderProcessTimerValuesAtEarliestMiningEndFrame)
-        {
-            takeoverFrames[earliestMiningEndFrame + orderProcessTimerValue + extraFrame]
-                = 1.0 / (double)orderProcessTimerValuesAtEarliestMiningEndFrame.size();
-        }
-
-#if VERBOSE_TAKEOVER_LOGGING
-        CherryVis::log(otherWorker->id) << "Extra frame: " << extraFrame
-                                        << "\nTakeover frames: " << LogFormattingUtil::formatProbabilityMap(takeoverFrames, INT_MAX);
-#endif
     }
 
     template <>

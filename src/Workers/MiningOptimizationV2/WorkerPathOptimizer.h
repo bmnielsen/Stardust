@@ -22,12 +22,12 @@ namespace MiningOptimization
         {
             CapturedPath                    = 1 << 0,
             LostPath                        = 1 << 1,
-            StartedAtPreviousPathEnd        = 1 << 2,
-            StartedAtInitialSpawnPosition   = 1 << 3,
-            GatherTakeover                  = 1 << 4,
-            SwitchedPatch                   = 1 << 5,
-            LostPathWithAssumedResult       = 1 << 6,
-            ReachedTenDistance              = 1 << 7,
+            LostPathWithAssumedResult       = 1 << 2,
+            StartedAtPreviousPathEnd        = 1 << 3,
+            StartedAtInitialSpawnPosition   = 1 << 4,
+            ReachedTenDistance              = 1 << 5,
+            IssuedTakeoverResend            = 1 << 6,
+            SwitchedPatch                   = 1 << 7,
         };
 
         MyWorker worker;
@@ -64,7 +64,8 @@ namespace MiningOptimization
             startPosition.reset();
 #endif
             resetPath();
-            takeoverFrames.clear();
+            expectedTakeoverFrame = -1;
+            takeoverResendFrames.clear();
         }
 
         bool matches(const MyUnit &_depot, const Resource &_resource)
@@ -137,10 +138,6 @@ namespace MiningOptimization
         // The expected path tree the worker will visit, returned from the solver
         std::unique_ptr<SolverResult<ObservationType>> expectedPath;
 
-        // The potential takeover frames from another worker, with the probability of the patch being free at each frame
-        // Empty if there is not another worker assigned to the patch
-        std::map<int, double> takeoverFrames;
-
         // The expected takeover frame we are currently planning to reach
         int expectedTakeoverFrame;
 
@@ -167,9 +164,6 @@ namespace MiningOptimization
         // Called at the start of the optimize method. Should return true if path optimization should be skipped, for example if the worker
         // has already completed its pathing.
         bool skipPathOptimization();
-
-        // Initializes gather takeover from another worker, if applicable.
-        void initializeGatherTakeover();
 
         // Resends the relevant command (gather or return), returning whether it succeeded
         // If the command didn't succeed, BWAPI's getLastError will reveal the reason for this
