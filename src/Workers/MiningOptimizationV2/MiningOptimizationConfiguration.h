@@ -24,3 +24,7 @@
 // Defines which path cache to use
 // #define PATH_CACHE_IMPLEMENTATION NullDeserializedPathCache
 #define PATH_CACHE_IMPLEMENTATION DeserializedPathCache
+
+// In the absence of pathing information, the distance from the patch where we assume a resend will always allow the worker to arrive on time
+// TODO: Analyze the resend always arrives data to validate this value
+#define ASSUME_RESEND_ALWAYS_ARRIVES_DISTANCE 20

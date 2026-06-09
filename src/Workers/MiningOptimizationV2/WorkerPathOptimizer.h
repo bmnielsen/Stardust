@@ -147,6 +147,8 @@ namespace MiningOptimization
         void resetPath()
         {
             expectedPath.reset();
+            expectedTakeoverFrame = -1;
+            takeoverResendFrames.clear();
         }
 
         /*

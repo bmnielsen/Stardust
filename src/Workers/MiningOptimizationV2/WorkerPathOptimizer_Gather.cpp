@@ -50,8 +50,7 @@ namespace MiningOptimization
     std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int latestTakeoverFrame)
     {
         // We assume if the worker is within 10 pixels of the patch, it will arrive after a resend
-        // TODO: Analyze the resend always arrives data to validate this
-        if (!expectedPath && resource->getDistance(worker) > 10) return {};
+        if (!expectedPath && resource->getDistance(worker) > ASSUME_RESEND_ALWAYS_ARRIVES_DISTANCE) return {};
 
         // The possible takeover frames comes directly from the already-compute action frames and resend always arrives frames
         // As we only return values we can guarantee are achievable (barring losing the path), we use the following logic:
@@ -65,7 +64,10 @@ namespace MiningOptimization
 
         if (hasFlag(StatusFlags::IssuedTakeoverResend))
         {
-            result.insert(expectedTakeoverFrame);
+            if (expectedTakeoverFrame != -1)
+            {
+                result.insert(expectedTakeoverFrame);
+            }
         }
         else if (expectedPath && expectedPath->actionFramesWithProbabilities.size() == 1)
         {
@@ -96,11 +98,17 @@ namespace MiningOptimization
         if (expectedPath) processSolverResult(*expectedPath);
 
         // Generate frames that don't have an unfortunate order process timer reset or collide with an already-planned resend
-        for (int frame = startFrame; frame <= latestTakeoverFrame; ++frame)
+        for (int resendTakesEffectFrame = startFrame; resendTakesEffectFrame <= latestTakeoverFrame; ++resendTakesEffectFrame)
         {
-            if (OrderProcessTimer::framesToNextReset(frame) < 12) continue;
-            if (allResendFrames.contains(frame - BWAPI::Broodwar->getLatencyFrames() * 2)) continue;
-            result.insert(frame + 11);
+            int takeoverFrame = resendTakesEffectFrame + 11;
+            if (OrderProcessTimer::nextResetFrame(resendTakesEffectFrame) < latestTakeoverFrame &&
+                OrderProcessTimer::framesToNextReset(resendTakesEffectFrame) < 12)
+            {
+                continue;
+            }
+            if (allResendFrames.contains(resendTakesEffectFrame - BWAPI::Broodwar->getLatencyFrames() * 2)) continue;
+            result.insert(takeoverFrame);
+            if (takeoverFrame >= latestTakeoverFrame) break;
         }
 
         CherryVis::log(worker->id) << "Possible takeover frames: " << outSet(result);
@@ -289,13 +297,16 @@ namespace MiningOptimization
             CherryVis::log(worker->id) << "targeting different patch; resending order";
             Log::Get() << "Patch switch; " << *worker;
 #endif
+
+            setFlag(StatusFlags::SwitchedPatch);
+            resetPath();
+
             // There could be a Unit_Busy failure here, but we will pick up next frame that the command hasn't been issued
             if (worker->gather(resourceBwapiUnit))
             {
                 executedResendFrames.insert(currentFrame);
+                expectedTakeoverFrame = currentFrame + 11 + BWAPI::Broodwar->getLatencyFrames();
             }
-            setFlag(StatusFlags::SwitchedPatch);
-            resetPath();
             return true;
         }
 

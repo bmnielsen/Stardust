@@ -15,6 +15,7 @@
 #endif
 
 #define VALIDATE_PATCH_OCCUPIED_FORECAST false
+#define ENABLE_TAKEOVER_LOGIC true
 
 namespace MiningOptimization
 {
@@ -152,13 +153,14 @@ namespace MiningOptimization
 
     bool optimizeStartOfMining(Base *base, std::vector<std::tuple<MyWorker, MyUnit, Resource>> &workersAndDepotsAndResources)
     {
+#if ENABLE_TAKEOVER_LOGIC
         // Loop through the given workers, update their paths, and check if any require takeover optimization
         std::vector<std::tuple<WorkerPathOptimizer<GatherArrivalData>*, std::set<int>, int>> takeoverWorkers;
         for (auto it = workersAndDepotsAndResources.begin(); it != workersAndDepotsAndResources.end(); )
         {
             auto &[worker, depot, patch] = *it;
             auto &workerOptimizer = gatherOptimizer->forWorker(worker, depot, patch);
-            if (workerOptimizer.updatePath() || patch->getDistance(worker) <= 10)
+            if (workerOptimizer.updatePath() || patch->getDistance(worker) <= ASSUME_RESEND_ALWAYS_ARRIVES_DISTANCE)
             {
                 // Detect takeover by checking if there is another worker already mining
                 auto otherWorker = Workers::getOtherWorkerMining(patch, worker);
@@ -230,6 +232,11 @@ namespace MiningOptimization
             // If the worker can't arrive before the desired takeover frame, remove it now since it won't be able to patch lock
             if (earliestTakeoverFrame == INT_MAX || *takeoverActionFrames.begin() > desiredTakeoverFrame)
             {
+                if (earliestTakeoverFrame != INT_MAX)
+                {
+                    workerOptimizer->useTakeoverFrame(earliestTakeoverFrame);
+                    forecast.useTakeoverFrame(earliestTakeoverFrame);
+                }
                 workerOptimizer->issueOrders();
                 it = takeoverWorkers.erase(it);
                 continue;
@@ -297,10 +304,20 @@ namespace MiningOptimization
         }
 
         return true;
+#else
+        return false;
+#endif
     }
 
     void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
     {
+#if !ENABLE_TAKEOVER_LOGIC
+        auto &pathOptimizer = gatherOptimizer->forWorker(worker, depot, resource);
+        if (pathOptimizer.updatePath())
+        {
+            pathOptimizer.issueOrders();
+        }
+#endif
     }
 
     void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
