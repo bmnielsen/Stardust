@@ -15,7 +15,6 @@
 #endif
 
 #define VALIDATE_PATCH_OCCUPIED_FORECAST false
-#define ENABLE_TAKEOVER_LOGIC true
 
 namespace MiningOptimization
 {
@@ -118,6 +117,8 @@ namespace MiningOptimization
         {
             if (pathStatistics.count == 0) return (std::string)"No Data";
 
+            unsigned int nonTakeoverCount = pathStatistics.count - pathStatistics.withTakeover;
+
             std::ostringstream out;
             out << std::fixed << std::setprecision(1)
                 << pathStatistics.count << " collections, "
@@ -126,22 +127,23 @@ namespace MiningOptimization
                 << pathStatistics.withPathFollowedToStableResult << " with path followed to stable"
                 << " (" << ((double)pathStatistics.withPathFollowedToStableResult * 100.0 / (double)pathStatistics.count) << "%), "
                 << pathStatistics.withPathFollowedToCompletion << " with path followed to completion"
-                << " (" << ((double)pathStatistics.withPathFollowedToCompletion * 100.0 / (double)pathStatistics.count) << "%), "
-                << pathStatistics.withExpectedArrivalFrame << " with expected arrival frame"
-                << " (" << ((double)pathStatistics.withExpectedArrivalFrame * 100.0 / (double)pathStatistics.count) << "%), "
-                << pathStatistics.withExpectedActionFrame << " with expected action frame"
-                << " (" << ((double)pathStatistics.withExpectedActionFrame * 100.0 / (double)pathStatistics.count) << "%)";
+                << " (" << ((double)pathStatistics.withPathFollowedToCompletion * 100.0 / (double)pathStatistics.count) << "%)";
+            if (nonTakeoverCount > 0)
+            {
+                out << ", " << pathStatistics.withExpectedArrivalFrame << " with expected arrival frame"
+                        << " (" << ((double)pathStatistics.withExpectedArrivalFrame * 100.0 / (double)pathStatistics.count) << "%), "
+                        << pathStatistics.withExpectedActionFrame << " with expected action frame"
+                        << " (" << ((double)pathStatistics.withExpectedActionFrame * 100.0 / (double)pathStatistics.count) << "%)";
+            }
             if (pathStatistics.withTakeover > 0)
             {
                 out << ", " << pathStatistics.withTakeover << " takeover collections, "
                     << pathStatistics.patchSwitches << " with patch switch"
-                    << " (" << ((double)pathStatistics.patchSwitches * 100.0 / (double)pathStatistics.withTakeover) << "%), "
-                    << pathStatistics.withPlannedPatchLock << " with planned patch lock"
-                    << " (" << ((double)pathStatistics.withPlannedPatchLock * 100.0 / (double)pathStatistics.withTakeover) << "%)";
-                if (pathStatistics.withPlannedPatchLock > 0)
+                    << " (" << ((double)pathStatistics.patchSwitches * 100.0 / (double)pathStatistics.withTakeover) << "%)";
+                if (pathStatistics.withPatchLock > 0)
                 {
-                    out << ", " << pathStatistics.withExpectedPatchLockFrame << " with expected patch lock frame"
-                        << " (" << ((double)pathStatistics.withExpectedPatchLockFrame * 100.0 / (double)pathStatistics.withPlannedPatchLock) << "%)";
+                    out << ", " << pathStatistics.withPatchLock << " with patch lock"
+                        << " (" << ((double)pathStatistics.withPatchLock * 100.0 / (double)pathStatistics.withTakeover) << "%)";
                 }
             }
             return out.str();

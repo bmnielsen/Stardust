@@ -30,11 +30,8 @@ namespace MiningOptimization
         // The subset of the paths followed to completion where the actual action frame matched one of the expected values
         unsigned int withExpectedActionFrame;
 
-        // The subset of paths followed to completion where there was a planned patch lock
-        unsigned int withPlannedPatchLock;
-
         // The subset of the paths followed to completion where the actual patch lock frame matched one of the expected values
-        unsigned int withExpectedPatchLockFrame;
+        unsigned int withPatchLock;
 
 #if IS_OPENBW
         // Set of start positions where we had no path data at all
@@ -54,8 +51,7 @@ namespace MiningOptimization
             withPathFollowedToCompletion = 0;
             withExpectedArrivalFrame = 0;
             withExpectedActionFrame = 0;
-            withPlannedPatchLock = 0;
-            withExpectedPatchLockFrame = 0;
+            withPatchLock = 0;
 #if IS_OPENBW
             startPositionsMissingPath.clear();
             startPositionsThatLostPath.clear();

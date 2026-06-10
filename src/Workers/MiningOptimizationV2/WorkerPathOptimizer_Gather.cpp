@@ -295,11 +295,14 @@ namespace MiningOptimization
         {
 #if LOGGING_ENABLED
             CherryVis::log(worker->id) << "targeting different patch; resending order";
+#if ENABLE_TAKEOVER_LOGIC
             Log::Get() << "Patch switch; " << *worker;
+#endif
 #endif
 
             setFlag(StatusFlags::SwitchedPatch);
             resetPath();
+            lastProcessedFrame = currentFrame;
 
             // There could be a Unit_Busy failure here, but we will pick up next frame that the command hasn't been issued
             if (worker->gather(resourceBwapiUnit))

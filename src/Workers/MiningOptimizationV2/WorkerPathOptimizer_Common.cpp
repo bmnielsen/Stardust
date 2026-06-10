@@ -262,13 +262,17 @@ namespace MiningOptimization
 
         pathStatistics.count++;
 
-        if (hasFlag(StatusFlags::IssuedTakeoverResend))
+        if (hasFlag(StatusFlags::IssuedTakeoverResend) || hasFlag(StatusFlags::SwitchedPatch) || actualPatchLockFrame != -1)
         {
             pathStatistics.withTakeover++;
 
             if (hasFlag(StatusFlags::SwitchedPatch))
             {
                 pathStatistics.patchSwitches++;
+            }
+            if (actualPatchLockFrame != -1)
+            {
+                pathStatistics.withPatchLock++;
             }
         }
 

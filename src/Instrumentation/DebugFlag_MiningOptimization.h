@@ -1,6 +1,6 @@
 #pragma once
 
-#if INSTRUMENTATION_ENABLED
+#if LOGGING_ENABLED
 
 // Keeps track of high-level statistics about mining optimization, like what percentage of collections had path coverage, collision rates, etc.
 #define OUTPUT_STATISTICS true
