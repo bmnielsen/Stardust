@@ -75,7 +75,16 @@ namespace MiningOptimization
         lastProcessedFrame = currentFrame;
 
         // Nothing to do if we don't have any path data
-        if (!expectedPath) return false;
+        if (!expectedPath)
+        {
+            // For gather, we return true if we are close to the patch to enable takeover optimization
+            if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+            {
+                if (resource->getDistance(worker) <= ASSUME_RESEND_ALWAYS_ARRIVES_DISTANCE) return true;
+            }
+
+            return false;
+        }
 
         // Validate 10-distance on gather
         if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)

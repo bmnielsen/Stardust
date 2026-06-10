@@ -5,6 +5,8 @@ namespace MiningOptimization
     OtherPatchesOccupiedForecast::OtherPatchesOccupiedForecast(const Resource &patch,
                                                                const std::map<Resource, PatchOccupiedForecast> &patchForecasts)
     {
+        std::fill_n(forecast.begin(), PATCH_OCCUPIED_HORIZON, 1.0);
+
         for (auto &other : patch->resourcesInSwitchPatchRange)
         {
             if (other->destroyed) continue;

@@ -24,6 +24,7 @@ include_directories(${STARDUST_INCLUDES})
 file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 
 # Uncomment this to disable optimizations on a specific file while debugging something
+#SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Workers/MiningOptimizationV2/MiningOptimization.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Workers/MiningOptimizationV2/WorkerPathOptimizer_Common.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Workers/MiningOptimizationV2/WorkerPathOptimizer_Gather.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Workers/MiningOptimizationV2/Solver/Solver_Common.cpp PROPERTIES COMPILE_FLAGS -O0)

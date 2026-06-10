@@ -162,7 +162,7 @@ namespace MiningOptimization
         {
             auto &[worker, depot, patch] = *it;
             auto &workerOptimizer = gatherOptimizer->forWorker(worker, depot, patch);
-            if (workerOptimizer.updatePath() || patch->getDistance(worker) <= ASSUME_RESEND_ALWAYS_ARRIVES_DISTANCE)
+            if (workerOptimizer.updatePath())
             {
                 // Detect takeover by checking if there is another worker already mining
                 auto otherWorker = Workers::getOtherWorkerMining(patch, worker);
@@ -178,7 +178,6 @@ namespace MiningOptimization
             }
 
             // This worker is either not pathing properly or isn't taking over, so we don't need to consider it any further
-            // TODO: Consider how to handle non-pathed workers that have reached the patch
             it = workersAndDepotsAndResources.erase(it);
         }
 

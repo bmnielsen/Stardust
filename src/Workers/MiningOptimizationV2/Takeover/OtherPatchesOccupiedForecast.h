@@ -42,6 +42,6 @@ namespace MiningOptimization
         }
 
     private:
-        std::array<double, PATCH_OCCUPIED_HORIZON> forecast = {1.0};
+        std::array<double, PATCH_OCCUPIED_HORIZON> forecast;
     };
 }
