@@ -139,7 +139,7 @@ namespace MiningOptimization
 
         // If the worker taking over will definitely be patch locked by the earliest end frame, flag as fully saturated and return
         int extraTakeoverFrame = 0;
-        if (nextMiningWorker && (*miningWorkerOrderProcessIndex > nextMiningWorker->orderProcessIndex)) extraTakeoverFrame = 1;
+        if (nextMiningWorker && (*miningWorkerOrderProcessIndex >= nextMiningWorker->orderProcessIndex)) extraTakeoverFrame = 1;
         if (latestTakeoverWorkerFrame && (*latestTakeoverWorkerFrame + extraTakeoverFrame) <= earliestMiningEndFrame)
         {
             fullySaturated = true;
@@ -253,32 +253,64 @@ namespace MiningOptimization
         // This method is used to indicate that a worker will patch lock at the given frame
         // The currently-mining worker may however already be finished with mining, in which case the worker will take over instead
 
-        // This method does not take the situation into account where the frame after patch lock is an order process timer reset frame
-        // We intentionally avoid planning paths that hit this timing, but warn here if we miss one
-        if (OrderProcessTimer::isResetFrame(frame + 1))
+        // An order process timer reset immediately after the patch lock will cause the worker to remain in the WaitForMinerals state until the new
+        // order process timer cycle gets back to 0
+        // Handle the non-reset case first since it is much simpler
+        if (!OrderProcessTimer::isResetFrame(frame + 1))
         {
-            Log::Get() << "WARNING: Patch lock frame immediately before a reset; " << *patch;
-        }
+            // Start by validating the bounds, and if we know the patch is still being mined at the given frame, mark the forecast as
+            // fully saturated immediately and return
+            int frameIdx = frame - startFrame - 1;
+            if (frameIdx >= GATHER_FORECAST_FRAMES) return;
+            if (frameIdx < 0 || forecast[frameIdx] > 0.9999)
+            {
+                fullySaturated = true;
+                return;
+            }
 
-        // Start by validating the bounds, and if we know the patch is still being mined at the given frame, mark the forecast as
-        // fully saturated immediately and return
-        int frameIdx = frame - startFrame - 1;
-        if (frameIdx >= GATHER_FORECAST_FRAMES) return;
-        if (frameIdx < 0 || forecast[frameIdx] > 0.9999)
-        {
-            fullySaturated = true;
+            // When we get here, we are in a situation where the mining worker may or may not still be mining at the given frame
+            // If the mining worker has finished by the time the taking over worker begins, the patch will be occupied from the next frame
+            // The probability of this happening is the probability at the frame if the mining worker's orders are processed first, or the
+            // probability from the previous frame otherwise
+            if (frameIdx > 0 && miningWorkerOrderProcessIndex && *miningWorkerOrderProcessIndex >= takingOverWorkerOrderProcessIndex)
+            {
+                forecast[frameIdx] = forecast[frameIdx - 1];
+            }
+
+            if ((frameIdx + 1) < GATHER_FORECAST_FRAMES) std::fill(forecast.begin() + frameIdx + 1, forecast.end(), 1.0);
             return;
         }
 
-        // When we get here, we are in a situation where the mining worker may or may not still be mining at the given frame
-        // If the mining worker has finished by the time the taking over worker begins, the patch will be occupied from the next frame
-        // The probability of this happening is the probability at the frame if the mining worker's orders are processed first, or the
-        // probability from the previous frame otherwise
-        if (frameIdx > 0 && miningWorkerOrderProcessIndex && takingOverWorkerOrderProcessIndex > *miningWorkerOrderProcessIndex)
+        // There is a reset, so compute the bounds of the possible action frames
+
+        // Shift the probability lower if the mining worker's orders are processed first
+        double takeoverProbability;
+        if (miningWorkerOrderProcessIndex && (*miningWorkerOrderProcessIndex >= takingOverWorkerOrderProcessIndex))
         {
-            forecast[frameIdx] = forecast[frameIdx - 1];
+            takeoverProbability = -0.125;
+        }
+        else
+        {
+            takeoverProbability = 0.0;
         }
 
-        std::fill(forecast.begin() + frameIdx, forecast.end(), 1.0);
+        // Generate the increasing takeover probability and use it to modify the current probability generated from the mining worker's timings
+        for (int f = frame + 1; f < (frame + 9); ++f)
+        {
+            takeoverProbability += 0.125;
+
+            int frameIdx = f - startFrame - 1;
+            if (frameIdx < 0) continue;
+            if (frameIdx >= PATCH_OCCUPIED_HORIZON) return;
+
+            forecast[frameIdx] = takeoverProbability + ((1.0 - takeoverProbability) * forecast[frameIdx]);
+        }
+
+        // Fill in the rest of the forecast from the frame where the worker is definitely going to have taken over
+        int lastFrameIdx = frame + 9 - startFrame - 1;
+        if (lastFrameIdx >= 0 && lastFrameIdx < PATCH_OCCUPIED_HORIZON)
+        {
+            std::fill(forecast.begin() + lastFrameIdx, forecast.end(), 1.0);
+        }
     }
 }

@@ -131,20 +131,17 @@ namespace MiningOptimization
             if (nonTakeoverCount > 0)
             {
                 out << ", " << pathStatistics.withExpectedArrivalFrame << " with expected arrival frame"
-                        << " (" << ((double)pathStatistics.withExpectedArrivalFrame * 100.0 / (double)pathStatistics.count) << "%), "
+                        << " (" << ((double)pathStatistics.withExpectedArrivalFrame * 100.0 / (double)nonTakeoverCount) << "%), "
                         << pathStatistics.withExpectedActionFrame << " with expected action frame"
-                        << " (" << ((double)pathStatistics.withExpectedActionFrame * 100.0 / (double)pathStatistics.count) << "%)";
+                        << " (" << ((double)pathStatistics.withExpectedActionFrame * 100.0 / (double)nonTakeoverCount) << "%)";
             }
             if (pathStatistics.withTakeover > 0)
             {
-                out << ", " << pathStatistics.withTakeover << " takeover collections, "
-                    << pathStatistics.patchSwitches << " with patch switch"
-                    << " (" << ((double)pathStatistics.patchSwitches * 100.0 / (double)pathStatistics.withTakeover) << "%)";
-                if (pathStatistics.withPatchLock > 0)
-                {
-                    out << ", " << pathStatistics.withPatchLock << " with patch lock"
-                        << " (" << ((double)pathStatistics.withPatchLock * 100.0 / (double)pathStatistics.withTakeover) << "%)";
-                }
+                out << ", " << pathStatistics.withTakeover << " takeover collections"
+                    << ", " << pathStatistics.patchSwitches << " with patch switch"
+                    << " (" << ((double)pathStatistics.patchSwitches * 100.0 / (double)pathStatistics.withTakeover) << "%)"
+                    << ", " << pathStatistics.withPatchLock << " with patch lock"
+                    << " (" << ((double)pathStatistics.withPatchLock * 100.0 / (double)pathStatistics.withTakeover) << "%)";
             }
             return out.str();
         };

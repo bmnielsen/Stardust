@@ -100,13 +100,15 @@ namespace MiningOptimization
         // Generate frames that don't have an unfortunate order process timer reset or collide with an already-planned resend
         for (int resendTakesEffectFrame = startFrame; resendTakesEffectFrame <= latestTakeoverFrame; ++resendTakesEffectFrame)
         {
-            int takeoverFrame = resendTakesEffectFrame + 11;
-            if (OrderProcessTimer::nextResetFrame(resendTakesEffectFrame) < latestTakeoverFrame &&
-                OrderProcessTimer::framesToNextReset(resendTakesEffectFrame) < 12)
-            {
-                continue;
-            }
+            // Don't use resends with an uncertain action frame due to order process timer resets
+            int framesToNextReset = OrderProcessTimer::framesToNextReset(resendTakesEffectFrame);
+            if (framesToNextReset > 0 && framesToNextReset < 12) continue;
+
+            // Don't allow resends that would be blocked by a previously-issued resend
             if (allResendFrames.contains(resendTakesEffectFrame - BWAPI::Broodwar->getLatencyFrames() * 2)) continue;
+
+            // Add the takeover frame and break if it is the first that meets the desired frame
+            int takeoverFrame = resendTakesEffectFrame + 11;
             result.insert(takeoverFrame);
             if (takeoverFrame >= latestTakeoverFrame) break;
         }
