@@ -158,8 +158,22 @@ namespace MiningOptimization
             allResendFrames,
             {},
             earliestTenDistanceFrame - currentFrame - 1);
+
+        // If there was a recent resend, override the order process timer value to simulate the fact that a 0 value won't actually take
+        // effect here
+        if (orderProcessTimerValues.size() == 1 && orderProcessTimerValues.contains(0))
+        {
+            for (int i = 0; i <= 1; i++)
+            {
+                if (allResendFrames.contains(earliestTenDistanceFrame - BWAPI::Broodwar->getLatencyFrames() - i - 1))
+                {
+                    orderProcessTimerValues = {9 + i};
+                }
+            }
+        }
+
         int switchPatchFrame = earliestTenDistanceFrame + *orderProcessTimerValues.begin();
-        int switchPatchResendFrame = switchPatchFrame - BWAPI::Broodwar->getLatencyFrames();
+        int switchPatchResendFrame = switchPatchFrame - BWAPI::Broodwar->getLatencyFrames() - 1; // One before to avoid transition to WaitForMinerals
 
         // Compute the resend frame for the next order process timer reset
         int resetResendFrame = OrderProcessTimer::nextResetFrame(switchPatchFrame) - BWAPI::Broodwar->getLatencyFrames();
@@ -187,15 +201,21 @@ namespace MiningOptimization
         };
 
         // Helper to add the next viable resend frame from the given one
-        auto addNextViableResendFrame = [&](int frame, std::set<int> &resendFrames)
+        auto addNextViableResendFrame = [&](int frame)
         {
-            if (frame < currentFrame) frame = currentFrame;
-            
-            // Try three frames before giving up
-            for (int f = frame; f < (frame + 3); f++)
+            // Try four frames before giving up
+            for (int f = frame; f < (frame + 4); f++)
             {
+                // If the frame has already been used as a resend frame, we don't need to handle this case
+                if (allResendFrames.contains(f)) return;
+
+                // Skip ahead to the current frame
+                if (f < currentFrame) continue;
+
                 // If the frame goes beyond the takeover resend frame, it won't be needed
                 if (f >= takeoverResendFrame) return;
+
+                // Add the frame if it is viable
                 if (isResendFrameViable(f))
                 {
                     takeoverResendFrames.insert(f);
@@ -208,13 +228,13 @@ namespace MiningOptimization
         // If the reset resend frame is relevant, add it next
         if (resetResendFrame < takeoverResendFrame && resetResendFrame > switchPatchResendFrame)
         {
-            addNextViableResendFrame(resetResendFrame, takeoverResendFrames);
+            addNextViableResendFrame(resetResendFrame);
         }
 
         // Finally add the patch switch resend frame
         if (switchPatchResendFrame < takeoverResendFrame)
         {
-            addNextViableResendFrame(switchPatchResendFrame, takeoverResendFrames);
+            addNextViableResendFrame(switchPatchResendFrame);
         }
 
         // Now check if there is a gap between any two of the resend frames long enough to cause a patch switch
@@ -231,7 +251,7 @@ namespace MiningOptimization
                 int step = delta / steps;
                 for (int i = 1; i <= steps; i++)
                 {
-                    addNextViableResendFrame(previousFrame + i * step, additionalNeededFrames);
+                    addNextViableResendFrame(previousFrame + i * step);
                 }
             }
 
