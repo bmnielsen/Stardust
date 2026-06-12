@@ -139,7 +139,7 @@ namespace MiningOptimization
 
         // If the worker taking over will definitely be patch locked by the earliest end frame, flag as fully saturated and return
         int extraTakeoverFrame = 0;
-        if (nextMiningWorker && (*miningWorkerOrderProcessIndex >= nextMiningWorker->orderProcessIndex)) extraTakeoverFrame = 1;
+        if (nextMiningWorker && (*miningWorkerOrderProcessIndex <= nextMiningWorker->orderProcessIndex)) extraTakeoverFrame = 1;
         if (latestTakeoverWorkerFrame && (*latestTakeoverWorkerFrame + extraTakeoverFrame) <= earliestMiningEndFrame)
         {
             fullySaturated = true;
