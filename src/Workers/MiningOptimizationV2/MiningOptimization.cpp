@@ -211,7 +211,7 @@ namespace MiningOptimization
             // The takeover frame will be when the mining worker finishes mining, plus an extra frame if the taking over worker's orders
             // are processed first
             int desiredTakeoverFrame = *forecast.miningWorkerLatestEndFrame;
-            if (workerOptimizer->worker->orderProcessIndex >= *forecast.miningWorkerOrderProcessIndex) ++desiredTakeoverFrame;
+            if (workerOptimizer->worker->orderProcessIndex >= forecast.miningWorker->orderProcessIndex) ++desiredTakeoverFrame;
 
             // Get the set of frames the worker can achieve
             // These are based on the arrival frame along with the possibilities to resend prior to arrival
@@ -290,7 +290,7 @@ namespace MiningOptimization
                     if (frame >= selectedTakeoverFrame) break;
                     if (forecast.atFrame(frame) > PATCH_LOCK_THRESHOLD)
                     {
-                        patchToOccupiedForecast.at(workerOptimizer->resource).usePatchLockFrame(frame, workerOptimizer->worker->orderProcessIndex);
+                        patchToOccupiedForecast.at(workerOptimizer->resource).usePatchLockFrame(frame);
                         selectedTakeoverFrame = frame;
                         anyUpdated = true;
                         break;

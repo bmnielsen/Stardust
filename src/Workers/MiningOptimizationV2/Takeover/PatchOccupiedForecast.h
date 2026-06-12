@@ -34,13 +34,10 @@ namespace MiningOptimization
             return out;
         }
 
-        bool fullySaturated = false;
-
-        std::optional<int> miningWorkerOrderProcessIndex;
-        std::optional<int> miningWorkerEarliestEndFrame;
-        std::optional<int> miningWorkerLatestEndFrame;
-
+        MyWorker miningWorker;
         MyWorker nextMiningWorker;
+
+        std::optional<int> miningWorkerLatestEndFrame;
 
         [[nodiscard]] double atFrame(int frame) const
         {
@@ -53,11 +50,15 @@ namespace MiningOptimization
         void useTakeoverFrame(int frame);
 
         // Update the forecast for patch locking at the given frame
-        void usePatchLockFrame(int frame, int takingOverWorkerOrderProcessIndex);
+        void usePatchLockFrame(int frame);
 
     private:
         Resource patch;
         int startFrame;
+
+        // If true, the forecast is for the patch to be mined through the entire forecast horizon
+        bool fullySaturated = false;
+
         std::array<double, PATCH_OCCUPIED_HORIZON> forecast = {0.0};
     };
 }
