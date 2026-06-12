@@ -80,6 +80,10 @@ namespace MiningOptimization
         // Issues any orders needed to do path optimization
         void issueOrders();
 
+        // The expected action frame, if there is path or takeover data and only one possibility
+        // Returns nullopt otherwise
+        std::optional<int> expectedActionFrame();
+
         // Sets a status flag
         void setFlag(const StatusFlags flag)
         {

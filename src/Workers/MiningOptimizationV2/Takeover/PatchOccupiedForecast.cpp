@@ -11,7 +11,6 @@ namespace MiningOptimization
         // Initialize the forecast with the data for a currently mining worker
         // Get the mining worker and the next mining worker, either or both of which may be null
         MyWorker miningWorker;
-        MyWorker nextMiningWorker;
         for (auto &worker : Workers::getWorkersAssignedTo(this->patch))
         {
             if (!worker->exists()) continue;
@@ -245,7 +244,7 @@ namespace MiningOptimization
     {
         // This method is used to indicate that a worker will at the latest take over at the given frame
         // This means we can just set 1s from that point onwards, taking into consideration that the action will happen one frame later
-        std::fill(forecast.begin() + std::max(0, frame - startFrame - 1), forecast.end(), 1.0);
+        std::fill(forecast.begin() + std::max(0, frame - startFrame), forecast.end(), 1.0);
     }
 
     void PatchOccupiedForecast::usePatchLockFrame(int frame, int takingOverWorkerOrderProcessIndex)

@@ -62,17 +62,11 @@ namespace MiningOptimization
 
         std::set<int> result;
 
-        if (hasFlag(StatusFlags::IssuedTakeoverResend))
+        // If there is a current pathing action frame, the frame before is always an achievable takeover frame
+        auto currentPathActionFrame = expectedActionFrame();
+        if (currentPathActionFrame)
         {
-            if (expectedTakeoverFrame != -1)
-            {
-                result.insert(expectedTakeoverFrame);
-            }
-        }
-        else if (expectedPath && expectedPath->actionFramesWithProbabilities.size() == 1)
-        {
-            // Subtract one since for takeover we are interested in the WaitForMinerals frame, whereas action frame is first mining frame
-            result.insert(expectedPath->actionFramesWithProbabilities.begin()->first - 1);
+            result.insert(*currentPathActionFrame - 1);
         }
 
         int startFrame = currentFrame + BWAPI::Broodwar->getLatencyFrames();
@@ -129,6 +123,14 @@ namespace MiningOptimization
         std::set<int> pathResendFrames;
         if (expectedPath)
         {
+            // If the takeover frame corresponds to the currently-planned action frame, don't plan for any additional resends
+            if (!hasFlag(StatusFlags::IssuedTakeoverResend) && expectedPath->actionFramesWithProbabilities.size() == 1 &&
+                expectedPath->actionFramesWithProbabilities.begin()->first == (takeoverFrame + 1))
+            {
+                expectedTakeoverFrame = takeoverFrame;
+                return;
+            }
+
             auto aggregatedResendFrames = expectedPath->aggregatedResendFramesIfStable();
             if (!aggregatedResendFrames) return;
             pathResendFrames = std::move(*aggregatedResendFrames);

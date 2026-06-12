@@ -155,6 +155,7 @@ namespace MiningOptimization
 #if ENABLE_TAKEOVER_LOGIC
         // Loop through the given workers, update their paths, and check if any require takeover optimization
         std::vector<std::tuple<WorkerPathOptimizer<GatherArrivalData>*, std::set<int>, int>> takeoverWorkers;
+        std::map<MyWorker, int> pathingWorkerActionFrames;
         for (auto it = workersAndDepotsAndResources.begin(); it != workersAndDepotsAndResources.end(); )
         {
             auto &[worker, depot, patch] = *it;
@@ -172,6 +173,11 @@ namespace MiningOptimization
 
                 // There is no other worker mining the patch, so we can just issue the approach orders normally
                 workerOptimizer.issueOrders();
+                auto actionFrame = workerOptimizer.expectedActionFrame();
+                if (actionFrame)
+                {
+                    pathingWorkerActionFrames[worker] = *actionFrame;
+                }
             }
 
             // This worker is either not pathing properly or isn't taking over, so we don't need to consider it any further
@@ -249,7 +255,18 @@ namespace MiningOptimization
         // Initialize the occupied forecast for any patches not already covered
         for (auto &patch : base->mineralPatches())
         {
-            if (!patchToOccupiedForecast.contains(patch)) patchToOccupiedForecast.emplace(patch, patch);
+            if (!patchToOccupiedForecast.contains(patch))
+            {
+                auto &forecast = patchToOccupiedForecast.emplace(patch, patch).first->second;
+                if (forecast.nextMiningWorker)
+                {
+                    auto it = pathingWorkerActionFrames.find(forecast.nextMiningWorker);
+                    if (it != pathingWorkerActionFrames.end())
+                    {
+                        forecast.useTakeoverFrame(it->second - 1);
+                    }
+                }
+            }
         }
 
         // Now we repeatedly try to find earlier frames where a worker can patch lock and use this to update the forecasts

@@ -256,6 +256,20 @@ namespace MiningOptimization
         }
     }
 
+    template <typename ObservationType>
+    std::optional<int> WorkerPathOptimizer<ObservationType>::expectedActionFrame()
+    {
+        if (hasFlag(StatusFlags::IssuedTakeoverResend))
+        {
+            if (expectedTakeoverFrame != -1) return expectedTakeoverFrame + 1;
+        }
+        else if (expectedPath && expectedPath->actionFramesWithProbabilities.size() == 1)
+        {
+            return expectedPath->actionFramesWithProbabilities.begin()->first;
+        }
+        return std::nullopt;
+    }
+
 #if OUTPUT_STATISTICS
     template <typename ObservationType>
     void WorkerPathOptimizer<ObservationType>::updateStatistics(PathStatistics &pathStatistics)

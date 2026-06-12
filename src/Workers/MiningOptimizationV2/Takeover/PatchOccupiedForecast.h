@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MyWorker.h"
 #include "Resource.h"
 
 #define PATCH_OCCUPIED_HORIZON 50
@@ -38,6 +39,8 @@ namespace MiningOptimization
         std::optional<int> miningWorkerOrderProcessIndex;
         std::optional<int> miningWorkerEarliestEndFrame;
         std::optional<int> miningWorkerLatestEndFrame;
+
+        MyWorker nextMiningWorker;
 
         [[nodiscard]] double atFrame(int frame) const
         {
