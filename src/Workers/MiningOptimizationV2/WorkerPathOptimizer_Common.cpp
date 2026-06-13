@@ -3,6 +3,7 @@
 #include "Solver/Solver.h"
 
 #include "DebugFlag_MiningOptimization.h"
+#include "OrderProcessTimer.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define LOG_PATH_FAILURES false
@@ -123,6 +124,65 @@ namespace MiningOptimization
         // Check if we have reached the end of the path
         if (expectedPath->pathToNextBranch.empty() && expectedPath->nextBranches.empty())
         {
+            if (hasFlag(StatusFlags::IssuedTakeoverResend)) return true;
+
+            int transitionFrames;
+            if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+            {
+                transitionFrames = 1;
+            }
+            else
+            {
+                transitionFrames = 0;
+            }
+
+            // Check if we can rule out the next frame as action frame
+            auto it = expectedPath->actionFramesWithProbabilities.find(currentFrame + transitionFrames);
+            if (it != expectedPath->actionFramesWithProbabilities.end())
+            {
+                // Remove the action frame and adjust the probabilities of any remaining action frames
+                double remainingProbability = 1.0 - it->second;
+                expectedPath->actionFramesWithProbabilities.erase(it);
+                for (auto &[_, probability] : expectedPath->actionFramesWithProbabilities)
+                {
+                    probability /= remainingProbability;
+                }
+
+                // If there are no remaining action frames, our pathing was wrong
+                // Assume the transition frame will be the next time our order process timer hits 0, as we're probably close to the target
+                if (expectedPath->actionFramesWithProbabilities.empty())
+                {
+                    if (transitionFrames == 1)
+                    {
+                        Log::Get() << "hey";
+                    }
+
+                    auto orderProcessTimerValues =
+                        OrderProcessTimer::atStartOfNextFrame(currentFrame, worker->possibleOrderProcessTimerValues);
+
+                    double probabilityPerStep = 1.0 / (double)orderProcessTimerValues.size();
+                    double accumulatedProbability = 0.0;
+                    for (auto value : orderProcessTimerValues)
+                    {
+                        if (OrderProcessTimer::framesToNextReset(currentFrame + 1) > (value + transitionFrames))
+                        {
+                            expectedPath->actionFramesWithProbabilities[currentFrame + value + transitionFrames + 1] = probabilityPerStep;
+                            accumulatedProbability += probabilityPerStep;
+                            continue;
+                        }
+
+                        probabilityPerStep = (1.0 - accumulatedProbability) / 8.0;
+                        for (auto f = OrderProcessTimer::nextResetFrame(currentFrame + 1);
+                             f < OrderProcessTimer::nextResetFrame(currentFrame + 1) + 8;
+                             ++f)
+                        {
+                            expectedPath->actionFramesWithProbabilities[f + transitionFrames] = probabilityPerStep;
+                        }
+                        break;
+                    }
+                }
+            }
+
             return true;
         }
 

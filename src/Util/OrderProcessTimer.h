@@ -18,16 +18,16 @@ namespace OrderProcessTimer
     // Gets the number of frames to the next order process timer reset, or 0 if a reset happens on this frame
     int framesToNextReset();
 
-    // Gets the next order process timer reset frame, or 0 if a reset happens on the given frame
+    // Gets the next order process timer reset frame from the given frame. If the given frame is a reset frame, it is returned.
     int nextResetFrame(int frame);
 
-    // Gets the next order process timer reset frame, or 0 if a reset happens on this frame
+    // Gets the next order process timer reset frame, or the current frame if a reset happens on this frame
     int nextResetFrame();
 
-    // Gets the previous order process timer reset frame, or 0 if a reset happens on the given frame
+    // Gets the previous order process timer reset frame from the given frame. If the given frame is a reset frame, it is returned.
     int previousResetFrame(int frame);
 
-    // Gets the previous order process timer reset frame, or 0 if a reset happens on this frame
+    // Gets the previous order process timer reset frame, or the current frame if a reset happens on this frame
     int previousResetFrame();
 
     // Gets whether there is an order timer reset on the given frame
