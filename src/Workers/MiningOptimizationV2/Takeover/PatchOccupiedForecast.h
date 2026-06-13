@@ -49,6 +49,9 @@ namespace MiningOptimization
         // The given frame should correspond to the frame where the worker transitions to WaitForMinerals
         void usePatchLockFrame(int frame);
 
+        // Update the forecast for the given action frame probabilities
+        void useActionFrameProbabilities(const std::map<int, double> &actionFramesAndProbabilities);
+
     private:
         Resource patch;
         int startFrame;

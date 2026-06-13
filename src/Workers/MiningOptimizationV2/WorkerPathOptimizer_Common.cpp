@@ -152,11 +152,6 @@ namespace MiningOptimization
                 // Assume the transition frame will be the next time our order process timer hits 0, as we're probably close to the target
                 if (expectedPath->actionFramesWithProbabilities.empty())
                 {
-                    if (transitionFrames == 1)
-                    {
-                        Log::Get() << "hey";
-                    }
-
                     auto orderProcessTimerValues =
                         OrderProcessTimer::atStartOfNextFrame(currentFrame, worker->possibleOrderProcessTimerValues);
 
@@ -317,17 +312,26 @@ namespace MiningOptimization
     }
 
     template <typename ObservationType>
-    std::optional<int> WorkerPathOptimizer<ObservationType>::expectedActionFrame()
+    std::optional<int> WorkerPathOptimizer<ObservationType>::earliestActionFrame()
     {
-        if (hasFlag(StatusFlags::IssuedTakeoverResend))
-        {
-            if (expectedTakeoverFrame != -1) return expectedTakeoverFrame + 1;
-        }
-        else if (expectedPath && expectedPath->actionFramesWithProbabilities.size() == 1)
+        if (expectedPath)
         {
             return expectedPath->actionFramesWithProbabilities.begin()->first;
         }
         return std::nullopt;
+    }
+
+    template <typename ObservationType>
+    void WorkerPathOptimizer<ObservationType>::addExpectedActionDataToPatchForecast(PatchOccupiedForecast &forecast)
+    {
+        if (hasFlag(StatusFlags::IssuedTakeoverResend))
+        {
+            if (expectedTakeoverFrame != -1) forecast.useTakeoverFrame(expectedTakeoverFrame);
+        }
+        else if (expectedPath)
+        {
+            forecast.useActionFrameProbabilities(expectedPath->actionFramesWithProbabilities);
+        }
     }
 
 #if OUTPUT_STATISTICS

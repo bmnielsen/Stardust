@@ -155,7 +155,7 @@ namespace MiningOptimization
 #if ENABLE_TAKEOVER_LOGIC
         // Loop through the given workers, update their paths, and check if any require takeover optimization
         std::vector<std::tuple<WorkerPathOptimizer<GatherArrivalData>*, std::set<int>, int>> takeoverWorkers;
-        std::map<MyWorker, int> pathingWorkerActionFrames;
+        std::map<MyWorker, WorkerPathOptimizer<GatherArrivalData>*> pathingWorkers;
         for (auto it = workersAndDepotsAndResources.begin(); it != workersAndDepotsAndResources.end(); )
         {
             auto &[worker, depot, patch] = *it;
@@ -173,11 +173,7 @@ namespace MiningOptimization
 
                 // There is no other worker mining the patch, so we can just issue the approach orders normally
                 workerOptimizer.issueOrders();
-                auto actionFrame = workerOptimizer.expectedActionFrame();
-                if (actionFrame)
-                {
-                    pathingWorkerActionFrames[worker] = *actionFrame;
-                }
+                pathingWorkers.emplace(worker, &workerOptimizer);
             }
 
             // This worker is either not pathing properly or isn't taking over, so we don't need to consider it any further
@@ -212,6 +208,16 @@ namespace MiningOptimization
             // are processed first
             int desiredTakeoverFrame = *forecast.miningWorkerLatestEndFrame;
             if (workerOptimizer->worker->orderProcessIndex >= forecast.miningWorker->orderProcessIndex) ++desiredTakeoverFrame;
+
+            // If the worker is pathing and won't arrive in time to do any kind of patch locking, just add its data and remove it
+            auto earliestActionFrame = workerOptimizer->earliestActionFrame();
+            if (earliestActionFrame && desiredTakeoverFrame < *earliestActionFrame)
+            {
+                workerOptimizer->addExpectedActionDataToPatchForecast(forecast);
+                workerOptimizer->issueOrders();
+                it = takeoverWorkers.erase(it);
+                continue;
+            }
 
             // Get the set of frames the worker can achieve
             // These are based on the arrival frame along with the possibilities to resend prior to arrival
@@ -260,10 +266,10 @@ namespace MiningOptimization
                 auto &forecast = patchToOccupiedForecast.emplace(patch, patch).first->second;
                 if (forecast.nextMiningWorker)
                 {
-                    auto it = pathingWorkerActionFrames.find(forecast.nextMiningWorker);
-                    if (it != pathingWorkerActionFrames.end())
+                    auto it = pathingWorkers.find(forecast.nextMiningWorker);
+                    if (it != pathingWorkers.end())
                     {
-                        forecast.useTakeoverFrame(it->second - 1);
+                        it->second->addExpectedActionDataToPatchForecast(forecast);
                     }
                 }
             }

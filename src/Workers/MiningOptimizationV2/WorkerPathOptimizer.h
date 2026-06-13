@@ -7,6 +7,7 @@
 #include "Solver/Solver.h"
 
 #include "DebugFlag_MiningOptimization.h"
+#include "Takeover/PatchOccupiedForecast.h"
 
 #if OUTPUT_STATISTICS
 #include "PathStatistics.h"
@@ -80,9 +81,12 @@ namespace MiningOptimization
         // Issues any orders needed to do path optimization
         void issueOrders();
 
-        // The expected action frame, if there is path or takeover data and only one possibility
+        // The earliest action frame, if there is path data
         // Returns nullopt otherwise
-        std::optional<int> expectedActionFrame();
+        std::optional<int> earliestActionFrame();
+
+        // Adds the current expected action data to the given patch forecast
+        void addExpectedActionDataToPatchForecast(PatchOccupiedForecast &forecast);
 
         // Sets a status flag
         void setFlag(const StatusFlags flag)

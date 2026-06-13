@@ -345,4 +345,47 @@ namespace MiningOptimization
         // Fill the rest of the forecast from the frame where the worker is definitely going to have taken over
         useTakeoverFrame(frame + 8);
     }
+
+    void PatchOccupiedForecast::useActionFrameProbabilities(const std::map<int, double> &actionFramesAndProbabilities)
+    {
+        // We know takeover will happen at the latest at the last action frame
+        useTakeoverFrame(actionFramesAndProbabilities.rbegin()->first - 1);
+
+        // Nothing further is needed if that is the only action frame
+        if (actionFramesAndProbabilities.size() == 1) return;
+
+        // Loop from the first frame to the last, accumulating the probabilities as we go
+        double probabilityStart = 0.0;
+        double probabilityEnd = 0.0;
+        for (int frame = actionFramesAndProbabilities.begin()->first - 1; frame < actionFramesAndProbabilities.rbegin()->first; ++frame)
+        {
+            auto it = actionFramesAndProbabilities.find(frame);
+            if (it != actionFramesAndProbabilities.end())
+            {
+                probabilityEnd += it->second;
+            }
+
+            int frameIdx = frame - startFrame - 1;
+            if (frameIdx < 0)
+            {
+                probabilityStart = probabilityEnd;
+                continue;
+            }
+            if (frameIdx >= PATCH_OCCUPIED_HORIZON) break;
+
+            start[frameIdx] = probabilityStart;
+            end[frameIdx] = probabilityEnd;
+
+            if (miningWorker && miningWorker->orderProcessIndex < nextMiningWorker->orderProcessIndex)
+            {
+                middle[frameIdx] = probabilityEnd;
+            }
+            else if (miningWorker && miningWorker->orderProcessIndex > nextMiningWorker->orderProcessIndex)
+            {
+                middle[frameIdx] = probabilityStart;
+            }
+
+            probabilityStart = probabilityEnd;
+        }
+    }
 }

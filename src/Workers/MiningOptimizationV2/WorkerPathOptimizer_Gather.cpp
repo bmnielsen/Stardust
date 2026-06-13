@@ -62,11 +62,14 @@ namespace MiningOptimization
 
         std::set<int> result;
 
-        // If there is a current pathing action frame, the frame before is always an achievable takeover frame
-        auto currentPathActionFrame = expectedActionFrame();
-        if (currentPathActionFrame)
+        // If there is a current takeover or pathing action frame, it always gives an achievable takeover frame
+        if (hasFlag(StatusFlags::IssuedTakeoverResend))
         {
-            result.insert(*currentPathActionFrame - 1);
+            if (expectedTakeoverFrame != -1) result.insert(expectedTakeoverFrame);
+        }
+        else if (expectedPath && expectedPath->actionFramesWithProbabilities.size() == 1)
+        {
+            result.insert(expectedPath->actionFramesWithProbabilities.begin()->first - 1);
         }
 
         int startFrame = currentFrame + BWAPI::Broodwar->getLatencyFrames();
