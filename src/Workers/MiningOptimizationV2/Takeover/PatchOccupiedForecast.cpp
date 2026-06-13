@@ -6,6 +6,16 @@
 
 namespace MiningOptimization
 {
+    namespace
+    {
+        enum class WorkerOrdering
+        {
+            MiningWorkerFirst,
+            NextMiningWorkerFirst,
+            Other
+        };
+    }
+
     PatchOccupiedForecast::PatchOccupiedForecast(Resource patch) : patch(std::move(patch)), startFrame(currentFrame)
     {
         // Initialize the forecast with the data for a currently mining worker
@@ -33,9 +43,13 @@ namespace MiningOptimization
             }
         }
 
-        // Process some of the easy cases for a mining worker first
+        if (nextMiningWorker) orderProcessIndices.insert(nextMiningWorker->orderProcessIndex);
+
+        // Initialize the forecast with the data for the mining worker
         if (miningWorker)
         {
+            orderProcessIndices.insert(miningWorker->orderProcessIndex);
+
             // If the worker has transitioned to the mining order but hasn't actually started decrementing its mining timer yet, just mark
             // the patch as occupied for the entire forecast horizon and call it a day
             if (miningWorker->lastStartedMining < miningWorker->lastTransitionedToMiningOrder)
@@ -45,264 +59,290 @@ namespace MiningOptimization
                 return;
             }
 
-            // Default values that get refined later
-            miningWorkerLatestEndFrame = miningWorker->lastStartedMining + 81;
-        }
-
-        // If the next mining worker is in WaitForMinerals, we can usually deduce that the patch will be mined for the entire forecast horizon:
-        // - If there is a worker currently mining, the next worker will patch lock and take over from it without any delay
-        // - If there is not, the next worker will transition to mining on the next frame
-        // The only exception to this is if there is a reset frame after the first WaitForMinerals frame, in which case we need to handle the
-        // extra delay.
-        std::optional<int> latestTakeoverWorkerFrame = std::nullopt;
-        if (nextMiningWorker && nextMiningWorker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
-        {
-            if (nextMiningWorker->lastTransitionedToWaitForMineralsOrder >= (currentFrame - 6) &&
-                OrderProcessTimer::isResetFrame(nextMiningWorker->lastTransitionedToWaitForMineralsOrder + 1))
+            // Compute the possible mining end frame range
+            int earliestMiningEndFrame = miningWorker->lastStartedMining + 81;
+            int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(earliestMiningEndFrame);
+            if (previousOrderTimerReset < miningWorker->lastStartedMining)
             {
-                int start = nextMiningWorker->lastTransitionedToWaitForMineralsOrder + 1;
-                int end = start + 6;
-                latestTakeoverWorkerFrame = end + 1;
-
-                // Set an ascending probability here if there is no mining worker. If there is a mining worker, this will be handled later as
-                // the logic becomes more complicated.
-                if (!miningWorker)
-                {
-                    // Probability starts at 1/8 on the reset frame and increases by 1/8 each subsequent frame
-                    double probability = 0.0;
-                    for (int frame = start; frame <= end; ++frame)
-                    {
-                        probability += 0.125;
-                        if (frame > currentFrame)
-                        {
-                            forecast[frame - currentFrame - 1] = probability;
-                        }
-                    }
-                    std::fill(forecast.begin() + (end - currentFrame), forecast.end(), 1.0);
-                    return;
-                }
+                miningWorkerLatestEndFrame = earliestMiningEndFrame;
             }
             else
+            {
+                earliestMiningEndFrame = miningWorker->lastStartedMining + 75;
+                miningWorkerLatestEndFrame = earliestMiningEndFrame + 8;
+
+                // If the reset happens after the mining timer expires, the earliest end frame is advanced to the reset point
+                if (previousOrderTimerReset > earliestMiningEndFrame)
+                {
+                    earliestMiningEndFrame = previousOrderTimerReset;
+                    miningWorkerLatestEndFrame = earliestMiningEndFrame + 7;
+                }
+            }
+
+            // If the earliest mining end frame is in the past, we know it hasn't happened yet, so we can advance it to the next frame
+            if (earliestMiningEndFrame <= currentFrame)
+            {
+                earliestMiningEndFrame = currentFrame + 1;
+            }
+
+            // If the earliest mining end frame is beyond the end of the horizon, flag as fully saturated and return
+            if (earliestMiningEndFrame > (currentFrame + PATCH_OCCUPIED_HORIZON))
             {
                 fullySaturated = true;
                 return;
             }
-        }
 
-        if (!miningWorker) return;
-
-        // Compute the mining end frame if there was no order timer reset
-        int miningEndFrame = miningWorker->lastStartedMining + 81;
-
-        // Check for an order process timer reset during mining
-        int previousOrderTimerReset = OrderProcessTimer::previousResetFrame(miningEndFrame);
-        if (previousOrderTimerReset < miningWorker->lastStartedMining)
-        {
-            // There was no reset, so we can just write 1s until the end frame
-            // We don't need to consider the takeover case since that would indicate there was a reset
-            miningWorkerLatestEndFrame = miningEndFrame;
-
-            int length = std::min(miningEndFrame - currentFrame - 1, PATCH_OCCUPIED_HORIZON);
-            if (length == PATCH_OCCUPIED_HORIZON)
+            // Detect patch lock on the taking-over worker and mark the patch fully saturated
+            // The only special case to consider is when the frame after WaitForMinerals was a reset frame and is in the recent past, which we
+            // handle later
+            if (nextMiningWorker && nextMiningWorker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals && (
+                    nextMiningWorker->lastTransitionedToWaitForMineralsOrder < (currentFrame - 6) ||
+                    !OrderProcessTimer::isResetFrame(nextMiningWorker->lastTransitionedToWaitForMineralsOrder + 1)))
             {
                 fullySaturated = true;
+                return;
+            }
+
+            auto initializeMiningWorker = [&]<WorkerOrdering workerOrdering>()
+            {
+                // Fill the arrays up to the earliest mining end frame
+                std::fill_n(start.begin(), earliestMiningEndFrame - currentFrame, 1.0);
+                std::fill_n(end.begin(), earliestMiningEndFrame - currentFrame - 1, 1.0);
+                if constexpr (workerOrdering == WorkerOrdering::MiningWorkerFirst)
+                {
+                    std::fill_n(middle.begin(), earliestMiningEndFrame - currentFrame - 1, 1.0);
+                }
+                else if constexpr (workerOrdering == WorkerOrdering::NextMiningWorkerFirst)
+                {
+                    std::fill_n(middle.begin(), earliestMiningEndFrame - currentFrame, 1.0);
+                }
+
+                // If the mining end frame is known, nothing else is needed
+                if (earliestMiningEndFrame == *miningWorkerLatestEndFrame)
+                {
+                    return;
+                }
+
+                // There was an order process timer reset, so we need to generate a decaying probability of the patch being mined between the earliest
+                // and latest end frames
+
+                // Get the mining worker's possible order process timer values at the start of the next frame
+                auto miningWorkerOrderProcessTimerStartOfNextFrame =
+                    OrderProcessTimer::atStartOfNextFrame(currentFrame, miningWorker->possibleOrderProcessTimerValues);
+
+                // Determine the possible order process timer values at the earliest mining end frame
+                auto orderProcessTimerValues = OrderProcessTimer::atStartOfFrameAtDelta(
+                    currentFrame + 1,
+                    miningWorkerOrderProcessTimerStartOfNextFrame,
+                    {},
+                    {},
+                    earliestMiningEndFrame - currentFrame - 1);
+
+                // Refine the latest end frame based on the possible order process timer values (this might shift it one frame earlier)
+                miningWorkerLatestEndFrame = earliestMiningEndFrame + *orderProcessTimerValues.rbegin();
+
+                // Generate the decaying probability of mining ending at each frame using the possible order process timer values
+                double step = 1.0 / (double)orderProcessTimerValues.size();
+                double probabilityStart = 1.0;
+                double probabilityEnd = 1.0;
+                for (int frame = currentFrame + 1; frame <= *miningWorkerLatestEndFrame; ++frame)
+                {
+                    int arrayIdx = frame - currentFrame - 1;
+                    if (arrayIdx >= PATCH_OCCUPIED_HORIZON) break;
+
+                    if (orderProcessTimerValues.contains(frame - earliestMiningEndFrame))
+                    {
+                        probabilityEnd -= step;
+                    }
+
+                    start[arrayIdx] = probabilityStart;
+                    end[arrayIdx] = probabilityEnd;
+                    if constexpr (workerOrdering == WorkerOrdering::MiningWorkerFirst)
+                    {
+                        middle[arrayIdx] = probabilityEnd;
+                    }
+                    else if constexpr (workerOrdering == WorkerOrdering::NextMiningWorkerFirst)
+                    {
+                        middle[arrayIdx] = probabilityStart;
+                    }
+
+                    probabilityStart = probabilityEnd;
+                }
+            };
+
+            if (nextMiningWorker)
+            {
+                if (miningWorker->orderProcessIndex > nextMiningWorker->orderProcessIndex)
+                {
+                    initializeMiningWorker.operator()<WorkerOrdering::MiningWorkerFirst>();
+                }
+                else if (miningWorker->orderProcessIndex < nextMiningWorker->orderProcessIndex)
+                {
+                    initializeMiningWorker.operator()<WorkerOrdering::NextMiningWorkerFirst>();
+                }
+                else
+                {
+                    initializeMiningWorker.operator()<WorkerOrdering::Other>();
+                }
             }
             else
             {
-                std::fill_n(forecast.begin(), std::min(miningEndFrame - currentFrame - 1, PATCH_OCCUPIED_HORIZON), 1.0);
-            }
-            return;
-        }
-
-        int earliestMiningEndFrame = miningWorker->lastStartedMining + 75;
-        miningWorkerLatestEndFrame = earliestMiningEndFrame + 8;
-
-        // If the reset happens after the mining timer expires, the earliest end frame is advanced to the reset point
-        if (previousOrderTimerReset > earliestMiningEndFrame)
-        {
-            earliestMiningEndFrame = previousOrderTimerReset;
-            miningWorkerLatestEndFrame = earliestMiningEndFrame + 7;
-        }
-
-        // If the earliest mining end frame is beyond the end of the horizon, flag as fully saturated and return
-        if (earliestMiningEndFrame > (currentFrame + PATCH_OCCUPIED_HORIZON))
-        {
-            fullySaturated = true;
-            return;
-        }
-
-        // If the worker taking over will definitely be patch locked by the earliest end frame, flag as fully saturated and return
-        int extraTakeoverFrame = 0;
-        if (nextMiningWorker && miningWorker->orderProcessIndex <= nextMiningWorker->orderProcessIndex) extraTakeoverFrame = 1;
-        if (latestTakeoverWorkerFrame && (*latestTakeoverWorkerFrame + extraTakeoverFrame) <= earliestMiningEndFrame)
-        {
-            fullySaturated = true;
-            return;
-        }
-
-        // Fill the array up to the earliest end frame to indicate that the patch is definitely being mined until that point
-        if (earliestMiningEndFrame > currentFrame)
-        {
-            std::fill_n(forecast.begin(), std::min(earliestMiningEndFrame - currentFrame - 1, PATCH_OCCUPIED_HORIZON), 1.0);
-        }
-        else
-        {
-            // Mining could have ended by now, but it hasn't, so move the earliest mining end frame to the next frame
-            earliestMiningEndFrame = currentFrame + 1;
-        }
-
-        // Get the mining worker's possible order process timer values at the start of the next frame
-        // This is equivalent to the values at the end of the current frame unless the next frame is a reset
-        auto miningWorkerOrderProcessTimerStartOfNextFrame = miningWorker->possibleOrderProcessTimerValues;
-        if (OrderProcessTimer::isResetFrame(currentFrame + 1))
-        {
-            miningWorkerOrderProcessTimerStartOfNextFrame = {0, 1, 2, 3, 4, 5, 6, 7};
-        }
-
-        // Determine the possible order process timer values at the earliest mining end frame
-        auto orderProcessTimerValues = OrderProcessTimer::atStartOfFrameAtDelta(
-            currentFrame + 1,
-            miningWorkerOrderProcessTimerStartOfNextFrame,
-            {},
-            {},
-            earliestMiningEndFrame - currentFrame - 1);
-
-        int minOrderProcessTimerResetValue = INT_MAX;
-        int maxOrderProcessTimerResetValue = 0;
-        for (auto value : orderProcessTimerValues)
-        {
-            minOrderProcessTimerResetValue = std::min(minOrderProcessTimerResetValue, value);
-            maxOrderProcessTimerResetValue = std::max(maxOrderProcessTimerResetValue, value);
-        }
-        miningWorkerLatestEndFrame = earliestMiningEndFrame + maxOrderProcessTimerResetValue;
-
-        // If there is no takeover worker also waiting, generate the decaying probability using the possible order process timer values
-        if (!latestTakeoverWorkerFrame)
-        {
-            double step = 1.0 / (double)orderProcessTimerValues.size();
-            double probabilityHere = 1.0;
-            for (int frame = currentFrame + 1; frame < *miningWorkerLatestEndFrame; ++frame)
-            {
-                int arrayIdx = frame - currentFrame - 1;
-                if (arrayIdx >= PATCH_OCCUPIED_HORIZON) break;
-
-                if (orderProcessTimerValues.contains(frame - earliestMiningEndFrame))
-                {
-                    probabilityHere -= step;
-                }
-
-                forecast[arrayIdx] = probabilityHere;
-            }
-            return;
-        }
-
-        // We are in the rare case where the mining worker and the taking over worker are in an order process timer countdown race
-        // If the taking over worker "wins" and patch locks before the mining worker is finished, there will be no delay
-
-        // Start by advancing the takeover probability to its value on the next frame
-        double takeoverProbability = 0.0;
-        for (int frame = nextMiningWorker->lastTransitionedToWaitForMineralsOrder + 1; frame <= currentFrame; ++frame)
-        {
-            takeoverProbability += 0.125;
-        }
-
-        // Initialize the parameters for the mining end probability
-        double miningEndStep = 1.0 / (double)orderProcessTimerValues.size();
-        double miningEndProbability = 1.0;
-
-        // Now loop the frames forward and compute the total probability at each step
-        for (int frame = currentFrame + 1; frame < *latestTakeoverWorkerFrame; ++frame)
-        {
-            takeoverProbability += 0.125;
-            if (frame < earliestMiningEndFrame)
-            {
-                forecast[frame - currentFrame - 1] = 1.0;
-            }
-            else
-            {
-                if (orderProcessTimerValues.contains(frame - earliestMiningEndFrame))
-                {
-                    miningEndProbability -= miningEndStep;
-                }
-
-                auto baseProbability = takeoverProbability - (0.125 * (double)extraTakeoverFrame);
-                forecast[frame - currentFrame - 1] = baseProbability + ((1.0 - baseProbability) * miningEndProbability);
+                initializeMiningWorker.operator()<WorkerOrdering::Other>();
             }
         }
 
-        std::fill(forecast.begin() + (*latestTakeoverWorkerFrame - currentFrame - 1), forecast.end(), 1.0);
+        // Handle the next mining worker transitioning to mining or patch lock
+        if (nextMiningWorker && nextMiningWorker->bwapiUnit->getOrder() == BWAPI::Orders::WaitForMinerals)
+        {
+            usePatchLockFrame(nextMiningWorker->lastTransitionedToWaitForMineralsOrder);
+        }
     }
 
     void PatchOccupiedForecast::useTakeoverFrame(int frame)
     {
+        if (!nextMiningWorker)
+        {
+            Log::Get() << "ERROR: Called useTakeoverFrame without a next mining worker being defined";
+            return;
+        }
+
+        // Validate bounds
+        int frameIdx = frame - startFrame; // Index of the action frame
+        if (frameIdx >= GATHER_FORECAST_FRAMES) return;
+        if (frameIdx < 0)
+        {
+            fullySaturated = true;
+            return;
+        }
+
         // This method is used to indicate that a worker will at the latest take over at the given frame
-        // This means we can just set 1s from that point onwards, taking into consideration that the action will happen one frame later
-        std::fill(forecast.begin() + std::max(0, frame - startFrame), forecast.end(), 1.0);
+        // This means we can just set 1s in the appropriate arrays from that point onwards, taking into consideration that the action will happen one
+        // frame later
+        std::fill(end.begin() + frameIdx, end.end(), 1.0);
+        std::fill(start.begin() + frameIdx + 1, start.end(), 1.0);
+        if (miningWorker)
+        {
+            if (nextMiningWorker->orderProcessIndex > miningWorker->orderProcessIndex)
+            {
+                std::fill(middle.begin() + frameIdx, middle.end(), 1.0);
+            }
+            else if (nextMiningWorker->orderProcessIndex < miningWorker->orderProcessIndex)
+            {
+                std::fill(middle.begin() + frameIdx + 1, middle.end(), 1.0);
+            }
+        }
     }
 
     void PatchOccupiedForecast::usePatchLockFrame(int frame)
     {
+        if (!nextMiningWorker)
+        {
+            Log::Get() << "ERROR: Called usePatchLockFrame without a next mining worker being defined";
+            return;
+        }
+
         // This method is used to indicate that a worker will patch lock at the given frame
         // The currently-mining worker may however already be finished with mining, in which case the worker will take over instead
+
+        // Nothing is needed if we already know the patch is fully saturated
+        if (fullySaturated) return;
 
         // An order process timer reset immediately after the patch lock will cause the worker to remain in the WaitForMinerals state until the new
         // order process timer cycle gets back to 0
         // Handle the non-reset case first since it is much simpler
         if (!OrderProcessTimer::isResetFrame(frame + 1))
         {
-            // Start by validating the bounds, and if we know the patch is still being mined at the given frame, mark the forecast as
-            // fully saturated immediately and return
-            int frameIdx = frame - startFrame - 1;
-            if (frameIdx >= GATHER_FORECAST_FRAMES) return;
-            if (frameIdx < 0 || forecast[frameIdx] > 0.9999)
+            // Calidating the bounds
+            int frameIdx = frame - startFrame; // Index of the action frame
+            if (frameIdx > GATHER_FORECAST_FRAMES) return;
+            if (frameIdx < 0)
             {
                 fullySaturated = true;
                 return;
             }
 
-            // When we get here, we are in a situation where the mining worker may or may not still be mining at the given frame
-            // If the mining worker has finished by the time the taking over worker begins, the patch will be occupied from the next frame
-            // The probability of this happening is the probability at the frame if the mining worker's orders are processed first, or the
-            // probability from the previous frame otherwise
-            if (frameIdx > 0 && miningWorker && miningWorker->orderProcessIndex >= nextMiningWorker->orderProcessIndex)
+            // This logic is pretty much the same as for takeover, but we check if the mining worker is definitely mining at the patch lock moment
+            // and flag fully saturated if this is the case
+            if (miningWorker)
             {
-                forecast[frameIdx] = forecast[frameIdx - 1];
-            }
+                if (nextMiningWorker->orderProcessIndex > miningWorker->orderProcessIndex)
+                {
+                    if (start[frameIdx] > 0.999)
+                    {
+                        fullySaturated = true;
+                        return;
+                    }
 
-            if ((frameIdx + 1) < GATHER_FORECAST_FRAMES) std::fill(forecast.begin() + frameIdx + 1, forecast.end(), 1.0);
+                    std::fill(middle.begin() + frameIdx, middle.end(), 1.0);
+                }
+                else if (nextMiningWorker->orderProcessIndex < miningWorker->orderProcessIndex)
+                {
+                    if (middle[frameIdx] > 0.999)
+                    {
+                        fullySaturated = true;
+                        return;
+                    }
+
+                    std::fill(middle.begin() + frameIdx + 1, middle.end(), 1.0);
+                }
+                else
+                {
+                    if (end[frameIdx] > 0.999)
+                    {
+                        fullySaturated = true;
+                        return;
+                    }
+                }
+            }
+            std::fill(end.begin() + frameIdx, end.end(), 1.0);
+            std::fill(start.begin() + frameIdx + 1, start.end(), 1.0);
             return;
         }
 
-        // There is a reset, so compute the bounds of the possible action frames
+        // There is a reset, so we generate an increasing probability of reaching the action frame
 
-        // Shift the probability lower if the mining worker's orders are processed first
-        double takeoverProbability;
-        if (miningWorker && miningWorker->orderProcessIndex >= nextMiningWorker->orderProcessIndex)
+        double probability = 0.0;
+        fullySaturated = true; // reset in the loop if we find a frame where it isn't true
+        for (int f = frame + 1; f < (frame + 8); ++f)
         {
-            takeoverProbability = -0.125;
-        }
-        else
-        {
-            takeoverProbability = 0.0;
-        }
-
-        // Generate the increasing takeover probability and use it to modify the current probability generated from the mining worker's timings
-        for (int f = frame + 1; f < (frame + 9); ++f)
-        {
-            takeoverProbability += 0.125;
+            probability += 0.125;
 
             int frameIdx = f - startFrame - 1;
             if (frameIdx < 0) continue;
-            if (frameIdx >= PATCH_OCCUPIED_HORIZON) return;
+            if (frameIdx >= PATCH_OCCUPIED_HORIZON) break;
 
-            forecast[frameIdx] = takeoverProbability + ((1.0 - takeoverProbability) * forecast[frameIdx]);
+            if (miningWorker && nextMiningWorker->orderProcessIndex > miningWorker->orderProcessIndex)
+            {
+                if (end[frameIdx] > 0.999) continue;
+
+                middle[frameIdx] = probability + ((1.0 - probability) * middle[frameIdx]);
+            }
+            else if (miningWorker && nextMiningWorker->orderProcessIndex < miningWorker->orderProcessIndex)
+            {
+                if (middle[frameIdx] > 0.999) continue;
+
+                if ((frameIdx + 1) < PATCH_OCCUPIED_HORIZON)
+                {
+                    middle[frameIdx + 1] = probability + ((1.0 - probability) * middle[frameIdx + 1]);
+                }
+            }
+            else if (miningWorker && nextMiningWorker->orderProcessIndex == miningWorker->orderProcessIndex)
+            {
+                if (end[frameIdx] > 0.999) continue;
+            }
+
+            end[frameIdx] = probability + ((1.0 - probability) * end[frameIdx]);
+            if ((frameIdx + 1) < PATCH_OCCUPIED_HORIZON)
+            {
+                start[frameIdx + 1] = probability + ((1.0 - probability) * start[frameIdx + 1]);
+            }
+
+            fullySaturated = false;
         }
 
-        // Fill in the rest of the forecast from the frame where the worker is definitely going to have taken over
-        int lastFrameIdx = frame + 9 - startFrame - 1;
-        if (lastFrameIdx >= 0 && lastFrameIdx < PATCH_OCCUPIED_HORIZON)
-        {
-            std::fill(forecast.begin() + lastFrameIdx, forecast.end(), 1.0);
-        }
+        if (fullySaturated) return;
+
+        // Fill the rest of the forecast from the frame where the worker is definitely going to have taken over
+        useTakeoverFrame(frame + 8);
     }
 }

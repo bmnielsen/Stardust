@@ -27,7 +27,9 @@ namespace MiningOptimization
             std::string sep;
             for (int i = 0; i < std::min(10, PATCH_OCCUPIED_HORIZON); i++)
             {
-                os << sep << f.forecast[i];
+                os << sep << f.start[i];
+                if (f.orderProcessIndices.size() == 2) os << "|" << f.middle[i];
+                os << "|" << f.end[i];
                 sep = ", ";
             }
             out << os.str();
@@ -39,17 +41,12 @@ namespace MiningOptimization
 
         std::optional<int> miningWorkerLatestEndFrame;
 
-        [[nodiscard]] double atFrame(int frame) const
-        {
-            int frameIdx = frame - startFrame - 1;
-            if (frameIdx < 0 || frameIdx >= GATHER_FORECAST_FRAMES) return 0.0;
-            return fullySaturated ? 1.0 : forecast[frameIdx];
-        }
-
-        // Update the forecast for takeover at the given frame
+        // Update the forecast for takeover by the next mining worker at the given frame
+        // The given frame should correspond to the frame where the worker transitions to WaitForMinerals
         void useTakeoverFrame(int frame);
 
-        // Update the forecast for patch locking at the given frame
+        // Update the forecast for patch locking by the next mining worker at the given frame
+        // The given frame should correspond to the frame where the worker transitions to WaitForMinerals
         void usePatchLockFrame(int frame);
 
     private:
@@ -59,6 +56,17 @@ namespace MiningOptimization
         // If true, the forecast is for the patch to be mined through the entire forecast horizon
         bool fullySaturated = false;
 
-        std::array<double, PATCH_OCCUPIED_HORIZON> forecast = {0.0};
+        // The order process indices of the worker(s), used to determine which forecast array is relevant for aggregations
+        std::set<int> orderProcessIndices;
+
+        // The forecast before the first worker's orders are processed
+        std::array<double, PATCH_OCCUPIED_HORIZON> start = {0.0};
+
+        // The forecast between the two workers' orders being processed
+        // Unused if there is only one worker
+        std::array<double, PATCH_OCCUPIED_HORIZON> middle = {0.0};
+
+        // The forecast after the second worker's orders are processed
+        std::array<double, PATCH_OCCUPIED_HORIZON> end = {0.0};
     };
 }

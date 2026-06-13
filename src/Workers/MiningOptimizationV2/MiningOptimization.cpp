@@ -282,7 +282,7 @@ namespace MiningOptimization
                 auto &[workerOptimizer, takeoverActionFrames, selectedTakeoverFrame] = *it;
 
                 // Compute the forecast of all other workers being mined
-                OtherPatchesOccupiedForecast forecast(workerOptimizer->resource, patchToOccupiedForecast);
+                OtherPatchesOccupiedForecast forecast(workerOptimizer->resource, patchToOccupiedForecast, workerOptimizer->worker);
 
                 // Try to find an earlier frame than the current desired takeover frame where we probably can patch lock
                 for (auto frame : takeoverActionFrames)
