@@ -52,6 +52,15 @@ namespace MiningOptimization
         // Update the forecast for the given action frame probabilities
         void useActionFrameProbabilities(const std::map<int, double> &actionFramesAndProbabilities);
 
+        // Gets the probability of the patch being mined at the end of the given frame
+        [[nodiscard]] double atEndOfFrame(int frame) const
+        {
+            if (fullySaturated) return 1.0;
+            int frameIdx = frame - startFrame - 1;
+            if (frameIdx < 0 || frameIdx >= GATHER_FORECAST_FRAMES) return 0.0;
+            return end[frameIdx];
+        }
+
     private:
         Resource patch;
         int startFrame;

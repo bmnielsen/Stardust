@@ -131,6 +131,12 @@ namespace MiningOptimization
                 expectedPath->actionFramesWithProbabilities.begin()->first == (takeoverFrame + 1))
             {
                 expectedTakeoverFrame = takeoverFrame;
+                takeoverResendFrames.clear();
+#if LOGGING_ENABLED
+                CherryVis::log(worker->id) << "Planned takeover frame of " << takeoverFrame
+                                           << " using normal pathing arrival";
+#endif
+
                 return;
             }
 
@@ -307,6 +313,17 @@ namespace MiningOptimization
         {
             CherryVis::log(worker->id) << "mineral field unit not visible";
             return true;
+        }
+
+        // Handle a special case where the worker has transitioned to WaitForMinerals while a resend was pending
+        // This can happen in cases where we get different path arrival than expected and didn't realize we would patch lock, so sent another resend
+        // ahead of time
+        // The result is that the worker spends an extra frame in ResetHarvestCollision that bumps the timing one frame into the future
+        if (worker->bwapiUnit->getOrder() == BWAPI::Orders::ResetCollision &&
+            hasFlag(StatusFlags::IssuedTakeoverResend) && expectedTakeoverFrame != -1 &&
+            executedResendFrames.contains(currentFrame - BWAPI::Broodwar->getLatencyFrames() - 1))
+        {
+            ++expectedTakeoverFrame;
         }
 
         // Ensure the worker is targeting the correct resource
