@@ -11,6 +11,8 @@
 #include <ranges>
 #include <optional>
 
+#include "LogFormattingUtil.h"
+
 #define OCCURRENCE_SCALE 127
 
 namespace MiningOptimization
@@ -26,26 +28,14 @@ namespace MiningOptimization
 
         friend std::ostream &operator<<(std::ostream &os, const InitialSplitRotation &rotation)
         {
-            auto outIntCollection = [&os]<typename T>(const T &intCollection)
-            {
-                os << "[";
-                std::string sep;
-                for (auto val : intCollection)
-                {
-                    os << sep << val;
-                    sep = ",";
-                }
-                os << "]";
-            };
-
             os << "resends: ";
             if (rotation.delayFrames > 0) os << "delay " << (unsigned int)rotation.delayFrames << "; ";
-            outIntCollection(rotation.resendFrames);
+            LogFormattingUtil::formatVectorlike(rotation.resendFrames);
             os << "; gather arrival: " << rotation.gatherArrivalFrame;
             os << "; gather action: " << rotation.gatherActionFrame;
             os << "; return arrival: " << rotation.returnArrivalFrame;
             os << "; return actions: ";
-            outIntCollection(std::views::keys(rotation.returnActionFramesToOccurrences));
+            LogFormattingUtil::formatVectorlike(std::views::keys(rotation.returnActionFramesToOccurrences));
 
             return os;
         }

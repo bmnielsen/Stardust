@@ -27,4 +27,19 @@ namespace LogFormattingUtil
         }
         return out.str();
     }
+
+    template <typename T>
+    std::string formatVectorlike(const T &vector)
+    {
+        std::ostringstream out;
+        out << "[";
+        std::string sep;
+        for (auto val : vector)
+        {
+            out << sep << val;
+            sep = ",";
+        }
+        out << "]";
+        return out.str();
+    }
 }

@@ -231,16 +231,9 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
         possibleOrderProcessTimerValues = std::move(newPossibleOrderProcessTimerValues);
     }
 
-#if DEBUG_ORDERPROCESSTIMER || VALIDATE_ORDERPROCESSTIMER
-    std::ostringstream values;
-    std::string sep;
-    for (auto value : possibleOrderProcessTimerValues)
-    {
-        values << sep << value;
-        sep = ",";
-    }
 #if DEBUG_ORDERPROCESSTIMER
-    CherryVis::log(id) << "Timer: actual=" << bwapiUnit->getOrderProcessTimer() << "; predicted=[" << values.str() << "]";
+    CherryVis::log(id) << "Timer: actual=" << bwapiUnit->getOrderProcessTimer() << "; predicted="
+                       << LogFormattingUtil::formatVectorlike(possibleOrderProcessTimerValues);
 #endif
 
 #if VALIDATE_ORDERPROCESSTIMER
@@ -248,13 +241,13 @@ void MyWorkerImpl::update(BWAPI::Unit unit)
     {
         if (!possibleOrderProcessTimerValues.contains(bwapiUnit->getOrderProcessTimer()))
         {
-            Log::Get() << "Order process timer wrong, " << bwapiUnit->getOrderProcessTimer() << " not in [" << values.str() << "]"
+            Log::Get() << "Order process timer wrong, " << bwapiUnit->getOrderProcessTimer() << " not in "
+                       << LogFormattingUtil::formatVectorlike(possibleOrderProcessTimerValues)
                        << "; worker " << id << " @ " << getTilePosition();
         }
     }
 #endif
-#endif
-    
+
     previousOrder = bwapiUnit->getOrder();
 }
 

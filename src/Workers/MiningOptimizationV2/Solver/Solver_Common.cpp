@@ -295,6 +295,7 @@ namespace MiningOptimization
             // Get the result
             auto resendResult = processNextNodes(here, next, nextFrame + 1, nodeTenDistanceFrame, resendsHere, nextWorkerOrderProcessTimer);
             resendResult.resendFramesOnThisBranch.insert(nextFrame);
+            resendResult.resendFramesOnAllBranches.insert(nextFrame);
 
             // Score the two results and return the best one
             auto scoreResult = [](const SolverResult<ObservationType> &result)
@@ -344,6 +345,9 @@ namespace MiningOptimization
             addObservations(nodeResult.arrivalDataWithProbabilities, result.arrivalDataWithProbabilities);
             addObservations(nodeResult.actionFramesWithProbabilities, result.actionFramesWithProbabilities);
             addObservations(nodeResult.delaysWithProbabilities, result.delaysWithProbabilities);
+
+            result.resendFramesOnAllBranches.insert(nodeResult.resendFramesOnAllBranches.begin(), nodeResult.resendFramesOnAllBranches.end());
+
 #if USE_NEXT_PATH_LENGTHS
             addObservations(nodeResult.nextPathLengthWithProbabilities, result.nextPathLengthWithProbabilities);
 #endif

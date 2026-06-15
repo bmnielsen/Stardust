@@ -53,6 +53,9 @@ namespace MiningOptimization
         // Frames where we intend to resend while on this branch
         std::set<int> resendFramesOnThisBranch;
 
+        // The total set of frames we might resend from this branch onwards
+        std::set<int> resendFramesOnAllBranches;
+
         // The predicted arrival data to the patch or depot
         std::map<SolverArrivalData, double> arrivalDataWithProbabilities;
 

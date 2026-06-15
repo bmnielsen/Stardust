@@ -937,14 +937,7 @@ namespace WorkerMiningInstrumentation
             CherryVis::log() << "Mining efficiency over entire game: " << miningEfficiency;
             Log::Get() << "50th mineral frame: " << WorkerMiningInstrumentation::getFiftiethMineralFrame();
 #if TRACK_MINING_EFFICIENCY_VERBOSE
-            std::ostringstream frames;
-            std::string sep;
-            for (auto &frame : WorkerMiningInstrumentation::getThousandMineralFrames())
-            {
-                frames << sep << frame;
-                sep = ", ";
-            }
-            Log::Get() << "Thousand mineral frames: " << frames.str();
+            Log::Get() << "Thousand mineral frames: " << LogFormattingUtil::formatVectorlike(WorkerMiningInstrumentation::getThousandMineralFrames());
 #endif
         }
 #endif

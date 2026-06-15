@@ -195,6 +195,7 @@ namespace MiningOptimization
                 {
                     // Patch the resend frames into the expected path and clear the remaining path information
                     expectedPath->resendFramesOnThisBranch = std::move(*resendFrames);
+                    expectedPath->resendFramesOnAllBranches = expectedPath->resendFramesOnThisBranch;
                     expectedPath->pathToNextBranch.clear();
                     expectedPath->nextBranches.clear();
 
@@ -297,6 +298,7 @@ namespace MiningOptimization
         if (expectedPath && expectedPath->resendFramesOnThisBranch.contains(currentFrame))
         {
             expectedPath->resendFramesOnThisBranch.erase(currentFrame);
+            expectedPath->resendFramesOnAllBranches.erase(currentFrame);
             resend();
             if (takeoverResendFrames.contains(currentFrame))
             {

@@ -28,24 +28,6 @@
 
 namespace MiningOptimization
 {
-    namespace
-    {
-        std::string outSet(const std::set<int> &intSet)
-        {
-            std::ostringstream os;
-            std::string sep;
-            os << "[";
-            for (const auto &val : intSet)
-            {
-                os << sep << val;
-                sep = ",";
-            }
-            os << "]";
-            return os.str();
-        }
-
-    }
-
     template <>
     std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int latestTakeoverFrame)
     {
@@ -83,16 +65,7 @@ namespace MiningOptimization
 
         // Gather all of the resend frames we might use
         std::set<int> allResendFrames = executedResendFrames;
-        std::function<void(const SolverResult<GatherArrivalData>&)> processSolverResult;
-        processSolverResult = [&](const SolverResult<GatherArrivalData> &solverResult)
-        {
-            allResendFrames.insert(solverResult.resendFramesOnThisBranch.begin(), solverResult.resendFramesOnThisBranch.end());
-            for (const auto &next : solverResult.nextBranches)
-            {
-                processSolverResult(next);
-            }
-        };
-        if (expectedPath) processSolverResult(*expectedPath);
+        if (expectedPath) allResendFrames.insert(expectedPath->resendFramesOnAllBranches.begin(), expectedPath->resendFramesOnAllBranches.end());
 
         // Generate frames that don't have an unfortunate order process timer reset or collide with an already-planned resend
         for (int resendTakesEffectFrame = startFrame; resendTakesEffectFrame <= latestTakeoverFrame; ++resendTakesEffectFrame)
@@ -110,7 +83,7 @@ namespace MiningOptimization
             if (takeoverFrame >= latestTakeoverFrame) break;
         }
 
-        CherryVis::log(worker->id) << "Possible takeover frames: " << outSet(result);
+        CherryVis::log(worker->id) << "Possible takeover frames: " << LogFormattingUtil::formatVectorlike(result);
 
         return result;
     }
@@ -277,7 +250,7 @@ namespace MiningOptimization
                                    << ": takeoverResendFrame=" << takeoverResendFrame
                                    << "; switchPatchResendFrame=" << switchPatchResendFrame
                                    << "; resetResendFrame=" << resetResendFrame
-                                   << "; resends=" << outSet(takeoverResendFrames);
+                                   << "; resends=" << LogFormattingUtil::formatVectorlike(takeoverResendFrames);
 #endif
     }
 

@@ -57,6 +57,7 @@ namespace MiningOptimization
         out << "Arrival frames: " << LogFormattingUtil::formatProbabilityMap(arrivalDataWithProbabilities);
         out << "\nAction frames: " << LogFormattingUtil::formatProbabilityMap(actionFramesWithProbabilities);
         out << "\nPost-action delays: " << LogFormattingUtil::formatProbabilityMap(delaysWithProbabilities);
+        out << "\nAll resend frames: " << LogFormattingUtil::formatVectorlike(resendFramesOnAllBranches);
         return out.str();
     }
 
