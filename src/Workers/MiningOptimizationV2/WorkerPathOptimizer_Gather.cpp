@@ -127,8 +127,11 @@ namespace MiningOptimization
         }
 
         // Generate frames that don't have an unfortunate order process timer reset or collide with an already-planned resend
-        for (int resendTakesEffectFrame = startFrame; resendTakesEffectFrame <= latestTakeoverFrame; ++resendTakesEffectFrame)
+        int resendTakesEffectFrame = startFrame - 1;
+        while (true)
         {
+            ++resendTakesEffectFrame;
+
             // Don't use resends with an uncertain action frame due to order process timer resets
             int framesToNextReset = OrderProcessTimer::framesToNextReset(resendTakesEffectFrame);
             if (framesToNextReset > 0 && framesToNextReset < 12) continue;
@@ -229,7 +232,7 @@ namespace MiningOptimization
         auto addNextViableResendFrame = [&](int frame)
         {
             // Try four frames before giving up
-            for (int f = frame; f < (frame + 4); f++)
+            for (int f = frame; f <= (frame + 4); f++)
             {
                 // If the frame has already been used as a resend frame, we don't need to handle this case
                 if (allResendFrames.contains(f)) return;
