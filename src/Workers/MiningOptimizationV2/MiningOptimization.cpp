@@ -209,19 +209,9 @@ namespace MiningOptimization
             int desiredTakeoverFrame = *forecast.miningWorkerLatestEndFrame;
             if (workerOptimizer->worker->orderProcessIndex >= forecast.miningWorker->orderProcessIndex) ++desiredTakeoverFrame;
 
-            // If the worker is pathing and won't arrive in time to do any kind of patch locking, just add its data and remove it
-            auto earliestActionFrame = workerOptimizer->earliestActionFrame();
-            if (earliestActionFrame && desiredTakeoverFrame < *earliestActionFrame)
-            {
-                workerOptimizer->addExpectedActionDataToPatchForecast(forecast);
-                workerOptimizer->issueOrders();
-                it = takeoverWorkers.erase(it);
-                continue;
-            }
-
             // Get the set of frames the worker can achieve
             // These are based on the arrival frame along with the possibilities to resend prior to arrival
-            takeoverActionFrames = workerOptimizer->takeoverActionFrames(desiredTakeoverFrame);
+            takeoverActionFrames = workerOptimizer->takeoverActionFrames(desiredTakeoverFrame, forecast);
 
             // Pick the earliest action frame after the takeover frame
             int earliestTakeoverFrame = INT_MAX;

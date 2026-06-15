@@ -28,8 +28,36 @@
 
 namespace MiningOptimization
 {
+    namespace
+    {
+        std::multiset<int> orderProcessTimerAtTenDistanceFrame(const MyWorker &worker, const std::set<int> resendFrames, int tenDistanceFrame)
+        {
+            auto orderProcessTimerValues = OrderProcessTimer::atStartOfFrameAtDelta(
+                currentFrame + 1,
+                OrderProcessTimer::atStartOfNextFrame(currentFrame, worker->possibleOrderProcessTimerValues),
+                resendFrames,
+                {},
+                tenDistanceFrame - currentFrame - 1);
+
+            // If there was a recent resend, override the order process timer value to simulate the fact that a 0 value won't actually take
+            // effect here
+            if (orderProcessTimerValues.size() == 1 && orderProcessTimerValues.contains(0))
+            {
+                for (int i = 0; i <= 1; i++)
+                {
+                    if (resendFrames.contains(tenDistanceFrame - BWAPI::Broodwar->getLatencyFrames() - i - 1))
+                    {
+                        orderProcessTimerValues = {9 + i};
+                    }
+                }
+            }
+
+            return orderProcessTimerValues;
+        }
+    }
+
     template <>
-    std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int latestTakeoverFrame)
+    std::set<int> WorkerPathOptimizer<GatherArrivalData>::takeoverActionFrames(int latestTakeoverFrame, const PatchOccupiedForecast &forecast)
     {
         // We assume if the worker is within 10 pixels of the patch, it will arrive after a resend
         if (!expectedPath && resource->getDistance(worker) > ASSUME_RESEND_ALWAYS_ARRIVES_DISTANCE) return {};
@@ -44,14 +72,49 @@ namespace MiningOptimization
 
         std::set<int> result;
 
-        // If there is a current takeover or pathing action frame, it always gives an achievable takeover frame
+        // Gather all of the resend frames we might use
+        std::set<int> allResendFrames = executedResendFrames;
+        if (expectedPath) allResendFrames.insert(expectedPath->resendFramesOnAllBranches.begin(), expectedPath->resendFramesOnAllBranches.end());
+
+        // If there is a current takeover or pathing action frame, it almost always gives an achievable takeover frame
         if (hasFlag(StatusFlags::IssuedTakeoverResend))
         {
             if (expectedTakeoverFrame != -1) result.insert(expectedTakeoverFrame);
         }
         else if (expectedPath && expectedPath->actionFramesWithProbabilities.size() == 1)
         {
-            result.insert(expectedPath->actionFramesWithProbabilities.begin()->first - 1);
+            auto takeoverFrame = expectedPath->actionFramesWithProbabilities.begin()->first - 1;
+
+            // Check if there might be a patch switch
+            auto patchSwitchWithArrivalData = [&](const SolverArrivalData &arrivalData)
+            {
+                // Consider the ten-distance frame, or the next frame if it has already passed
+                auto frame = std::max(arrivalData.tenDistanceFrame, currentFrame + 1);
+                if (hasFlag(StatusFlags::ReachedTenDistance)) frame = currentFrame + 1;
+
+                // Get the worker's order process timer at the start of the frame
+                auto orderProcessTimerValues = orderProcessTimerAtTenDistanceFrame(worker, allResendFrames, frame);
+
+                // Check if a patch switch may happen when the worker's order timer reaches 0
+                int switchPatchFrame = frame + *orderProcessTimerValues.begin();
+                if (switchPatchFrame >= takeoverFrame) return false;
+                if (forecast.atFrame(switchPatchFrame) > 0.001) return true;
+                return false;
+            };
+
+            bool possiblePatchSwitch = false;
+            if (takeoverFrame > (currentFrame + 8))
+            {
+                for (const auto &[arrivalData, _] : expectedPath->arrivalDataWithProbabilities)
+                {
+                    possiblePatchSwitch = possiblePatchSwitch || patchSwitchWithArrivalData(arrivalData);
+                }
+            }
+
+            if (!possiblePatchSwitch)
+            {
+                result.insert(expectedPath->actionFramesWithProbabilities.begin()->first - 1);
+            }
         }
 
         int startFrame = currentFrame + BWAPI::Broodwar->getLatencyFrames();
@@ -62,10 +125,6 @@ namespace MiningOptimization
                 startFrame = std::max(startFrame, arrivalData.resendAlwaysArrivesFrame);
             }
         }
-
-        // Gather all of the resend frames we might use
-        std::set<int> allResendFrames = executedResendFrames;
-        if (expectedPath) allResendFrames.insert(expectedPath->resendFramesOnAllBranches.begin(), expectedPath->resendFramesOnAllBranches.end());
 
         // Generate frames that don't have an unfortunate order process timer reset or collide with an already-planned resend
         for (int resendTakesEffectFrame = startFrame; resendTakesEffectFrame <= latestTakeoverFrame; ++resendTakesEffectFrame)
@@ -136,25 +195,7 @@ namespace MiningOptimization
         // without a resend
         std::set<int> allResendFrames = executedResendFrames;
         allResendFrames.insert(pathResendFrames.begin(), pathResendFrames.end());
-        auto orderProcessTimerValues = OrderProcessTimer::atStartOfFrameAtDelta(
-            currentFrame + 1,
-            OrderProcessTimer::atStartOfNextFrame(currentFrame, worker->possibleOrderProcessTimerValues),
-            allResendFrames,
-            {},
-            earliestTenDistanceFrame - currentFrame - 1);
-
-        // If there was a recent resend, override the order process timer value to simulate the fact that a 0 value won't actually take
-        // effect here
-        if (orderProcessTimerValues.size() == 1 && orderProcessTimerValues.contains(0))
-        {
-            for (int i = 0; i <= 1; i++)
-            {
-                if (allResendFrames.contains(earliestTenDistanceFrame - BWAPI::Broodwar->getLatencyFrames() - i - 1))
-                {
-                    orderProcessTimerValues = {9 + i};
-                }
-            }
-        }
+        auto orderProcessTimerValues = orderProcessTimerAtTenDistanceFrame(worker, allResendFrames, earliestTenDistanceFrame);
 
         int switchPatchFrame = earliestTenDistanceFrame + *orderProcessTimerValues.begin();
         int switchPatchResendFrame = switchPatchFrame - BWAPI::Broodwar->getLatencyFrames() - 1; // One before to avoid transition to WaitForMinerals

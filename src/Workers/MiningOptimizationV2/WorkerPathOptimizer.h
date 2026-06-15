@@ -116,7 +116,7 @@ namespace MiningOptimization
          */
 
         // Gets the set of takeover action frames that can be achieved with high probability (assuming that we don't lose our path)
-        std::set<int> takeoverActionFrames(int latestTakeoverFrame);
+        std::set<int> takeoverActionFrames(int latestTakeoverFrame, const PatchOccupiedForecast &forecast);
 
         // Tells the optimizer to plan for the given takeover frame
         void useTakeoverFrame(int takeoverFrame);

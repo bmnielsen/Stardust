@@ -52,8 +52,28 @@ namespace MiningOptimization
         // Update the forecast for the given action frame probabilities
         void useActionFrameProbabilities(const std::map<int, double> &actionFramesAndProbabilities);
 
+        // Gets the probability of the patch being mined at the given frame at the time the taking-over worker's orders are processed
+        [[nodiscard]] double atFrame(const int frame) const
+        {
+            if (fullySaturated) return 1.0;
+            int frameIdx = frame - startFrame - 1;
+            if (frameIdx < 0 || frameIdx >= GATHER_FORECAST_FRAMES) return 0.0;
+
+            // If there is only one worker or the workers have the same order process index, return the average of start and end
+            if (orderProcessIndices.size() < 2) return (start[frameIdx] + end[frameIdx]) / 2.0;
+
+            // Next mining worker's orders are processed first
+            if (nextMiningWorker->orderProcessIndex > miningWorker->orderProcessIndex)
+            {
+                return start[frameIdx];
+            }
+
+            // Next mining worker's orders are processed last
+            return middle[frameIdx];
+        }
+
         // Gets the probability of the patch being mined at the end of the given frame
-        [[nodiscard]] double atEndOfFrame(int frame) const
+        [[nodiscard]] double atEndOfFrame(const int frame) const
         {
             if (fullySaturated) return 1.0;
             int frameIdx = frame - startFrame - 1;
