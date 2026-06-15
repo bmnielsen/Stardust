@@ -163,7 +163,7 @@ namespace MiningOptimization
                             resendAlwaysArrivesDelta = takeoverMetadata.second - 1;
                         }
 
-                        resendAlwaysArrives = arrivalFrame - resendAlwaysArrivesDelta + 1;
+                        resendAlwaysArrives = std::max(arrivalFrame - resendAlwaysArrivesDelta + 1, arrivalFrame - 10);
                         if (!previousResends.resendFrames.empty())
                         {
                             resendAlwaysArrives = std::max(resendAlwaysArrives,
