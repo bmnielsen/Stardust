@@ -44,7 +44,11 @@ namespace MiningOptimization
             auto currentPosition = getCurrentPosition(worker);
 
 #if VERBOSE_PATH_LOGGING
+#if IS_OPENBW
+            CherryVis::log(worker->id) << "Trying to find root node @ " << worker->bwapiUnit->getExactPosition();
+#else
             CherryVis::log(worker->id) << "Trying to find root node @ " << currentPosition;
+#endif
 #endif
 
             auto path = pathCache.get(std::make_pair(patchTile, currentPosition));
@@ -61,9 +65,6 @@ namespace MiningOptimization
 
 #if VERBOSE_PATH_LOGGING
                 CherryVis::log(worker->id) << "Captured path and ran solver; predicted frames:\n" << expectedPath->framePredictions();
-#if IS_OPENBW
-                CherryVis::log(worker->id) << worker->bwapiUnit->getExactPosition();
-#endif
 #endif
 
                 pathCache.put(std::move(*path));
@@ -97,7 +98,7 @@ namespace MiningOptimization
                 {
                     setFlag(StatusFlags::ReachedTenDistance);
 
-#if LOGGING_ENABLED
+#if VERBOSE_TAKEOVER_LOGGING
                     if (!hasFlag(StatusFlags::LostPath))
                     {
                         int maxTenDistanceFrame = 0;
@@ -121,11 +122,24 @@ namespace MiningOptimization
             }
         }
 
+        if (hasFlag(StatusFlags::IssuedTakeoverResend))
+        {
+            // Validate that we start transitioning on the expected takeover frame
+            if (currentFrame == expectedTakeoverFrame && worker->bwapiUnit->getOrder() != BWAPI::Orders::WaitForMinerals)
+            {
+                expectedTakeoverFrame = -1;
+
+#if VERBOSE_TAKEOVER_LOGGING
+                Log::Get() << "Didn't reach expected takeover frame: " << *worker;
+#endif
+            }
+
+            return true;
+        }
+
         // Check if we have reached the end of the path
         if (expectedPath->pathToNextBranch.empty() && expectedPath->nextBranches.empty())
         {
-            if (hasFlag(StatusFlags::IssuedTakeoverResend)) return true;
-
             int transitionFrames;
             if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
             {

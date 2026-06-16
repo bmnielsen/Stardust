@@ -15,6 +15,8 @@
 // #include "MineralLockingOptimization/MineralLockingOptimization.h"
 // #define WORKERGATHEROPTIMIZER MineralLockingOptimization
 // #define MINERALS_PER_WORKER_FRAME 0.0465
+// #define GAS_PER_WORKER_FRAME 0.071
+// #define MINERALS_PER_GAS_UNIT 0.655
 
 // Backend that tries to optimize the order process timer only
 // #include "OrderProcessTimerOptimization/WorkerOrderTimer.h"

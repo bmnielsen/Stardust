@@ -145,7 +145,9 @@ namespace MiningOptimization
             if (takeoverFrame >= latestTakeoverFrame) break;
         }
 
+#if VERBOSE_TAKEOVER_LOGGING
         CherryVis::log(worker->id) << "Possible takeover frames: " << LogFormattingUtil::formatVectorlike(result);
+#endif
 
         return result;
     }
@@ -167,7 +169,7 @@ namespace MiningOptimization
             {
                 expectedTakeoverFrame = takeoverFrame;
                 takeoverResendFrames.clear();
-#if LOGGING_ENABLED
+#if VERBOSE_TAKEOVER_LOGGING
                 CherryVis::log(worker->id) << "Planned takeover frame of " << takeoverFrame
                                            << " using normal pathing arrival";
 #endif
@@ -289,7 +291,7 @@ namespace MiningOptimization
 
         expectedTakeoverFrame = takeoverFrame;
 
-#if LOGGING_ENABLED
+#if VERBOSE_TAKEOVER_LOGGING
         CherryVis::log(worker->id) << "Planned takeover frame of " << takeoverFrame
                                    << ": takeoverResendFrame=" << takeoverResendFrame
                                    << "; switchPatchResendFrame=" << switchPatchResendFrame
@@ -356,7 +358,7 @@ namespace MiningOptimization
         {
 #if LOGGING_ENABLED
             CherryVis::log(worker->id) << "targeting different patch; resending order";
-#if ENABLE_TAKEOVER_LOGIC
+#if ENABLE_TAKEOVER_LOGIC && VERBOSE_TAKEOVER_LOGGING
             Log::Get() << "Patch switch; " << *worker;
 #endif
 #endif

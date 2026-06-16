@@ -1301,8 +1301,20 @@ TEST(FullSaturationTraining, BenzeneSingleMeasure)
     BWTest test;
     test.map = Maps::GetOne("Benzene");
     test.randomSeed = 42;
-    test.frameLimit = 3000;
+    // test.frameLimit = 3000;
     auto sgl = runEfficiencyTest(test, 1, 0, false, true, false);
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl;
+}
+
+TEST(FullSaturationTraining, BenzeneSingleMeasureTwoCannons)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Benzene");
+    test.randomSeed = 42;
+    // test.frameLimit = 3000;
+    auto sgl = runEfficiencyTest(test, 1, 2, false, true, false);
     std::cout << std::fixed << std::showpoint << std::setprecision(4)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << std::endl;
