@@ -14,6 +14,9 @@ namespace
 {
     void transform(const std::string &mapHash)
     {
+        Log::initialize();
+        Log::SetOutputToConsole(true);
+
         MapData data;
         InitialWorkerMapData initialWorkerData;
 

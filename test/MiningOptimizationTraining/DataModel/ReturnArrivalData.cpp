@@ -6,7 +6,7 @@ namespace MiningOptimizationTraining
     {
         uint8_t convertSquaredSpeed(uint64_t squaredSpeed)
         {
-            if (squaredSpeed >= 1638400) return 128;
+            if (squaredSpeed >= 1612900) return 127;
             return (uint8_t)std::round(std::sqrt((double)squaredSpeed) / 10.0);
         }
     }

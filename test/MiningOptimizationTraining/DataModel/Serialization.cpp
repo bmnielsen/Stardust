@@ -17,10 +17,63 @@
 // Higher levels do not compress the files sufficiently better to make up for the increased compression time
 #define COMPRESSION_LEVEL 4
 
+#define ASSERT_RESULTS_EQUAL false
+
 namespace MiningOptimizationTraining::Serialization
 {
     namespace
     {
+#if ASSERT_RESULTS_EQUAL
+        template <typename M>
+        void assertMapsEqual(M &expected, M &actual, const auto& valueComparator)
+        {
+            ASSERT_EQ(expected.size(), actual.size());
+            for (auto &[expectedKey, expectedValue] : expected)
+            {
+                ASSERT_TRUE(actual.contains(expectedKey));
+                valueComparator(expectedValue, actual[expectedKey]);
+            }
+        }
+
+        void assertInitialWorkerGatherPathNodesEqual(InitialWorkerGatherPathNode &expected,
+                                                     InitialWorkerGatherPathNode &actual)
+        {
+            ASSERT_EQ(expected.pos, actual.pos);
+            ASSERT_EQ(expected.type, actual.type);
+            ASSERT_EQ(expected.arrivalData, actual.arrivalData);
+            ASSERT_EQ(expected.arrivalDataAfterResend, actual.arrivalDataAfterResend);
+            ASSERT_EQ(expected.nextPosition != nullptr, actual.nextPosition != nullptr);
+            if (expected.nextPosition && actual.nextPosition)
+            {
+                assertInitialWorkerGatherPathNodesEqual(*expected.nextPosition, *actual.nextPosition);
+            }
+            ASSERT_EQ(expected.nextPositionAfterResend != nullptr, actual.nextPositionAfterResend != nullptr);
+            if (expected.nextPositionAfterResend && actual.nextPositionAfterResend)
+            {
+                assertInitialWorkerGatherPathNodesEqual(*expected.nextPositionAfterResend, *actual.nextPositionAfterResend);
+            }
+        }
+
+        void assertInitialWorkerReturnPathNodesEqual(InitialWorkerReturnPathNode &expected,
+                                                     InitialWorkerReturnPathNode &actual)
+        {
+            ASSERT_EQ(expected.pos, actual.pos);
+            ASSERT_EQ(expected.type, actual.type);
+            ASSERT_EQ(expected.arrivalData, actual.arrivalData);
+            ASSERT_EQ(expected.arrivalDataAfterResend, actual.arrivalDataAfterResend);
+            ASSERT_EQ(expected.nextPosition != nullptr, actual.nextPosition != nullptr);
+            if (expected.nextPosition && actual.nextPosition)
+            {
+                assertInitialWorkerReturnPathNodesEqual(*expected.nextPosition, *actual.nextPosition);
+            }
+            ASSERT_EQ(expected.nextPositionAfterResend != nullptr, actual.nextPositionAfterResend != nullptr);
+            if (expected.nextPositionAfterResend && actual.nextPositionAfterResend)
+            {
+                assertInitialWorkerReturnPathNodesEqual(*expected.nextPositionAfterResend, *actual.nextPositionAfterResend);
+            }
+        }
+#endif
+
         bool gameParametersInitialized = false;
         std::string mapHash;
 
@@ -355,5 +408,40 @@ namespace MiningOptimizationTraining::Serialization
         file.close();
 
         Log::Get() << "Wrote initial workers mining optimization data to " << filename;
+
+#if ASSERT_RESULTS_EQUAL
+        InitialWorkerMapData actual;
+        readMapData(actual);
+
+        assertMapsEqual(data.startingWorkerPositionToPatchToFirstGatherPath,
+                        actual.startingWorkerPositionToPatchToFirstGatherPath,
+                        std::function{[](
+                                std::map<TilePosition, InitialWorkerGatherPathNode> &expected,
+                                std::map<TilePosition, InitialWorkerGatherPathNode> &actual)
+                                {
+                                    assertMapsEqual(expected, actual, std::function{&assertInitialWorkerGatherPathNodesEqual});
+                                }});
+
+        assertMapsEqual(data.startingWorkerPositionToPatchToReturnPaths,
+                        actual.startingWorkerPositionToPatchToReturnPaths,
+                        std::function{
+                            [](
+                        std::map<TilePosition, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode> > &expected,
+                        std::map<TilePosition, std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode> > &actual)
+                            {
+                                assertMapsEqual(expected,
+                                                actual,
+                                                std::function{
+                                                    [](
+                                                std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode> &expected,
+                                                std::map<BWAPI::ExactPosition, InitialWorkerReturnPathNode> &actual)
+                                                    {
+                                                        assertMapsEqual(expected, actual, std::function{&assertInitialWorkerReturnPathNodesEqual});
+                                                    }
+                                                });
+                            }
+                        });
+
+#endif
     }
 }

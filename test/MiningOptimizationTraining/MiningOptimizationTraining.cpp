@@ -174,3 +174,11 @@ TEST(AddResendAlwaysArrivesToArrivalNodes, Benzene)
     test.map = Maps::GetOne("Benzene");
     addResendAlwaysArrives(test.map->openbwHash);
 }
+
+TEST(AddResendAlwaysArrivesToArrivalNodes, AllSSCAIT)
+{
+    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        addResendAlwaysArrives(test.map->openbwHash);
+    });
+}

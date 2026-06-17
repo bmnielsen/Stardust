@@ -75,6 +75,11 @@ namespace MiningOptimizationTraining
 
                 orderProcessTimerResetValues[resetData.value] += resetData.opponentStartLocationsCount;
             }
+
+            if (orderProcessTimerResetValues.empty())
+            {
+                Log::Get() << "ERROR: Solver initialized with no valid order process timer reset values; does the initialization need to be run?";
+            }
         }
 
         // Executes the solver

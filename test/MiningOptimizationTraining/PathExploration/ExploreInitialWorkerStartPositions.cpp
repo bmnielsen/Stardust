@@ -67,6 +67,30 @@ namespace MiningOptimizationTraining
         //     }
         //     return;
         // }
+        //
+        // {
+        //     initialWorkerMapData.startingWorkerPositionToPatchToFirstGatherPath.clear();
+        //     initialWorkerMapData.startingWorkerPositionToPatchesToSecondGatherPaths.clear();
+        //     initialWorkerMapData.startingWorkerPositionToPatchToReturnPaths.clear();
+        //     auto testBase = Map::baseNear(BWAPI::Position(240, 3176));
+        //     for (auto patch : testBase->mineralPatches())
+        //     {
+        //         if (patch->tile == BWAPI::TilePosition(2,93))
+        //         {
+        //             startPositions.emplace_back(ExploreInitialWorkerStartPosition{
+        //                 BWAPI::ExactPosition{
+        //                     (uint32_t)240 * 256,
+        //                     (uint32_t)3176 * 256,
+        //                     -128,
+        //                     0,
+        //                     0
+        //                 },
+        //                 patch->getBwapiUnitIfVisible()
+        //             });
+        //         }
+        //     }
+        //     return;
+        // }
 
         for (const auto &[spawnPosition, _] : initialWorkerMapData.startingWorkerPositionToOrderProcessTimerReset)
         {
@@ -118,7 +142,7 @@ namespace MiningOptimizationTraining
 
         // Initialize a solver for each second patch and enemy race that we will use to guide which positions we need to explore at each step
         auto races = {BWAPI::Races::Unknown, BWAPI::Races::Zerg, BWAPI::Races::Protoss};
-        std::map<TilePosition, std::map<BWAPI::Race, InitialSplitSolver>> secondPatchToSolvers;
+        std::map<TilePosition, std::vector<std::pair<BWAPI::Race, InitialSplitSolver>>> secondPatchToSolvers;
         {
             auto startPositionAndVelocity = PositionAndVelocity(startPosition.pos.x >> 8,
                                                                 startPosition.pos.y >> 8,
@@ -131,12 +155,14 @@ namespace MiningOptimizationTraining
                 auto &secondPatchSolvers = secondPatchToSolvers[secondPatchPos];
                 for (const auto &race : races)
                 {
-                    secondPatchSolvers.try_emplace(race,
-                        initialWorkerMapData,
-                        startPositionAndVelocity,
-                        firstPatchPos,
-                        secondPatchPos,
-                        race);
+                    secondPatchSolvers.emplace_back(std::piecewise_construct,
+                                                    std::forward_as_tuple(race),
+                                                    std::forward_as_tuple(
+                                                        initialWorkerMapData,
+                                                        startPositionAndVelocity,
+                                                        firstPatchPos,
+                                                        secondPatchPos,
+                                                        race));
                 }
             }
         }
