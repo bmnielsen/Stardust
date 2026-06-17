@@ -3,6 +3,8 @@
 #include "MyWorker.h"
 #include "Resource.h"
 
+#include <optional>
+
 #define PATCH_OCCUPIED_HORIZON 50
 
 namespace MiningOptimization
