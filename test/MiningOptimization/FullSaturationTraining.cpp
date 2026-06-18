@@ -1354,3 +1354,14 @@ TEST(FullSaturationTraining, BenzeneSingleMeasureOneBase)
               << "Overall efficiency: " << std::endl
               << "Single: " << sgl << std::endl;
 }
+
+TEST(FullSaturationTraining, BenzeneDoubleMeasureOneBase)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Benzene");
+    test.randomSeed = 42;
+    auto sgl = runEfficiencyTest(test, 2, 0, false, true, true, BWAPI::TilePosition(7, 96));
+    std::cout << std::fixed << std::showpoint << std::setprecision(4)
+              << "Overall efficiency: " << std::endl
+              << "Single: " << sgl << std::endl;
+}

@@ -93,7 +93,8 @@ namespace MiningOptimizationTraining
         static GatherArrivalData createFromSimulatedPaths(
                 const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAtArrival,
                 const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAfterArrival,
-                BWAPI::Unit patch);
+                BWAPI::Unit patch,
+                const BWAPI::ExactPosition &currentPosition);
 
         template <typename S>
         void serialize(S& s) {

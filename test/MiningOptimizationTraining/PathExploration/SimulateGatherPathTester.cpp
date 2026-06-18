@@ -67,13 +67,13 @@ namespace MiningOptimizationTraining
         // For this testing, we don't care about the distinction between delivery at arrival or delivery not at arrival, so we just pass
         // the same paths for both cases
 
-        auto setGatherArrivalData = [&](auto &simulatedPath)
+        auto setGatherArrivalData = [&](const auto &simulatedPath, const BWAPI::ExactPosition &position)
         {
             expectedGatherArrivalData = std::make_unique<GatherArrivalData>(
-                    GatherArrivalData::createFromSimulatedPaths(simulatedPath, simulatedPath, patch));
+                    GatherArrivalData::createFromSimulatedPaths(simulatedPath, simulatedPath, patch, position));
         };
 
-        auto setReturnArrivalData = [&](auto &simulatedPath)
+        auto setReturnArrivalData = [&](const auto &simulatedPath, const BWAPI::ExactPosition &)
         {
             expectedReturnArrivalData = std::make_unique<ReturnArrivalData>(
                     ReturnArrivalData::createFromSimulatedPaths(simulatedPath, simulatedPath));
@@ -201,7 +201,7 @@ namespace MiningOptimizationTraining
             if (!noResendPathResult) return;
             auto &noResendPath = noResendPathResult->positions;
             expectedPath.assign(noResendPath.begin(), noResendPath.end());
-            setArrivalData(*noResendPathResult);
+            setArrivalData(*noResendPathResult, worker->getExactPosition());
 
             // Validate that using the prepare method is equivalent
             if (lastPrepareResult || lastPrepareSimulationResult)
@@ -234,7 +234,7 @@ namespace MiningOptimizationTraining
                 auto &resendPath = resendPathResult->positions;
                 expectedPath.erase(expectedPath.begin() + (resendFrame - currentFrame), expectedPath.end());
                 expectedPath.insert(expectedPath.end(), resendPath.begin(), resendPath.end());
-                setArrivalData(*resendPathResult);
+                setArrivalData(*resendPathResult, worker->getExactPosition()); // Should actually be the resend position here
 
                 // Validate that using the prepare method is equivalent
                 if (lastPrepareResult || lastPrepareSimulationResult)

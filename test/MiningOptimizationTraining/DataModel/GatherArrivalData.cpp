@@ -74,7 +74,8 @@ namespace MiningOptimizationTraining
     GatherArrivalData GatherArrivalData::createFromSimulatedPaths(
             const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAtArrival,
             const BWAPI::SimulateGatherPathResult &simulatedPathWithActionAfterArrival,
-            BWAPI::Unit patch)
+            BWAPI::Unit patch,
+            const BWAPI::ExactPosition &currentPosition)
     {
         if (simulatedPathWithActionAtArrival.positions.empty()) return {};
 
@@ -94,11 +95,13 @@ namespace MiningOptimizationTraining
         }
 
         // Find the index of the first position that is 10 distance from the patch
+        // If we don't find it in the positions list, we check the current position
+        // Otherwise we allow it to be set to UINT8_MAX - 1, which we use to indicate some unknown position before the current position
         uint8_t tenDistanceDelta = (UINT8_MAX - 1);
         int i = 0;
         for (auto it = simulatedPathWithActionAtArrival.positions.rbegin();
              it != simulatedPathWithActionAtArrival.positions.rend();
-             it++)
+             ++it)
         {
             auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
                                                 it->pos(),
@@ -107,10 +110,19 @@ namespace MiningOptimizationTraining
             if (dist > 10)
             {
                 tenDistanceDelta = (uint8_t)std::min(i, (UINT8_MAX - 2));
-                break;
+                goto tenDistanceSet;
             }
-            i++;
+            ++i;
         }
+        if (Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                    currentPosition.pos(),
+                                    BWAPI::UnitTypes::Resource_Mineral_Field,
+                                    patch->getPosition()) > 10)
+        {
+            tenDistanceDelta = (uint8_t)std::min(i, (UINT8_MAX - 2));
+        }
+
+tenDistanceSet:;
 
         return create(simulatedPathWithActionAtArrival.positions.size(),
                       facingTarget && atMoveTarget,

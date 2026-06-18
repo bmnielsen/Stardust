@@ -168,15 +168,21 @@ namespace MiningOptimizationTraining
         path.positionsToExplore.pop_back();
 
         auto createGatherArrivalData = [&](
-                auto &simulatedPathWithActionAtArrival,
-                auto &simulatedPathWithActionAfterArrival)
+                const auto &simulatedPathWithActionAtArrival,
+                const auto &simulatedPathWithActionAfterArrival,
+                const BWAPI::ExactPosition &currentPosition)
         {
-            return GatherArrivalData::createFromSimulatedPaths(simulatedPathWithActionAtArrival, simulatedPathWithActionAfterArrival, patch);
+            return GatherArrivalData::createFromSimulatedPaths(
+                simulatedPathWithActionAtArrival,
+                simulatedPathWithActionAfterArrival,
+                patch,
+                currentPosition);
         };
 
         auto createReturnArrivalData = [&](
-                auto &simulatedPathWithActionAtArrival,
-                auto &simulatedPathWithActionAfterArrival)
+                const auto &simulatedPathWithActionAtArrival,
+                const auto &simulatedPathWithActionAfterArrival,
+                const BWAPI::ExactPosition &)
         {
             return ReturnArrivalData::createFromSimulatedPaths(simulatedPathWithActionAtArrival, simulatedPathWithActionAfterArrival);
         };
@@ -227,7 +233,9 @@ namespace MiningOptimizationTraining
                 }
                 auto &simulatedPath = simulatedPathWithDeliveryAtArrivalResult->positions;
                 ObservationType arrivalData =
-                        createArrivalData(*simulatedPathWithDeliveryAtArrivalResult, *simulatedPathWithDeliveryAfterArrivalResult);
+                        createArrivalData(*simulatedPathWithDeliveryAtArrivalResult,
+                                          *simulatedPathWithDeliveryAfterArrivalResult,
+                                          currentPosition);
 
                 // If this is the no-resend path, record the appropriate exploration on the root node
                 if (resendFrames.empty())
