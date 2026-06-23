@@ -470,6 +470,33 @@ namespace MiningOptimization
         {
             result.emplace(workers[workerIndex], assignmentToTuple(workerIndex, bestSolution[workerIndex]));
         }
+
+#if LOGGING_ENABLED
+        std::multiset<unsigned short> frames;
+        for (const auto &[_, split] : result)
+        {
+            const auto &data = std::get<2>(split);
+            if (!data)
+            {
+                Log::Get() << "ERROR: Optional with split data should have a value";
+                return result;
+            }
+
+            unsigned short worstFrame = 0;
+            for (const auto &[_, secondRotation] : data->firstRotationDeliveryToSecondRotation)
+            {
+                for (const auto &[actionFrame, _] : secondRotation.returnActionFramesToOccurrences)
+                {
+                    worstFrame = std::max(worstFrame, actionFrame);
+                }
+            }
+            frames.insert(worstFrame);
+        }
+        auto it = frames.rbegin();
+        ++it;
+        Log::Get() << "Worst-case expected 50th mineral frame: " << *it;
+#endif
+
         return result;
     }
 

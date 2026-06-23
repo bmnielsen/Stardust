@@ -28,14 +28,12 @@ namespace MiningOptimization
 
         friend std::ostream &operator<<(std::ostream &os, const InitialSplitRotation &rotation)
         {
-            os << "resends: ";
-            if (rotation.delayFrames > 0) os << "delay " << (unsigned int)rotation.delayFrames << "; ";
-            LogFormattingUtil::formatVectorlike(rotation.resendFrames);
+            os << "resends: " << LogFormattingUtil::formatVectorlike(rotation.resendFrames);
+            if (rotation.delayFrames > 0) os << "; delay " << (unsigned int)rotation.delayFrames;
             os << "; gather arrival: " << rotation.gatherArrivalFrame;
             os << "; gather action: " << rotation.gatherActionFrame;
             os << "; return arrival: " << rotation.returnArrivalFrame;
-            os << "; return actions: ";
-            LogFormattingUtil::formatVectorlike(std::views::keys(rotation.returnActionFramesToOccurrences));
+            os << "; return actions: " << LogFormattingUtil::formatVectorlike(std::views::keys(rotation.returnActionFramesToOccurrences));
 
             return os;
         }
