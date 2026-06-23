@@ -1,15 +1,17 @@
 #include "MainArmyPlay.h"
 
+#include "Strategies.h"
 #include "Units.h"
 
 void MainArmyPlay::update()
 {
     // Update detection - release observers when no longer needed, request observers when needed
     auto squad = getSquad();
-    if (squad && squad->needsDetection())
+    if (squad)
     {
         int desiredDetectors = 0;
-        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar))
+        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar) ||
+            Strategist::isOurStrategy(PvP::OurStrategy::AntiDarkTemplarRush))
         {
             desiredDetectors = 1;
         }
