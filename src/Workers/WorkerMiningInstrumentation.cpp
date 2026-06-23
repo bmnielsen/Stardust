@@ -5,7 +5,6 @@
 #include "Workers.h"
 #include "Map.h"
 #include "OrderProcessTimer.h"
-#include "MiningOptimization/WorkerMiningOptimization.h"
 
 #define EPSILON 0.000001
 
@@ -282,10 +281,7 @@ namespace WorkerMiningInstrumentation
         if (fiftiethMineralFrame == -1 && BWAPI::Broodwar->self()->gatheredMinerals() >= 100)
         {
             fiftiethMineralFrame = currentFrame;
-            if (!WorkerMiningOptimization::isExploring())
-            {
-                Log::Get() << "Gathered 50th mineral";
-            }
+            Log::Get() << "Gathered 50th mineral";
         }
 
 #if TRACK_MINING_EFFICIENCY_VERBOSE
@@ -910,22 +906,22 @@ namespace WorkerMiningInstrumentation
 
     void addRotationTimesToResourceObservations()
     {
-        for (auto &[patch, miningStatus] : resourceToMiningStatus)
-        {
-            PatchData sgl, dbl;
-            addSinglePatchData(sgl, patch, miningStatus, -1, -1, true);
-            addDoublePatchData(dbl, patch, miningStatus, -1, -1, true);
-
-            auto &observations = WorkerMiningOptimization::resourceObservationsFor(patch);
-            for (const auto &rotationTime : sgl.allRotationTimes)
-            {
-                observations.singleWorkerRotations.addObservation(rotationTime);
-            }
-            for (const auto &rotationTime : dbl.allRotationTimes)
-            {
-                observations.doubleWorkerRotations.addObservation(rotationTime);
-            }
-        }
+        // for (auto &[patch, miningStatus] : resourceToMiningStatus)
+        // {
+        //     PatchData sgl, dbl;
+        //     addSinglePatchData(sgl, patch, miningStatus, -1, -1, true);
+        //     addDoublePatchData(dbl, patch, miningStatus, -1, -1, true);
+        //
+        //     auto &observations = WorkerMiningOptimization::resourceObservationsFor(patch);
+        //     for (const auto &rotationTime : sgl.allRotationTimes)
+        //     {
+        //         observations.singleWorkerRotations.addObservation(rotationTime);
+        //     }
+        //     for (const auto &rotationTime : dbl.allRotationTimes)
+        //     {
+        //         observations.doubleWorkerRotations.addObservation(rotationTime);
+        //     }
+        // }
     }
 
     void writeGameEndInstrumentation()

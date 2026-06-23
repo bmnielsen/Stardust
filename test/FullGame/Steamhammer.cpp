@@ -4,7 +4,6 @@
 #include "Strategist.h"
 #include "StrategyEngines/PvZ.h"
 #include "WorkerMiningInstrumentation.h"
-#include "MiningOptimization/WorkerMiningOptimization.h"
 
 TEST(Steamhammer, RunThirty)
 {
@@ -68,7 +67,6 @@ TEST(Steamhammer, RunThirty)
 
 TEST(Steamhammer, RunOne)
 {
-    WorkerMiningOptimization::setExploring(false);
     BWTest test;
     test.opponentName = "Steamhammer";
     test.opponentRace = BWAPI::Races::Zerg;

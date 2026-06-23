@@ -12,18 +12,6 @@ class ResourceImpl;
 typedef std::shared_ptr<ResourceImpl> Resource;
 typedef std::shared_ptr<const ResourceImpl> ConstResource;
 
-class ResourceGatherProbabilityForecast
-{
-    friend class ResourceImpl;
-
-public:
-    double atFrame(int frame) const;
-
-private:
-    std::array<double, GATHER_FORECAST_FRAMES> forecast = {0.0};
-    int frameLastUpdated = -1;
-};
-
 class ResourceImpl : public std::enable_shared_from_this<ResourceImpl>
 {
 public:
@@ -60,20 +48,10 @@ public:
 
     [[nodiscard]] int getDistance(BWAPI::UnitType type, BWAPI::Position center) const;
 
-    [[nodiscard]] ResourceGatherProbabilityForecast &getAllOtherPatchesGatheredProbabilityForecast();
-
-    [[nodiscard]] ResourceGatherProbabilityForecast &getGatherProbabilityForecast();
-
     void update();
 
 private:
     mutable BWAPI::Unit bwapiUnit;
-
-    // Probability of this resource being gathered from for the next GATHER_FORECAST_FRAMES frames, where index 0 is the next frame
-    ResourceGatherProbabilityForecast gatherProbabilityForecast;
-
-    // Similar to the above, the combined probability that all of the other patches in the switch patch range are being gathered
-    ResourceGatherProbabilityForecast allOtherPatchesGatheredProbabilityForecast;
 };
 
 std::ostream &operator<<(std::ostream &os, const ResourceImpl &resource);

@@ -25,13 +25,6 @@
 // #define GAS_PER_WORKER_FRAME 0.071
 // #define MINERALS_PER_GAS_UNIT 0.655
 
-// First implementation of the path-based optimizer
-// #include "MiningOptimization/WorkerMiningOptimization.h"
-// #define WORKERGATHEROPTIMIZER WorkerMiningOptimization
-// #define MINERALS_PER_WORKER_FRAME 0.0472
-// #define GAS_PER_WORKER_FRAME 0.071
-// #define MINERALS_PER_GAS_UNIT 0.665
-
 // Current implementation of the path-based optimizer
 #include "MiningOptimizationV2/MiningOptimization.h"
 #define WORKERGATHEROPTIMIZER MiningOptimization

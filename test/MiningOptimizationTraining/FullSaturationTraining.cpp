@@ -9,7 +9,6 @@
 #include "TestMainArmyAttackBasePlay.h"
 #include "Plays/Macro/SaturateBases.h"
 #include "WorkerMiningInstrumentation.h"
-#include "MiningOptimization/WorkerMiningOptimization.h"
 #include "Units.h"
 #include "Workers.h"
 #include "BuildingPlacement.h"
@@ -107,16 +106,16 @@ namespace
         replayNameBuilder << workersPerPatch << "wpp_" << cannons << "cannons";
         test.replayName = replayNameBuilder.str();
 
-        if (observationTraining)
-        {
-            WorkerMiningOptimization::setUpdateResourceObservations(true);
-            WorkerMiningOptimization::setExploring(false);
-        }
-        else
-        {
-            WorkerMiningOptimization::setUpdateResourceObservations(false);
-            WorkerMiningOptimization::setExploring(!measureOnly);
-        }
+        // if (observationTraining)
+        // {
+        //     WorkerMiningOptimization::setUpdateResourceObservations(true);
+        //     WorkerMiningOptimization::setExploring(false);
+        // }
+        // else
+        // {
+        //     WorkerMiningOptimization::setUpdateResourceObservations(false);
+        //     WorkerMiningOptimization::setExploring(!measureOnly);
+        // }
 
         test.onStartMine = []()
         {
@@ -539,8 +538,6 @@ namespace
                         << "_" << workers << "workers"
                         << "_" << (!cannons ? "no" : "") << "cannons"
                         << "_" << std::put_time(tm, "%Y%m%d_%H%M%S")
-                        << "_g_" << GATHER_EXPLORE_BEFORE << "_" << GATHER_EXPLORE_AFTER
-                        << "_r_" << RETURN_EXPLORE_BEFORE << "_" << RETURN_EXPLORE_AFTER
                         << ".csv").str(),
                       std::ofstream::trunc);
             file << "Hash;1-0R;1-0P;1-1R;1-1P;1-2R;1-2P;2-0R;2-0P;2-1R;2-1P;2-2R;2-2P\n";
