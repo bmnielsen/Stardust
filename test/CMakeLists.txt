@@ -47,6 +47,7 @@ SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/Pat
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/DataTransformation/InitialSplitSolver.cpp PROPERTIES COMPILE_FLAGS -O0)
 SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/DataExploration.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/MiningOptimizationTraining.cpp PROPERTIES COMPILE_FLAGS -O0)
+SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/PresentationDemos.cpp PROPERTIES COMPILE_FLAGS -O0)
 SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/DataTransformation/DataTransformerTests.cpp PROPERTIES COMPILE_FLAGS -O0)
 SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/MiningOptimizationTraining/PathExploration/SimulateAllSubpixelsOfPosition.cpp PROPERTIES COMPILE_FLAGS -O0)
 
