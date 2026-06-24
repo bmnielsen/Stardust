@@ -280,7 +280,10 @@ void StardustAIModule::onFrame()
     {
         // Check for other visible enemy units
         std::set<Unit> enemyUnits;
-        Units::enemyInRadius(enemyUnits, enemyNatural->getPosition(), 640, [](const Unit &unit){ return !unit->type.isBuilding() && unit->bwapiUnit->isVisible();});
+        Units::enemyInRadius(enemyUnits, enemyNatural->getPosition(), 640, [](const Unit &unit)
+        {
+            return (unit->canAttackGround() || unit->canAttackAir()) && unit->bwapiUnit->isVisible();
+        });
         if (enemyUnits.empty())
         {
             int dragoons = 0;
