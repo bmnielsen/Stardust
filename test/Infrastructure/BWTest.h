@@ -57,6 +57,7 @@ public:
 
     std::function<BWAPI::AIModule *()> opponentModule = nullptr;
     BWAPI::Race opponentRace = BWAPI::Races::Protoss;
+    int clearOpponentModuleAtFrame = -1;
 
     std::function<void()> onStartMine = nullptr;
     std::function<void()> onStartOpponent = nullptr;

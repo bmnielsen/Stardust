@@ -18,6 +18,8 @@
 #include <sys/shm.h>
 #include <random>
 
+#include "DoNothingModule.h"
+
 const double pi = 3.14159265358979323846;
 
 namespace
@@ -537,6 +539,11 @@ void BWTest::runGame(bool opponent)
                     leftGame = true;
                     h->leaveGame();
                 }
+            }
+
+            if (opponent && clearOpponentModuleAtFrame == h->getFrameCount())
+            {
+                h->client = new DoNothingModule();
             }
         }
         catch (std::exception &ex)

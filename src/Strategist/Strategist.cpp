@@ -441,7 +441,7 @@ namespace Strategist
         OpponentEconomicModel::update();
 
         // Change the strategy engine when we discover the race of a random opponent
-        if (Opponent::hasRaceJustBeenDetermined())
+        if (Opponent::hasRaceJustBeenDetermined() && dynamic_cast<PvU*>(engine.get()))
         {
             setStrategyEngine(true);
         }
