@@ -4,7 +4,7 @@
 #include "Units.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#define DEBUG_LOGGING true
+#define DEBUG_LOGGING false
 #endif
 
 namespace

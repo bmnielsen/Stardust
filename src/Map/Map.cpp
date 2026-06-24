@@ -420,9 +420,9 @@ namespace Map
             auto nearbyBase = baseNear(unit->lastPosition);
             if (nearbyBase)
             {
-                // If this is an enemy building and the base is our natural, only change the ownership if the building overlaps the depot position
-                // or is a resource depot
-                if (nearbyBase == Map::getMyNatural() && !unit->type.isResourceDepot() && unit->player != BWAPI::Broodwar->self())
+                // If this is an enemy building and the base is our natural, only change the ownership if the building overlaps the depot position,
+                // is a resource depot, or is something that can shoot at ground units
+                if (nearbyBase == Map::getMyNatural() && !unit->type.isResourceDepot() && !unit->canAttackGround() && unit->player != BWAPI::Broodwar->self())
                 {
                     if (!Geo::Overlaps(BWAPI::UnitTypes::Protoss_Nexus, nearbyBase->getPosition(), unit->type, unit->lastPosition)) return;
                 }
