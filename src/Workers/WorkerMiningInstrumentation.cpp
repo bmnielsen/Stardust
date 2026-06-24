@@ -10,7 +10,6 @@
 
 #define TRACK_MINING_EFFICIENCY true
 #define TRACK_MINING_EFFICIENCY_VERBOSE false
-#define TRACK_RESOURCE_FORECAST_ACCURACY false
 
 #if INSTRUMENTATION_ENABLED
 #define LOG_WORKER_ORDERS false
@@ -228,24 +227,6 @@ namespace WorkerMiningInstrumentation
             };
         }
     #endif
-
-#if TRACK_RESOURCE_FORECAST_ACCURACY
-    // Stores the previous forecasts for each patch
-    std::map<Resource, std::deque<std::array<double, GATHER_FORECAST_FRAMES>>> resourceToPreviousForecasts;
-
-    // Stores the count of predictions at each number of frames into the future for each patch
-    std::map<Resource, std::array<int, GATHER_FORECAST_FRAMES>> resourceToFramePredictionCounts;
-
-    // Stores the total error for all predictions at each number of frames into the future for each patch
-    std::map<Resource, std::array<double, GATHER_FORECAST_FRAMES>> resourceToTotalFramePredictionError;
-
-    // Stores the count of false positives at each number of frames into the future for each patch
-    std::map<Resource, std::array<int, GATHER_FORECAST_FRAMES>> resourceToCountOfFalsePositives;
-
-    // Stores the count of frames where the other patches are forecast to be saturated
-    std::map<Resource, std::array<int, GATHER_FORECAST_FRAMES>> resourceToOtherPatchesSaturated;
-    std::map<Resource, std::array<int, GATHER_FORECAST_FRAMES>> resourceToOtherPatchesSaturatedCount;
-#endif
     }
 
     void initialize(const std::function<std::map<Resource, std::set<MyWorker>> &()> &getMineralsAndAssignedWorkersOverride)
@@ -263,15 +244,6 @@ namespace WorkerMiningInstrumentation
         resourceToGatherCollisionObservations.clear();
         resourceToReturnCollisionObservations.clear();
         resourceToFacingPatchObservations.clear();
-#endif
-
-#if TRACK_RESOURCE_FORECAST_ACCURACY
-        resourceToPreviousForecasts.clear();
-        resourceToFramePredictionCounts.clear();
-        resourceToTotalFramePredictionError.clear();
-        resourceToCountOfFalsePositives.clear();
-        resourceToOtherPatchesSaturated.clear();
-        resourceToOtherPatchesSaturatedCount.clear();
 #endif
     }
 
@@ -520,75 +492,6 @@ namespace WorkerMiningInstrumentation
             if (status != -1)
             {
                 miningStatus.emplace_back(status, currentFrame, extraData);
-            }
-        }
-#endif
-
-#if TRACK_RESOURCE_FORECAST_ACCURACY
-        for (const auto &base : Map::allBases())
-        {
-            for (auto &patch : base->mineralPatches())
-            {
-                // Zero the arrays the first time a patch is seen
-                if (!resourceToPreviousForecasts.contains(patch))
-                {
-                    resourceToFramePredictionCounts[patch] = {0};
-                    resourceToTotalFramePredictionError[patch] = {0.0};
-                    resourceToCountOfFalsePositives[patch] = {0};
-                    resourceToOtherPatchesSaturated[patch] = {0};
-                    resourceToOtherPatchesSaturatedCount[patch] = {0};
-                }
-
-                auto &previousForecasts = resourceToPreviousForecasts[patch];
-                auto &framePredictionCounts = resourceToFramePredictionCounts[patch];
-                auto &totalFramePredictionError = resourceToTotalFramePredictionError[patch];
-                auto &countOfFalsePositives = resourceToCountOfFalsePositives[patch];
-                auto &otherPatchesSaturated = resourceToOtherPatchesSaturated[patch];
-                auto &otherPatchesSaturatedCount = resourceToOtherPatchesSaturatedCount[patch];
-
-                // Determine if the patch is being mined
-                bool isBeingMined = false;
-                for (const auto &worker : Workers::getWorkersAssignedTo(patch))
-                {
-                    if (!worker->exists()) continue;
-                    if (worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
-                    {
-                        isBeingMined = true;
-                        break;
-                    }
-                }
-                double actualProbability = isBeingMined ? 1.0 : 0.0;
-
-                // Check the accuracy of each of the previous forecasts
-                int frameIdx = -1;
-                for (auto it = previousForecasts.begin(); it != previousForecasts.end(); it++)
-                {
-                    frameIdx++;
-
-                    framePredictionCounts[frameIdx]++;
-                    totalFramePredictionError[frameIdx] += (actualProbability - (*it)[frameIdx]);
-                    if (!isBeingMined && (*it)[frameIdx] > (1.0 - EPSILON))
-                    {
-                        countOfFalsePositives[frameIdx]++;
-                    }
-                }
-
-                // Add the forecast
-                previousForecasts.push_front(patch->getGatherProbabilityForecast());
-                if (previousForecasts.size() > GATHER_FORECAST_FRAMES) previousForecasts.pop_back();
-
-                // Update the count of other patches saturated at various frame counts
-                frameIdx = -1;
-                for (auto &otherPatchesGatheredProbability : patch->getAllOtherPatchesGatheredProbabilityForecast())
-                {
-                    frameIdx++;
-
-                    otherPatchesSaturatedCount[frameIdx]++;
-                    if (otherPatchesGatheredProbability > (1.0 - EPSILON))
-                    {
-                        otherPatchesSaturated[frameIdx]++;
-                    }
-                }
             }
         }
 #endif
@@ -935,85 +838,6 @@ namespace WorkerMiningInstrumentation
 #if TRACK_MINING_EFFICIENCY_VERBOSE
             Log::Get() << "Thousand mineral frames: " << LogFormattingUtil::formatVectorlike(WorkerMiningInstrumentation::getThousandMineralFrames());
 #endif
-        }
-#endif
-#if TRACK_RESOURCE_FORECAST_ACCURACY
-        {
-            std::array<int, GATHER_FORECAST_FRAMES> totalPredictionCounts = {0};
-            std::array<double, GATHER_FORECAST_FRAMES> totalTotalFramePredictionError = {0.0};
-            std::array<int, GATHER_FORECAST_FRAMES> totalCountOfFalsePositives = {0};
-            std::array<int, GATHER_FORECAST_FRAMES> totalOtherPatchesSaturated = {0};
-            std::array<int, GATHER_FORECAST_FRAMES> totalOtherPatchesSaturatedCount = {0};
-            for (auto &[patch, _] : resourceToFramePredictionCounts)
-            {
-                auto &framePredictionCounts = resourceToFramePredictionCounts[patch];
-                auto &totalFramePredictionError = resourceToTotalFramePredictionError[patch];
-                auto &countOfFalsePositives = resourceToCountOfFalsePositives[patch];
-                auto &otherPatchesSaturated = resourceToOtherPatchesSaturated[patch];
-                auto &otherPatchesSaturatedCount = resourceToOtherPatchesSaturatedCount[patch];
-
-                std::ostringstream errors, falsePositives, otherPatches;
-                errors << std::fixed << std::setprecision(2) << patch->tile << " total error: [";
-                falsePositives << std::fixed << std::setprecision(3) << patch->tile << " false positive rate: [";
-                otherPatches << std::fixed << std::setprecision(3) << patch->tile << " other patches saturated: [";
-                std::string sep;
-                for (int i = 0; i < GATHER_FORECAST_FRAMES; i++)
-                {
-                    errors << sep << totalFramePredictionError[i];
-                    falsePositives << sep << ((double)countOfFalsePositives[i] * 100.0 / (double)framePredictionCounts[i]);
-                    otherPatches << sep << ((double)otherPatchesSaturated[i] * 100.0 / (double)otherPatchesSaturatedCount[i]);
-                    sep = ", ";
-                }
-                Log::Get() << errors.str() << "]";
-                Log::Get() << falsePositives.str() << "]";
-                Log::Get() << otherPatches.str() << "]";
-
-                // Add to the totals
-                std::transform(totalPredictionCounts.begin(),
-                               totalPredictionCounts.end(),
-                               framePredictionCounts.begin(),
-                               totalPredictionCounts.begin(),
-                               std::plus<>{});
-                std::transform(totalTotalFramePredictionError.begin(),
-                               totalTotalFramePredictionError.end(),
-                               totalFramePredictionError.begin(),
-                               totalTotalFramePredictionError.begin(),
-                               std::plus<>{});
-                std::transform(totalCountOfFalsePositives.begin(),
-                               totalCountOfFalsePositives.end(),
-                               countOfFalsePositives.begin(),
-                               totalCountOfFalsePositives.begin(),
-                               std::plus<>{});
-                std::transform(totalOtherPatchesSaturated.begin(),
-                               totalOtherPatchesSaturated.end(),
-                               otherPatchesSaturated.begin(),
-                               totalOtherPatchesSaturated.begin(),
-                               std::plus<>{});
-                std::transform(totalOtherPatchesSaturatedCount.begin(),
-                               totalOtherPatchesSaturatedCount.end(),
-                               otherPatchesSaturatedCount.begin(),
-                               totalOtherPatchesSaturatedCount.begin(),
-                               std::plus<>{});
-            }
-
-            // Output the totals
-            {
-                std::ostringstream errors, falsePositives, otherPatches;
-                errors << std::fixed << std::setprecision(2) << " overall total error: [";
-                falsePositives << std::fixed << std::setprecision(3) << " overall false positive rate: [";
-                otherPatches << std::fixed << std::setprecision(3) << " overall other patches saturated: [";
-                std::string sep;
-                for (int i = 0; i < GATHER_FORECAST_FRAMES; i++)
-                {
-                    errors << sep << totalTotalFramePredictionError[i];
-                    falsePositives << sep << ((double)totalCountOfFalsePositives[i] * 100.0 / (double)totalPredictionCounts[i]);
-                    otherPatches << sep << ((double)totalOtherPatchesSaturated[i] * 100.0 / (double)totalOtherPatchesSaturatedCount[i]);
-                    sep = ", ";
-                }
-                Log::Get() << errors.str() << "]";
-                Log::Get() << falsePositives.str() << "]";
-                Log::Get() << otherPatches.str() << "]";
-            }
         }
 #endif
     }

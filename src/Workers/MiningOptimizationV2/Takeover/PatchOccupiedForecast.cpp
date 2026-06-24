@@ -208,7 +208,7 @@ namespace MiningOptimization
 
         // Validate bounds
         int frameIdx = frame - startFrame; // Index of the action frame
-        if (frameIdx >= GATHER_FORECAST_FRAMES) return;
+        if (frameIdx >= PATCH_OCCUPIED_HORIZON) return;
         if (frameIdx < 0)
         {
             fullySaturated = true;
@@ -252,9 +252,9 @@ namespace MiningOptimization
         // Handle the non-reset case first since it is much simpler
         if (!OrderProcessTimer::isResetFrame(frame + 1))
         {
-            // Calidating the bounds
+            // Validating the bounds
             int frameIdx = frame - startFrame; // Index of the action frame
-            if (frameIdx > GATHER_FORECAST_FRAMES) return;
+            if (frameIdx >= PATCH_OCCUPIED_HORIZON) return;
             if (frameIdx < 0)
             {
                 fullySaturated = true;

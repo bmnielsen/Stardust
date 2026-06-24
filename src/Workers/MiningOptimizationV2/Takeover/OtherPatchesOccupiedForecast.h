@@ -28,7 +28,7 @@ namespace MiningOptimization
         [[nodiscard]] double atFrame(int frame) const
         {
             int frameIdx = frame - currentFrame - 1;
-            if (frameIdx < 0 || frameIdx >= GATHER_FORECAST_FRAMES) return 0.0;
+            if (frameIdx < 0 || frameIdx >= PATCH_OCCUPIED_HORIZON) return 0.0;
             return forecast[frameIdx];
         }
 
