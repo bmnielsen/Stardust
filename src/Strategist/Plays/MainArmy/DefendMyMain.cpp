@@ -24,6 +24,8 @@ DefendMyMain::DefendMyMain()
 
 void DefendMyMain::update()
 {
+    MainArmyPlay::update();
+
     if (reservedGasStealAttacker && !reservedGasStealAttacker->exists())
     {
         reservedGasStealAttacker = nullptr;

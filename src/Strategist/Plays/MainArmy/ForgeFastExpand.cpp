@@ -601,6 +601,8 @@ ForgeFastExpand::ForgeFastExpand()
 
 void ForgeFastExpand::update()
 {
+    MainArmyPlay::update();
+
     // Perform worker defense in main base
     std::set<Unit> enemyUnits(Units::enemyAtBase(Map::getMyMain()).begin(), Units::enemyAtBase(Map::getMyMain()).end());
     auto workersAndTargets = mainBaseWorkerDefenseSquad->selectTargets(enemyUnits);
