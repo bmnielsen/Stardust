@@ -1021,7 +1021,10 @@ void PvP::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
     if (enemyStrategy == ProtossStrategy::DarkTemplarRush ||
         Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Dark_Templar))
     {
-        buildDefensiveCannons(prioritizedProductionGoals, !hasCannonAtWall(), 0, 1);
+        if (!hasCannonAtWall())
+        {
+            buildDefensiveCannons(prioritizedProductionGoals, true, 0, 1);
+        }
         buildObserver();
         CherryVis::setBoardValue("detection", "emergency-build-cannon-and-observer");
         return;

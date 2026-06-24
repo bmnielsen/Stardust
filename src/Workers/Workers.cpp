@@ -679,12 +679,14 @@ namespace Workers
                 }
 
                 // Maybe we have none
+                // Stop the worker so it doesn't continue on some no-longer-valid movement trajectory
+                // TODO: Move the unit back to some base if we at some point implement stable worker transfers
                 if (!base)
                 {
 #if CVIS_LOG_WORKER_ASSIGNMENTS_VERBOSE
                     CherryVis::log(worker->id) << "Assignment: no base available";
 #endif
-
+                    if (worker->bwapiUnit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Stop) worker->stop();
                     continue;
                 }
             }
