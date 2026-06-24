@@ -78,7 +78,7 @@ namespace Units
 #if LOGGING_ENABLED
                 Log::Get() << "ERROR: Resource not found for " << bwapiUnit->getType() << " @ " << bwapiUnit->getTilePosition();
 #endif
-                return;
+                it = tileToResource.emplace(bwapiUnit->getTilePosition(), std::make_shared<ResourceImpl>(bwapiUnit)).first;
             }
 
             if (refinery)
@@ -924,7 +924,7 @@ namespace Units
         destroyedEnemyUnits.clear();
         for (auto bwapiUnit : BWAPI::Broodwar->neutral()->getUnits())
         {
-            if (!bwapiUnit->isVisible()) continue;
+            if (!bwapiUnit->isVisible() || !bwapiUnit->exists()) continue;
 
             // Update resource counts
             if (bwapiUnit->getType().isMineralField() || bwapiUnit->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)
