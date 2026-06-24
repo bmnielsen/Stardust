@@ -120,7 +120,7 @@ namespace Units
             auto it = tileToResource.find(tile);
             if (it == tileToResource.end()) return;
 
-#if DEBUG_RESOURCE_UPDATES
+#if INSTRUMENTATION_ENABLED
             CherryVis::log(it->second->id) << "Destroyed";
 #endif
             it->second->destroyed = true;
