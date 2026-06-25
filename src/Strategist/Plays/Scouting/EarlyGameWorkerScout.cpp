@@ -712,7 +712,8 @@ void EarlyGameWorkerScout::scoutEnemyBase()
     }
 
     // If we have scouted the base at least once and the enemy has a ranged unit, complete the play
-    if (hasRangedThreat && Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted)
+    if (hasRangedThreat && (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
+        Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::MonitoringEnemyChoke))
     {
         status.complete = true;
         return;

@@ -86,6 +86,8 @@ namespace Map
 
     Choke *getEnemyMainChoke();
 
+    Choke *getEnemyNaturalChoke();
+
     void setEnemyMainChoke(Choke *choke);
 
     int minChokeWidth();

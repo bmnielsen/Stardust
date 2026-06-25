@@ -7,6 +7,7 @@
 #include "Workers.h"
 #include "Builder.h"
 #include "Opponent.h"
+#include "Strategist.h"
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -165,6 +166,18 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
 
     updateAttackPlays(plays, defendOurMain);
+
+    // Set the worker scout to monitor the enemy choke if we've detected a marine rush
+    if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
+        ourStrategy == OurStrategy::AntiMarineRush)
+    {
+        auto play = getPlay<EarlyGameWorkerScout>(plays);
+        if (play)
+        {
+            play->monitorEnemyChoke();
+        }
+    }
+
     updateDefendBasePlays(plays);
     updateSpecialTeamsPlays(plays);
     defaultExpansions(plays);
@@ -342,17 +355,57 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 return completedCannons;
             };
 
-            // Build cannons if the strategy has been stable for 5 seconds
-            int desiredCannons = 0;
-            if (enemyStrategyChanged < (currentFrame - 120))
+            auto marinesHaveMovedOut = []()
             {
-                desiredCannons = 2;
+                // First check if there is any observed marine or barracks closer to our main than the enemy's natural choke
+                auto enemyNaturalChoke = Map::getEnemyNaturalChoke();
+                if (!enemyNaturalChoke) return true;
+
+                auto navigationGrid = PathFinding::getNavigationGrid(Map::getMyMain()->getPosition(), true);
+                if (!navigationGrid) return true;
+
+                auto naturalChokeCost = (*navigationGrid)[enemyNaturalChoke->center].cost;
+                for (const auto &enemyUnit : Units::allEnemy())
+                {
+                    if (enemyUnit->type == BWAPI::UnitTypes::Terran_Marine || enemyUnit->type == BWAPI::UnitTypes::Terran_Barracks)
+                    {
+                        if ((*navigationGrid)[enemyUnit->lastPosition].cost < naturalChokeCost) return true;
+                    }
+                }
+
+                return false;
+            };
+
+            // Higher danger level if:
+            // - Marines are on the map
+            // - We have no scout left
+            // - The strategy has been stable for 300 frames and our scout isn't monitoring the choke yet
+            bool highDanger = marinesHaveMovedOut() || Strategist::isWorkerScoutComplete() ||
+                    ((Strategist::getWorkerScoutStatus() != Strategist::WorkerScoutStatus::MonitoringEnemyChoke)
+                        && enemyStrategyChanged < (currentFrame - 300));
+
+            int requiredCannons = 0;
+            if (highDanger)
+            {
+                if ((zealotCount + dragoonCount) < 3)
+                {
+                    requiredCannons = 2;
+                }
+                else if ((zealotCount + dragoonCount) < 5)
+                {
+                    requiredCannons = 1;
+                }
             }
-            int completedCannons = buildCannons(desiredCannons);
+
+            int completedCannons = buildCannons(requiredCannons);
 
             // Determine how many zealots we want
             // Zealots are relatively useless against groups of kiting marines, so we want to transition to dragoons as quickly as possible
-            int zealotsRequired = std::max(0, (dragoonCount < 3 ? 3 : 2) - (completedCannons * 2) - zealotCount);
+            int zealotsRequired = 0;
+            if (highDanger)
+            {
+                zealotsRequired = std::max(0, (dragoonCount < 3 ? 3 : 2) - (completedCannons * 2) - zealotCount);
+            }
             handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired, 1);
 
             break;

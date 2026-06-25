@@ -1546,6 +1546,11 @@ namespace Map
         Log::Get() << "Set enemy main choke to " << BWAPI::TilePosition(choke->center);
     }
 
+    Choke *getEnemyNaturalChoke()
+    {
+        return playerToPlayerBases[BWAPI::Broodwar->enemy()].startingNaturalChoke;
+    }
+
     int minChokeWidth()
     {
         return _minChokeWidth;
