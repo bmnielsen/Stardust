@@ -193,7 +193,7 @@ void DefendBase::addPrioritizedProductionGoals(std::map<int, std::vector<Product
     // Build cannons if necessary and possible
     if (!cannonLocations.empty())
     {
-        size_t neededCannons = desiredCannons() - cannons.size();
+        int neededCannons = desiredCannons() - (int)cannons.size();
         for (int i = 0; i < neededCannons && i < cannonLocations.size(); i++)
         {
             // Determine the "normal" and "low" priority levels
