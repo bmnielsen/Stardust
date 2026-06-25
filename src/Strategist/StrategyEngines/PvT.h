@@ -10,7 +10,8 @@ public:
         Unknown,
         WorkerRush,         // Detected by seeing more than two workers in our main without other combat units
         ProxyRush,          // Detected by seeing fewer buildings than expected in main
-        MarineRush,         // Detected by seeing early gates or early zealots
+        MarineRush,         // Detected by seeing early barracks or early marines
+        MarinePressure,     // For when we detect a marine rush but then lose it, indicating the enemy might be saving up marines for a larger push
         WallIn,             // Detected by scout blocked by buildings
         BlockScouting,      // The enemy has blocked our scout from getting into their main, suspect shenanigans
         FastExpansion,      // Natural expansion taken early

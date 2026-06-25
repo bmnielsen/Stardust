@@ -227,6 +227,23 @@ TEST(BananaBrain, BBS)
     test.run();
 }
 
+TEST(BananaBrain, Shallow2)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.map = Maps::GetOne("Jade");
+    test.randomSeed = 74577;
+    test.frameLimit = 9000;
+    test.opponentModule = []()
+    {
+        auto bbModule = new BananaBrain();
+        bbModule->strategyName = TerranStrategy::kTvP_Shallow2;
+        return bbModule;
+    };
+
+    test.run();
+}
+
 TEST(BananaBrain, BenzeneFFE9Gate)
 {
     BWTest test;

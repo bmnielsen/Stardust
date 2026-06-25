@@ -6,17 +6,18 @@
 #include "UnitUtil.h"
 
 std::map<PvT::TerranStrategy, std::string> PvT::TerranStrategyNames = {
-        {TerranStrategy::Unknown,       "Unknown"},
-        {TerranStrategy::WorkerRush,    "WorkerRush"},
-        {TerranStrategy::ProxyRush,     "ProxyRush"},
-        {TerranStrategy::MarineRush,    "MarineRush"},
-        {TerranStrategy::WallIn,        "WallIn"},
-        {TerranStrategy::BlockScouting, "BlockScouting"},
-        {TerranStrategy::FastExpansion, "FastExpansion"},
-        {TerranStrategy::TwoFactory,    "TwoFactory"},
-        {TerranStrategy::NormalOpening, "Normal"},
-        {TerranStrategy::MidGameMech,   "MidGameMech"},
-        {TerranStrategy::MidGameBio,    "MidGameBio"},
+        {TerranStrategy::Unknown,        "Unknown"},
+        {TerranStrategy::WorkerRush,     "WorkerRush"},
+        {TerranStrategy::ProxyRush,      "ProxyRush"},
+        {TerranStrategy::MarineRush,     "MarineRush"},
+        {TerranStrategy::MarinePressure, "MarinePressure"},
+        {TerranStrategy::WallIn,         "WallIn"},
+        {TerranStrategy::BlockScouting,  "BlockScouting"},
+        {TerranStrategy::FastExpansion,  "FastExpansion"},
+        {TerranStrategy::TwoFactory,     "TwoFactory"},
+        {TerranStrategy::NormalOpening,  "Normal"},
+        {TerranStrategy::MidGameMech,    "MidGameMech"},
+        {TerranStrategy::MidGameBio,     "MidGameBio"},
 };
 
 namespace
@@ -304,11 +305,24 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
             case TerranStrategy::MarineRush:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
 
-                // Consider the rush to be over after 6000 frames
-                // From there the Normal handler will potentially transition into MarineAllIn
-                if (currentFrame >= 6000)
+                if (!isMarineRush())
                 {
-                    strategy = TerranStrategy::NormalOpening;
+                    strategy = TerranStrategy::MarinePressure;
+                    continue;
+                }
+
+                break;
+            case TerranStrategy::MarinePressure:
+                if (isMarineRush())
+                {
+                    strategy = TerranStrategy::MarineRush;
+                    continue;
+                }
+
+                // Transition to midgame when appropriate
+                if (isMidGame())
+                {
+                    strategy = TerranStrategy::MidGameMech;
                     continue;
                 }
 

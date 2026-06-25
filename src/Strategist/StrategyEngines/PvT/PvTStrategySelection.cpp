@@ -106,6 +106,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                         strategy = OurStrategy::AntiMarineRush;
                         continue;
                     case TerranStrategy::TwoFactory:
+                    case TerranStrategy::MarinePressure:
                         strategy = OurStrategy::Defensive;
                         continue;
                     case TerranStrategy::FastExpansion:
@@ -129,7 +130,14 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 // Transition to normal when we consider it safe to do so
                 if (canTransitionFromAntiMarineRush())
                 {
-                    strategy = OurStrategy::NormalOpening;
+                    if (newEnemyStrategy == TerranStrategy::MarinePressure)
+                    {
+                        strategy = OurStrategy::Defensive;
+                    }
+                    else
+                    {
+                        strategy = OurStrategy::NormalOpening;
+                    }
                     continue;
                 }
 
@@ -158,7 +166,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     continue;
                 }
 
-                // Transition to normal when we either detect another opening or when there are six units in the vanguard cluster
+                // Transition to normal when we either detect another opening or when there are enough units in the vanguard cluster
 
                 if (newEnemyStrategy == TerranStrategy::MidGameMech ||
                     newEnemyStrategy == TerranStrategy::MidGameBio)
@@ -167,17 +175,19 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     continue;
                 }
 
+                size_t vanguardUnitRequirement = (newEnemyStrategy == TerranStrategy::MarinePressure) ? 10 : 6;
+
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
                 if (mainArmyPlay && mainArmyPlay->isDefensive())
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
-                    if (vanguard && vanguard->units.size() >= 6)
+                    if (vanguard && vanguard->units.size() >= vanguardUnitRequirement)
                     {
                         strategy = OurStrategy::NormalOpening;
                         continue;
                     }
                 }
-
+                break;
             }
             case PvT::OurStrategy::NormalOpening:
             {
