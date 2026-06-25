@@ -45,6 +45,7 @@ namespace
         if (unit->immobile) return false;
 
         if (unit->type == BWAPI::UnitTypes::Protoss_Interceptor) return false;
+        if (unit->type == BWAPI::UnitTypes::Terran_Bunker) return true;
         if (unit->type == BWAPI::UnitTypes::Terran_Medic) return true;
         if (unit->type == BWAPI::UnitTypes::Zerg_Overlord) return true;
 

@@ -119,6 +119,43 @@ namespace UnitUtil
         return attacker.airWeapon();
     }
 
+    int MaxGroundHits(BWAPI::UnitType attacker)
+    {
+        // Assume bunkers have marines in them
+        if (attacker == BWAPI::UnitTypes::Terran_Bunker)
+        {
+            return BWAPI::UnitTypes::Terran_Marine.maxGroundHits();
+        }
+
+        if (attacker == BWAPI::UnitTypes::Protoss_Carrier)
+        {
+            return BWAPI::UnitTypes::Protoss_Interceptor.maxGroundHits();
+        }
+
+        if (attacker == BWAPI::UnitTypes::Protoss_Reaver)
+        {
+            return BWAPI::UnitTypes::Protoss_Scarab.maxGroundHits();
+        }
+
+        return attacker.maxGroundHits();
+    }
+
+    int MaxAirHits(BWAPI::UnitType attacker)
+    {
+        // Assume bunkers have marines in them
+        if (attacker == BWAPI::UnitTypes::Terran_Bunker)
+        {
+            return BWAPI::UnitTypes::Terran_Marine.maxAirHits();
+        }
+
+        if (attacker == BWAPI::UnitTypes::Protoss_Carrier)
+        {
+            return BWAPI::UnitTypes::Protoss_Interceptor.maxAirHits();
+        }
+
+        return attacker.maxAirHits();
+    }
+
     bool CanAttackGround(BWAPI::UnitType attackerType)
     {
         return attackerType.groundWeapon() != BWAPI::WeaponTypes::None ||

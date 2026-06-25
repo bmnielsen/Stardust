@@ -181,12 +181,12 @@ int UnitImpl::groundDamage() const
         return 0;
     }
 
-    return Players::weaponDamage(player, groundWeapon()) * type.maxGroundHits();
+    return Players::weaponDamage(player, groundWeapon()) * std::min(1, UnitUtil::MaxGroundHits(type));
 }
 
 int UnitImpl::airDamage() const
 {
-    return Players::weaponDamage(player, airWeapon()) * type.maxAirHits();
+    return Players::weaponDamage(player, airWeapon()) * std::min(1, UnitUtil::MaxAirHits(type));
 }
 
 BWAPI::WeaponType UnitImpl::groundWeapon() const

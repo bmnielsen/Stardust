@@ -173,7 +173,7 @@ TEST(AttackBunker, FourGoons)
 
     test.onStartMine = []()
     {
-        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 8)));
+        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(93, 118)));
 
         Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::UpgradeTypes::Singularity_Charge));
 

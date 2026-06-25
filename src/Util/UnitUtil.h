@@ -12,6 +12,10 @@ namespace UnitUtil
 
     BWAPI::WeaponType GetAirWeapon(BWAPI::UnitType attacker);
 
+    int MaxGroundHits(BWAPI::UnitType attacker);
+
+    int MaxAirHits(BWAPI::UnitType attacker);
+
     bool CanAttackGround(BWAPI::UnitType attackerType);
 
     bool CanAttackAir(BWAPI::UnitType attackerType);
