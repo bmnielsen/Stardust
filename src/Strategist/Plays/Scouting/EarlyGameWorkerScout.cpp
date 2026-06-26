@@ -214,8 +214,8 @@ namespace
         // If we suspect a proxy, scout the natural and outskirts more aggressively early on in case we missed something
         if (Strategist::getStrategyEngine()->isEnemyProxy() && currentFrame < 4000)
         {
-            naturalPriority = 480;
-            areaPriority = 600;
+            naturalPriority = 600;
+            areaPriority = 480;
         }
 
         // If the enemy is rushing, give the main area and natural much lower priority

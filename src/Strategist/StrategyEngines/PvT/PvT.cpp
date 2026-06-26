@@ -167,8 +167,9 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
     updateAttackPlays(plays, defendOurMain);
 
-    // Set the worker scout to monitor the enemy choke if we've detected a marine rush
+    // Set the worker scout to monitor the enemy choke if we've detected a non-proxy marine rush
     if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
+        !Strategist::getStrategyEngine()->isEnemyProxy() &&
         ourStrategy == OurStrategy::AntiMarineRush)
     {
         auto play = getPlay<EarlyGameWorkerScout>(plays);
