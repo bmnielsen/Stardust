@@ -136,6 +136,9 @@ namespace Builder
         }
 
         // Prune the list of pending buildings
+#if LOGGING_ENABLED
+        unsigned int pylons = 0;
+#endif
         for (auto it = pendingBuildings.begin(); it != pendingBuildings.end();)
         {
             auto &building = **it;
@@ -192,8 +195,16 @@ namespace Builder
                 continue;
             }
 
+#if LOGGING_ENABLED
+            if (building.type == BWAPI::UnitTypes::Protoss_Pylon) ++pylons;
+#endif
+
             it++;
         }
+
+#if LOGGING_ENABLED
+        if (pylons > 10) Log::Get() << "ERROR: Excessive pylon production";
+#endif
 
         // Check for started buildings
         // TODO: Flip this around and only check the unit list when we have sent the build order
