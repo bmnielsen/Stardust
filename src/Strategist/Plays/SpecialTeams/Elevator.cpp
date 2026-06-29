@@ -313,10 +313,13 @@ void Elevator::update()
             auto enemyNatural = Map::getEnemyStartingNatural();
             if (!Strategist::isEnemyContained() ||
                 Units::countCompleted(unitType) < 5 ||
-                !enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy() ||
-                Units::countEnemy(BWAPI::UnitTypes::Terran_Bunker) == 0)
+                !enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy())
             {
                 return;
+            }
+            for (const auto &bunker : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Bunker))
+            {
+                if (bunker->getDistance(enemyNatural->getPosition()) > 640) return;
             }
         }
 
