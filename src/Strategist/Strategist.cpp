@@ -270,18 +270,18 @@ namespace Strategist
             auto enemyMain = Map::getEnemyMain();
             if (!enemyMain) return false;
 
-            // We only consider the enemy contained if our main army play is AttackEnemyBase
-            Play *attackMainPlay = nullptr;
+            // We only consider the enemy contained if our main army play is AttackEnemyBase and that base is their main or natural
+            std::shared_ptr<AttackEnemyBase> attackMainPlay = nullptr;
             for (auto &spPlay : plays)
             {
-                Play *play = spPlay.get();
-                if (typeid(*play) == typeid(AttackEnemyBase))
-                {
-                    attackMainPlay = play;
-                    break;
-                }
+                attackMainPlay = std::dynamic_pointer_cast<AttackEnemyBase>(spPlay);
+                if (attackMainPlay) break;
             }
             if (!attackMainPlay) return false;
+            if (attackMainPlay->base != Map::getEnemyMain() && attackMainPlay->base != Map::getEnemyStartingNatural())
+            {
+                return false;
+            }
 
             // Get the vanguard cluster with its distance to the enemy main
             int vanguardDist;
@@ -336,7 +336,11 @@ namespace Strategist
             for (const auto &unit : Units::allEnemy())
             {
                 // Any flying non-building indicates the enemy isn't contained
-                if (unit->isFlying && !unit->type.isBuilding()) return false;
+                if (unit->isFlying)
+                {
+                    if (unit->type.isBuilding()) continue;
+                    return false;
+                }
 
                 if (!unit->lastPositionValid) continue;
                 if (unit->type.isWorker() && unit->lastSeenAttacking < (currentFrame - 120)) continue;
