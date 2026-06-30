@@ -13,7 +13,7 @@ async function cvis_dbg_drawcommands_update(global_data, cvis_state) {
 
   Module.clear_draw_commands();
   $('.cvis-cmd-draw').remove();
-  if (global_data['draw_commands'] === undefined || $.isEmptyObject(global_data['draw_commands'])) return;
+  if ((global_data['draw_commands'] === undefined || $.isEmptyObject(global_data['draw_commands'])) && !global_data.combatsim_draw) return;
 
   if (typeof global_data['draw_commands'] === 'string') {
     global_data.draw_commands_legacy = await cvis_state.functions.load_cvis_json_file_async(cvis_state.cvis_path, global_data['draw_commands']);
