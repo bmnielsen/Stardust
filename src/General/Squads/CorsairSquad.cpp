@@ -196,16 +196,14 @@ namespace
 
     bool shouldStartAttack(UnitCluster &cluster, CombatSimResult &simResult)
     {
-        bool attack = shouldAttack(cluster, simResult);
-        cluster.addSimResult(simResult, attack);
-        return attack;
+        simResult.decision = shouldAttack(cluster, simResult);
+        return simResult.decision;
     }
 
     bool shouldContinueAttack(UnitCluster &cluster, CombatSimResult &simResult)
     {
-        bool attack = shouldAttack(cluster, simResult, 1.2);
-        cluster.addSimResult(simResult, attack);
-        if (attack) return true;
+        simResult.decision = shouldAttack(cluster, simResult, 1.2);
+        if (simResult.decision) return true;
 
         // TODO: Would probably be a good idea to run a retreat sim to see what the consequences of retreating are
 
@@ -218,7 +216,7 @@ namespace
             return false;
         }
 
-        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1].first;
+        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1];
 
         // If the enemy army strength has increased significantly, abort the attack immediately
         if (simResult.initialEnemy > (int)((double)previousSimResult.initialEnemy * 1.2))
@@ -263,9 +261,8 @@ namespace
 
     bool shouldStopRegrouping(UnitCluster &cluster, CombatSimResult &simResult)
     {
-        bool attack = shouldAttack(cluster, simResult, 0.8);
-        cluster.addSimResult(simResult, attack);
-        if (!attack) return false;
+        simResult.decision = shouldAttack(cluster, simResult, 0.8);
+        if (!simResult.decision) return false;
 
         int attackFrames;
         int regroupFrames;
@@ -295,7 +292,7 @@ namespace
         int count = 0;
         for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 72; it++)
         {
-            if (simResult.myUnitCount > it->first.myUnitCount)
+            if (simResult.myUnitCount > it->myUnitCount)
             {
 #if DEBUG_COMBATSIM_LOG
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -677,7 +674,7 @@ void CorsairSquad::clusterAttack(UnitCluster &cluster, std::set<Unit> &targets)
     Units::enemyInRadius(enemyUnits, cluster.center, radius, groundThreat);
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors);
+    auto &simResult = cluster.runCombatSim(cluster.recentSimResults, targetPosition, unitsAndTargets, enemyUnits, detectors);
 
     // Determine if we should attack
     bool attack;
@@ -776,7 +773,7 @@ void CorsairSquad::clusterDefend(UnitCluster &cluster, Base *base, std::set<Unit
         int radius = 640;
         if (cluster.vanguard) radius += cluster.vanguard->getDistance(cluster.center);
         Units::enemyInRadius(enemyUnits, cluster.center, radius);
-        auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors);
+        auto &simResult = cluster.runCombatSim(cluster.recentSimResults, targetPosition, unitsAndTargets, enemyUnits, detectors);
 
         // Determine if we should attack
         switch (cluster.currentActivity)

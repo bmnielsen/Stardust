@@ -282,10 +282,10 @@ std::string UnitCluster::getCurrentSubActivity() const
 
 void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
 {
-    auto simResultToJson = [](const CombatSimResult& simResult, bool decision)
+    auto simResultToJson = [](const CombatSimResult& simResult)
     {
         nlohmann::json result({
-                                      {"decision",                decision},
+                                      {"decision",                simResult.decision},
                                       {"myUnitCount",             simResult.myUnitCount},
                                       {"enemyUnitCount",          simResult.enemyUnitCount},
                                       {"initialMine",             simResult.initialMine},
@@ -319,13 +319,13 @@ void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
 
     nlohmann::json simResult;
     nlohmann::json regroupSimResult;
-    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame == currentFrame)
+    if (!recentSimResults.empty() && recentSimResults.rbegin()->frame == currentFrame)
     {
-        simResult = simResultToJson(recentSimResults.rbegin()->first, recentSimResults.rbegin()->second);
+        simResult = simResultToJson(*recentSimResults.rbegin());
     }
-    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame == currentFrame)
+    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->frame == currentFrame)
     {
-        regroupSimResult = simResultToJson(recentRegroupSimResults.rbegin()->first, recentRegroupSimResults.rbegin()->second);
+        regroupSimResult = simResultToJson(*recentRegroupSimResults.rbegin());
     }
 
     clusterArray.push_back({

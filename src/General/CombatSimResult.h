@@ -32,6 +32,9 @@ public:
     std::unordered_map<std::string, std::vector<int>> unitLog;
 #endif
 
+    // Set by the user of the combat sim result, indicates what decision was made after analysis
+    bool decision = false;
+
     CombatSimResult(int myUnitCount,
                     int enemyUnitCount,
                     int initialMine,
@@ -114,4 +117,9 @@ public:
 
         return *this;
     }
+
+    // Make it only movable, since these results can be large with full instrumentation
+    CombatSimResult(CombatSimResult&&) = default;
+    CombatSimResult (const CombatSimResult&) = delete;
+    CombatSimResult& operator= (const CombatSimResult&) = delete;
 };

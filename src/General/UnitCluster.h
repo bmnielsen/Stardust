@@ -34,8 +34,8 @@ public:
     SubActivity currentSubActivity;
     int lastActivityChange;
 
-    std::deque<std::pair<CombatSimResult, bool>> recentSimResults;
-    std::deque<std::pair<CombatSimResult, bool>> recentRegroupSimResults;
+    std::deque<CombatSimResult> recentSimResults;
+    std::deque<CombatSimResult> recentRegroupSimResults;
 
     bool isVanguardCluster;
 
@@ -99,15 +99,19 @@ public:
                                  bool attacking = true,
                                  Choke *choke = nullptr);
 
-    void addSimResult(CombatSimResult &simResult, bool attack);
-
-    void addRegroupSimResult(CombatSimResult &simResult, bool contain);
+    CombatSimResult& runCombatSim(std::deque<CombatSimResult> &simResults,
+                                  BWAPI::Position targetPosition,
+                                  std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                                  std::set<Unit> &targets,
+                                  std::set<MyUnit> &detectors,
+                                  bool attacking = true,
+                                  Choke *choke = nullptr);
 
     void addInstrumentation(nlohmann::json &clusterArray) const;
 
     // This returns the number of consecutive frames the sim has agreed on its current value.
     // It also returns the total number of attack and regroup frames within the window.
-    static int consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &simResults,
+    static int consecutiveSimResults(std::deque<CombatSimResult> &simResults,
                                      int *attack,
                                      int *regroup,
                                      int limit);

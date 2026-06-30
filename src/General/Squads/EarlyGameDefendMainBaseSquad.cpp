@@ -89,7 +89,7 @@ namespace
         int count = 0;
         for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 24; it++)
         {
-            if (!it->second)
+            if (!it->decision)
             {
 #if DEBUG_COMBATSIM
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -98,7 +98,7 @@ namespace
                 return false;
             }
 
-            if (simResult.myUnitCount != it->first.myUnitCount)
+            if (simResult.myUnitCount != it->myUnitCount)
             {
 #if DEBUG_COMBATSIM
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -139,7 +139,7 @@ namespace
             return true;
         }
 
-        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1].first;
+        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1];
 
         // If the number of enemy units has increased, abort the attack: the enemy has reinforced or we have discovered previously-unseen enemy units
         if (simResult.enemyUnitCount > previousSimResult.enemyUnitCount)
@@ -162,7 +162,7 @@ namespace
         int count = 0;
         for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 12; it++)
         {
-            if (it->second)
+            if (it->decision)
             {
 #if DEBUG_COMBATSIM
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -230,7 +230,7 @@ bool EarlyGameDefendMainBaseSquad::canTransitionToAttack() const
     int count = 0;
     for (auto it = vanguard->recentSimResults.rbegin(); it != vanguard->recentSimResults.rend() && count < 72; it++)
     {
-        if (!it->second) return false;
+        if (!it->decision) return false;
         count++;
     }
 
@@ -331,12 +331,12 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors, false);
+    auto &simResult = cluster.runCombatSim(cluster.recentSimResults, targetPosition, unitsAndTargets, enemyUnits, detectors, false);
 
     // Make the attack / retreat decision based on the sim result
     // TODO: Needs tuning
-    bool attack = simResult.myPercentLost() <= 0.001 ||
-                  simResult.percentGain() > -0.1;
+    simResult.decision = simResult.myPercentLost() <= 0.001 ||
+                       simResult.percentGain() > -0.1;
 
 #if DEBUG_COMBATSIM_LOG
     CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -346,9 +346,8 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
                      << (attack ? "; ATTACK" : "; RETREAT");
 #endif
 
-    cluster.addSimResult(simResult, attack);
-
     // Make the final decision based on what state we are currently in
+    bool attack = simResult.decision;
 
     // Currently regrouping, but want to attack: do so once the sim has stabilized
     if (attack && cluster.currentActivity == UnitCluster::Activity::Regrouping)

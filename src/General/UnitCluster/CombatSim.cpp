@@ -604,30 +604,35 @@ CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
 
     return execute<false>(targetPosition, this, unitsAndTargets, targets, detectors, attacking);
 }
-
-void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
+CombatSimResult &UnitCluster::runCombatSim(std::deque<CombatSimResult> &simResults,
+                                           BWAPI::Position targetPosition,
+                                           std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                                           std::set<Unit> &targets,
+                                           std::set<MyUnit> &detectors,
+                                           bool attacking,
+                                           Choke *choke)
 {
+    auto simResult = runCombatSim(targetPosition,
+                                  unitsAndTargets,
+                                  targets,
+                                  detectors,
+                                  attacking,
+                                  choke);
+
     // Reset recent sim results if it hasn't been run on the last frame
-    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame != currentFrame - 1)
+    if (!simResults.empty() && simResults.rbegin()->frame != currentFrame - 1)
     {
-        recentSimResults.clear();
+        simResults.clear();
     }
 
-    recentSimResults.emplace_back(simResult, attack);
+    // Cap the list at 72 items
+    if (simResults.size() == 72) simResults.pop_front();
+
+    simResults.emplace_back(std::move(simResult));
+    return *simResults.rbegin();
 }
 
-void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
-{
-    // Reset recent sim results if it hasn't been run on the last frame
-    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame != currentFrame - 1)
-    {
-        recentRegroupSimResults.clear();
-    }
-
-    recentRegroupSimResults.emplace_back(simResult, contain);
-}
-
-int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &simResults,
+int UnitCluster::consecutiveSimResults(std::deque<CombatSimResult> &simResults,
                                        int *attack,
                                        int *regroup,
                                        int limit)
@@ -637,7 +642,7 @@ int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, boo
 
     if (simResults.empty()) return 0;
 
-    bool firstResult = simResults.rbegin()->second;
+    bool firstResult = simResults.rbegin()->decision;
     bool isConsecutive = true;
     int consecutive = 0;
     int count = 0;
@@ -645,7 +650,7 @@ int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, boo
     {
         if (isConsecutive)
         {
-            if (it->second == firstResult)
+            if (it->decision == firstResult)
             {
                 consecutive++;
             }
@@ -655,7 +660,7 @@ int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, boo
             }
         }
 
-        if (it->second)
+        if (it->decision)
         {
             (*attack)++;
         }

@@ -138,7 +138,7 @@ namespace
             lastCount = cluster->recentSimResults.size();
             if (cluster->recentSimResults.empty()) return;
 
-            auto &simResult = cluster->recentSimResults.rbegin()->first;
+            auto &simResult = *cluster->recentSimResults.rbegin();
 
             // Set the actuals
             results.frameToActuals[BWAPI::Broodwar->getFrameCount() - 1] = std::make_pair(simResult.initialMine, simResult.initialEnemy);

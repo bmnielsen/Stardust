@@ -141,9 +141,8 @@ namespace
             aggression *= 1.0 + (1000.0 - std::max((double)naturalDist, 500.0)) / 500.0;
         }
 
-        bool attack = shouldAttack(cluster, simResult, aggression);
-        cluster.addSimResult(simResult, attack);
-        return attack;
+        simResult.decision = shouldAttack(cluster, simResult, aggression);
+        return simResult.decision;
     }
 
     bool shouldContinueAttack(UnitCluster &cluster,
@@ -167,11 +166,8 @@ namespace
             aggression *= 1.0 + (1000.0 - std::max((double)naturalDist, 500.0)) / 500.0;
         }
 
-        bool attack = shouldAttack(cluster, simResult, aggression);
-
-        cluster.addSimResult(simResult, attack);
-
-        if (attack) return true;
+        simResult.decision = shouldAttack(cluster, simResult, aggression);
+        if (simResult.decision) return true;
 
         // TODO: Would probably be a good idea to run a retreat sim to see what the consequences of retreating are
 
@@ -184,7 +180,7 @@ namespace
             return false;
         }
 
-        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1].first;
+        CombatSimResult &previousSimResult = cluster.recentSimResults.rbegin()[1];
 
         // If the enemy army strength has increased significantly, abort the attack immediately
         if (simResult.initialEnemy > (int) ((double) previousSimResult.initialEnemy * 1.2))
@@ -245,7 +241,7 @@ namespace
         // Always attack if we are maxed and have no significant reinforcements incoming
         if (BWAPI::Broodwar->self()->supplyUsed() > 380 && reinforcementPercentage < 0.075)
         {
-            cluster.addSimResult(simResult, true);
+            simResult.decision = true;
             return true;
         }
 
@@ -280,11 +276,8 @@ namespace
             aggression *= 2.0;
         }
 
-        bool attack = shouldAttack(cluster, simResult, aggression);
-
-        cluster.addSimResult(simResult, attack);
-
-        if (!attack) return false;
+        simResult.decision = shouldAttack(cluster, simResult, aggression);
+        if (!simResult.decision) return false;
 
         int attackFrames;
         int regroupFrames;
@@ -314,7 +307,7 @@ namespace
         int count = 0;
         for (auto it = cluster.recentSimResults.rbegin(); it != cluster.recentSimResults.rend() && count < 72; it++)
         {
-            if (simResult.myUnitCount > it->first.myUnitCount)
+            if (simResult.myUnitCount > it->myUnitCount)
             {
 #if DEBUG_COMBATSIM_LOG
                 CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -380,7 +373,7 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
     }
 
     // Run combat sim
-    auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors);
+    auto &simResult = cluster.runCombatSim(cluster.recentSimResults, targetPosition, unitsAndTargets, enemyUnits, detectors);
 
     // TODO: If our units can't do any damage (e.g. ground-only vs. air, melee vs. kiting ranged units), do something else
 

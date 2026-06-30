@@ -80,7 +80,7 @@ namespace
             return false;
         }
 
-        auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
+        auto &simResult = cluster.runCombatSim(cluster.recentRegroupSimResults, targetPosition, unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
 
         double distanceFactor = 1.0;
         auto attack = [&]()
@@ -117,7 +117,7 @@ namespace
             return false;
         };
 
-        bool contain = attack();
+        simResult.decision = attack();
 
 #if DEBUG_COMBATSIM_LOG
         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
@@ -130,18 +130,16 @@ namespace
 
         simResult.distanceFactor = distanceFactor;
 
-        cluster.addRegroupSimResult(simResult, contain);
-
         // What we decide depends on the current regroup activity
         switch (cluster.currentSubActivity)
         {
             case UnitCluster::SubActivity::None:
                 // This is the first regroup frame, so go with the sim
-                return contain;
+                return simResult.decision;
             case UnitCluster::SubActivity::ContainChoke:
             {
                 // Continue the contain if the sim recommends it
-                if (contain) return true;
+                if (simResult.decision) return true;
 
                 int containFrames;
                 int fleeFrames;
@@ -176,7 +174,7 @@ namespace
             case UnitCluster::SubActivity::StandGround:
             case UnitCluster::SubActivity::Flee:
             {
-                if (!contain) return false;
+                if (!simResult.decision) return false;
 
                 int containFrames;
                 int fleeFrames;
@@ -206,7 +204,7 @@ namespace
                 int count = 0;
                 for (auto it = cluster.recentRegroupSimResults.rbegin(); it != cluster.recentRegroupSimResults.rend() && count < 60; it++)
                 {
-                    if (simResult.myUnitCount > it->first.myUnitCount)
+                    if (simResult.myUnitCount > it->myUnitCount)
                     {
 #if DEBUG_COMBATSIM_LOG
                         CherryVis::log() << BWAPI::WalkPosition(cluster.center)
