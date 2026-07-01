@@ -559,11 +559,9 @@ namespace FAP
             }
         }
 
-        // Potentially replace our current target with another one if we are off cooldown and it isn't in range
         auto closestEnemy = currentTarget;
         int closestDistSquared = currentTargetDist;
-        if (closestEnemy == enemyUnits.end() ||
-            (closestDistSquared > (closestEnemy->flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared) && !kite))
+        if (closestEnemy == enemyUnits.end())
         {
             for (auto enemyIt = enemyUnits.begin(); enemyIt != enemyUnits.end(); ++enemyIt)
             {
@@ -594,13 +592,7 @@ namespace FAP
                 }
             }
 
-            // Keep the current target if the closest alternative isn't in range either
-            if (currentTarget != enemyUnits.end() && closestDistSquared > (closestEnemy->flying ? fu.airMaxRangeSquared : fu.groundMaxRangeSquared))
-            {
-                closestEnemy = currentTarget;
-                closestDistSquared = currentTargetDist;
-            }
-            else if (closestEnemy != enemyUnits.end())
+            if (closestEnemy != enemyUnits.end())
             {
                 fu.target = closestEnemy->id;
             }

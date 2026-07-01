@@ -303,3 +303,61 @@ TEST(AttackStaticDefense, TankThroughChoke)
 
     test.run();
 }
+
+TEST(AttackStaticDefense, CombatSimCheck)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Mancha");
+    test.randomSeed = 40072;
+    test.frameLimit = 500;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3187, 3027), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3288, 2979), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3330, 2969), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3249, 3042), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3332, 3001), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3395, 2896), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3357, 2917), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3352, 2815), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3373, 2775), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3421, 2836), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3375, 2743), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(3395, 2952), true),
+    };
+
+    test.opponentInitialUnits = {
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(3712, 3125), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(3607, 2960), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(3583, 2908), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(3731, 3010), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(3590, 2948), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(3624, 2888), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(3607, 2888), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(3699, 3090), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(3667, 3118), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Medic, BWAPI::Position(3607, 2928), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(3624, 2935), true),
+    };
+
+    test.onStartMine = []()
+    {
+        BWAPI::Broodwar->self()->setUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge, 1);
+
+        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 89)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, false));
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.run();
+}
