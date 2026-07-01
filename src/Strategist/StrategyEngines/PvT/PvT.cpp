@@ -463,9 +463,9 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                                1);
             }
 
-            // Build arbiters on three completed nexuses
+            // Against mech, build arbiters on three completed nexuses
             int arbiterCount = Units::countAll(BWAPI::UnitTypes::Protoss_Arbiter);
-            if (arbiterCount < 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
+            if (enemyStrategy == TerranStrategy::MidGameMech && arbiterCount < 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                          "SE",

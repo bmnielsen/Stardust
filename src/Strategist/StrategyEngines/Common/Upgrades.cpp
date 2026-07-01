@@ -198,7 +198,6 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
             BWAPI::Broodwar->self()->minerals() > 1500 &&
             BWAPI::Broodwar->self()->gas() > 1000)
         {
-            if (weaponLevel < 3 && armorLevel < 3) forgeCount = 3;
             prioritizedProductionGoals[PRIORITY_NORMAL]
                     .emplace_back(std::in_place_type<UpgradeProductionGoal>,
                                   "SE",
