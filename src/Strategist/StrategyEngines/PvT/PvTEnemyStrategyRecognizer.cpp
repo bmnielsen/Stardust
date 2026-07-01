@@ -295,7 +295,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 if (Units::countEnemy(BWAPI::UnitTypes::Terran_Refinery) > 0 ||
                     (currentFrame >= 6000 && Strategist::isWorkerScoutComplete()))
                 {
-                    strategy = TerranStrategy::Unknown;
+                    strategy = TerranStrategy::MarinePressure;
                     continue;
                 }
 
@@ -303,7 +303,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 if (currentFrame >= 6000 &&
                     Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) < Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon))
                 {
-                    strategy = TerranStrategy::Unknown;
+                    strategy = TerranStrategy::MarinePressure;
                     continue;
                 }
 
