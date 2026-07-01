@@ -118,6 +118,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                         continue;
                     case TerranStrategy::MidGameMech:
                     case TerranStrategy::MidGameBio:
+                    case TerranStrategy::MidGameBioMech:
                         strategy = OurStrategy::MidGame;
                         continue;
                 }
@@ -169,7 +170,8 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 // Transition to normal when we either detect another opening or when there are enough units in the vanguard cluster
 
                 if (newEnemyStrategy == TerranStrategy::MidGameMech ||
-                    newEnemyStrategy == TerranStrategy::MidGameBio)
+                    newEnemyStrategy == TerranStrategy::MidGameBio ||
+                    newEnemyStrategy == TerranStrategy::MidGameBioMech)
                 {
                     strategy = OurStrategy::NormalOpening;
                     continue;
@@ -205,6 +207,7 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 // TODO: This is very vaguely defined
                 if (newEnemyStrategy == TerranStrategy::MidGameMech ||
                     newEnemyStrategy == TerranStrategy::MidGameBio ||
+                    newEnemyStrategy == TerranStrategy::MidGameBioMech ||
                     Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;

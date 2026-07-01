@@ -18,6 +18,7 @@ std::map<PvT::TerranStrategy, std::string> PvT::TerranStrategyNames = {
         {TerranStrategy::NormalOpening,  "Normal"},
         {TerranStrategy::MidGameMech,    "MidGameMech"},
         {TerranStrategy::MidGameBio,     "MidGameBio"},
+        {TerranStrategy::MidGameBioMech, "MidGameBioMech"},
 };
 
 namespace
@@ -210,21 +211,26 @@ namespace
                 Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)) > (currentFrame > 10000 ? 2 : 4);
     }
 
-    bool isMidGameMech()
+    PvT::TerranStrategy midGameStrategy()
     {
-        int mech = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) +
-                   Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) +
+        // Count the mech and bio units
+        // Tanks are weighted twice as heavily as other mech
+        // Medics are weighted three times as heavily as other bio
+        int mech = Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) * 2 +
+                   Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) * 2 +
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Vulture) +
                    Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath);
         int bio = Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) +
-                  Units::countEnemy(BWAPI::UnitTypes::Terran_Medic) +
+                  Units::countEnemy(BWAPI::UnitTypes::Terran_Medic) * 3 +
                   Units::countEnemy(BWAPI::UnitTypes::Terran_Firebat);
 
-        // Mech if they don't have many bio units
-        if (bio < 10) return true;
+        if (mech == 0 && bio == 0) return PvT::TerranStrategy::MidGameMech;
 
-        // Mech if they have less than twice as many bio units compared to mech
-        return mech >= (bio / 2);
+        // Decide on the enemy strategy by the ratio of mech to bio
+        auto ratio = (double)mech / (double)(mech + bio);
+        if (ratio < 0.333) return PvT::TerranStrategy::MidGameBio;
+        if (ratio > 0.666) return PvT::TerranStrategy::MidGameMech;
+        return PvT::TerranStrategy::MidGameBioMech;
     }
 }
 
@@ -322,8 +328,8 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 // Transition to midgame when appropriate
                 if (isMidGame())
                 {
-                    strategy = TerranStrategy::MidGameMech;
-                    continue;
+                    strategy = midGameStrategy();
+                    break;
                 }
 
                 break;
@@ -334,8 +340,8 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 if (isMidGame())
                 {
-                    strategy = TerranStrategy::MidGameMech;
-                    continue;
+                    strategy = midGameStrategy();
+                    break;
                 }
 
                 break;
@@ -354,8 +360,8 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 if (isMidGame())
                 {
-                    strategy = TerranStrategy::MidGameMech;
-                    continue;
+                    strategy = midGameStrategy();
+                    break;
                 }
 
                 break;
@@ -368,24 +374,15 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 if (isMidGame())
                 {
-                    strategy = TerranStrategy::MidGameMech;
-                    continue;
+                    strategy = midGameStrategy();
+                    break;
                 }
 
                 break;
             case TerranStrategy::MidGameMech:
-                if (!isMidGameMech())
-                {
-                    strategy = TerranStrategy::MidGameBio;
-                    continue;
-                }
-                break;
             case TerranStrategy::MidGameBio:
-                if (isMidGameMech())
-                {
-                    strategy = TerranStrategy::MidGameMech;
-                    continue;
-                }
+            case TerranStrategy::MidGameBioMech:
+                strategy = midGameStrategy();
                 break;
         }
 

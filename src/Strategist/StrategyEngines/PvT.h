@@ -19,6 +19,7 @@ public:
         NormalOpening,      // Normal opening
         MidGameMech,        // Opponent has transitioned from opening into a mech-heavy composition
         MidGameBio,         // Opponent has transitioned from opening into a bio-heavy composition
+        MidGameBioMech,     // Opponent has transitioned from opening into a balanced composition
         // TODO: Learn more Terran openings
         // TODO: Mid- and late game
     };
