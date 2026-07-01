@@ -26,6 +26,7 @@ async function cvis_dbg_drawcommands_update(global_data, cvis_state) {
     draw_commands_this_frame = [];
     const idx_this_frame = global_data.combatsim_draw.frame * 4;
     const idx_next_frame = (global_data.combatsim_draw.frame + 1) * 4;
+    const idx_prev_frame = (global_data.combatsim_draw.frame > 0) ? ((global_data.combatsim_draw.frame - 1) * 4) : 0;
     for (let unit_id of cvis_state.selected_units) {
       const unitData = global_data.combatsim_draw.data[unit_id];
       if (!unitData) continue;
@@ -66,7 +67,7 @@ async function cvis_dbg_drawcommands_update(global_data, cvis_state) {
         str: ''+unitData[idx_this_frame + 3]
       });
 
-      const firedThisFrame = unitData[idx_next_frame + 3] > unitData[idx_this_frame + 3];
+      const firedThisFrame = unitData[idx_this_frame + 3] > unitData[idx_prev_frame + 3];
 
       // Draw a line towards the target
       const targetData = global_data.combatsim_draw.data[unitData[idx_this_frame + 2]];
