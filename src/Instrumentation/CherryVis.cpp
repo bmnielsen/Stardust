@@ -5,17 +5,20 @@
 
 #include <utility>
 #include <filesystem>
+#include <zstdstream.h>
+#include <fstream>
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
-#include <zstdstream.h>
 #define STREAM zstd::ofstream
 #define FILE_EXTENSION ".json.zstd"
 #else
-#include <fstream>
 #define STREAM std::ofstream
 #define FILE_EXTENSION ".json"
 #endif
 #endif
+
+#define PARTITIONED_STREAM zstd::ofstream
+#define PARTITIONED_FILE_EXTENSION ".json.zstd"
 
 namespace CherryVis
 {
@@ -55,7 +58,6 @@ namespace CherryVis
             , framesPerPartition(framesPerPartition)
             , currentPartition(0)
             , count(0)
-            , stream(nullptr)
             {
             }
 
@@ -174,7 +176,16 @@ namespace CherryVis
                             (*stream) << "}";
                             break;
                     }
-                    stream->close();
+                    if (isPartitioned())
+                    {
+                        auto derivedStream = static_cast<PARTITIONED_STREAM *>(stream);
+                        if (derivedStream) derivedStream->close();
+                    }
+                    else
+                    {
+                        auto derivedStream = static_cast<STREAM *>(stream);
+                        if (derivedStream) derivedStream->close();
+                    }
                     delete stream;
                     count = 0;
                 }
@@ -199,7 +210,7 @@ namespace CherryVis
             int framesPerPartition;
             int currentPartition;
             int count;
-            STREAM *stream{};
+            std::ostream *stream{};
 
             void createPart()
             {
@@ -214,11 +225,18 @@ namespace CherryVis
                         startFrame = (cvisFrame() / framesPerPartition) * framesPerPartition;
                         filenameBuilder << "_" << startFrame;
                     }
-                    filenameBuilder << FILE_EXTENSION;
+                    if (isPartitioned())
+                    {
+                        filenameBuilder << PARTITIONED_FILE_EXTENSION;
+                        stream = new PARTITIONED_STREAM("bwapi-data/write/cvis/" + filenameBuilder.str());
+                    }
+                    else
+                    {
+                        filenameBuilder << FILE_EXTENSION;
+                        stream = new STREAM("bwapi-data/write/cvis/" + filenameBuilder.str());
+                    }
 
                     parts.emplace_back(startFrame, filenameBuilder.str());
-
-                    stream = new STREAM("bwapi-data/write/cvis/" + filenameBuilder.str());
 
                     switch (type)
                     {
@@ -567,7 +585,7 @@ namespace CherryVis
 
             for (auto &[label, dataFile] : labelToDataFile)
             {
-                dataFile.flush();
+                if (!dataFile.isPartitioned()) dataFile.flush();
             }
         }
 #endif
