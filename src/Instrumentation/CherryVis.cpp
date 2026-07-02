@@ -68,6 +68,16 @@ namespace CherryVis
                 return partitionedObjectSize > 0 || framesPerPartition > 0;
             }
 
+            int getPartitionAndMaybeClosePrevious()
+            {
+                int partition = (cvisFrame() / framesPerPartition) * framesPerPartition;
+                if (partition != currentPartition)
+                {
+                    close();
+                }
+                return partition;
+            }
+
             [[nodiscard]] std::unordered_map<std::string, std::string> index() const
             {
                 std::unordered_map<std::string, std::string> result;
@@ -89,13 +99,7 @@ namespace CherryVis
 
                     if (framesPerPartition > 0)
                     {
-                        int partition = (cvisFrame() / framesPerPartition) * framesPerPartition;
-                        if (partition != currentPartition)
-                        {
-                            close();
-                        }
-
-                        currentPartition = partition;
+                        currentPartition = getPartitionAndMaybeClosePrevious();
                     }
 
                     if (count == 0)
@@ -176,7 +180,7 @@ namespace CherryVis
                             (*stream) << "}";
                             break;
                     }
-                    if (isPartitioned())
+                    if (framesPerPartition > 0)
                     {
                         auto derivedStream = static_cast<PARTITIONED_STREAM *>(stream);
                         if (derivedStream) derivedStream->close();
@@ -199,6 +203,11 @@ namespace CherryVis
             void flush()
             {
                 if (count == 0) return;
+                if (framesPerPartition > 0)
+                {
+                    getPartitionAndMaybeClosePrevious();
+                    return;
+                }
                 stream->flush();
             }
 
@@ -225,7 +234,7 @@ namespace CherryVis
                         startFrame = (cvisFrame() / framesPerPartition) * framesPerPartition;
                         filenameBuilder << "_" << startFrame;
                     }
-                    if (isPartitioned())
+                    if (framesPerPartition > 0)
                     {
                         filenameBuilder << PARTITIONED_FILE_EXTENSION;
                         stream = new PARTITIONED_STREAM("bwapi-data/write/cvis/" + filenameBuilder.str());
@@ -585,7 +594,7 @@ namespace CherryVis
 
             for (auto &[label, dataFile] : labelToDataFile)
             {
-                if (!dataFile.isPartitioned()) dataFile.flush();
+                dataFile.flush();
             }
         }
 #endif
