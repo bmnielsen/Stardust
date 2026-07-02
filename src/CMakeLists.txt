@@ -25,6 +25,7 @@ file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 
 # Uncomment this to disable optimizations on a specific file while debugging something
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/General/UnitCluster/CombatSim.cpp PROPERTIES COMPILE_FLAGS -O0)
+#SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Producer/Producer.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Strategist/Plays/Scouting/EarlyGameWorkerScout.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Strategist/StrategyEngines/PvT/PvTStrategySelection.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Workers/MiningOptimizationV2/MiningOptimization.cpp PROPERTIES COMPILE_FLAGS -O0)

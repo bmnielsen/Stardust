@@ -667,15 +667,15 @@ namespace Producer
             return maxFrame;
         }
 
-        void choosePylonBuildLocation(const ProductionItem &pylon, bool tentative = false, int requiredWidth = 0)
+        bool choosePylonBuildLocation(const ProductionItem &pylon, bool tentative = false, int requiredWidth = 0)
         {
-            if (pylon.buildLocation.location.tile.isValid()) return;
+            if (pylon.buildLocation.location.tile.isValid()) return true;
 
             auto fixedNeighbourhood = std::get_if<BuildingPlacement::Neighbourhood>(&pylon.location);
             auto neighbourhood = fixedNeighbourhood ? *fixedNeighbourhood : BuildingPlacement::Neighbourhood::AllMyBases;
 
             auto &pylonLocations = buildLocations[to_underlying(neighbourhood)][2];
-            if (pylonLocations.empty()) return;
+            if (pylonLocations.empty()) return false;
 
             // All else being equal, try to keep two of each location type powered
             int desiredMedium = std::max(0, 2 - (int) buildLocations[to_underlying(neighbourhood)][3].size());
@@ -717,7 +717,7 @@ namespace Producer
                     pylon.buildLocation = *best;
                     pylonLocations.erase(best);
                 }
-                return;
+                return true;
             }
 
             // We couldn't satisfy our hard requirement, so just return the first one
@@ -727,9 +727,10 @@ namespace Producer
                 pylon.buildLocation = *pylonLocations.begin();
                 pylonLocations.erase(pylonLocations.begin());
             }
+            return false;
         }
 
-        void reserveBuildPositions(ProductionItemSet &items)
+        bool reserveBuildPositions(ProductionItemSet &items, bool commit)
         {
             for (auto it = items.begin(); it != items.end(); it++)
             {
@@ -788,8 +789,11 @@ namespace Producer
                     }
 
                     item.estimatedWorkerMovementTime = location->builderFrames;
-                    item.buildLocation = *location;
-                    locations.erase(location);
+                    if (commit)
+                    {
+                        item.buildLocation = *location;
+                        locations.erase(location);
+                    }
                     continue;
                 }
 
@@ -802,14 +806,19 @@ namespace Producer
                     if (committedItem->buildLocation.location.tile.isValid()) continue;
 
                     pylon = committedItem;
+                    availableAt = pylon->completionFrame;
                     break;
                 }
 
                 // If there isn't one, queue it unless we can't beat our current availability frame
-                if (!pylon && availableAt >= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon))
+                // Because items queued in the builder have the estimated worker travel time included, we make sure to add a buffer so we don't
+                // keep queueing pylons thinking they can complete faster
+                // TODO: Would be even better to use actual builder times for the new pylon
+                if (!pylon && availableAt >= (UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) + 250))
                 {
                     int startFrame = std::max(0, item.startFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
                     pylon = *items.emplace(std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Pylon, startFrame, item.location));
+                    availableAt = pylon->completionFrame;
                 }
 
                 // If the pylon will complete later than we need it, try to move it earlier
@@ -835,8 +844,22 @@ namespace Producer
                         // Otherwise, if we could move it back, make the relevant adjustments
                     else
                     {
-                        shiftOne(committedItems, pylon, mineralFrame - pylon->startFrame);
+                        availableAt = pylon->completionFrame + (mineralFrame - pylon->startFrame);
+                        if (commit)
+                        {
+                            shiftOne(committedItems, pylon, mineralFrame - pylon->startFrame);
+                        }
                     }
+                }
+
+                if (!commit)
+                {
+                    if (pylon && !choosePylonBuildLocation(*pylon, true, unitType->tileWidth()))
+                    {
+                        return false;
+                    }
+                    shiftAll(items, it, availableAt - item.startFrame);
+                    continue;
                 }
 
                 // If we are creating or moving a pylon, pick a location and add the new build locations
@@ -887,7 +910,7 @@ namespace Producer
                 }
 
                 // TODO: Cancel everything if there are no build locations
-                if (location == locations.end()) return;
+                if (location == locations.end()) return false;
 
                 // Take the best build location
                 item.estimatedWorkerMovementTime = location->builderFrames;
@@ -897,6 +920,8 @@ namespace Producer
                 // If it is first powered later, shift the remaining items in the queue
                 shiftAll(items, it, item.buildLocation.framesUntilPowered - item.startFrame);
             }
+
+            return true;
         }
 
         // Gets the frame at which a producer is available to build something
@@ -1612,12 +1637,9 @@ namespace Producer
 
         bool resolveResourceBlocks(const std::shared_ptr<ProductionItem> &item, ProductionItemSet &prerequisiteItems, bool commit)
         {
-            if (!shiftForMinerals(*item, prerequisiteItems) ||
-                !shiftForGas(*item, prerequisiteItems, commit) ||
-                !shiftForSupply(*item, prerequisiteItems, commit))
-            {
-                return false;
-            }
+            if (!shiftForMinerals(*item, prerequisiteItems)) return false;
+            if (!shiftForGas(*item, prerequisiteItems, commit)) return false;
+            if (!shiftForSupply(*item, prerequisiteItems, commit)) return false;
 
             // Guard against endless loops if there's a logic bug in one of the shift methods
             if (item->startFrame >= PREDICT_FRAMES) return false;
@@ -1806,7 +1828,7 @@ namespace Producer
             int prerequisitesAvailable = resolveDuplicates(prerequisiteItems);
 
             // Reserve positions for all buildings
-            reserveBuildPositions(prerequisiteItems);
+            reserveBuildPositions(prerequisiteItems, true);
 
             // If the last goal item has been pushed back, update the prerequisitesAvailable frame
             if (!prerequisiteItems.empty()) prerequisitesAvailable = std::max(prerequisitesAvailable, (*prerequisiteItems.rbegin())->completionFrame);
@@ -1929,7 +1951,7 @@ namespace Producer
                 auto producerItem = std::make_shared<ProductionItem>(producerType, startFrame, location);
                 prerequisiteItems.insert(producerItem);
 
-                reserveBuildPositions(prerequisiteItems);
+                reserveBuildPositions(prerequisiteItems, true);
 
                 producers.emplace_back(std::make_shared<Producer>(producerItem, std::max(earliestStartFrame, producerItem->completionFrame)));
             }
@@ -2017,10 +2039,19 @@ namespace Producer
                                                                                                        location));
                 auto newProducer = std::make_shared<Producer>(producerItem, producerItem->completionFrame);
 
-                // Create an item from the producer
-                auto newProducerItem = std::make_shared<ProductionItem>(type, producerItem->completionFrame, location, newProducer);
-                bool result = resolveResourceBlocks(newProducerItem, newProducerPrerequisites, false);
-                if (!result) newProducerItem = nullptr;
+                // Run a provisional build position check to determine if we need to insert a pylon to get a valid build location
+                // If no build location is available at all, we don't consider the new producer
+                // If a pylon is needed, this may shift the completion time of the producer and therefore the item
+                std::shared_ptr<ProductionItem> newProducerItem;
+                if (reserveBuildPositions(newProducerPrerequisites, false))
+                {
+                    // Try to provisionally insert the item
+                    newProducerItem = std::make_shared<ProductionItem>(type, producerItem->completionFrame, location, newProducer);
+                    if (!resolveResourceBlocks(newProducerItem, newProducerPrerequisites, false))
+                    {
+                        newProducerItem = nullptr;
+                    }
+                }
 
                 // If we couldn't produce an item, break now
                 if (!bestProducerItem && !newProducerItem) break;
@@ -2033,7 +2064,7 @@ namespace Producer
                 }
                 else
                 {
-                    reserveBuildPositions(newProducerPrerequisites);
+                    reserveBuildPositions(newProducerPrerequisites, true);
                     if (!resolveResourceBlocks(newProducerItem, newProducerPrerequisites, true)) break;
                     producers.push_back(newProducer);
                     newProducer->items.insert(newProducerItem);
@@ -2192,7 +2223,7 @@ namespace Producer
                 // Commit the item, if we have a build location
                 auto item = std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Gateway, startFrame, BuildingPlacement::Neighbourhood::AllMyBases);
                 auto itemInSet = ProductionItemSet{item};
-                reserveBuildPositions(itemInSet);
+                reserveBuildPositions(itemInSet, true);
                 if (!item->buildLocation.location.tile.isValid()) break;
                 committedItems.insert(item);
             }
