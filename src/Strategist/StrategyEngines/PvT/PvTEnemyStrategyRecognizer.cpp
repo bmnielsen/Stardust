@@ -228,6 +228,17 @@ namespace
 
         // Decide on the enemy strategy by the ratio of mech to bio
         auto ratio = (double)mech / (double)(mech + bio);
+
+        CherryVis::log() << "mech ratio: " << ratio
+                         << "; siege=" << Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode)
+                         << "; tank=" << Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode)
+                         << "; vulture=" << Units::countEnemy(BWAPI::UnitTypes::Terran_Vulture)
+                         << "; goliath=" << Units::countEnemy(BWAPI::UnitTypes::Terran_Goliath)
+                         << "; marine=" << Units::countEnemy(BWAPI::UnitTypes::Terran_Marine)
+                         << "; medic=" << Units::countEnemy(BWAPI::UnitTypes::Terran_Medic)
+                         << "; firebat=" << Units::countEnemy(BWAPI::UnitTypes::Terran_Firebat);
+
+
         if (ratio < 0.333) return PvT::TerranStrategy::MidGameBio;
         if (ratio > 0.666) return PvT::TerranStrategy::MidGameMech;
         return PvT::TerranStrategy::MidGameBioMech;
