@@ -44,6 +44,27 @@ namespace UnitUtil
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0
         };
+
+        // Generated in UnitAttackTimings test
+        const std::array<int, 170> attackFrameDelays = {
+            2, 2, 0, 0, 0, 2, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            2, 0, 0, 0, 0, 0, 0, 1, 4, 4,
+            1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 4, 9, 0, 0, 3, 7, 0, 4, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 9, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 6, 0, 0, 0, 0, 0, 0, 0,
+        };
     }
 
     bool Powers(BWAPI::TilePosition pylonTile, BWAPI::TilePosition buildingTile, BWAPI::UnitType buildingType)
@@ -285,5 +306,11 @@ namespace UnitUtil
             return type.acceleration() << 1;
         }
         return type.acceleration();
+    }
+
+    int DelayFromCooldownToBulletOrDamage(BWAPI::UnitType type)
+    {
+        if (type.getID() >= attackFrameDelays.size()) return 0;
+        return attackFrameDelays[type.getID()];
     }
 }

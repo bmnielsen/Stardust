@@ -1,6 +1,7 @@
 #pragma once
 
 #include <utility>
+#include <optional>
 
 #include "Common.h"
 
@@ -128,7 +129,7 @@ public:
 
     void updateUnitInFog();
 
-    void addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet);
+    void addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet, std::optional<int> fixedFrameDelay);
 
     void addUpcomingAttack(const Unit &attacker);
 

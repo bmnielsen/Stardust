@@ -1295,9 +1295,10 @@ namespace Units
         if (source) source->lastTarget = target;
 
         // If this bullet is a ranged bullet that deals damage after a delay, track it on the unit it is moving towards
-        if (Bullets::dealsDamageAfterDelay(bullet->getType()))
+        auto fixedDelay = Bullets::fixedDamageDelay(bullet->getType());
+        if (fixedDelay || Bullets::dealsDamageAfterDelay(bullet->getType()))
         {
-            target->addUpcomingAttack(source, bullet);
+            target->addUpcomingAttack(source, bullet, fixedDelay);
         }
     }
 

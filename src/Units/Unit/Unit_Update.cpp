@@ -421,7 +421,7 @@ void UnitImpl::updateUnitInFog()
     lastPositionVisible = positionVisible;
 }
 
-void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
+void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet, std::optional<int> fixedFrameDelay)
 {
     // Bullets always remove any existing upcoming attack from this attacker
     if (attacker)
@@ -454,50 +454,42 @@ void UnitImpl::addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet)
     int damage = Bullets::upcomingDamage(bullet);
     if (damage > 0)
     {
-        upcomingAttacks.emplace_back(attacker, bullet, damage);
+        if (fixedFrameDelay)
+        {
+            upcomingAttacks.emplace_back(attacker, *fixedFrameDelay, damage);
+        }
+        else
+        {
+            upcomingAttacks.emplace_back(attacker, bullet, damage);
+        }
     }
 }
 
 void UnitImpl::addUpcomingAttack(const Unit &attacker)
 {
-    // Probes and air units all have their bullets created on the same frame as their cooldown starts, so nothing is needed for them
-
     // TODO: Carrier and reaver when we have them (if they even make sense)
 
-    switch (attacker->type)
+#if UPCOMING_ATTACKS_DEBUG
+    CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
+#endif
+
+    // Get the delay between the attacking unit type going on cooldown to when its bullet is created or damage is dealt
+    int delay = UnitUtil::DelayFromCooldownToBulletOrDamage(attacker->type);
+    if (delay == 0) return;
+
+    // Zealot is a special case because it hits twice
+    if (attacker->type == BWAPI::UnitTypes::Protoss_Zealot)
     {
-        case BWAPI::UnitTypes::Protoss_Zealot:
-        {
-#if UPCOMING_ATTACKS_DEBUG
-            CherryVis::log(id) << "Adding upcoming attacks from " << *attacker;
-#endif
-
-            // Zealots deal damage twice, once after 2 frames and once after 4 frames
-            int damagePerHit = Players::attackDamage(attacker->player, attacker->type, player, type) / 2;
-            upcomingAttacks.emplace_back(attacker, 2, damagePerHit);
-            upcomingAttacks.emplace_back(attacker, 4, damagePerHit);
-            break;
-        }
-        case BWAPI::UnitTypes::Protoss_Dragoon:
-#if UPCOMING_ATTACKS_DEBUG
-            CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
-#endif
-
-            upcomingAttacks.emplace_back(attacker, 7, Players::attackDamage(attacker->player, attacker->type, player, type));
-            break;
-        case BWAPI::UnitTypes::Protoss_Dark_Templar:
-        case BWAPI::UnitTypes::Protoss_Archon:
-#if UPCOMING_ATTACKS_DEBUG
-            CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
-#endif
-            upcomingAttacks.emplace_back(attacker, 4, Players::attackDamage(attacker->player, attacker->type, player, type));
-            break;
-        case BWAPI::UnitTypes::Protoss_Photon_Cannon:
-#if UPCOMING_ATTACKS_DEBUG
-            CherryVis::log(id) << "Adding upcoming attack from " << *attacker;
-#endif
-            upcomingAttacks.emplace_back(attacker, 6, Players::attackDamage(attacker->player, attacker->type, player, type));
-            break;
+        int damagePerHit = Players::attackDamage(attacker->player, attacker->type, player, type) / 2;
+        upcomingAttacks.emplace_back(attacker, delay, damagePerHit);
+        upcomingAttacks.emplace_back(attacker, delay + 2, damagePerHit);
+    }
+    else
+    {
+        upcomingAttacks.emplace_back(
+            attacker,
+            delay,
+            Players::attackDamage(attacker->player, attacker->type, player, type));
     }
 }
 

@@ -43,6 +43,7 @@ namespace
     {
         if (!unit->completed) return false;
         if (unit->immobile) return false;
+        if (unit->health <= 0) return false; // Upcoming attacks indicate this unit is about to die, so it probably won't be able to get a shot off
 
         if (unit->type == BWAPI::UnitTypes::Protoss_Interceptor) return false;
         if (unit->type == BWAPI::UnitTypes::Terran_Bunker) return true;
@@ -50,6 +51,26 @@ namespace
         if (unit->type == BWAPI::UnitTypes::Zerg_Overlord) return true;
 
         return unit->groundDamage() > 0 || unit->airDamage() > 0;
+    }
+
+    int getCooldown(const Unit &unit)
+    {
+        // In FAP, units deal damage immediately on the frame their cooldown reaches 0
+        // In the game, however, there is always a delay between the unit going on cooldown and damage being dealt
+        // We therefore need to make sure we don't feed cooldown data to FAP that is out of sync with the damage being dealt, otherwise we will
+        // see instability between frames where units have gone on cooldown but haven't dealt damage yet
+
+        // Compute the remaining cooldown
+        int cooldown = std::max(0, unit->cooldownUntil - currentFrame);
+
+        // For our own units, we add their pending damage as upcoming damage on their targets, so it is already captured in the targets' health
+        // and we can just use their actual cooldown
+        if (unit->player == BWAPI::Broodwar->self()) return cooldown;
+
+        // For opponent units, check if they went on cooldown more recently than their attack deals damage
+        int frameDelay = UnitUtil::DelayFromCooldownToBulletOrDamage(unit->type);
+        if (currentFrame < (unit->lastSeenAttacking + frameDelay)) return 0;
+        return cooldown;
     }
 
     auto inline makeUnit(const Unit &unit,
@@ -99,8 +120,8 @@ namespace
                 .setUnitType(unit->type)
                 .setPosition(unit->simPosition)
                 .setTargetPosition(targetPosition == BWAPI::Positions::Invalid ? unit->simPosition : targetPosition)
-                .setHealth(unit->lastHealth)
-                .setShields(unit->lastShields)
+                .setHealth(unit->health)
+                .setShields(unit->shields)
                 .setFlying(unit->isFlying)
 
                         // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
@@ -117,7 +138,7 @@ namespace
 
                 // TODO: Figure out if we need to do something with initializing attack cooldown for bunkers
                 .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
-                .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - currentFrame))
+                .setAttackCooldownRemaining(getCooldown(unit))
 
                 .setSpeedUpgrade(false) // Squares the speed
                 .setRangeUpgrade(false) // Squares the ranges

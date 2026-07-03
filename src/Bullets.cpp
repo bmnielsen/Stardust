@@ -8,8 +8,10 @@ namespace Bullets
 {
     namespace
     {
-        // Map of bullet types to unit types for bullets that deal damage after a delay
+        // Map of bullet types to unit types for bullets that deal damage after a delay, where the bullet travels to its target
         // We use this for determining damage from bullets that come out of the fog
+        // The integer is the initial bullet remove delay, which we use to differentiate between which unit type fired the bullet in cases where
+        // the same bullet can be fired from multiple units. This doesn't work for Dragoon vs. Arbiter though since they have the same delay.
         const std::map<BWAPI::BulletType, std::set<std::pair<BWAPI::UnitType, int>>> delayedDamageBulletUnits = {
                 {BWAPI::BulletTypes::Burst_Lasers, {{BWAPI::UnitTypes::Terran_Wraith, 254}}},
                 {BWAPI::BulletTypes::Gemini_Missiles, {{BWAPI::UnitTypes::Terran_Wraith, 254}}},
@@ -19,12 +21,22 @@ namespace Bullets
                 {BWAPI::BulletTypes::Yamato_Gun, {{BWAPI::UnitTypes::Terran_Battlecruiser, 254}}},
                 {BWAPI::BulletTypes::Halo_Rockets, {{BWAPI::UnitTypes::Terran_Valkyrie, 254}}},
                 {BWAPI::BulletTypes::Anti_Matter_Missile, {{BWAPI::UnitTypes::Protoss_Scout, 29}}},
-                {BWAPI::BulletTypes::Phase_Disruptor, {{BWAPI::UnitTypes::Protoss_Dragoon, 254}}},
+                {BWAPI::BulletTypes::Phase_Disruptor, {{BWAPI::UnitTypes::Protoss_Dragoon, 254}, {BWAPI::UnitTypes::Protoss_Arbiter, 254}}},
                 {BWAPI::BulletTypes::STA_STS_Cannon_Overlay, {{BWAPI::UnitTypes::Protoss_Photon_Cannon, 254}}},
                 {BWAPI::BulletTypes::Pulse_Cannon, {{BWAPI::UnitTypes::Protoss_Interceptor, 254}}},
                 {BWAPI::BulletTypes::Glave_Wurm, {{BWAPI::UnitTypes::Zerg_Mutalisk, 60}}},
                 {BWAPI::BulletTypes::Seeker_Spores, {{BWAPI::UnitTypes::Zerg_Spore_Colony, 59}}},
                 {BWAPI::BulletTypes::Subterranean_Spines, {{BWAPI::UnitTypes::Zerg_Lurker, 254}}},
+                {BWAPI::BulletTypes::Acid_Spore, {{BWAPI::UnitTypes::Zerg_Guardian, 254}}},
+                {BWAPI::BulletTypes::Corrosive_Acid_Shot, {{BWAPI::UnitTypes::Zerg_Devourer, 254}}},
+        };
+
+        // Map of bullet types to delay frames for bullets that don't have travel time but deal damage after a fixed frame delay
+        const std::map<BWAPI::BulletType, std::pair<BWAPI::UnitType, int>> fixedDelayedDamageBullets = {
+            {BWAPI::BulletTypes::Arclite_Shock_Cannon_Hit, {BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, 1}},
+            {BWAPI::BulletTypes::Invisible, {BWAPI::UnitTypes::Terran_Firebat, 5}},
+            {BWAPI::BulletTypes::Psionic_Shockwave_Hit, {BWAPI::UnitTypes::Protoss_Archon, 3}},
+            {BWAPI::BulletTypes::Sunken_Colony_Tentacle, {BWAPI::UnitTypes::Zerg_Sunken_Colony, 5}},
         };
 
         // Map of bullet types to the tech they infer
@@ -173,10 +185,19 @@ namespace Bullets
         return delayedDamageBulletUnits.contains(type);
     }
 
+    std::optional<int> fixedDamageDelay(BWAPI::BulletType type)
+    {
+        auto it = fixedDelayedDamageBullets.find(type);
+        if (it == fixedDelayedDamageBullets.end()) return std::nullopt;
+
+        return it->second.second;
+    }
+
     int upcomingDamage(BWAPI::Bullet bullet)
     {
         // Require target
         if (!bullet->getTarget() || !bullet->getTarget()->getPlayer()) return 0;
+        if (bullet->getTargetPosition() != bullet->getTarget()->getPosition()) return 0;
 
         // Get the player owning the bullet
         BWAPI::Player attackingPlayer = bullet->getPlayer();
@@ -184,7 +205,17 @@ namespace Bullets
         {
             attackingPlayer = bullet->getSource()->getPlayer();
         }
-        if (!attackingPlayer) return 0;
+        if (!attackingPlayer)
+        {
+            if (bullet->getTarget()->getPlayer() == BWAPI::Broodwar->self())
+            {
+                attackingPlayer = BWAPI::Broodwar->enemy();
+            }
+            else
+            {
+                attackingPlayer = BWAPI::Broodwar->self();
+            }
+        }
 
         // Set weapon override for Yamato
         auto weaponOverride = BWAPI::WeaponTypes::None;
@@ -193,39 +224,48 @@ namespace Bullets
             weaponOverride = BWAPI::WeaponTypes::Yamato_Gun;
         }
 
-        // Require ranged bullet that deals damage after a delay
-        auto bulletInfo = delayedDamageBulletUnits.find(bullet->getType());
-        if (bulletInfo == delayedDamageBulletUnits.end()) return 0;
-
+        // Figure out what unit type fired the bullet
         BWAPI::UnitType sourceUnitType = BWAPI::UnitTypes::None;
-        for (const auto &unitTypeAndInitialRemoveTimer : bulletInfo->second)
-        {
-            if (bullet->getSource() && unitTypeAndInitialRemoveTimer.first != bullet->getSource()->getType()) continue;
-            if (bullet->getRemoveTimer() != unitTypeAndInitialRemoveTimer.second) continue;
 
-            sourceUnitType = unitTypeAndInitialRemoveTimer.first;
+        if (bullet->getSource())
+        {
+            sourceUnitType = bullet->getSource()->getType();
         }
 
-        // If we hit this block, we didn't see the bullet on its first frame and couldn't get an exact match
+        // Ranged bullet that deals damage after a delay
         if (sourceUnitType == BWAPI::UnitTypes::None)
         {
-            if (bullet->getSource())
+            auto bulletInfo = delayedDamageBulletUnits.find(bullet->getType());
+            if (bulletInfo != delayedDamageBulletUnits.end())
             {
-                return Players::attackDamage(attackingPlayer,
-                                             bullet->getSource()->getType(),
-                                             bullet->getTarget()->getPlayer(),
-                                             bullet->getTarget()->getType(),
-                                             weaponOverride);
-            }
+                for (const auto &unitTypeAndInitialRemoveTimer : bulletInfo->second)
+                {
+                    if (bullet->getSource() && unitTypeAndInitialRemoveTimer.first != bullet->getSource()->getType()) continue;
+                    if (bullet->getRemoveTimer() != unitTypeAndInitialRemoveTimer.second) continue;
 
-            return Players::attackDamage(attackingPlayer,
-                                         bulletInfo->second.begin()->first,
-                                         bullet->getTarget()->getPlayer(),
-                                         bullet->getTarget()->getType(),
-                                         weaponOverride);
+                    sourceUnitType = unitTypeAndInitialRemoveTimer.first;
+                }
+
+                // If we hit this block, we didn't see the bullet on its first frame and couldn't get an exact match, so just assume it came from
+                // the first possibility
+                if (sourceUnitType == BWAPI::UnitTypes::None)
+                {
+                    sourceUnitType = bulletInfo->second.begin()->first;
+                }
+            }
         }
 
-        if (bullet->getTargetPosition() != bullet->getTarget()->getPosition()) return 0;
+        // Non-ranged bullet that deals damage after a delay
+        if (sourceUnitType == BWAPI::UnitTypes::None)
+        {
+            auto bulletInfo = fixedDelayedDamageBullets.find(bullet->getType());
+            if (bulletInfo != fixedDelayedDamageBullets.end())
+            {
+                sourceUnitType = bulletInfo->second.first;
+            }
+        }
+
+        if (!sourceUnitType) return 0;
 
         return Players::attackDamage(attackingPlayer,
                                      sourceUnitType,

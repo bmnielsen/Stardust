@@ -359,5 +359,13 @@ TEST(AttackStaticDefense, CombatSimCheck)
         Strategist::setOpening(openingPlays);
     };
 
+    test.onFrameMine = []()
+    {
+        for (auto unit : BWAPI::Broodwar->enemy()->getUnits())
+        {
+            CherryVis::log(unit->getID()) << unit->getGroundWeaponCooldown();
+        }
+    };
+
     test.run();
 }

@@ -42,4 +42,7 @@ namespace UnitUtil
 
     // Acceleration, in BW notation (multiples of 1/256)
     int Acceleration(BWAPI::UnitType type, double currentTopSpeed);
+
+    // How many frames of delay there are from the unit going on cooldown until the resulting bullet is created or damage is dealt
+    int DelayFromCooldownToBulletOrDamage(BWAPI::UnitType type);
 }
