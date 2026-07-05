@@ -23,9 +23,11 @@ public:
     int initialAmount;
     int currentAmount;
 
-    bool seenLastFrame; // For tracking when mineral fields are mined out and removed
-    bool destroyed; // For mineral fields, when they are mined out and removed
-    Unit refinery;  // For geysers, the refinery unit a player has built on it
+    int lastSeenFrame; // Frame when we last saw this resource
+
+    bool tileSeenLastFrame; // For tracking when mineral fields are mined out and removed
+    bool destroyed;         // For mineral fields, when they are mined out and removed
+    Unit refinery;          // For geysers, the refinery unit a player has built on it
 
     // For mineral fields, the other mineral fields that workers might try to switch to
     std::set<Resource> resourcesInSwitchPatchRange;

@@ -113,6 +113,8 @@ namespace Units
             }
 #endif
             it->second->currentAmount = bwapiUnit->getResources();
+
+            it->second->lastSeenFrame = currentFrame;
         }
 
         void resourceDestroyed(const BWAPI::TilePosition &tile)
@@ -908,15 +910,15 @@ namespace Units
 
             if (BWAPI::Broodwar->isVisible(tile) && BWAPI::Broodwar->isVisible(tile + BWAPI::TilePosition(1, 0)))
             {
-                if (mineralField->seenLastFrame)
+                if (mineralField->tileSeenLastFrame)
                 {
                     visibleMineralFieldTiles.insert(tile);
                 }
-                mineralField->seenLastFrame = true;
+                mineralField->tileSeenLastFrame = true;
             }
             else
             {
-                mineralField->seenLastFrame = false;
+                mineralField->tileSeenLastFrame = false;
             }
         }
 
