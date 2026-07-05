@@ -513,12 +513,13 @@ namespace Map
         void validateBaseOwnership(Base *base, Unit recentlyDestroyedBuilding = nullptr)
         {
             if (!base->owner) return;
-            if (base->lastScouted == -1) return;
+            if (base->lastScouted <= base->ownedSince) return;
 
             auto isNearbyBuilding = [&recentlyDestroyedBuilding, &base](const Unit &unit)
             {
                 if (recentlyDestroyedBuilding && unit->id == recentlyDestroyedBuilding->id) return false;
                 if (!unit->type.isBuilding()) return false;
+                if (unit->type.isAddon()) return false;
                 if (!unit->lastPositionValid) return false;
                 return base->getPosition().getApproxDistance(unit->lastPosition) < 320;
             };
