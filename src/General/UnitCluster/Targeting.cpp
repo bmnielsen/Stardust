@@ -188,8 +188,6 @@ namespace
 
         void dealDamage(const MyUnit &attacker)
         {
-            if (unit->isBeingHealed()) return;
-
             int damage = Players::attackDamage(attacker->player, attacker->type, unit->player, unit->type);
 
             // For low-ground to high-ground attacks, simulate half damage
@@ -198,6 +196,9 @@ namespace
             {
                 damage /= 2;
             }
+
+            // Simulate half damage if the unit is being healed
+            if (unit->isBeingHealed()) damage /= 2;
 
             healthIncludingShields -= damage;
         }

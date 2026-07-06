@@ -307,20 +307,19 @@ void UnitImpl::update(BWAPI::Unit unit)
     }
 #endif
 
-    // Do not simulate damage if the unit is being healed
-    if (!isBeingHealed())
+    // Simulate half damage if the unit is being healed
+    if (isBeingHealed()) upcomingDamage /= 2;
+
+    if (upcomingDamage > 0 && shields > 0)
     {
-        if (upcomingDamage > 0 && shields > 0)
-        {
-            int shieldDamage = std::min(shields, upcomingDamage);
-            upcomingDamage -= shieldDamage;
-            shields -= shieldDamage;
-        }
-        if (upcomingDamage > 0)
-        {
-            health = std::max(0, health - upcomingDamage);
-            if (health <= 0) CherryVis::log(id) << "DOOMED!";
-        }
+        int shieldDamage = std::min(shields, upcomingDamage);
+        upcomingDamage -= shieldDamage;
+        shields -= shieldDamage;
+    }
+    if (upcomingDamage > 0)
+    {
+        health = std::max(0, health - upcomingDamage);
+        if (health <= 0) CherryVis::log(id) << "DOOMED!";
     }
 }
 
