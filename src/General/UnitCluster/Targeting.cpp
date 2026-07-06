@@ -40,6 +40,7 @@ namespace
 
         if (targetType == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode ||
             targetType == BWAPI::UnitTypes::Terran_Dropship ||
+            targetType == BWAPI::UnitTypes::Terran_Medic ||
             targetType == BWAPI::UnitTypes::Protoss_Shuttle ||
             targetType == BWAPI::UnitTypes::Terran_Science_Vessel ||
             targetType == BWAPI::UnitTypes::Zerg_Scourge ||
@@ -594,9 +595,13 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
             // Give a bonus to units that are already in range
             // Melee units get an extra bonus, as they have a more difficult time getting around blocking things
+            // Increase the bonus if we have a lot of close targets, since that means we might have more difficulty reaching a different target
+            // Increase the bonus if we are off cooldown
             if (targetDist <= range)
             {
                 score += (isRanged ? 64 : 160);
+                score += (16 * std::max(0, (int)attacker.closeTargets.size() - 1));
+                if (cooldownMoveFrames == 0) score += 64;
             }
 
             // Give a bonus to injured targets
@@ -632,21 +637,22 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
 
             // Adjust based on the threat level of the enemy unit to us
-            if (potentialTarget->unit->canAttack(unit))
-            {
-                if (unit->isInEnemyWeaponRange(potentialTarget->unit))
-                {
-                    score += 6 * 32;
-                }
-                else if (unit->isInOurWeaponRange(potentialTarget->unit))
-                {
-                    score += 4 * 32;
-                }
-                else
-                {
-                    score += 3 * 32;
-                }
-            }
+            // Disabling for now as this should be handled by the overall target priority
+            // if (potentialTarget->unit->canAttack(unit))
+            // {
+            //     if (unit->isInEnemyWeaponRange(potentialTarget->unit))
+            //     {
+            //         score += 6 * 32;
+            //     }
+            //     else if (unit->isInOurWeaponRange(potentialTarget->unit))
+            //     {
+            //         score += 4 * 32;
+            //     }
+            //     else
+            //     {
+            //         score += 3 * 32;
+            //     }
+            // }
 
             // Give a bonus to non-moving or braking targets, and a penalty to units that are faster than us
             if (!potentialTarget->unit->bwapiUnit->isMoving())
