@@ -7,6 +7,7 @@
 #include "TestAttackBasePlay.h"
 #include "TestMainArmyAttackBasePlay.h"
 #include "DoNothingStrategyEngine.h"
+#include "StardustAIModule.h"
 #include "Plays/MainArmy/AttackEnemyBase.h"
 
 TEST(AttackStaticDefense, ContainsWhileOutmatched)
@@ -351,6 +352,77 @@ TEST(AttackStaticDefense, CombatSimCheck)
         BWAPI::Broodwar->self()->setUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge, 1);
 
         auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(116, 89)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, false));
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.onFrameMine = []()
+    {
+        for (auto unit : BWAPI::Broodwar->enemy()->getUnits())
+        {
+            CherryVis::log(unit->getID()) << unit->getGroundWeaponCooldown();
+        }
+    };
+
+    test.run();
+}
+
+TEST(AttackStaticDefense, CombatSimCheck2)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.myModule = []()
+    {
+        auto module = new StardustAIModule();
+        module->frameSkip = 100;
+        return module;
+    };
+    test.map = Maps::GetOne("Jade");
+    test.randomSeed = 40072;
+    test.frameLimit = 500;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1394, 1202), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1184, 948), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1253, 1050), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1270, 1002), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1247, 924), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1112, 1044), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1134, 1008), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1207, 1003), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1166, 1023), true),
+    };
+
+    test.opponentInitialUnits = {
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(1167, 372), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(1034, 333), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(1091, 423), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(1003, 338), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(1167, 404), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(1005, 315), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(1207, 439), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(1015, 366), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(1184, 392), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode, BWAPI::Position(1025, 438), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Medic, BWAPI::Position(1148, 416), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(1184, 364), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Marine, BWAPI::Position(1167, 424), true),
+    };
+
+    test.onStartMine = []()
+    {
+        BWAPI::Broodwar->self()->setUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge, 1);
+
+        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 7)));
 
         Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
 

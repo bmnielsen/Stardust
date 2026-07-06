@@ -76,6 +76,7 @@ namespace
     auto inline makeUnit(const Unit &unit,
                          const Unit &vanguard,
                          bool mobileDetection,
+                         bool assumeStim,
                          BWAPI::Position targetPosition = BWAPI::Positions::Invalid,
                          int target = 0)
     {
@@ -116,6 +117,12 @@ namespace
             }
         }
 
+        bool stimmed = (unit->stimmedUntil > currentFrame);
+        if (!stimmed && assumeStim && (unit->type == BWAPI::UnitTypes::Terran_Marine || unit->type == BWAPI::UnitTypes::Terran_Firebat))
+        {
+            stimmed = true;
+        }
+
         return FAP::makeUnit<>()
                 .setUnitType(unit->type)
                 .setPosition(unit->simPosition)
@@ -144,7 +151,7 @@ namespace
                 .setRangeUpgrade(false) // Squares the ranges
                 .setShieldUpgrades(0)
 
-                .setStimmed(unit->stimmedUntil > currentFrame)
+                .setStimmed(stimmed)
                 .setUndetected(unit->isCliffedTank(vanguard) || (unit->undetected && !mobileDetection))
 
                 .setID(unit->id)
@@ -203,11 +210,11 @@ namespace
             auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
             if (attacking)
             {
-                sim.addPlayer1<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target));
+                sim.addPlayer1<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, false, targetPosition, target));
             }
             else
             {
-                sim.addPlayer2<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target));
+                sim.addPlayer2<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, false, targetPosition, target));
             }
 
             myCount++;
@@ -230,6 +237,21 @@ namespace
         }
 
         // Add enemy units
+
+        // If we know the enemy has researched stim, assume enemy marines and firebats will stim if there is a medic with them
+        bool assumeStim = false;
+        if (Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Stim_Packs))
+        {
+            for (auto &unit : targets)
+            {
+                if (unit->type == BWAPI::UnitTypes::Terran_Medic)
+                {
+                    assumeStim = true;
+                    break;
+                }
+            }
+        }
+
         int enemyCount = 0;
         bool enemyHasUndetectedUnits = false;
         for (auto &unit : targets)
@@ -243,11 +265,11 @@ namespace
             {
                 if (attacking)
                 {
-                    sim.addPlayer2<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection));
+                    sim.addPlayer2<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection, assumeStim));
                 }
                 else
                 {
-                    sim.addPlayer1<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection));
+                    sim.addPlayer1<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection, assumeStim));
                 }
 
                 enemyCount++;
