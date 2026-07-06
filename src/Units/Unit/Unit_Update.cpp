@@ -251,6 +251,10 @@ void UnitImpl::update(BWAPI::Unit unit)
             {
                 CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as it has expired";
             }
+            else
+            {
+                CherryVis::log(id) << "Clearing attack from unknown attacker as it has expired";
+            }
 #endif
             it = upcomingAttacks.erase(it);
             continue;
@@ -266,6 +270,10 @@ void UnitImpl::update(BWAPI::Unit unit)
                 if (it->attacker)
                 {
                     CherryVis::log(id) << "Clearing attack from " << *(it->attacker) << " as bullet has hit";
+                }
+                else
+                {
+                    CherryVis::log(id) << "Clearing attack from unknown attacker as bullet has hit";
                 }
 #endif
                 it = upcomingAttacks.erase(it);

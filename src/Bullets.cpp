@@ -197,7 +197,10 @@ namespace Bullets
     {
         // Require target
         if (!bullet->getTarget() || !bullet->getTarget()->getPlayer()) return 0;
-        if (bullet->getTargetPosition() != bullet->getTarget()->getPosition()) return 0;
+
+        // Validate target position for tracking bullets
+        auto trackingBulletInfo = delayedDamageBulletUnits.find(bullet->getType());
+        if (trackingBulletInfo != delayedDamageBulletUnits.end() && bullet->getTargetPosition() != bullet->getTarget()->getPosition()) return 0;
 
         // Get the player owning the bullet
         BWAPI::Player attackingPlayer = bullet->getPlayer();
@@ -233,25 +236,21 @@ namespace Bullets
         }
 
         // Ranged bullet that deals damage after a delay
-        if (sourceUnitType == BWAPI::UnitTypes::None)
+        if (sourceUnitType == BWAPI::UnitTypes::None && trackingBulletInfo != delayedDamageBulletUnits.end())
         {
-            auto bulletInfo = delayedDamageBulletUnits.find(bullet->getType());
-            if (bulletInfo != delayedDamageBulletUnits.end())
+            for (const auto &unitTypeAndInitialRemoveTimer : trackingBulletInfo->second)
             {
-                for (const auto &unitTypeAndInitialRemoveTimer : bulletInfo->second)
-                {
-                    if (bullet->getSource() && unitTypeAndInitialRemoveTimer.first != bullet->getSource()->getType()) continue;
-                    if (bullet->getRemoveTimer() != unitTypeAndInitialRemoveTimer.second) continue;
+                if (bullet->getSource() && unitTypeAndInitialRemoveTimer.first != bullet->getSource()->getType()) continue;
+                if (bullet->getRemoveTimer() != unitTypeAndInitialRemoveTimer.second) continue;
 
-                    sourceUnitType = unitTypeAndInitialRemoveTimer.first;
-                }
+                sourceUnitType = unitTypeAndInitialRemoveTimer.first;
+            }
 
-                // If we hit this block, we didn't see the bullet on its first frame and couldn't get an exact match, so just assume it came from
-                // the first possibility
-                if (sourceUnitType == BWAPI::UnitTypes::None)
-                {
-                    sourceUnitType = bulletInfo->second.begin()->first;
-                }
+            // If we hit this block, we didn't see the bullet on its first frame and couldn't get an exact match, so just assume it came from
+            // the first possibility
+            if (sourceUnitType == BWAPI::UnitTypes::None)
+            {
+                sourceUnitType = trackingBulletInfo->second.begin()->first;
             }
         }
 
