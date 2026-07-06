@@ -40,14 +40,16 @@ namespace
                                                         ((closestReinforcements / cluster.percentageToEnemyMain) / 2));
 #endif
 
-        // For distance, scale the effect from 0 (far away) to 0.5 (close)
-        double distanceFactor = (closestReinforcements / cluster.percentageToEnemyMain) / 2;
+        // The idea here is to return a lower factor if we have reinforcements arriving imminently, so we wait to start an attack until
+        // the reinforcements arrive.
 
-        // Then scale it lower if the number of reinforcements is low
-        distanceFactor *= std::min(1.0, reinforcementPercentage / 0.2);
+        // For distance, scale the effect from 0 (far away) to 0.5 (close), where "far away" is halfway across the map
+        double distanceFactor =
+            std::max(0.0,
+                (closestReinforcements - (cluster.percentageToEnemyMain / 2.0)) / cluster.percentageToEnemyMain);
 
-        // Combine with the reinforcement percentage
-        return (1.0 - distanceFactor) * (1.0 - reinforcementPercentage);
+        // Reduce it by the reinforcement percentage, as long as it is above 15%
+        return (1.0 - distanceFactor) * (1.0 - std::max(0.0, (reinforcementPercentage - 0.15) / 0.85));
     }
 
     bool shouldAttack(UnitCluster &cluster, CombatSimResult &simResult, double aggression = 1.0)
