@@ -100,12 +100,16 @@ namespace
         // Later on, we consider it to be a marine all-in purely based on the counts
         if (currentFrame < 8000)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Terran_Marine, 7000, 8) &&
-                   Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) > 4;
+            return createdBeforeFrame(BWAPI::UnitTypes::Terran_Marine, 7000, 10) &&
+                   Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) > 4 &&
+                   noneCreated(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) &&
+                   noneCreated(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode);
         }
 
-        return createdBeforeFrame(BWAPI::UnitTypes::Terran_Marine, 9000, 12) &&
-               Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) > 4;
+        return createdBeforeFrame(BWAPI::UnitTypes::Terran_Marine, 9000, 16) &&
+               Units::countEnemy(BWAPI::UnitTypes::Terran_Marine) > 4 &&
+               noneCreated(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) &&
+               noneCreated(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode);
     }
 
     bool isProxy()
