@@ -122,6 +122,12 @@ namespace
         auto enemyNatural = Map::getEnemyStartingNatural();
         for (const auto &enemyUnit : Units::allEnemy())
         {
+            // If we see an enemy marine in their main base, this indicates it not being a proxy
+            if (enemyUnit->type == BWAPI::UnitTypes::Terran_Marine && enemyMain && enemyUnit->getDistance(enemyMain->getPosition()) < 600)
+            {
+                return false;
+            }
+
             if (!enemyUnit->type.isBuilding()) continue;
             if (enemyUnit->type.isRefinery()) continue; // Don't count gas steals
             if (enemyUnit->type.isResourceDepot()) continue; // Don't count expansions
