@@ -2023,13 +2023,6 @@ namespace Producer
                 }
                 else if (producers.size() >= producerLimit) break;
 
-                if ((Units::countAll(producerType) + Builder::pendingBuildingsOfType(producerType).size()) >= producerLimit)
-                {
-                    Log::Get() << "ERROR: Building more producers of type " << producerType << " than we need; "
-                    << "have " << producers.size() << " producers, existing buildings " << Units::countAll(producerType) << ", pending buildings "
-                    << Builder::pendingBuildingsOfType(producerType).size();
-                }
-
                 // Create a new producer
                 ProductionItemSet newProducerPrerequisites;
                 auto producerItem = *newProducerPrerequisites.emplace(std::make_shared<ProductionItem>(producerType,

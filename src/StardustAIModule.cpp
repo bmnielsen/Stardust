@@ -273,34 +273,6 @@ void StardustAIModule::onFrame()
     WORKERGATHEROPTIMIZER::update();
     Timer::checkpoint("MiningOptimization::update");
 
-#if LOGGING_ENABLED
-    auto enemyNatural = Map::getEnemyStartingNatural();
-    if (enemyNatural && enemyNatural->resourceDepot && enemyNatural->resourceDepot->bwapiUnit->isVisible()
-        && enemyNatural->resourceDepot->health > 100)
-    {
-        // Check for other visible enemy units
-        std::set<Unit> enemyUnits;
-        Units::enemyInRadius(enemyUnits, enemyNatural->getPosition(), 640, [](const Unit &unit)
-        {
-            return (unit->canAttackGround() || unit->canAttackAir()) && unit->bwapiUnit->isVisible();
-        });
-        if (enemyUnits.empty())
-        {
-            int dragoons = 0;
-            for (auto &unit : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Dragoon))
-            {
-                if (unit->cooldownUntil > currentFrame) continue;
-                if (unit->isInOurWeaponRange(enemyNatural->resourceDepot)) dragoons++;
-            }
-
-            if (dragoons > 3)
-            {
-                Log::Get() << "ERROR: Multiple dragoons aren't attacking lone enemy natural!";
-            }
-        }
-    }
-#endif
-
     // Surrender logic
     if (enableSurrender)
     {
