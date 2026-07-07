@@ -40,7 +40,8 @@ namespace Strategist
         std::vector<std::pair<int, int>> mineralReservations;
         bool enemyContained;
         int enemyContainedChanged;
-        Strategist::WorkerScoutStatus workerScoutStatus;
+        WorkerScoutStatus workerScoutStatus;
+        StrategicState strategicState;
 
         void setStrategyEngine(bool transitioningFromRandom)
         {
@@ -385,6 +386,50 @@ namespace Strategist
             return "Unknown";
         }
 
+        void updateStrategicState()
+        {
+            //
+            // // What we want to return here is an indication of whether we are ahead or not
+            // // Ideally this would consider a lot of things, but for now we are just considering potential mineral income and weighting it by matchup
+            // // For bases we don't have vision on, we assume that minerals are mined at an average of 10 frames per mineral, so a normal base with
+            // // 1500 mineral patches takes 15000 frames to mine out
+            //
+            // currentStrategicState = 0.5;
+            //
+            // // TODO: Figure out a different formula for Zerg
+            // if (BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
+            //     BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran)
+            // {
+            //     return;
+            // }
+            //
+            // auto addBaseMinerals = [](Base *base, unsigned long &count)
+            // {
+            //     if (base->resourceDepot && !base->resourceDepot->completed) return;
+            //
+            //     for (auto mineral : base->mineralPatches())
+            //     {
+            //         count += std::max(0, mineral->currentAmount - (currentFrame - mineral->lastSeenFrame) / 10);
+            //     }
+            // };
+            //
+            // unsigned long myMineralsAvailable = 0;
+            // unsigned long enemyMineralsAvailable = 0;
+            // for (const auto &base : Map::getMyBases())
+            // {
+            //     addBaseMinerals(base, myMineralsAvailable);
+            // }
+            // for (const auto &base : Map::getEnemyBases())
+            // {
+            //     addBaseMinerals(base, enemyMineralsAvailable);
+            // }
+            //
+            // auto total = myMineralsAvailable + enemyMineralsAvailable;
+            // if (total == 0) return;
+            //
+            // currentStrategicState = (double)myMineralsAvailable / (double)(total);
+        }
+
         void writeInstrumentation()
         {
 #if CVIS_BOARD_VALUES
@@ -421,6 +466,9 @@ namespace Strategist
             CherryVis::setBoardValue("enemyContained", enemyContained ? "true" : "false");
             CherryVis::setBoardValue("workerScoutStatus", workerScoutStatusToString());
             CherryVis::setBoardValue("pressure", (std::ostringstream() << std::setprecision(2) << pressure()).str());
+            CherryVis::setBoardValue("strategicState_income", (std::ostringstream() << std::setprecision(2) << strategicState.income).str());
+            CherryVis::setBoardValue("strategicState_resources", (std::ostringstream() << std::setprecision(2) << strategicState.availableResources).str());
+            CherryVis::setBoardValue("strategicState_army", (std::ostringstream() << std::setprecision(2) << strategicState.armyCount).str());
 #endif
         }
     }
@@ -436,6 +484,9 @@ namespace Strategist
         enemyContained = false;
         enemyContainedChanged = 0;
         workerScoutStatus = WorkerScoutStatus::Unstarted;
+        strategicState.income = 0.5;
+        strategicState.availableResources = 0.5;
+        strategicState.armyCount = 0.5;
 
         setStrategyEngine(false);
     }
@@ -456,6 +507,8 @@ namespace Strategist
             enemyContained = !enemyContained;
             enemyContainedChanged = currentFrame;
         }
+
+        updateStrategicState();
 
         // Remove all dead or renegaded units from plays
         // This cascades down to squads and unit clusters
@@ -616,6 +669,11 @@ namespace Strategist
         if (!vanguard) return 1.0;
 
         return 1.0 - vanguard->percentageToEnemyMain;
+    }
+
+    const StrategicState& getStrategicState()
+    {
+        return strategicState;
     }
 
     WorkerScoutStatus getWorkerScoutStatus()

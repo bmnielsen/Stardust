@@ -20,6 +20,20 @@ namespace Strategist
         ScoutingCompleted,          // (final state) Our scout scouted the enemy base and has now left or died
     };
 
+    // Measurements of the estimated overall strategic state of the game
+    // Each value is from 0 to 1, where higher is better for us and lower is better for the opponent
+    struct StrategicState
+    {
+        // How many workers are gathering resources
+        double income;
+
+        // How many minerals are available at owned bases
+        double availableResources;
+
+        // Relative army size, taking into consideration expected production from the opponent
+        double armyCount;
+    };
+
     void update();
 
     void initialize();
@@ -35,6 +49,8 @@ namespace Strategist
     // A measure between 0 and 1 of how much pressure we feel ourselves to be under,
     // where 0 is no pressure and 1 is full pressure
     double pressure();
+
+    const StrategicState& getStrategicState();
 
     WorkerScoutStatus getWorkerScoutStatus();
 
