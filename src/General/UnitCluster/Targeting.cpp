@@ -50,8 +50,8 @@ namespace
             return 13;
         }
 
-        // Proxies
-        if (target->type.isBuilding() && !target->isFlying && notCloseToTargetPosition())
+        // Proxies, except missile turrets
+        if (target->type.isBuilding() && !target->isFlying && notCloseToTargetPosition() && target->type != BWAPI::UnitTypes::Terran_Missile_Turret)
         {
             if (target->canAttackGround() || target->canAttackAir())
             {
@@ -636,23 +636,11 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 score += 4 * 32;
             }
 
-            // Adjust based on the threat level of the enemy unit to us
-            // Disabling for now as this should be handled by the overall target priority
-            // if (potentialTarget->unit->canAttack(unit))
-            // {
-            //     if (unit->isInEnemyWeaponRange(potentialTarget->unit))
-            //     {
-            //         score += 6 * 32;
-            //     }
-            //     else if (unit->isInOurWeaponRange(potentialTarget->unit))
-            //     {
-            //         score += 4 * 32;
-            //     }
-            //     else
-            //     {
-            //         score += 3 * 32;
-            //     }
-            // }
+            // Give a bonus to units that can attack us
+            if (potentialTarget->unit->canAttack(unit))
+            {
+                score += 3 * 32;
+            }
 
             // Give a bonus to non-moving or braking targets, and a penalty to units that are faster than us
             if (!potentialTarget->unit->bwapiUnit->isMoving())
