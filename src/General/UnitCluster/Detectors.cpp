@@ -75,6 +75,7 @@ namespace
         auto scaledVector = Geo::ScaleVector(target - detector->lastPosition, HALT_DISTANCE);
         auto scaledTarget = (scaledVector == BWAPI::Positions::Invalid) ? target : detector->lastPosition + scaledVector;
         if (!scaledTarget.isValid()) scaledTarget = target;
+        if (!scaledTarget.isValid()) scaledTarget = Map::getMyMain()->getPosition();
         detector->moveTo(scaledTarget);
     }
 }
