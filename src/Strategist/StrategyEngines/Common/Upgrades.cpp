@@ -142,8 +142,8 @@ void StrategyEngine::upgradeWhenUnitCreated(std::map<int, std::vector<Production
 
 void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
 {
-    // Start when we have completed our second gas and have an army
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 2 &&
+    // Start when we have completed our second nexus and have an army
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) >= 2 &&
         (Units::countCompleted(BWAPI::UnitTypes::Protoss_Zealot) + Units::countCompleted(BWAPI::UnitTypes::Protoss_Dragoon)) > 10)
     {
         int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
@@ -195,8 +195,8 @@ void StrategyEngine::defaultGroundUpgrades(std::map<int, std::vector<ProductionG
 
         // Upgrade shields when we are maxed
         if (BWAPI::Broodwar->self()->supplyUsed() > 300 &&
-            BWAPI::Broodwar->self()->minerals() > 1500 &&
-            BWAPI::Broodwar->self()->gas() > 1000)
+            BWAPI::Broodwar->self()->minerals() > 2000 &&
+            BWAPI::Broodwar->self()->gas() > 1500)
         {
             prioritizedProductionGoals[PRIORITY_NORMAL]
                     .emplace_back(std::in_place_type<UpgradeProductionGoal>,
