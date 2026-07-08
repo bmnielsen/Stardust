@@ -5,6 +5,7 @@
 #include "Map.h"
 #include "NoGoAreas.h"
 #include "BuildingPlacement.h"
+#include "EnemyBunker.h"
 #include "MyCannon.h"
 #include "MyCarrier.h"
 #include "MyCorsair.h"
@@ -862,7 +863,17 @@ namespace Units
                 enemyUnitDestroyed(it->second, true);
             }
 
-            auto unit = std::make_shared<UnitImpl>(bwapiUnit);
+            Unit unit;
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Bunker)
+            {
+                unit = std::make_shared<EnemyBunker>(bwapiUnit);
+                unit->created();
+            }
+            else
+            {
+                unit = std::make_shared<UnitImpl>(bwapiUnit);
+                unit->created();
+            }
             unit->created();
             enemyUnits.insert(unit);
             unitIdToEnemyUnit.emplace(unit->id, unit);

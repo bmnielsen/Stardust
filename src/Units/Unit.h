@@ -127,7 +127,7 @@ public:
 
     virtual void update(BWAPI::Unit unit);
 
-    void updateUnitInFog();
+    virtual void updateUnitInFog();
 
     void addUpcomingAttack(const Unit &attacker, BWAPI::Bullet bullet, std::optional<int> fixedFrameDelay);
 
