@@ -1,5 +1,6 @@
 #include "Bullets.h"
 
+#include "EnemyBunker.h"
 #include "Units.h"
 #include "Players.h"
 #include "NoGoAreas.h"
@@ -51,9 +52,22 @@ namespace Bullets
                 {BWAPI::BulletTypes::Ensnare, {BWAPI::TechTypes::Ensnare, BWAPI::Races::Zerg, false}},
         };
 
+        struct BunkerBullet
+        {
+            explicit BunkerBullet(const BWAPI::Bullet &bullet)
+                : firstSeenFrame(currentFrame - 1)
+                , position(bullet->getPosition())
+            {}
+
+            int firstSeenFrame;
+            BWAPI::Position position;
+        };
 
         std::map<int, int> seenBulletFrames;
         int bulletsSeenAtExtendedMarineRange;
+
+        // Using a list, as we want to be able to remove bullets from the middle of the list efficiently
+        std::list<BunkerBullet> bunkerBullets;
 
         void trackResearch(BWAPI::Bullet bullet)
         {
@@ -144,6 +158,7 @@ namespace Bullets
     {
         seenBulletFrames.clear();
         bulletsSeenAtExtendedMarineRange = 0;
+        bunkerBullets.clear();
     }
 
     void update()
@@ -176,6 +191,11 @@ namespace Bullets
                 frame->second == (currentFrame - 1))
             {
                 checkBunkerRange(bullet);
+
+                if (!bullet->getSource())
+                {
+                    bunkerBullets.emplace_front(bullet);
+                }
             }
         }
     }
@@ -271,5 +291,189 @@ namespace Bullets
                                      bullet->getTarget()->getPlayer(),
                                      bullet->getTarget()->getType(),
                                      weaponOverride);
+    }
+
+    void updateBunkers()
+    {
+        // This method updates how many marines we think are in enemy bunkers, based on observed bullets and whether the bunker has any of our units
+        // inside its range.
+        //
+        // For all of the logic here, we assume marines aren't stimmed, since we don't really expect stimmed marines in bunkers in PvT. Even if we
+        // do encounter it, though, it will just make one marine look like two while it is stimmed, which is fine (it actually reflects its combat
+        // value)
+        //
+        // Procedure used:
+        // - Go through the observed bunker-fired bullets and try to match each with a bunker
+        //   - If there are multiple bunkers in range, track them on each and we will deduplicate later
+        //   - If the bullet could have been fired from the same marine as a previous bullet matched to the bunker, track them as two separate
+        //     "rounds"
+        //   - Stop processing bullets once we hit the third "round" on a bunker or track a first "round" that is beyond a frame threshold
+        //     - Later bullets can be removed from the list
+        // - If we have two full rounds of shots from a bunker, count the max shots per round and update the marine count
+        // - If we only have one round of shots from a bunker, update with the number of observed shots unless this is lower than the current count
+        //   - Rationale: the marines in the bunker fire at different timings because of their order process timers, so we don't want to see the first
+        //     bullet and immediately conclude there is only one marine in the bunker
+        // - For any bunkers that have no bullets matched, but where we have previously identified it as containing marines, check if it has had a
+        //   friendly unit in its range for a while, indicating that it has probably been emptied in the meantime
+        //
+        // The cooldown of a non-stimmed marine is randomized in the range of [14,17], but there seems to be some instability in how many frames after
+        // shooting the bullet is created, so sometimes we see two bullets from the same marine come with as little as 12 frames between them.
+
+        struct BunkerBulletMatches
+        {
+            std::shared_ptr<EnemyBunker> bunker;
+            std::vector<BunkerBullet> firstRoundBullets;
+            std::vector<BunkerBullet> secondRoundBullets;
+            bool hasThirdRound = false;
+
+            // Checks if the given bullet could have been fired from this bunker
+            bool couldBeSourceOf(const BunkerBullet &bunkerBullet) const
+            {
+                // This check is a bit difficult to do perfectly, since the bullet gets put about 7 pixels inside the target, and knowing whether the
+                // enemy has the marine range upgrade is similarly difficult to perfectly detect
+                // Since false negatives (not matching a bullet to any bunker) are much worse than false positives (thinking a shot could come from
+                // multiple bunkers), we just use a loose distance check here under the assumption that the enemy has range and adding an extra half
+                // tile of buffer
+                return bunker->getDistance(bunkerBullet.position) < 216;
+            }
+
+            // Marks the bunker bullet as being fired from this bunker
+            // Returns false if the bullet is expired (either is too old to consider for the first round, or would be placed in a third round)
+            bool add(const BunkerBullet &bunkerBullet)
+            {
+                // This is the first bullet assigned to this bunker
+                if (firstRoundBullets.empty())
+                {
+                    // If the bullet is much older than the maximum time between shots, conclude that this bunker has stopped firing and skip this bullet
+                    if (bunkerBullet.firstSeenFrame < (currentFrame - 20)) return false;
+                    firstRoundBullets.emplace_back(bunkerBullet);
+                    return true;
+                }
+
+                // This is not the first bullet assigned to this bunker, so figure out which "round" it fits into
+                auto isInNextRound = [&](const std::vector<BunkerBullet> &previousRound, size_t skip = 0)
+                {
+                    if (previousRound.empty()) return false;
+                    if (skip >= previousRound.size()) return true;
+
+                    return (previousRound[skip].firstSeenFrame - bunkerBullet.firstSeenFrame) >= 12;
+                };
+
+                // If this bullet doesn't fit into the second round, potentially shift a bullet previously detected to align everything correctly
+                while (!isInNextRound(firstRoundBullets, secondRoundBullets.size()))
+                {
+                    if (secondRoundBullets.empty())
+                    {
+                        firstRoundBullets.emplace_back(bunkerBullet);
+                        return true;
+                    }
+
+                    firstRoundBullets.emplace_back(std::move(secondRoundBullets.front()));
+                    secondRoundBullets.erase(secondRoundBullets.begin());
+                }
+
+                if (!isInNextRound(firstRoundBullets, secondRoundBullets.size()))
+                {
+                    firstRoundBullets.emplace_back(bunkerBullet);
+                    return true;
+                }
+
+                if (isInNextRound(secondRoundBullets))
+                {
+                    // This goes into the third round, so signal that we are done processing bullets for this bunker
+                    hasThirdRound = true;
+                    return false;
+                }
+
+                secondRoundBullets.emplace_back(bunkerBullet);
+                return true;
+            }
+
+            void setMarineCount(int marineCount) const
+            {
+                // Cap at 4 in case we've misdetected something (e.g. stimmed marines)
+                marineCount = std::min(marineCount, 4);
+
+#if CHERRYVIS_ENABLED
+                if (bunker->loadedMarines != marineCount)
+                {
+                    CherryVis::log(bunker->id) << "Updated loaded marines from " << bunker->loadedMarines << " to " << marineCount;
+                }
+#endif
+
+                bunker->loadedMarines = marineCount;
+            }
+        };
+
+        // Initialize the bunker data structures
+        std::vector<BunkerBulletMatches> bunkers;
+        for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Bunker))
+        {
+            auto bunker = std::dynamic_pointer_cast<EnemyBunker>(unit);
+            if (bunker)
+            {
+                bunkers.emplace_back(bunker);
+            }
+        }
+
+        // Go backwards through the bullets and assign them to bunkers
+        for (auto it = bunkerBullets.begin(); it != bunkerBullets.end(); )
+        {
+            bool addedToAny = false;
+            for (auto &bunker : bunkers)
+            {
+                if (bunker.couldBeSourceOf(*it))
+                {
+                    addedToAny = bunker.add(*it) || addedToAny;
+                }
+            }
+
+            if (addedToAny)
+            {
+                ++it;
+            }
+            else
+            {
+                it = bunkerBullets.erase(it);
+            }
+        }
+
+        // TODO: Deduplicate bullets that are assigned to multiple bunkers
+
+        // Update the marine counts on the bunkers
+        for (auto &bunker : bunkers)
+        {
+            if (bunker.firstRoundBullets.empty())
+            {
+                // If one of our units has been in range of the bunker for more than 15 frames, assume there are no longer any marines in it
+                if (bunker.bunker->myUnitInRange && bunker.bunker->frameMyUnitInRangeLastChanged < (currentFrame - 15))
+                {
+                    bunker.setMarineCount(0);
+                }
+            }
+            else if (bunker.secondRoundBullets.empty())
+            {
+                // We are seeing the first shots from the bunker, so bump up the count if needed but otherwise keep the current value
+                bunker.setMarineCount(std::max(bunker.bunker->loadedMarines, (int)bunker.firstRoundBullets.size()));
+            }
+            else
+            {
+                // We have two rounds of shots, so consider the estimate to be whichever round has the most shots
+                // However, if we haven't seen a third round yet, don't reduce an existing estimate
+                // Otherwise we may misdetect the first shots when entering bunker range as being multiple rounds from the same marine when there
+                // are actually still more marines in the bunker
+                if (bunker.hasThirdRound)
+                {
+                    bunker.setMarineCount(std::max(bunker.firstRoundBullets.size(), bunker.secondRoundBullets.size()));
+                }
+                else
+                {
+                    bunker.setMarineCount(std::max({
+                        bunker.bunker->loadedMarines,
+                        (int)bunker.firstRoundBullets.size(),
+                        (int)bunker.secondRoundBullets.size()}));
+                }
+            }
+        }
     }
 }

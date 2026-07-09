@@ -199,6 +199,9 @@ void StardustAIModule::onFrame()
     Units::update();
     Timer::checkpoint("Units::update");
 
+    Bullets::updateBunkers();
+    Timer::checkpoint("Bullets::updateBunkers");
+
     // We handle events explicitly instead of through the event handlers so we can time them
     for (auto &event : BWAPI::Broodwar->getEvents())
     {
