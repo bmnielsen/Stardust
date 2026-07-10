@@ -797,7 +797,7 @@ namespace Producer
                     continue;
                 }
 
-                // Find a committed pylon that has no assigned build location
+                // Find the earliest committed pylon that has no assigned build location
                 std::shared_ptr<ProductionItem> pylon = nullptr;
                 for (auto &committedItem : committedItems)
                 {
@@ -806,48 +806,66 @@ namespace Producer
                     if (committedItem->buildLocation.location.tile.isValid()) continue;
 
                     pylon = committedItem;
-                    availableAt = pylon->completionFrame;
                     break;
                 }
 
-                // If there isn't one, queue it unless we can't beat our current availability frame
-                // Because items queued in the builder have the estimated worker travel time included, we make sure to add a buffer so we don't
-                // keep queueing pylons thinking they can complete faster
-                // TODO: Would be even better to use actual builder times for the new pylon
-                if (!pylon && availableAt >= (UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) + 250))
+                if (pylon)
                 {
-                    int startFrame = std::max(0, item.startFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
-                    pylon = *items.emplace(std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Pylon, startFrame, item.location));
-                    availableAt = pylon->completionFrame;
-                }
-
-                // If the pylon will complete later than we need it, try to move it earlier
-                if (pylon && pylon->completionFrame > item.startFrame && pylon->startFrame > 0)
-                {
-                    // Try to shift the pylon so that it completes right when we need it
-                    int desiredStartFrame = std::max(0, item.startFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
-
-                    // Determine how far we can move the pylon back and still have minerals
-                    int mineralFrame;
-                    for (mineralFrame = pylon->startFrame - 1; mineralFrame >= desiredStartFrame; mineralFrame--)
+                    // If the found pylon will complete later than we need it, try to move it earlier
+                    if (pylon->completionFrame > item.startFrame)
                     {
-                        if (minerals[mineralFrame] < BWAPI::UnitTypes::Protoss_Pylon.mineralPrice()) break;
-                    }
-                    mineralFrame++;
+                        // Try to shift the pylon so that it completes right when we need it
+                        int desiredStartFrame = std::max(0, item.startFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
 
-                    // If the new completion frame is worse than the current best, don't bother
-                    if (mineralFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) >= availableAt)
-                    {
-                        pylon = nullptr;
-                    }
-
-                        // Otherwise, if we could move it back, make the relevant adjustments
-                    else
-                    {
-                        availableAt = pylon->completionFrame + (mineralFrame - pylon->startFrame);
-                        if (commit)
+                        // Determine how far we can move the pylon back and still have minerals
+                        int mineralFrame;
+                        for (mineralFrame = pylon->startFrame - 1; mineralFrame >= desiredStartFrame; mineralFrame--)
                         {
-                            shiftOne(committedItems, pylon, mineralFrame - pylon->startFrame);
+                            if (minerals[mineralFrame] < BWAPI::UnitTypes::Protoss_Pylon.mineralPrice()) break;
+                        }
+                        mineralFrame++;
+
+                        // If the new completion frame is worse than the current best, don't bother
+                        if (mineralFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) >= availableAt)
+                        {
+                            pylon = nullptr;
+                        }
+
+                        // Otherwise, make the relevant adjustments and use this pylon
+                        else
+                        {
+                            availableAt = pylon->completionFrame + (mineralFrame - pylon->startFrame);
+                            if (commit)
+                            {
+                                shiftOne(committedItems, pylon, mineralFrame - pylon->startFrame);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Try to queue a new pylon unless we can't beat our current availability frame
+                    // Because items queued in the builder have the estimated worker travel time included, we make sure to add a buffer so we don't
+                    // keep queueing pylons thinking they can complete faster
+                    // TODO: Would be even better to use actual builder times for the new pylon
+                    if (availableAt >= (UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) + 250))
+                    {
+                        // Calculate the desired start frame
+                        int desiredStartFrame = std::max(0, item.startFrame - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon));
+
+                        // Find the frame after the desired start frame where we have minerals
+                        int mineralFrame;
+                        for (mineralFrame = PREDICT_FRAMES - 1; mineralFrame >= desiredStartFrame; --mineralFrame)
+                        {
+                            if (minerals[mineralFrame] < BWAPI::UnitTypes::Protoss_Pylon.mineralPrice()) break;
+                        }
+                        ++mineralFrame;
+
+                        // Add the pylon if it is better than the current best
+                        if (mineralFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon) < availableAt)
+                        {
+                            pylon = *items.emplace(std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Pylon, mineralFrame, item.location));
+                            availableAt = pylon->completionFrame;
                         }
                     }
                 }
@@ -855,6 +873,10 @@ namespace Producer
                 if (!commit)
                 {
                     if (pylon && !choosePylonBuildLocation(*pylon, true, unitType->tileWidth()))
+                    {
+                        return false;
+                    }
+                    if (availableAt == INT_MAX)
                     {
                         return false;
                     }
@@ -1827,8 +1849,12 @@ namespace Producer
             // Also record when the last prerequisite will finish
             int prerequisitesAvailable = resolveDuplicates(prerequisiteItems);
 
-            // Reserve positions for all buildings
-            reserveBuildPositions(prerequisiteItems, true);
+            // Reserve provisional positions for all buildings to get the earliest availability
+            if (!reserveBuildPositions(prerequisiteItems, false))
+            {
+                // There is no way to produce the prerequisites within the current prediction horizon
+                return;
+            }
 
             // If the last goal item has been pushed back, update the prerequisitesAvailable frame
             if (!prerequisiteItems.empty()) prerequisitesAvailable = std::max(prerequisitesAvailable, (*prerequisiteItems.rbegin())->completionFrame);
@@ -1849,6 +1875,9 @@ namespace Producer
                     prerequisiteItem->completionFrame += delta;
                 }
             }
+
+            // Commit the build positions for the prerequisites
+            reserveBuildPositions(prerequisiteItems, true);
 
             // Buildings can now be handled immediately - we only ever produce one at a time and require a specific location
             if (unitType && unitType->isBuilding())
