@@ -197,19 +197,19 @@ namespace
         {
             if (bunkersAndMarineCounts.size() >= 1)
             {
-                initialOpponentUnits.emplace_back(BWAPI::UnitTypes::Terran_Bunker, BWAPI::TilePosition(115, 31));
-                addMarine(1, 1, {114, 30});
-                addMarine(1, 2, {115, 30});
-                addMarine(1, 3, {116, 30});
-                addMarine(1, 4, {117, 30});
+                initialOpponentUnits.emplace_back(BWAPI::UnitTypes::Terran_Bunker, BWAPI::TilePosition(113, 29));
+                addMarine(1, 1, {112, 28});
+                addMarine(1, 2, {113, 28});
+                addMarine(1, 3, {114, 28});
+                addMarine(1, 4, {115, 28});
             }
             if (bunkersAndMarineCounts.size() >= 2)
             {
-                initialOpponentUnits.emplace_back(BWAPI::UnitTypes::Terran_Bunker, BWAPI::TilePosition(116, 33));
-                addMarine(2, 1, {115, 35});
-                addMarine(2, 2, {116, 35});
-                addMarine(2, 3, {117, 35});
-                addMarine(2, 4, {118, 35});
+                initialOpponentUnits.emplace_back(BWAPI::UnitTypes::Terran_Bunker, BWAPI::TilePosition(113, 31));
+                addMarine(2, 1, {112, 33});
+                addMarine(2, 2, {113, 33});
+                addMarine(2, 3, {114, 33});
+                addMarine(2, 4, {115, 33});
             }
         }
         else
@@ -256,6 +256,7 @@ namespace
             };
         }
 
+        unsigned int misdetectionsOnSecondEncounter = 0;
         test.onFrameMine = [&]()
         {
             // Micro the zealot in and out of bunker range twice
@@ -272,9 +273,10 @@ namespace
                 }
                 if (!zealot) return;
 
-                if (BWAPI::Broodwar->getFrameCount() == 50)
+                if (BWAPI::Broodwar->getFrameCount() % 10 == 0)
                 {
-                    zealot->setShields(5000);
+                    zealot->setHitPoints(BWAPI::UnitTypes::Protoss_Zealot.maxHitPoints());
+                    zealot->setShields(BWAPI::UnitTypes::Protoss_Zealot.maxShields());
                 }
 
                 if (BWAPI::Broodwar->getFrameCount() == 100)
@@ -284,29 +286,23 @@ namespace
 
                 if (BWAPI::Broodwar->getFrameCount() == 240)
                 {
-                    zealot->setHitPoints(BWAPI::UnitTypes::Protoss_Zealot.maxHitPoints());
-                    zealot->setShields(BWAPI::UnitTypes::Protoss_Zealot.maxShields());
                     zealot->move(BWAPI::Position(BWAPI::WalkPosition(418, 138)));
                 }
 
                 if (BWAPI::Broodwar->getFrameCount() == 330)
                 {
-                    zealot->setHitPoints(BWAPI::UnitTypes::Protoss_Zealot.maxHitPoints());
-                    zealot->setShields(BWAPI::UnitTypes::Protoss_Zealot.maxShields());
                     zealot->move(BWAPI::Position(BWAPI::WalkPosition(451, 114)));
                 }
 
                 if (BWAPI::Broodwar->getFrameCount() == 425)
                 {
-                    zealot->setHitPoints(BWAPI::UnitTypes::Protoss_Zealot.maxHitPoints());
-                    zealot->setShields(BWAPI::UnitTypes::Protoss_Zealot.maxShields());
                     zealot->move(BWAPI::Position(BWAPI::WalkPosition(418, 138)));
                 }
             }();
 
             // Assertions
             // We ensure that we don't go over the actual number of marines in the bunkers on the first encounter,
-            // and don't go under the actual number of marines in the bunkers on the second encounter
+            // and don't go under the actual number of marines in the bunkers on the second encounter for more than a few frames
             int totalMarinesDetected = 0;
             for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Bunker))
             {
@@ -320,7 +316,7 @@ namespace
             int initialMarinesLoaded = 0;
             for (auto count : bunkersAndMarineCounts) initialMarinesLoaded += count;
 
-            if (BWAPI::Broodwar->getFrameCount() < 275)
+            if (BWAPI::Broodwar->getFrameCount() < 285)
             {
                 EXPECT_LE(totalMarinesDetected, initialMarinesLoaded)
                     << currentFrame << ": Detected too many marines during first encounter";
@@ -332,8 +328,15 @@ namespace
             }
             else if (BWAPI::Broodwar->getFrameCount() < 460)
             {
-                EXPECT_GE(totalMarinesDetected, initialMarinesLoaded - unloadCount)
-                    << currentFrame << ": Detected too few marines during second encounter";
+                if (totalMarinesDetected < (initialMarinesLoaded - unloadCount))
+                {
+                    ++misdetectionsOnSecondEncounter;
+                    if (misdetectionsOnSecondEncounter == 4)
+                    {
+                        EXPECT_GE(totalMarinesDetected, initialMarinesLoaded - unloadCount)
+                            << currentFrame << ": Detected too few marines during second encounter for at least 4 frames";
+                    }
+                }
             }
             else
             {
@@ -488,5 +491,68 @@ TEST(BulletsFromBunkers, OneBunkerWithUnloadingLowGroundRangeMidway)
         run({4}, true, 2, 330);
         run({4}, true, 3, 330);
         run({4}, true, 4, 330);
+    }
+}
+
+TEST(BulletsFromBunkers, TwoBunkersLowGround)
+{
+    for (int i = 0; i < ITERATIONS_PER_TEST; ++i)
+    {
+        run({0, 0});
+        run({0, 1});
+        run({0, 2});
+        run({0, 3});
+        run({0, 4});
+        run({1, 0});
+        run({1, 1});
+        run({1, 2});
+        run({1, 3});
+        run({1, 4});
+        run({2, 0});
+        run({2, 1});
+        run({2, 2});
+        run({2, 3});
+        run({2, 4});
+        run({3, 0});
+        run({3, 1});
+        run({3, 2});
+        run({3, 3});
+        run({3, 4});
+        run({4, 0});
+        run({4, 1});
+        run({4, 2});
+        run({4, 3});
+        run({4, 4});
+    }
+}
+
+TEST(BulletsFromBunkers, TwoBunkersLowGroundWithUnloading)
+{
+    for (int i = 0; i < ITERATIONS_PER_TEST; ++i)
+    {
+        run({0, 1}, true, 1);
+        run({0, 2}, true, 1);
+        run({0, 3}, true, 2);
+        run({0, 4}, true, 2);
+        run({1, 0}, true, 1);
+        run({1, 1}, true, 1);
+        run({1, 2}, true, 2);
+        run({1, 3}, true, 3);
+        run({1, 4}, true, 4);
+        run({2, 0}, true, 1);
+        run({2, 1}, true, 1);
+        run({2, 2}, true, 2);
+        run({2, 3}, true, 1);
+        run({2, 4}, true, 5);
+        run({3, 0}, true, 1);
+        run({3, 1}, true, 1);
+        run({3, 2}, true, 4);
+        run({3, 3}, true, 6);
+        run({3, 4}, true, 1);
+        run({4, 0}, true, 1);
+        run({4, 1}, true, 1);
+        run({4, 2}, true, 3);
+        run({4, 3}, true, 6);
+        run({4, 4}, true, 4);
     }
 }

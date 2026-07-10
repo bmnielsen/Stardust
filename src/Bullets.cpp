@@ -55,10 +55,12 @@ namespace Bullets
         struct BunkerBullet
         {
             explicit BunkerBullet(const BWAPI::Bullet &bullet)
-                : firstSeenFrame(currentFrame - 1)
+                : id(bullet->getID())
+                , firstSeenFrame(currentFrame - 1)
                 , position(bullet->getPosition())
             {}
 
+            int id;
             int firstSeenFrame;
             BWAPI::Position position;
         };
@@ -319,72 +321,84 @@ namespace Bullets
         // The cooldown of a non-stimmed marine is randomized in the range of [14,17], but there seems to be some instability in how many frames after
         // shooting the bullet is created, so sometimes we see two bullets from the same marine come with as little as 12 frames between them.
 
+        struct MatchedBunkerBullet
+        {
+            explicit MatchedBunkerBullet(const BunkerBullet &bullet) : id(bullet.id), firstSeenFrame(bullet.firstSeenFrame) {}
+
+            int id;
+            int firstSeenFrame;
+            int nextRoundSameMarineBulletId = -1; // ID of the bullet in the next round that is matched to the same marine
+        };
         struct BunkerBulletMatches
         {
             std::shared_ptr<EnemyBunker> bunker;
-            std::vector<BunkerBullet> firstRoundBullets;
-            std::vector<BunkerBullet> secondRoundBullets;
+            std::vector<MatchedBunkerBullet> firstRoundBullets;
+            std::vector<MatchedBunkerBullet> secondRoundBullets;
             bool hasThirdRound = false;
 
-            // Checks if the given bullet could have been fired from this bunker
-            bool couldBeSourceOf(const BunkerBullet &bunkerBullet) const
+            // Marks the bunker bullet as being fired from this bunker
+            // Returns false if the bullet is expired (either is too old to consider for the first round, or would be placed in a third round)
+            bool add(const BunkerBullet &bunkerBullet)
             {
                 // This check is a bit difficult to do perfectly, since the bullet gets put about 7 pixels inside the target, and knowing whether the
                 // enemy has the marine range upgrade is similarly difficult to perfectly detect
                 // Since false negatives (not matching a bullet to any bunker) are much worse than false positives (thinking a shot could come from
                 // multiple bunkers), we just use a loose distance check here under the assumption that the enemy has range and adding an extra half
                 // tile of buffer
-                return bunker->getDistance(bunkerBullet.position) < 216;
-            }
+                if (bunker->getDistance(bunkerBullet.position) > 216) return false;
 
-            // Marks the bunker bullet as being fired from this bunker
-            // Returns false if the bullet is expired (either is too old to consider for the first round, or would be placed in a third round)
-            bool add(const BunkerBullet &bunkerBullet)
-            {
                 // This is the first bullet assigned to this bunker
                 if (firstRoundBullets.empty())
                 {
                     // If the bullet is much older than the maximum time between shots, conclude that this bunker has stopped firing and skip this bullet
                     if (bunkerBullet.firstSeenFrame < (currentFrame - 20)) return false;
+
+                    // Otherwise add it as the first shot
                     firstRoundBullets.emplace_back(bunkerBullet);
                     return true;
                 }
 
                 // This is not the first bullet assigned to this bunker, so figure out which "round" it fits into
-                auto isInNextRound = [&](const std::vector<BunkerBullet> &previousRound, size_t skip = 0)
+                auto isInNextRound = [&](std::vector<MatchedBunkerBullet> &previousRound, size_t skip = 0)
                 {
-                    if (previousRound.empty()) return false;
-                    if (skip >= previousRound.size()) return true;
+                    if (skip >= previousRound.size()) return false;
 
-                    return (previousRound[skip].firstSeenFrame - bunkerBullet.firstSeenFrame) >= 12;
+                    if ((previousRound[skip].firstSeenFrame - bunkerBullet.firstSeenFrame) >= 12)
+                    {
+                        previousRound[skip].nextRoundSameMarineBulletId = bunkerBullet.id;
+                        return true;
+                    }
+                    return false;
                 };
+
+                // First check if the bullet could be in the third round, in which case we are done
+                if (isInNextRound(secondRoundBullets))
+                {
+                    hasThirdRound = true;
+                    return false;
+                }
 
                 // If this bullet doesn't fit into the second round, potentially shift a bullet previously detected to align everything correctly
                 while (!isInNextRound(firstRoundBullets, secondRoundBullets.size()))
                 {
+                    // Add to the first round if there is nothing in the second round
                     if (secondRoundBullets.empty())
                     {
                         firstRoundBullets.emplace_back(bunkerBullet);
                         return true;
                     }
 
+                    // We previously put a bullet in the second round that now prevents a bullet from being matched, so it should have been in the
+                    // first round. Clear its related bullet and move it.
+                    for (auto &bullet : firstRoundBullets)
+                    {
+                        if (bullet.nextRoundSameMarineBulletId == secondRoundBullets.front().id) bullet.nextRoundSameMarineBulletId = -1;
+                    }
                     firstRoundBullets.emplace_back(std::move(secondRoundBullets.front()));
                     secondRoundBullets.erase(secondRoundBullets.begin());
                 }
 
-                if (!isInNextRound(firstRoundBullets, secondRoundBullets.size()))
-                {
-                    firstRoundBullets.emplace_back(bunkerBullet);
-                    return true;
-                }
-
-                if (isInNextRound(secondRoundBullets))
-                {
-                    // This goes into the third round, so signal that we are done processing bullets for this bunker
-                    hasThirdRound = true;
-                    return false;
-                }
-
+                // The bullet goes in the second round
                 secondRoundBullets.emplace_back(bunkerBullet);
                 return true;
             }
@@ -417,28 +431,157 @@ namespace Bullets
         }
 
         // Go backwards through the bullets and assign them to bunkers
+        // Keep track of bullets that get assigned to multiple bunkers
+        std::vector<std::pair<int, std::vector<BunkerBulletMatches*>>> bulletsWithMultipleBunkers;
         for (auto it = bunkerBullets.begin(); it != bunkerBullets.end(); )
         {
-            bool addedToAny = false;
+            std::vector<BunkerBulletMatches*> bunkersMatched;
             for (auto &bunker : bunkers)
             {
-                if (bunker.couldBeSourceOf(*it))
+                if (bunker.add(*it))
                 {
-                    addedToAny = bunker.add(*it) || addedToAny;
+                    bunkersMatched.emplace_back(&bunker);
                 }
             }
 
-            if (addedToAny)
+            if (!bunkersMatched.empty())
             {
-                ++it;
+                if (bunkersMatched.size() > 1)
+                {
+                    bulletsWithMultipleBunkers.emplace_back(it->id, std::move(bunkersMatched));
+                }
             }
-            else
+            else if (it->firstSeenFrame < (currentFrame - 51))
             {
+                // Clear bullets after 3 times max marine cooldown
                 it = bunkerBullets.erase(it);
+                continue;
             }
+
+            ++it;
         }
 
-        // TODO: Deduplicate bullets that are assigned to multiple bunkers
+        // Deduplicate bullets assigned to multiple bunkers
+        for (auto &[bulletId, bunkerMatches] : bulletsWithMultipleBunkers)
+        {
+            struct FindResult
+            {
+                BunkerBulletMatches *bunkerMatch;
+                bool inSecondRound;
+                int nextRoundSameMarineBulletId;
+                int index;
+                size_t bunkerCount;
+
+                void removeFromBunker() const
+                {
+                    auto &vec =
+                        inSecondRound
+                        ? bunkerMatch->secondRoundBullets
+                        : bunkerMatch->firstRoundBullets;
+                    vec.erase(vec.begin() + index);
+
+                    if (nextRoundSameMarineBulletId != -1)
+                    {
+                        for (auto it = bunkerMatch->secondRoundBullets.begin(); it != bunkerMatch->secondRoundBullets.end(); ++it)
+                        {
+                            if (it->id == nextRoundSameMarineBulletId)
+                            {
+                                bunkerMatch->secondRoundBullets.erase(it);
+                                break;
+                            }
+                        }
+                    }
+                }
+            };
+
+            // First pass: find the bullet in each bunker
+            std::vector<FindResult> findResults;
+            bool anyInSecondRound = false;
+            bool anyHaveNextRoundSameMarineBulletId = false;
+            for (auto &bunker : bunkerMatches)
+            {
+                auto find = [&](const std::vector<MatchedBunkerBullet> &bullets)
+                {
+                    for (int i = 0; i < bullets.size(); ++i)
+                    {
+                        if (bullets[i].id == bulletId)
+                        {
+                            return i;
+                        }
+                    }
+                    return -1;
+                };
+
+                int firstRound = find(bunker->firstRoundBullets);
+                if (firstRound != -1)
+                {
+                    anyHaveNextRoundSameMarineBulletId =
+                        anyHaveNextRoundSameMarineBulletId || (bunker->firstRoundBullets[firstRound].nextRoundSameMarineBulletId != -1);
+                    findResults.emplace_back(bunker,
+                                             false,
+                                             bunker->firstRoundBullets[firstRound].nextRoundSameMarineBulletId,
+                                             firstRound,
+                                             bunker->firstRoundBullets.size());
+                    continue;
+                }
+
+                int secondRound = find(bunker->secondRoundBullets);
+                if (secondRound != -1)
+                {
+                    anyInSecondRound = true;
+                    findResults.emplace_back(bunker,
+                                             true,
+                                             -1,
+                                             secondRound,
+                                             bunker->secondRoundBullets.size());
+                    continue;
+                }
+
+                // If we fall through to here, it means a matched first round bullet has been removed in an earlier iteration, so we don't have to
+                // consider this bunker match
+            }
+
+            if (findResults.empty()) continue;
+
+            // Second pass: remove the bullet from any bunkers where:
+            // - the bullet is in the second round in some other bunker and in the first round in this one
+            // - the bullet has matched to a second round bullet in some bunker and not in this one
+            // Keep track of which kept bunker has the least bullets during this scan
+            size_t minCount = SIZE_T_MAX;
+            for (auto it = findResults.begin(); it != findResults.end(); )
+            {
+                if ((anyInSecondRound && !it->inSecondRound) || (anyHaveNextRoundSameMarineBulletId && it->nextRoundSameMarineBulletId == -1))
+                {
+                    it->removeFromBunker();
+                    it = findResults.erase(it);
+                }
+                else
+                {
+                    minCount = std::min(minCount, it->bunkerCount);
+                    ++it;
+                }
+            }
+
+            // Third pass: remove the bullet from any bunkers that have a higher count than the minimum
+            for (auto it = findResults.begin(); it != findResults.end(); )
+            {
+                if (it->bunkerCount > minCount)
+                {
+                    it->removeFromBunker();
+                    it = findResults.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+
+            // Final pass: remove the bullet from random bunkers until there is only one left
+            for (auto it = findResults.begin() + 1; it != findResults.end(); ++it)
+            {
+                it->removeFromBunker();
+            }
+        }
 
         // Update the marine counts on the bunkers
         for (auto &bunker : bunkers)
@@ -459,10 +602,15 @@ namespace Bullets
             else
             {
                 // We have two rounds of shots, so consider the estimate to be whichever round has the most shots
-                // However, if we haven't seen a third round yet, don't reduce an existing estimate
-                // Otherwise we may misdetect the first shots when entering bunker range as being multiple rounds from the same marine when there
-                // are actually still more marines in the bunker
-                if (bunker.hasThirdRound)
+                // However, as the differences in possible cooldowns can cause some misdetections, we don't reduce an existing count in the following
+                // situations:
+                // - We haven't seen a third round yet, so we don't have data for two full rounds
+                // - We have been in range of this bunker for quite a while, so likely there is just an unlucky volley making us think there are
+                //   fewer marines all of a sudden
+                // We might still get unlucky and see an ambiguous volley at exactly the wrong time, but we probably won't misdetect for many frames,
+                // at least
+                if (bunker.hasThirdRound && ((!bunker.bunker->myUnitInRange && bunker.bunker->frameMyUnitInRangeLastChanged > (currentFrame - 15)) ||
+                    (bunker.bunker->myUnitInRange && bunker.bunker->frameMyUnitInRangeLastChanged > (currentFrame - 51))))
                 {
                     bunker.setMarineCount(std::max(bunker.firstRoundBullets.size(), bunker.secondRoundBullets.size()));
                 }
