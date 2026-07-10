@@ -549,7 +549,7 @@ namespace Bullets
             // - the bullet is in the second round in some other bunker and in the first round in this one
             // - the bullet has matched to a second round bullet in some bunker and not in this one
             // Keep track of which kept bunker has the least bullets during this scan
-            size_t minCount = SIZE_T_MAX;
+            size_t minCount = UINT32_MAX;
             for (auto it = findResults.begin(); it != findResults.end(); )
             {
                 if ((anyInSecondRound && !it->inSecondRound) || (anyHaveNextRoundSameMarineBulletId && it->nextRoundSameMarineBulletId == -1))
