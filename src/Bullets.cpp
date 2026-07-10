@@ -423,6 +423,8 @@ namespace Bullets
         std::vector<BunkerBulletMatches> bunkers;
         for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Bunker))
         {
+            if (!unit->completed) continue;
+
             auto bunker = std::dynamic_pointer_cast<EnemyBunker>(unit);
             if (bunker)
             {

@@ -9,6 +9,7 @@
 #include <chrono>
 
 #include "DebugFlag_CombatSim.h"
+#include "EnemyBunker.h"
 
 #define LIMIT_MICROSECONDS 5000
 
@@ -46,9 +47,14 @@ namespace
         if (unit->health <= 0) return false; // Upcoming attacks indicate this unit is about to die, so it probably won't be able to get a shot off
 
         if (unit->type == BWAPI::UnitTypes::Protoss_Interceptor) return false;
-        if (unit->type == BWAPI::UnitTypes::Terran_Bunker) return true;
         if (unit->type == BWAPI::UnitTypes::Terran_Medic) return true;
         if (unit->type == BWAPI::UnitTypes::Zerg_Overlord) return true;
+
+        auto bunker = std::dynamic_pointer_cast<EnemyBunker>(unit);
+        if (bunker)
+        {
+            return bunker->loadedMarines > 0;
+        }
 
         return unit->groundDamage() > 0 || unit->airDamage() > 0;
     }
@@ -123,6 +129,13 @@ namespace
             stimmed = true;
         }
 
+        int attackerCount = 8;
+        auto bunker = std::dynamic_pointer_cast<EnemyBunker>(unit);
+        if (bunker)
+        {
+            attackerCount = bunker->loadedMarines;
+        }
+
         return FAP::makeUnit<>()
                 .setUnitType(unit->type)
                 .setPosition(unit->simPosition)
@@ -144,7 +157,7 @@ namespace
                 .setElevation(BWAPI::Broodwar->getGroundHeight(unit->simPosition.x >> 5, unit->simPosition.y >> 5))
 
                 // TODO: Figure out if we need to do something with initializing attack cooldown for bunkers
-                .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
+                .setAttackerCount(attackerCount)
                 .setAttackCooldownRemaining(getCooldown(unit))
 
                 .setSpeedUpgrade(false) // Squares the speed
