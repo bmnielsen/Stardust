@@ -235,7 +235,14 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                 // Transition to normal when we consider it safe to do so
                 if (canTransitionFromAntiZealotRush())
                 {
-                    strategy = OurStrategy::Normal;
+                    if (newEnemyStrategy == ProtossStrategy::Unknown)
+                    {
+                        strategy = OurStrategy::EarlyGameDefense;
+                    }
+                    else
+                    {
+                        strategy = OurStrategy::Normal;
+                    }
                     continue;
                 }
 

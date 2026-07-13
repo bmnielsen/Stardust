@@ -115,7 +115,14 @@ PvZ::OurStrategy PvZ::chooseOurStrategy(PvZ::ZergStrategy newEnemyStrategy, std:
                 // Transition to normal when we consider it safe to do so
                 if (canTransitionFromAntiAllIn())
                 {
-                    strategy = OurStrategy::Normal;
+                    if (newEnemyStrategy == ZergStrategy::Unknown)
+                    {
+                        strategy = OurStrategy::EarlyGameDefense;
+                    }
+                    else
+                    {
+                        strategy = OurStrategy::Normal;
+                    }
                     continue;
                 }
 

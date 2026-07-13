@@ -30,7 +30,22 @@ void DefendMyMain::update()
     {
         reservedGasStealAttacker = nullptr;
     }
-    
+
+    auto clearDeadWorkers = [](std::vector<MyWorker> &workers)
+    {
+        for (auto it = workers.begin(); it != workers.end(); )
+        {
+            if (!(*it)->exists())
+            {
+                it = workers.erase(it);
+                continue;
+            }
+            ++it;
+        }
+    };
+    clearDeadWorkers(reservedWorkerGasStealAttackers);
+    clearDeadWorkers(pulledWorkers);
+
     // Get enemy combat units in our base
     std::set<Unit> enemyCombatUnits;
     std::set<Unit> enemyWorkers;
@@ -150,10 +165,46 @@ void DefendMyMain::update()
     }
 
     // If there are more than two workers, consider this to be a worker rush and add them to the set of combat units
+    // If the worker rush is hitting before we have started any combat units, pull workers
+    // Once we have pulled workers, keep some pulled until the enemy no longer has any workers left
+    int desiredPulledWorkers = 0;
     if (enemyWorkers.size() > 2)
     {
         scoutHarass = false;
         enemyCombatUnits.insert(enemyWorkers.begin(), enemyWorkers.end());
+        desiredPulledWorkers = enemyCombatUnits.size() + 2;
+    }
+    else if (!enemyWorkers.empty())
+    {
+        desiredPulledWorkers = std::min(pulledWorkers.size(), enemyWorkers.size() + 2);
+    }
+
+    // When pulling workers, pull two more than the enemy has combat units, but leave at least three mining
+    // TODO: Select the workers based on which are best to use
+    if (desiredPulledWorkers > pulledWorkers.size())
+    {
+        desiredPulledWorkers -= pulledWorkers.size();
+
+        auto baseWorkers = Workers::getBaseWorkers(Map::getMyMain());
+        desiredPulledWorkers = std::min(desiredPulledWorkers, (int)baseWorkers.size() - 3);
+        for (auto worker : baseWorkers)
+        {
+            if (desiredPulledWorkers <= 0) break;
+
+            Workers::reserveWorker(worker);
+            pulledWorkers.emplace_back(worker);
+            squad->addUnit(worker);
+            --desiredPulledWorkers;
+        }
+    }
+    else if (pulledWorkers.size() > desiredPulledWorkers)
+    {
+        for (int i = 0; i < (pulledWorkers.size() - desiredPulledWorkers); ++i)
+        {
+            squad->removeUnit(pulledWorkers.back());
+            Workers::releaseWorker(pulledWorkers.back());
+            pulledWorkers.pop_back();
+        }
     }
 
     // Keep track of when the squad was last regrouping, considering an empty squad to be regrouping
@@ -210,6 +261,13 @@ void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
 void DefendMyMain::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
                            const std::function<void(const MyUnit)> &movableUnitCallback)
 {
+    // Release pulled workers
+    for (auto &worker : pulledWorkers)
+    {
+        squad->removeUnit(worker);
+        Workers::releaseWorker(worker);
+    }
+
     Play::disband(removedUnitCallback, movableUnitCallback);
 
     // Also move the reserved gas steal attacker if we have one

@@ -28,6 +28,9 @@ private:
     BWAPI::UnitType emergencyProduction;
     std::shared_ptr<EarlyGameDefendMainBaseSquad> squad;
     int lastRegroupFrame;
+
     MyUnit reservedGasStealAttacker;
     std::vector<MyWorker> reservedWorkerGasStealAttackers;
+
+    std::vector<MyWorker> pulledWorkers;
 };

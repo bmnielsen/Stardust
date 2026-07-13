@@ -1,4 +1,5 @@
 #include "BWTest.h"
+#include "DoNothingModule.h"
 #include "UAlbertaBotModule.h"
 #include "StardustAIModule.h"
 
@@ -205,6 +206,55 @@ TEST(RushDefense, Zealots)
         std::vector<std::shared_ptr<Play>> openingPlays;
         openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
+    };
+
+    test.run();
+}
+
+TEST(RushDefense, WorkerRush)
+{
+    BWTest test;
+    test.map = Maps::GetOne("Heartbreak");
+    test.randomSeed = 51163;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.frameLimit = 6000;
+    test.expectWin = false;
+
+    test.onFrameOpponent = []()
+    {
+        BWAPI::Unit pylon = nullptr;
+        for (auto unit : BWAPI::Broodwar->enemy()->getUnits())
+        {
+            if (unit->getType() == BWAPI::UnitTypes::Protoss_Pylon) pylon = unit;
+        }
+
+        int count = 0;
+        for (auto unit : BWAPI::Broodwar->self()->getUnits())
+        {
+            if (unit->getType() != BWAPI::UnitTypes::Terran_SCV) continue;
+
+            ++count;
+            if (count > 3) break;
+            
+            if (pylon)
+            {
+                if (unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Attack_Unit)
+                {
+                    unit->attack(pylon);
+                }
+            }
+            else
+            {
+                if (unit->getLastCommand().getType() != BWAPI::UnitCommandTypes::Move)
+                {
+                    unit->move(BWAPI::Position(284, 1216));
+                }
+            }
+        }
     };
 
     test.run();

@@ -225,6 +225,15 @@ bool EarlyGameDefendMainBaseSquad::canTransitionToAttack() const
     auto vanguard = vanguardCluster();
     if (!vanguard) return false;
 
+    // Don't transition if the cluster has more workers than other units
+    int workers = 0;
+    int others = 0;
+    for (auto &unit : vanguard->units)
+    {
+        ++(unit->type.isWorker() ? workers : others);
+    }
+    if (workers > others) return false;
+
     // Assert that the sim has recommended attacking for at least the past 72 frames
     if (vanguard->recentSimResults.size() < 72) return false;
     int count = 0;

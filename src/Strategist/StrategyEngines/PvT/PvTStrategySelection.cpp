@@ -131,7 +131,11 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 // Transition to normal when we consider it safe to do so
                 if (canTransitionFromAntiMarineRush())
                 {
-                    if (newEnemyStrategy == TerranStrategy::MarinePressure)
+                    if (newEnemyStrategy == TerranStrategy::Unknown)
+                    {
+                        strategy = OurStrategy::EarlyGameDefense;
+                    }
+                    else if (newEnemyStrategy == TerranStrategy::MarinePressure)
                     {
                         strategy = OurStrategy::Defensive;
                     }
