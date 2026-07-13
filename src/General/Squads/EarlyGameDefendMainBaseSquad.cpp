@@ -313,6 +313,8 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
     // Get worker targets
     // The returned list includes any worker that is being threatened by an enemy unit
     auto workersAndTargets = workerDefenseSquad->selectTargets(enemyUnits);
+    std::set<Unit> workerTargets;
+    for (auto &[_, unit] : workersAndTargets) workerTargets.insert(unit);
 
     // Select targets
     auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
@@ -328,6 +330,44 @@ void EarlyGameDefendMainBaseSquad::execute(UnitCluster &cluster)
 
             return true;
         });
+    }
+
+    // Remove non-threatening units before running the combat sim
+    // The rationale is that we want our units to still harass the enemy units even if we don't have enough power to actually take them head-on
+    // Eventually we would draw the enemy units into our mineral line where our workers can help
+    // We should actually pull workers in many situations though
+    auto threateningUnit = [&](const Unit &enemyUnit)
+    {
+        // Attacking a building -> not threatening
+        if (enemyUnit->bwapiUnit &&
+            enemyUnit->bwapiUnit->getOrder() == BWAPI::Orders::AttackUnit &&
+            enemyUnit->bwapiUnit->getOrderTarget() &&
+            enemyUnit->bwapiUnit->getOrderTarget()->getType().isBuilding())
+        {
+            return false;
+        }
+
+        // A target of a worker -> threatening
+        if (workerTargets.contains(enemyUnit)) return true;
+
+        // Near attack range of any of our cluster units -> threatening
+        for (const auto &myUnit : cluster.units)
+        {
+            if (myUnit->isInEnemyWeaponRange(enemyUnit, 32)) return true;
+        }
+
+        return false;
+    };
+    for (auto it = enemyUnits.begin(); it != enemyUnits.end(); )
+    {
+        if (threateningUnit(*it))
+        {
+            ++it;
+        }
+        else
+        {
+            it = enemyUnits.erase(it);
+        }
     }
 
     // Run combat sim
