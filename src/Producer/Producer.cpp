@@ -2227,9 +2227,16 @@ namespace Producer
                              - 2);
 
             // Scale up to 25 gateways as our bank allows
+            // At each step in the loop, we find the frame where we have enough money to produce a dragoon from every gateway
+            // The rationale is that we don't need more gateways if we can't produce from all of them anyway
             for (int gateway = (int)gateways + 1; gateway <= gateways + desiredGateways; gateway++)
             {
-                int requiredMinerals = gateway * BWAPI::UnitTypes::Protoss_Dragoon.mineralPrice() + BWAPI::UnitTypes::Protoss_Gateway.mineralPrice();
+                // If there are fewer than 2 large build locations available, add a pylon
+                bool pylonNeeded =
+                    buildLocations[to_underlying(BuildingPlacement::Neighbourhood::AllMyBases)][BWAPI::UnitTypes::Protoss_Gateway.tileWidth()].size() < 2;
+
+                int requiredMinerals = gateway * BWAPI::UnitTypes::Protoss_Dragoon.mineralPrice() + BWAPI::UnitTypes::Protoss_Gateway.mineralPrice()
+                    + (pylonNeeded ? BWAPI::UnitTypes::Protoss_Pylon.mineralPrice() : 0);
                 int requiredGas = gateway * BWAPI::UnitTypes::Protoss_Dragoon.gasPrice() + BWAPI::UnitTypes::Protoss_Gateway.gasPrice();
 
                 // Find the frame where it makes sense to build this gateway
@@ -2242,11 +2249,21 @@ namespace Producer
                 startFrame++;
                 if (startFrame >= PREDICT_FRAMES) break;
 
-                // Commit the item, if we have a build location
+                // If needed, commit a pylon that powers large building locations
+                if (pylonNeeded)
+                {
+                    auto pylon = std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Pylon, startFrame, BuildingPlacement::Neighbourhood::AllMyBases);
+                    if (!choosePylonBuildLocation(*pylon, false, 4)) break;
+                    committedItems.insert(pylon);
+                    startFrame = pylon->completionFrame;
+                    if (startFrame >= PREDICT_FRAMES) break;
+                }
+
+                // Commit the gateway
                 auto item = std::make_shared<ProductionItem>(BWAPI::UnitTypes::Protoss_Gateway, startFrame, BuildingPlacement::Neighbourhood::AllMyBases);
                 auto itemInSet = ProductionItemSet{item};
                 reserveBuildPositions(itemInSet, true);
-                if (!item->buildLocation.location.tile.isValid()) break;
+                if (!item->buildLocation.location.tile.isValid()) break; // Shouldn't happen, but guard against it anyway
                 committedItems.insert(item);
             }
         }
