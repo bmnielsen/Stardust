@@ -239,7 +239,7 @@ namespace Units
 #endif
         }
 
-        void unitDestroyed(const Unit &unit)
+        void unitDestroyed(const Unit &unit, bool morphed = false)
         {
             if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && (!unit->type.isBuilding() || !unit->isFlying))
             {
@@ -257,7 +257,10 @@ namespace Units
             unit->bwapiUnit = nullptr; // Signals to all holding a copy of the pointer that this unit is dead
 
 #if CHERRYVIS_ENABLED
-            CherryVis::log(unit->id) << "Destroyed";
+            if (!morphed)
+            {
+                CherryVis::log(unit->id) << "Destroyed";
+            }
 #endif
         }
 
@@ -287,7 +290,7 @@ namespace Units
             }
 #endif
 
-            unitDestroyed(unit);
+            unitDestroyed(unit, morphed);
 
             enemyUnits.erase(unit);
             unitIdToEnemyUnit.erase(unit->id);
@@ -874,7 +877,6 @@ namespace Units
                 unit = std::make_shared<UnitImpl>(bwapiUnit);
                 unit->created();
             }
-            unit->created();
             enemyUnits.insert(unit);
             unitIdToEnemyUnit.emplace(unit->id, unit);
 
