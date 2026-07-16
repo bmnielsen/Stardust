@@ -184,6 +184,10 @@ namespace Builder
                 }
                 else
                 {
+                    if ((currentFrame - building.desiredStartFrame) == 480)
+                    {
+                        Log::Get() << "WARNING: Builder took a long time to start " << building;
+                    }
                     it++;
                     continue;
                 }
