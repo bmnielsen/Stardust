@@ -4,6 +4,18 @@
 #include "UnitUtil.h"
 #include "NoGoAreas.h"
 
+namespace
+{
+    // Gets the required no-go area buffer around a pending building location
+    int noGoAreaBuffer(const Building &building)
+    {
+        // We give cannons a 3-tile buffer, since they are often build where we have many units
+        // All other buildings get a 1-tile buffer
+        if (building.type == BWAPI::UnitTypes::Protoss_Photon_Cannon) return 3;
+        return 1;
+    }
+}
+
 Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyWorker builder, int desiredStartFrame)
         : type(type)
         , tile(tile)
@@ -72,7 +84,11 @@ void Building::addNoGoAreaWhenNeeded()
     // Add the no-go area when the desired start frame is within 5 seconds of now
     if (expectedFramesUntilStarted() > 120) return;
 
-    NoGoAreas::addBox(NoGoAreas::Type::GroundNavigational, tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
+    int buffer = noGoAreaBuffer(*this);
+    NoGoAreas::addBox(
+        NoGoAreas::Type::GroundNavigational,
+        tile - BWAPI::TilePosition(buffer, buffer),
+        type.tileSize() + BWAPI::TilePosition(buffer * 2, buffer * 2));
     noGoAreaAdded = true;
 }
 
@@ -80,7 +96,11 @@ void Building::removeNoGoArea()
 {
     if (!noGoAreaAdded) return;
 
-    NoGoAreas::removeBox(NoGoAreas::Type::GroundNavigational, tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
+    int buffer = noGoAreaBuffer(*this);
+    NoGoAreas::removeBox(
+        NoGoAreas::Type::GroundNavigational,
+        tile - BWAPI::TilePosition(buffer, buffer),
+        type.tileSize() + BWAPI::TilePosition(buffer * 2, buffer * 2));
     noGoAreaAdded = false;
 }
 
