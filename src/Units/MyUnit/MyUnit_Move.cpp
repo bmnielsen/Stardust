@@ -118,6 +118,13 @@ void MyUnitImpl::initiateMove()
     log << "Order: Initiating move to " << BWAPI::WalkPosition(targetPosition);
     if (grid) log << "; grid target " << grid->goal;
     if (gridNode) log << "; initial grid node " << *gridNode;
+    log << "; choke path ";
+    std::string sep;
+    for (const auto &choke : chokePath)
+    {
+        log << sep << choke->Center();
+        sep = ", ";
+    }
     CherryVis::log(id) << log.str();
 #endif
 
@@ -131,6 +138,7 @@ void MyUnitImpl::resetMoveData()
     grid = nullptr;
     chokePath.clear();
     gridNode = nullptr;
+    currentlyNavigatingUsingGrid = false;
 }
 
 bool MyUnitImpl::hasReachedNextChoke() const
@@ -145,6 +153,10 @@ bool MyUnitImpl::hasReachedNextChoke() const
     auto choke = Map::choke(*chokePath.begin());
     if (choke->isNarrowChoke && choke->isRamp && !BWAPI::Broodwar->isVisible(choke->highElevationTile))
         return false;
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Popping choke " << chokePath.front()->Center() << " (reached choke)";
+#endif
 
     return true;
 }
@@ -180,7 +192,11 @@ void MyUnitImpl::moveToNextWaypoint()
 
         // The unit is not in the target area, so we were using the grid to navigate to a choke
         // Pop the choke path until it fits the current position and fall through to choke-based navigation
-        updateChokePath(unitArea);
+        if (currentlyNavigatingUsingGrid)
+        {
+            updateChokePath(unitArea);
+            currentlyNavigatingUsingGrid = false;
+        }
     }
 
     // Navigate using the current grid node, if we have it
@@ -188,6 +204,8 @@ void MyUnitImpl::moveToNextWaypoint()
     {
         if (auto next = nextNode(gridNode))
         {
+            currentlyNavigatingUsingGrid = true;
+
 #if DEBUG_UNIT_ORDERS
             CherryVis::log(id) << "Order: Moving towards next grid node " << *next;
 #endif
@@ -201,7 +219,11 @@ void MyUnitImpl::moveToNextWaypoint()
         // We have a valid grid, but we're not in a connected grid node
         // Ensure the choke path is updated and fall through
         // We will pick up the grid path when we can
-        updateChokePath(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(bwapiUnit->getPosition())));
+        if (currentlyNavigatingUsingGrid)
+        {
+            updateChokePath(BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(bwapiUnit->getPosition())));
+            currentlyNavigatingUsingGrid = false;
+        }
     }
 
     // If there is no choke path, and we couldn't navigate using the grid, just move to the position
@@ -242,6 +264,8 @@ void MyUnitImpl::moveToNextWaypoint()
         int bestDist = currentlyMovingTowards.getApproxDistance(next);
         for (auto walkPosition : nextWaypoint->Geometry())
         {
+            if (!Map::isWalkable(BWAPI::TilePosition(walkPosition))) continue;
+
             auto pos = BWAPI::Position(walkPosition) + BWAPI::Position(4, 4);
             int dist = pos.getApproxDistance(next);
             if (dist < bestDist)
@@ -391,7 +415,11 @@ void MyUnitImpl::resetGrid()
     }
 
     // If we have a grid, get the first grid node
-    if (grid) gridNode = &(*grid)[bwapiUnit->getPosition()];
+    if (grid)
+    {
+        gridNode = &(*grid)[bwapiUnit->getPosition()];
+        currentlyNavigatingUsingGrid = true;
+    }
 }
 
 void MyUnitImpl::updateChokePath(const BWEM::Area *unitArea)
@@ -403,6 +431,9 @@ void MyUnitImpl::updateChokePath(const BWEM::Area *unitArea)
         // If the choke does not link the area we are currently in, pop it and continue
         if (nextChoke->GetAreas().first != unitArea && nextChoke->GetAreas().second != unitArea)
         {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(id) << "Order: Popping choke " << nextChoke->Center() << " (doesn't link current area)";
+#endif
             chokePath.pop_front();
             continue;
         }
@@ -414,6 +445,9 @@ void MyUnitImpl::updateChokePath(const BWEM::Area *unitArea)
         auto secondChoke = chokePath[1];
         if (secondChoke->GetAreas().first == unitArea || secondChoke->GetAreas().second == unitArea)
         {
+#if DEBUG_UNIT_ORDERS
+            CherryVis::log(id) << "Order: Popping choke " << nextChoke->Center() << " (next choke also in current area)";
+#endif
             chokePath.pop_front();
         }
 
@@ -430,6 +464,10 @@ void MyUnitImpl::updateChokePath(const BWEM::Area *unitArea)
     {
         return;
     }
+
+#if DEBUG_UNIT_ORDERS
+    CherryVis::log(id) << "Order: Popping choke " << chokePath.front()->Center() << " (reached choke)";
+#endif
     chokePath.pop_front();
 }
 

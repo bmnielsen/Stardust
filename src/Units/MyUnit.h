@@ -134,6 +134,9 @@ protected:
     // The current grid node occupied by the unit in the above grid.
     const NavigationGrid::GridNode *gridNode;
 
+    // Whether the unit is currently using a grid to navigate
+    bool currentlyNavigatingUsingGrid;
+
     // The last frame where we sent a move command to the unit.
     int lastMoveFrame;
 
