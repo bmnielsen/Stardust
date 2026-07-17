@@ -463,9 +463,10 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                                1);
             }
 
-            // Against mech, build arbiters on three completed nexuses
+            // Against mech, build arbiters on three completed nexuses and a significant army size
             int arbiterCount = Units::countAll(BWAPI::UnitTypes::Protoss_Arbiter);
-            if (enemyStrategy == TerranStrategy::MidGameMech && arbiterCount < 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2)
+            if (enemyStrategy == TerranStrategy::MidGameMech && arbiterCount < 2 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 2
+                && (zealotCount + dragoonCount) > 20)
             {
                 prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                          "SE",
@@ -593,15 +594,46 @@ void PvT::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritized
     upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 6);
 
     // Cases where we want the upgrade as soon as we start building one of the units
-    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
+    upgradeWhenUnitCreated(prioritizedProductionGoals,
+                           BWAPI::UpgradeTypes::Gravitic_Boosters,
+                           BWAPI::UnitTypes::Protoss_Observer,
+                           false,
+                           false,
+                           PRIORITY_HIGHPRIORITYUPGRADES);
     upgradeWhenUnitCreated(prioritizedProductionGoals,
                            BWAPI::UpgradeTypes::Gravitic_Drive,
                            BWAPI::UnitTypes::Protoss_Shuttle,
                            false,
                            Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) < 3);
-    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
-    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Khaydarin_Core, BWAPI::UnitTypes::Protoss_Arbiter, false);
-    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::TechTypes::Stasis_Field, BWAPI::UnitTypes::Protoss_Arbiter, false);
+    upgradeWhenUnitCreated(prioritizedProductionGoals,
+                           BWAPI::UpgradeTypes::Carrier_Capacity,
+                           BWAPI::UnitTypes::Protoss_Carrier,
+                           true,
+                           false,
+                           PRIORITY_HIGHPRIORITYUPGRADES);
+    upgradeWhenUnitCreated(prioritizedProductionGoals,
+                           BWAPI::UpgradeTypes::Khaydarin_Core,
+                           BWAPI::UnitTypes::Protoss_Arbiter,
+                           false,
+                           false,
+                           PRIORITY_HIGHPRIORITYUPGRADES);
+    upgradeWhenUnitCreated(prioritizedProductionGoals,
+                           BWAPI::TechTypes::Stasis_Field,
+                           BWAPI::UnitTypes::Protoss_Arbiter,
+                           false,
+                           false,
+                           PRIORITY_HIGHPRIORITYUPGRADES);
+
+    // Get observer sight range on three gases
+    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 3)
+    {
+        upgradeWhenUnitCreated(prioritizedProductionGoals,
+                               BWAPI::UpgradeTypes::Sensor_Array,
+                               BWAPI::UnitTypes::Protoss_Observer,
+                               false,
+                               false,
+                               PRIORITY_HIGHPRIORITYUPGRADES);
+    }
 
     defaultGroundUpgrades(prioritizedProductionGoals);
 
@@ -616,10 +648,16 @@ void PvT::handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<in
     // Break out if we are already building an observer
     if (Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0) return;
 
-    // Break out if we already have an observer in the main army
-    // This means that all plays requiring an observer have one
+    // Get the number of observers in our main army
+    size_t observersWithMainArmy = 0;
     auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
-    if (mainArmyPlay && mainArmyPlay->getSquad() && !mainArmyPlay->getSquad()->getDetectors().empty()) return;
+    if (mainArmyPlay && mainArmyPlay->getSquad())
+    {
+        observersWithMainArmy = mainArmyPlay->getSquad()->getDetectors().size();
+    }
+
+    // In PvT, since the enemy can snipe observers with comsat relatively easily, try to keep 2 observers with the main army
+    if (observersWithMainArmy >= 2) return;
 
     auto buildObserver = [&](int priority = PRIORITY_NORMAL)
     {
