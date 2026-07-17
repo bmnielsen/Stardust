@@ -506,7 +506,6 @@ namespace Bullets
 
             // First pass: find the bullet in each bunker
             std::vector<FindResult> findResults;
-            bool anyInSecondRound = false;
             bool anyHaveNextRoundSameMarineBulletId = false;
             for (auto &bunker : bunkerMatches)
             {
@@ -537,7 +536,6 @@ namespace Bullets
                 int secondRound = find(bunker->secondRoundBullets);
                 if (secondRound != -1)
                 {
-                    anyInSecondRound = true;
                     findResults.emplace_back(bunker,
                                              true,
                                              -1,
@@ -551,14 +549,29 @@ namespace Bullets
 
             if (findResults.empty()) continue;
 
-            // Second pass: remove the bullet from any bunkers where:
-            // - the bullet is in the second round in some other bunker and in the first round in this one
-            // - the bullet has matched to a second round bullet in some bunker and not in this one
-            // Keep track of which kept bunker has the least bullets during this scan
+            // Second pass: if the bullet is matched to a second round bullet in some bunker, remove it from any bunkers where this isn't the case
+            // During the scan, keep track of whether any kept bunkers have the bullet matched in the second round
+            bool anyInSecondRound = false;
+            for (auto it = findResults.begin(); it != findResults.end(); )
+            {
+                if (anyHaveNextRoundSameMarineBulletId && it->nextRoundSameMarineBulletId == -1)
+                {
+                    it->removeFromBunker(bulletId);
+                    it = findResults.erase(it);
+                }
+                else
+                {
+                    anyInSecondRound = anyInSecondRound || it->inSecondRound;
+                    ++it;
+                }
+            }
+
+            // Third pass: if the bullet is in the second round in some bunker, remove it from any bunkers where it is in the first round
+            // During the scan, keep track of which kept bunker has the least bullets during this scan
             size_t minCount = UINT32_MAX;
             for (auto it = findResults.begin(); it != findResults.end(); )
             {
-                if ((anyInSecondRound && !it->inSecondRound) || (anyHaveNextRoundSameMarineBulletId && it->nextRoundSameMarineBulletId == -1))
+                if (anyInSecondRound && !it->inSecondRound)
                 {
                     it->removeFromBunker(bulletId);
                     it = findResults.erase(it);
@@ -570,7 +583,7 @@ namespace Bullets
                 }
             }
 
-            // Third pass: remove the bullet from any bunkers that have a higher count than the minimum
+            // Fourth pass: remove the bullet from any bunkers that have a higher count than the minimum
             for (auto it = findResults.begin(); it != findResults.end(); )
             {
                 if (it->bunkerCount > minCount)
@@ -584,7 +597,16 @@ namespace Bullets
                 }
             }
 
-            // Final pass: remove the bullet from random bunkers until there is only one left
+            // Guard against removing it from every bunker
+            if (findResults.empty())
+            {
+#if LOGGING_ENABLED
+                Log::Get() << "ERROR: Logic error in bunker bullet detection, have removed the bullet from all bunkers";
+#endif
+                continue;
+            }
+
+            // Final pass: keep the bullet only in the first bunker
             for (auto it = findResults.begin() + 1; it != findResults.end(); ++it)
             {
                 it->removeFromBunker(bulletId);
