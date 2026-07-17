@@ -12,9 +12,12 @@ namespace PathFinding
     {
         std::map<BWAPI::TilePosition, std::pair<NavigationGrid, NavigationGrid>> goalToNavigationGrid;
 
-        void createNavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize = BWAPI::TilePositions::Invalid)
+        void createNavigationGrid(BWAPI::TilePosition goalCenter,
+                                  BWAPI::TilePosition goalTopLeft = BWAPI::TilePositions::Invalid,
+                                  BWAPI::TilePosition goalSize = BWAPI::TilePositions::Invalid)
         {
-            goalToNavigationGrid.emplace(goal, std::make_pair(NavigationGrid(goal, goalSize), NavigationGrid(goal, goalSize)));
+            goalToNavigationGrid.emplace(goalCenter,
+                std::make_pair(NavigationGrid(goalCenter, goalTopLeft, goalSize), NavigationGrid(goalCenter, goalTopLeft, goalSize)));
         }
     }
 
@@ -29,7 +32,9 @@ namespace PathFinding
 
         for (auto base : Map::allBases())
         {
-            createNavigationGrid(BWAPI::TilePosition(base->getPosition()), BWAPI::UnitTypes::Protoss_Nexus.tileSize());
+            createNavigationGrid(BWAPI::TilePosition(base->getPosition()),
+                                 base->getTilePosition(),
+                                 BWAPI::UnitTypes::Protoss_Nexus.tileSize());
         }
         for (auto choke : Map::allChokes())
         {

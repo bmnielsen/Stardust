@@ -58,7 +58,9 @@ public:
 
     BWAPI::TilePosition goal;
 
-    explicit NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize = BWAPI::TilePositions::Invalid);
+    explicit NavigationGrid(BWAPI::TilePosition goalCenter,
+                            BWAPI::TilePosition goalTopLeft = BWAPI::TilePositions::Invalid,
+                            BWAPI::TilePosition goalSize = BWAPI::TilePositions::Invalid);
 
     GridNode &operator[](BWAPI::Position pos);
 

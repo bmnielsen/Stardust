@@ -41,7 +41,9 @@ namespace NavigationGridGlobals
     }
 }
 
-NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize) : goal(goal)
+NavigationGrid::NavigationGrid(BWAPI::TilePosition goalCenter,
+                               BWAPI::TilePosition goalTopLeft,
+                               BWAPI::TilePosition goalSize) : goal(goalCenter)
 {
     // Create each grid cell with its x,y coordinates
     grid.reserve(mapWidth * mapHeight);
@@ -63,22 +65,22 @@ NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goa
         nodeQueue.emplace(COST_DIAGONAL, &node, true);
     };
 
-    if (goalSize.isValid())
+    if (goalTopLeft.isValid() && goalSize.isValid())
     {
         for (int x = -1; x <= goalSize.x; x++)
         {
-            pushInitialTile(goal + BWAPI::TilePosition(x, -1));
-            pushInitialTile(goal + BWAPI::TilePosition(x, goalSize.y));
+            pushInitialTile(goalTopLeft + BWAPI::TilePosition(x, -1));
+            pushInitialTile(goalTopLeft + BWAPI::TilePosition(x, goalSize.y));
         }
         for (int y = 0; y < goalSize.y; y++)
         {
-            pushInitialTile(goal + BWAPI::TilePosition(-1, y));
-            pushInitialTile(goal + BWAPI::TilePosition(goalSize.x, y));
+            pushInitialTile(goalTopLeft + BWAPI::TilePosition(-1, y));
+            pushInitialTile(goalTopLeft + BWAPI::TilePosition(goalSize.x, y));
         }
     }
     else
     {
-        pushInitialTile(goal);
+        pushInitialTile(goalCenter);
     }
 
     update();

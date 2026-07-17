@@ -331,7 +331,7 @@ void MyUnitImpl::updateMoveWaypoints()
             gridNode = &(*grid)[getTilePosition()];
 
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(id) << "Order: Path node set to " << *gridNode;
+            CherryVis::log(id) << "Order: Path node set to " << *gridNode << " towards " << BWAPI::WalkPosition(grid->goal);
 #endif
             moveToNextWaypoint();
             return;

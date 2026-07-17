@@ -17,14 +17,8 @@ TEST(Unit_Movement, DestinationBlockedChoke)
     test.expectWin = false;
 
     test.myInitialUnits = {
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(BWAPI::WalkPosition(28, 489))),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Zerg_Overlord, BWAPI::Position(256, 2864), true),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Templar_Archives, BWAPI::Position(368, 2976), true),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Pylon, BWAPI::Position(128, 3136), true),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::Position(160, 2944), true),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Photon_Cannon, BWAPI::Position(160, 2784), true),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Pylon, BWAPI::Position(352, 2880), true),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Nexus, BWAPI::Position(256, 2864), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::Position(224, 3909), true),
+            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Nexus, BWAPI::Position(256, 3856), true),
     };
 
     test.onStartMine = []()
@@ -49,6 +43,16 @@ TEST(Unit_Movement, DestinationBlockedChoke)
                     worker->moveTo(BWAPI::Position(BWAPI::WalkPosition(348, 390)));
                 }
             }
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == 200)
+        {
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Zerg_Overlord, BWAPI::Position(2784, 3120));
+        }
+
+        if (BWAPI::Broodwar->getFrameCount() == 210)
+        {
+            BWAPI::Broodwar->createUnit(BWAPI::Broodwar->self(), BWAPI::UnitTypes::Protoss_Nexus, BWAPI::Position(2784, 3120));
         }
     };
 
