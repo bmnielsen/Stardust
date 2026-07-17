@@ -8,7 +8,7 @@
 #include "UpgradeOrTechType.h"
 #include "Base.h"
 
-#define USE_BUNKER_ATTACKER_LOGIC false
+#define USE_BUNKER_ATTACKER_LOGIC true
 
 namespace Units
 {
