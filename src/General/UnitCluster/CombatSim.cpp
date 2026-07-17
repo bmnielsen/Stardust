@@ -50,11 +50,13 @@ namespace
         if (unit->type == BWAPI::UnitTypes::Terran_Medic) return true;
         if (unit->type == BWAPI::UnitTypes::Zerg_Overlord) return true;
 
+#if USE_BUNKER_ATTACKER_LOGIC
         auto bunker = std::dynamic_pointer_cast<EnemyBunker>(unit);
         if (bunker)
         {
             return bunker->loadedMarines > 0;
         }
+#endif
 
         return unit->groundDamage() > 0 || unit->airDamage() > 0;
     }
@@ -133,7 +135,11 @@ namespace
         auto bunker = std::dynamic_pointer_cast<EnemyBunker>(unit);
         if (bunker)
         {
+#if USE_BUNKER_ATTACKER_LOGIC
             attackerCount = bunker->loadedMarines;
+#else
+            attackerCount = 4;
+#endif
         }
 
         return FAP::makeUnit<>()

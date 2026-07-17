@@ -52,6 +52,10 @@ namespace Bullets
                 {BWAPI::BulletTypes::Ensnare, {BWAPI::TechTypes::Ensnare, BWAPI::Races::Zerg, false}},
         };
 
+        std::map<int, int> seenBulletFrames;
+        int bulletsSeenAtExtendedMarineRange;
+
+#if USE_BUNKER_ATTACKER_LOGIC
         struct BunkerBullet
         {
             explicit BunkerBullet(const BWAPI::Bullet &bullet)
@@ -65,11 +69,9 @@ namespace Bullets
             BWAPI::Position position;
         };
 
-        std::map<int, int> seenBulletFrames;
-        int bulletsSeenAtExtendedMarineRange;
-
         // Using a list, as we want to be able to remove bullets from the middle of the list efficiently
         std::list<BunkerBullet> bunkerBullets;
+#endif
 
         void trackResearch(BWAPI::Bullet bullet)
         {
@@ -160,7 +162,10 @@ namespace Bullets
     {
         seenBulletFrames.clear();
         bulletsSeenAtExtendedMarineRange = 0;
+
+#if USE_BUNKER_ATTACKER_LOGIC
         bunkerBullets.clear();
+#endif
     }
 
     void update()
@@ -194,10 +199,12 @@ namespace Bullets
             {
                 checkBunkerRange(bullet);
 
+#if USE_BUNKER_ATTACKER_LOGIC
                 if (!bullet->getSource())
                 {
                     bunkerBullets.emplace_front(bullet);
                 }
+#endif
             }
         }
     }
@@ -321,6 +328,7 @@ namespace Bullets
         // The cooldown of a non-stimmed marine is randomized in the range of [14,17], but there seems to be some instability in how many frames after
         // shooting the bullet is created, so sometimes we see two bullets from the same marine come with as little as 12 frames between them.
 
+#if USE_BUNKER_ATTACKER_LOGIC
         struct MatchedBunkerBullet
         {
             explicit MatchedBunkerBullet(const BunkerBullet &bullet) : id(bullet.id), firstSeenFrame(bullet.firstSeenFrame) {}
@@ -623,5 +631,6 @@ namespace Bullets
                 }
             }
         }
+#endif
     }
 }

@@ -8,6 +8,8 @@
 #include "UpgradeOrTechType.h"
 #include "Base.h"
 
+#define USE_BUNKER_ATTACKER_LOGIC false
+
 namespace Units
 {
     void initialize();
