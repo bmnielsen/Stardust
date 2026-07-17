@@ -471,27 +471,27 @@ namespace Bullets
                 BunkerBulletMatches *bunkerMatch;
                 bool inSecondRound;
                 int nextRoundSameMarineBulletId;
-                int index;
                 size_t bunkerCount;
 
-                void removeFromBunker() const
+                void removeFromBunker(const int bulletId) const
                 {
-                    auto &vec =
-                        inSecondRound
-                        ? bunkerMatch->secondRoundBullets
-                        : bunkerMatch->firstRoundBullets;
-                    vec.erase(vec.begin() + index);
+                    auto erase = [](const int id, std::vector<MatchedBunkerBullet> &vec)
+                    {
+                        for (auto it = vec.begin(); it != vec.end(); ++it)
+                        {
+                            if (it->id == id)
+                            {
+                                vec.erase(it);
+                                return;
+                            }
+                        }
+                    };
+
+                    erase(bulletId, inSecondRound ? bunkerMatch->secondRoundBullets : bunkerMatch->firstRoundBullets);
 
                     if (nextRoundSameMarineBulletId != -1)
                     {
-                        for (auto it = bunkerMatch->secondRoundBullets.begin(); it != bunkerMatch->secondRoundBullets.end(); ++it)
-                        {
-                            if (it->id == nextRoundSameMarineBulletId)
-                            {
-                                bunkerMatch->secondRoundBullets.erase(it);
-                                break;
-                            }
-                        }
+                        erase(nextRoundSameMarineBulletId, bunkerMatch->secondRoundBullets);
                     }
                 }
             };
@@ -522,7 +522,6 @@ namespace Bullets
                     findResults.emplace_back(bunker,
                                              false,
                                              bunker->firstRoundBullets[firstRound].nextRoundSameMarineBulletId,
-                                             firstRound,
                                              bunker->firstRoundBullets.size());
                     continue;
                 }
@@ -534,7 +533,6 @@ namespace Bullets
                     findResults.emplace_back(bunker,
                                              true,
                                              -1,
-                                             secondRound,
                                              bunker->secondRoundBullets.size());
                     continue;
                 }
@@ -554,7 +552,7 @@ namespace Bullets
             {
                 if ((anyInSecondRound && !it->inSecondRound) || (anyHaveNextRoundSameMarineBulletId && it->nextRoundSameMarineBulletId == -1))
                 {
-                    it->removeFromBunker();
+                    it->removeFromBunker(bulletId);
                     it = findResults.erase(it);
                 }
                 else
@@ -569,7 +567,7 @@ namespace Bullets
             {
                 if (it->bunkerCount > minCount)
                 {
-                    it->removeFromBunker();
+                    it->removeFromBunker(bulletId);
                     it = findResults.erase(it);
                 }
                 else
@@ -581,7 +579,7 @@ namespace Bullets
             // Final pass: remove the bullet from random bunkers until there is only one left
             for (auto it = findResults.begin() + 1; it != findResults.end(); ++it)
             {
-                it->removeFromBunker();
+                it->removeFromBunker(bulletId);
             }
         }
 
