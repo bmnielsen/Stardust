@@ -16,6 +16,7 @@ namespace Opponent
     {
         std::string name;
         bool raceUnknown;
+        bool builtUnitRequiringDetection;
         std::vector<nlohmann::json> previousGames;
         nlohmann::json currentGame;
         std::set<std::string> setKeys;
@@ -75,6 +76,8 @@ namespace Opponent
                 BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Protoss &&
                 BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran &&
                 BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Zerg;
+
+        builtUnitRequiringDetection = false;
 
         previousGames.clear();
         currentGame = nlohmann::json::object();
@@ -212,6 +215,16 @@ namespace Opponent
     bool canBeRace(BWAPI::Race race)
     {
         return raceUnknown || BWAPI::Broodwar->enemy()->getRace() == race;
+    }
+
+    void setHasBuiltUnitRequiringDetection()
+    {
+        builtUnitRequiringDetection = true;
+    }
+
+    bool hasBuiltUnitRequiringDetection()
+    {
+        return builtUnitRequiringDetection;
     }
 
     void setGameValue(const std::string &key, int value)

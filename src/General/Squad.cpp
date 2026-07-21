@@ -25,7 +25,7 @@ void Squad::addUnit(const MyUnit &unit)
 
     if (unit->type.isDetector() && !unit->type.isBuilding())
     {
-        detectors.insert(unit);
+        detectors.insert(std::dynamic_pointer_cast<MyObserverImpl>(unit));
     }
     else if (unit->type == BWAPI::UnitTypes::Protoss_Arbiter)
     {
@@ -92,9 +92,9 @@ void Squad::addUnitToBestCluster(const MyUnit &unit)
 
 void Squad::removeUnit(const MyUnit &unit)
 {
-    if (unit->type.isDetector())
+    if (unit->type.isDetector() && !unit->type.isBuilding())
     {
-        auto detectorIt = detectors.find(unit);
+        auto detectorIt = detectors.find(std::dynamic_pointer_cast<MyObserverImpl>(unit));
         if (detectorIt == detectors.end()) return;
 
         CherryVis::log(unit->id) << "Removed from squad: " << label;
@@ -282,7 +282,7 @@ bool Squad::hasDetection() const
     if (currentVanguardCluster && currentVanguardCluster->vanguard && std::any_of(
                 detectors.begin(),
                 detectors.end(),
-                [&](const MyUnit &detector)
+                [&](const MyObserver &detector)
                 {
                     return detector->getDistance(currentVanguardCluster->vanguard) < 120;
                 }))

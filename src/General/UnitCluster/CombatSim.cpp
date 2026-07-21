@@ -198,7 +198,7 @@ namespace
             UnitCluster *cluster,
             std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             std::set<Unit> &targets,
-            std::set<MyUnit> &detectors,
+            std::set<MyObserver> &detectors,
             bool attacking,
             Choke *narrowChoke = nullptr)
     {
@@ -614,7 +614,7 @@ namespace CombatSim
 CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
                                           std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                           std::set<Unit> &targets,
-                                          std::set<MyUnit> &detectors,
+                                          std::set<MyObserver> &detectors,
                                           bool attacking,
                                           Choke *choke)
 {
@@ -666,11 +666,12 @@ CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
 
     return execute<false>(targetPosition, this, unitsAndTargets, targets, detectors, attacking);
 }
+
 CombatSimResult &UnitCluster::runCombatSim(std::deque<CombatSimResult> &simResults,
                                            BWAPI::Position targetPosition,
                                            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                            std::set<Unit> &targets,
-                                           std::set<MyUnit> &detectors,
+                                           std::set<MyObserver> &detectors,
                                            bool attacking,
                                            Choke *choke)
 {

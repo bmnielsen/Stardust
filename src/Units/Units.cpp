@@ -10,6 +10,7 @@
 #include "MyCarrier.h"
 #include "MyCorsair.h"
 #include "MyDragoon.h"
+#include "MyObserver.h"
 #include "MyWorker.h"
 #include "UnitUtil.h"
 #include "Opponent.h"
@@ -159,7 +160,8 @@ namespace Units
             {
                 Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Spider_Mines);
             }
-            if (bwapiUnit->getType() == BWAPI::UnitTypes::Spell_Scanner_Sweep)
+            if (bwapiUnit->getType() == BWAPI::UnitTypes::Spell_Scanner_Sweep ||
+                (bwapiUnit->getPlayer() == BWAPI::Broodwar->enemy() && bwapiUnit->getType() == BWAPI::UnitTypes::Terran_Comsat_Station))
             {
                 Players::setHasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Scanner_Sweep);
             }
@@ -693,6 +695,11 @@ namespace Units
                 else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Dragoon)
                 {
                     unit = std::make_shared<MyDragoon>(bwapiUnit);
+                    unit->created();
+                }
+                else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Observer)
+                {
+                    unit = std::make_shared<MyObserverImpl>(bwapiUnit);
                     unit->created();
                 }
                 else if (bwapiUnit->getType() == BWAPI::UnitTypes::Protoss_Carrier)

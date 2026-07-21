@@ -3,6 +3,7 @@
 #include "Common.h"
 #include "MyUnit.h"
 #include "CombatSimResult.h"
+#include "MyObserver.h"
 
 class UnitCluster
 {
@@ -68,7 +69,7 @@ public:
 
     virtual void regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                          std::set<Unit> &enemyUnits,
-                         std::set<MyUnit> &detectors,
+                         std::set<MyObserver> &detectors,
                          const CombatSimResult &simResult,
                          BWAPI::Position targetPosition,
                          bool hasValidTarget);
@@ -95,7 +96,7 @@ public:
     CombatSimResult runCombatSim(BWAPI::Position targetPosition,
                                  std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                  std::set<Unit> &targets,
-                                 std::set<MyUnit> &detectors,
+                                 std::set<MyObserver> &detectors,
                                  bool attacking = true,
                                  Choke *choke = nullptr);
 
@@ -103,7 +104,7 @@ public:
                                   BWAPI::Position targetPosition,
                                   std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                   std::set<Unit> &targets,
-                                  std::set<MyUnit> &detectors,
+                                  std::set<MyObserver> &detectors,
                                   bool attacking = true,
                                   Choke *choke = nullptr);
 

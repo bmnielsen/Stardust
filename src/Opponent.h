@@ -18,6 +18,10 @@ namespace Opponent
 
     bool canBeRace(BWAPI::Race race);
 
+    void setHasBuiltUnitRequiringDetection();
+
+    bool hasBuiltUnitRequiringDetection();
+
     void setGameValue(const std::string &key, int value);
 
     void incrementGameValue(const std::string &key, int delta = 1);

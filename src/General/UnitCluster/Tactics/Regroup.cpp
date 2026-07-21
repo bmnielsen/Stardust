@@ -23,7 +23,7 @@ namespace
     bool shouldContainStaticDefense(UnitCluster &cluster,
                                     std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                                     std::set<Unit> &enemyUnits,
-                                    std::set<MyUnit> &detectors,
+                                    std::set<MyObserver> &detectors,
                                     const CombatSimResult &initialSimResult,
                                     BWAPI::Position targetPosition)
     {
@@ -66,7 +66,7 @@ namespace
     bool shouldContainChoke(UnitCluster &cluster,
                             std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                             std::set<Unit> &enemyUnits,
-                            std::set<MyUnit> &detectors,
+                            std::set<MyObserver> &detectors,
                             const CombatSimResult &initialSimResult,
                             BWAPI::Position targetPosition)
     {
@@ -272,7 +272,7 @@ namespace
 
 void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                           std::set<Unit> &enemyUnits,
-                          std::set<MyUnit> &detectors,
+                          std::set<MyObserver> &detectors,
                           const CombatSimResult &simResult,
                           BWAPI::Position targetPosition,
                           bool hasValidTarget)
