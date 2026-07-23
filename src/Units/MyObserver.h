@@ -23,6 +23,25 @@ enum class ObserverActivity
     ScoutingEnemyArmy
 };
 
+namespace
+{
+    std::string toString(const ObserverActivity &activity)
+    {
+        switch (activity)
+        {
+            case ObserverActivity::None:
+                return "None";
+            case ObserverActivity::DetectingEnemy:
+                return "DetectingEnemy";
+            case ObserverActivity::EscortingArmy:
+                return "EscortingArmy";
+            case ObserverActivity::ScoutingEnemyArmy:
+                return "ScoutingEnemyArmy";
+        }
+        return "UNKNOWN";
+    }
+}
+
 class MyObserverImpl : public MyUnitImpl
 {
 public:
@@ -36,6 +55,13 @@ public:
 
     void setActivity(const ObserverActivity newActivity)
     {
+#if CHERRYVIS_ENABLED
+        if (newActivity != activity)
+        {
+            CherryVis::log(id) << "Activity changed from " << toString(activity) << " to " << toString(newActivity);
+        }
+#endif
+
         activity = newActivity;
         frameActivityUpdated = currentFrame;
     }

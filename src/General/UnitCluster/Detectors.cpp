@@ -7,6 +7,7 @@
 
 #include "DebugFlag_UnitOrders.h"
 #include "Opponent.h"
+#include "Strategist.h"
 
 /*
  * For now detectors just try to keep detection on the closest unit to them requiring detection. If there are no units requiring detection,
@@ -60,10 +61,74 @@ namespace
         {
             // Avoid all threats if detected, and avoid threats that can kill us in two hits against Terran, since they can always scan for detection
             auto &grid = Players::grid(BWAPI::Broodwar->enemy());
-            if ((grid.airThreat(ahead) > 0 && grid.detection(ahead) > 0) ||
-                (Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Scanner_Sweep) &&
-                    (grid.airThreat(ahead) * 2) > (detector->lastHealth + detector->lastShields)))
+            std::function<bool(BWAPI::Position)> isThreat;
+            if (Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Scanner_Sweep))
             {
+                isThreat = [&](BWAPI::Position pos)
+                {
+                    return (grid.airThreat(pos) > 0 && grid.detection(pos) > 0) ||
+                           (grid.airThreat(pos) * 2) > (detector->lastHealth + detector->lastShields);
+                };
+            }
+            else
+            {
+                isThreat = [&](BWAPI::Position pos)
+                {
+                    return (grid.airThreat(pos) > 0 && grid.detection(pos) > 0);
+                };
+            }
+
+            if (isThreat(ahead))
+            {
+                // Try to find the closest position to the target that is valid and safe
+                std::vector<BWAPI::Position> candidates;
+                auto vector = ahead - detector->lastPosition;
+                auto perpendicular = BWAPI::Position(vector.y, vector.x);
+                auto scaleAndAdd = [&](BWAPI::Position pos)
+                {
+                    for (int length = 48; length <= 112; length += 32)
+                    {
+                        auto scaledVector = Geo::ScaleVector(pos - detector->lastPosition, length);
+                        if (scaledVector != BWAPI::Positions::Invalid)
+                        {
+                            candidates.emplace_back(detector->lastPosition + scaledVector);
+                        }
+                    }
+                };
+                auto processPerpendicularPosition = [&](BWAPI::Position pos)
+                {
+                    scaleAndAdd((ahead + pos) / 2);
+                    scaleAndAdd((ahead + ahead + pos) / 3);
+                    scaleAndAdd((ahead + pos + pos) / 3);
+                    candidates.emplace_back(pos);
+                };
+                processPerpendicularPosition(detector->lastPosition + perpendicular);
+                processPerpendicularPosition(detector->lastPosition - perpendicular);
+
+                BWAPI::Position best = BWAPI::Positions::Invalid;
+                int bestDist = INT_MAX;
+                for (const auto &pos : candidates)
+                {
+                    if (!pos.isValid()) continue;
+                    if (isThreat(pos)) continue;
+
+                    int dist = pos.getApproxDistance(target);
+                    if (dist < bestDist)
+                    {
+                        best = pos;
+                        bestDist = dist;
+                    }
+                }
+                if (best != BWAPI::Positions::Invalid)
+                {
+#if DEBUG_UNIT_ORDERS
+                    CherryVis::log(detector->id) << "Threat detected, moving towards safe position @ " << BWAPI::WalkPosition(best);
+#endif
+
+                    detector->moveTo(best);
+                    return;
+                }
+
 #if DEBUG_UNIT_ORDERS
                 CherryVis::log(detector->id) << "Threat detected, moving away from threat direction @ " << BWAPI::WalkPosition(threatDirection);
 #endif
@@ -144,6 +209,7 @@ void Squad::executeDetectors()
     {
         for (auto detector : pendingDetectors)
         {
+            detector->setActivity(ObserverActivity::None);
             moveTowards(detector, Map::getMyMain()->getPosition(), targetPosition);
         }
         return;
@@ -188,13 +254,18 @@ void Squad::executeDetectors()
         int bestDist = INT_MAX;
         for (const auto &detector : pendingDetectors)
         {
-            if (detector->getActivity() == ObserverActivity::EscortingArmy)
-            {
-                best = detector;
-                break;
-            }
+            if (assignedOneToEscort && detector->getActivity() != ObserverActivity::EscortingArmy) continue;
 
             int dist = detector->getDistance(currentVanguardCluster->vanguard);
+
+            if (!assignedOneToEscort && detector->getActivity() == ObserverActivity::EscortingArmy)
+            {
+                assignedOneToEscort = true;
+                best = detector;
+                bestDist = dist;
+                continue;
+            }
+
             if (dist < bestDist)
             {
                 best = detector;
@@ -212,6 +283,79 @@ void Squad::executeDetectors()
 
     // We have one or more observers that don't have any other priorities, so try to get as much scouting information as possible
     // On open ground, we try to scout the rear of the enemy army to get full tabs on units in the fog and see reinforcements coming in
-    // When containing the enemy at their natural, we try to scout into their main to see reinforcements, cliffed tanks, etc.
-    
+    // When containing the enemy at their natural, we try to scout their natural and into their main to see reinforcements, cliffed tanks, etc.
+    if (Strategist::isEnemyContained())
+    {
+        // The two places we want to scout are, in order of priority, the area around the enemy's main choke and the target position
+        auto choke = Map::getEnemyMainChoke();
+        if (choke)
+        {
+            auto chokePosition = choke->center;
+            auto enemyMain = Map::getEnemyMain();
+            if (enemyMain)
+            {
+                auto scaled = scaledPosition(chokePosition, enemyMain->getPosition() - chokePosition, 160);
+                if (scaled.isValid()) chokePosition = scaled;
+            }
+
+            // Get the detector closest to the position
+            MyObserver best = nullptr;
+            int bestDist = INT_MAX;
+            for (const auto &detector : pendingDetectors)
+            {
+                int dist = detector->getDistance(chokePosition);
+                if (dist < bestDist)
+                {
+                    best = detector;
+                    bestDist = dist;
+                }
+            }
+            if (best)
+            {
+                best->setActivity(ObserverActivity::ScoutingEnemyArmy);
+                moveTowards(best, chokePosition, targetPosition);
+                pendingDetectors.erase(best);
+            }
+        }
+
+        auto otherBasePosition = targetPosition;
+        if (Map::getEnemyStartingMain() && Map::getEnemyStartingNatural())
+        {
+            if (targetPosition == Map::getEnemyStartingNatural()->getPosition())
+            {
+                otherBasePosition = Map::getEnemyStartingMain()->getPosition();
+            }
+            else
+            {
+                otherBasePosition = Map::getEnemyStartingNatural()->getPosition();
+            }
+        }
+
+        for (auto detector : pendingDetectors)
+        {
+            detector->setActivity(ObserverActivity::ScoutingEnemyArmy);
+            moveTowards(detector, targetPosition, otherBasePosition);
+        }
+    }
+    else
+    {
+        int tilesAhead = 10;
+        for (auto detector : pendingDetectors)
+        {
+            auto waypoint = PathFinding::NextGridOrChokeWaypoint(
+                currentVanguardCluster->vanguard->lastPosition,targetPosition, nullptr, tilesAhead, false);
+            if (waypoint.isValid())
+            {
+                detector->setActivity(ObserverActivity::ScoutingEnemyArmy);
+                moveTowards(detector, waypoint, targetPosition);
+            }
+            else
+            {
+                detector->setActivity(ObserverActivity::EscortingArmy);
+                moveToArmyVanguard(detector);
+            }
+
+            tilesAhead += 10;
+        }
+    }
 }

@@ -8,6 +8,8 @@
 
 #include <iomanip>
 
+#define PASSIVE_UNTIL_FRAME 0
+
 namespace
 {
     bool pushedBackToNatural(UnitCluster &cluster, int threshold, int *pDist = nullptr)
@@ -54,6 +56,10 @@ namespace
 
     bool shouldAttack(UnitCluster &cluster, CombatSimResult &simResult, double aggression = 1.0)
     {
+#if PASSIVE_UNTIL_FRAME > 0
+        if (PASSIVE_UNTIL_FRAME > currentFrame && cluster.percentageToEnemyMain > 0.7) return false;
+#endif
+
         double distanceFactor = 1.0;
 
         auto attack = [&]()
@@ -133,6 +139,10 @@ namespace
                            double closestReinforcements,
                            double reinforcementPercentage)
     {
+#if PASSIVE_UNTIL_FRAME > 0
+        if (PASSIVE_UNTIL_FRAME > currentFrame && cluster.percentageToEnemyMain > 0.7) return false;
+#endif
+
         double aggression = reinforcementFactor(cluster, closestReinforcements, reinforcementPercentage);
 
         // Increase aggression if we are trying to fight our way out of our natural
@@ -152,6 +162,10 @@ namespace
                               double closestReinforcements,
                               double reinforcementPercentage)
     {
+#if PASSIVE_UNTIL_FRAME > 0
+        if (PASSIVE_UNTIL_FRAME > currentFrame && cluster.percentageToEnemyMain > 0.7) return false;
+#endif
+
         double aggression = 1.2;
 
         // Increase aggression if we are close to maxed and have no significant reinforcements incoming
@@ -240,6 +254,9 @@ namespace
                               double closestReinforcements,
                               double reinforcementPercentage)
     {
+#if PASSIVE_UNTIL_FRAME > 0
+        if (PASSIVE_UNTIL_FRAME > currentFrame && cluster.percentageToEnemyMain > 0.7) return false;
+#endif
         // Always attack if we are maxed and have no significant reinforcements incoming
         if (BWAPI::Broodwar->self()->supplyUsed() > 380 && reinforcementPercentage < 0.075)
         {
