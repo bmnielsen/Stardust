@@ -9,6 +9,7 @@ public:
     {
         Unknown,
         WorkerRush,         // Detected by seeing more than two workers in our main without other combat units
+        BunkerContain,      // Detected by seeing enemy building an early bunker at our natural
         ProxyRush,          // Detected by seeing fewer buildings than expected in main
         MarineRush,         // Detected by seeing early barracks or early marines
         MarinePressure,     // For when we detect a marine rush but then lose it, indicating the enemy might be saving up marines for a larger push
@@ -29,6 +30,7 @@ public:
     {
         ForgeExpandGoons,       // FFE strategy we use against Random
         EarlyGameDefense,       // We don't have enough scouting data yet
+        AntiBunkerContain,      //
         AntiMarineRush,         // For fast rushes, proxy rushes or any serious early pressure, defends main until it can get tech out
         FastExpansion,          // For when the opponent plays a greedy strategy
         Defensive,              // For when the opponent is playing an aggressive strategy that isn't considered a zealot rush

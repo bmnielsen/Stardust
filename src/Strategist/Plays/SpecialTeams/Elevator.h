@@ -25,6 +25,9 @@ public:
     // The first position is in the base, the second outside it
     static std::pair<BWAPI::TilePosition, BWAPI::TilePosition> selectPositions(Base *base);
 
+    // Whether doing an elevator into the enemy main is feasible
+    static bool isElevatorFeasible(BWAPI::UnitType elevatorUnitType);
+
 protected:
     bool fromOurMain;
     BWAPI::UnitType unitType;

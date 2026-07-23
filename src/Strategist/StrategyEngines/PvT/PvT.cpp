@@ -37,7 +37,6 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
     if (transitioningFromRandom)
     {
         plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<EjectEnemyScout>());
-        plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<Elevator>());
 
         if (getPlay<ForgeFastExpand>(plays))
         {
@@ -49,7 +48,6 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         plays.emplace_back(std::make_shared<SaturateBases>());
         plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
         plays.emplace_back(std::make_shared<EjectEnemyScout>());
-        plays.emplace_back(std::make_shared<Elevator>());
         plays.emplace_back(std::make_shared<DefendMyMain>());
     }
 
@@ -98,18 +96,6 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         CherryVis::log() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
 #endif
 
-        // AIST S4 vs. Human match - When we transition from early-game defense to normal on specific maps, do an elevator rush
-//        if (ourStrategy == OurStrategy::EarlyGameDefense && newStrategy == OurStrategy::NormalOpening &&
-//            (BWAPI::Broodwar->mapHash() == "4e24f217d2fe4dbfa6799bc57f74d8dc939d425b" ||
-//             BWAPI::Broodwar->mapHash() == "e39c1c81740a97a733d227e238bd11df734eaf96" ||
-//             BWAPI::Broodwar->mapHash() == "6f8da3c3cc8d08d9cf882700efa049280aedca8c" ||
-//             BWAPI::Broodwar->mapHash() == "fe25d8b79495870ac1981c2dfee9368f543321e3" ||
-//             BWAPI::Broodwar->mapHash() == "d9757c0adcfd61386dff8fe3e493e9e8ef9b45e3" ||
-//             BWAPI::Broodwar->mapHash() == "ecb9c70c5594a5c6882baaf4857a61824fba0cfa"))
-//        {
-//            plays.insert(plays.begin(), std::make_shared<Elevator>());
-//        }
-
         ourStrategy = newStrategy;
         Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
     }
@@ -135,6 +121,23 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             case OurStrategy::Defensive:
                 defendOurMain = true;
                 break;
+
+            case OurStrategy::AntiBunkerContain:
+            {
+                // Switch to attack when we have goon range
+                defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0);
+
+                // Elevator some units out of our main to attack the enemy main
+                {
+                    auto elevatorPlay = getPlay<Elevator>(plays);
+                    if (!elevatorPlay)
+                    {
+                        plays.emplace(beforePlayIt<MainArmyPlay>(plays),
+                                      std::make_shared<Elevator>(true, BWAPI::UnitTypes::Protoss_Dragoon));
+                    }
+                }
+            }
+
             default:
             {
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
@@ -183,6 +186,16 @@ void PvT::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     updateSpecialTeamsPlays(plays);
     defaultExpansions(plays);
     scoutExpos(plays, 15000);
+
+    // Add an elevator play if it makes sense
+    {
+        auto elevatorPlay = getPlay<Elevator>(plays);
+        if (!elevatorPlay && Elevator::isElevatorFeasible(BWAPI::UnitTypes::Protoss_Dragoon))
+        {
+            plays.emplace(beforePlayIt<MainArmyPlay>(plays),
+                          std::make_shared<Elevator>(false, BWAPI::UnitTypes::Protoss_Dragoon));
+        }
+    }
 
     // AIST S4 vs. Human match - Harass enemy bases with carriers after we have our first two arbiters out
     /*
@@ -412,6 +425,31 @@ void PvT::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             break;
         }
 
+        case OurStrategy::AntiBunkerContain:
+        {
+            // Build pure goons
+            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                       "SE-anticontain",
+                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                       -1,
+                                                                       -1);
+
+            // Get goon range
+            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge);
+
+            // Get a shuttle
+            if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1)
+            {
+                prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                               "SE",
+                                                                               BWAPI::UnitTypes::Protoss_Shuttle,
+                                                                               1,
+                                                                               1);
+            }
+
+            break;
+        }
+
         case OurStrategy::FastExpansion:
         case OurStrategy::Defensive:
         case OurStrategy::NormalOpening:
@@ -551,6 +589,7 @@ void PvT::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             return;
 
         case OurStrategy::EarlyGameDefense:
+        case OurStrategy::AntiBunkerContain:
         case OurStrategy::AntiMarineRush:
         case OurStrategy::Defensive:
             // Don't take our natural if the enemy could be rushing or doing an all-in

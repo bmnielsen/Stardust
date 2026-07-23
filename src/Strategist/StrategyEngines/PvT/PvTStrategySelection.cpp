@@ -6,14 +6,15 @@
 #include "Plays/MainArmy/AttackEnemyBase.h"
 
 std::map<PvT::OurStrategy, std::string> PvT::OurStrategyNames = {
-        {OurStrategy::ForgeExpandGoons, "ForgeExpandGoons"},
-        {OurStrategy::EarlyGameDefense, "EarlyGameDefense"},
-        {OurStrategy::AntiMarineRush,   "AntiMarineRush"},
-        {OurStrategy::FastExpansion,    "FastExpansion"},
-        {OurStrategy::Defensive,        "Defensive"},
-        {OurStrategy::NormalOpening,    "Normal"},
-        {OurStrategy::MidGame,          "MidGame"},
-        {OurStrategy::LateGameCarriers, "LateGameCarriers"},
+        {OurStrategy::ForgeExpandGoons,  "ForgeExpandGoons"},
+        {OurStrategy::EarlyGameDefense,  "EarlyGameDefense"},
+        {OurStrategy::AntiBunkerContain, "AntiBunkerContain"},
+        {OurStrategy::AntiMarineRush,    "AntiMarineRush"},
+        {OurStrategy::FastExpansion,     "FastExpansion"},
+        {OurStrategy::Defensive,         "Defensive"},
+        {OurStrategy::NormalOpening,     "Normal"},
+        {OurStrategy::MidGame,           "MidGame"},
+        {OurStrategy::LateGameCarriers,  "LateGameCarriers"},
 };
 
 namespace
@@ -83,6 +84,13 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     continue;
                 }
 
+                // If the enemy is doing a bunker contain and our main army play has transitioned to defending the main, switch to anti bunker contain
+                if (enemyStrategy == TerranStrategy::BunkerContain && typeid(*mainArmyPlay) == typeid(DefendMyMain))
+                {
+                    strategy = OurStrategy::AntiBunkerContain;
+                    continue;
+                }
+
                 // Transition to mid game when we have gone on the attack, indicating the opening is done
                 if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
                 {
@@ -99,6 +107,9 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                 {
                     case TerranStrategy::Unknown:
                         return strategy;
+                    case TerranStrategy::BunkerContain:
+                        strategy = OurStrategy::AntiBunkerContain;
+                        continue;
                     case TerranStrategy::WorkerRush:
                     case TerranStrategy::ProxyRush:
                     case TerranStrategy::MarineRush:
@@ -121,6 +132,17 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
                     case TerranStrategy::MidGameBioMech:
                         strategy = OurStrategy::MidGame;
                         continue;
+                }
+
+                break;
+            }
+
+            case PvT::OurStrategy::AntiBunkerContain:
+            {
+                if (newEnemyStrategy != TerranStrategy::BunkerContain)
+                {
+                    strategy = OurStrategy::NormalOpening;
+                    continue;
                 }
 
                 break;
@@ -162,6 +184,12 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
             }
             case PvT::OurStrategy::Defensive:
             {
+                if (newEnemyStrategy == TerranStrategy::BunkerContain)
+                {
+                    strategy = OurStrategy::AntiBunkerContain;
+                    continue;
+                }
+
                 if (newEnemyStrategy == TerranStrategy::WorkerRush ||
                     newEnemyStrategy == TerranStrategy::ProxyRush ||
                     newEnemyStrategy == TerranStrategy::MarineRush ||
@@ -197,6 +225,12 @@ PvT::OurStrategy PvT::chooseOurStrategy(PvT::TerranStrategy newEnemyStrategy, st
             }
             case PvT::OurStrategy::NormalOpening:
             {
+                if (newEnemyStrategy == TerranStrategy::BunkerContain)
+                {
+                    strategy = OurStrategy::AntiBunkerContain;
+                    continue;
+                }
+
                 if ((newEnemyStrategy == TerranStrategy::WorkerRush ||
                      newEnemyStrategy == TerranStrategy::ProxyRush ||
                      newEnemyStrategy == TerranStrategy::MarineRush ||

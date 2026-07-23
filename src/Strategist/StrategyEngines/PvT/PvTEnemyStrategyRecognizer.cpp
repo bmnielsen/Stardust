@@ -1,3 +1,4 @@
+#include "General.h"
 #include "StrategyEngines/PvT.h"
 
 #include "Units.h"
@@ -8,6 +9,7 @@
 std::map<PvT::TerranStrategy, std::string> PvT::TerranStrategyNames = {
         {TerranStrategy::Unknown,        "Unknown"},
         {TerranStrategy::WorkerRush,     "WorkerRush"},
+        {TerranStrategy::BunkerContain,  "BunkerContain"},
         {TerranStrategy::ProxyRush,      "ProxyRush"},
         {TerranStrategy::MarineRush,     "MarineRush"},
         {TerranStrategy::MarinePressure, "MarinePressure"},
@@ -75,6 +77,20 @@ namespace
         }
 
         return workers > 2;
+    }
+
+    bool isBunkerContain(bool currentlyBunkerContain = false)
+    {
+        if (!currentlyBunkerContain && currentFrame > 8000) return false;
+        if (Map::mapSpecificOverride()->hasBackdoorNatural()) return false;
+
+        // Enemy must own our natural
+        auto natural = Map::getMyNatural();
+        if (!natural) return false;
+        if (natural->owner != BWAPI::Broodwar->enemy()) return false;
+
+        // Enemy must have a bunker
+        return !Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Bunker).empty();
     }
 
     bool isMarineRush()
@@ -253,6 +269,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
         {
             case TerranStrategy::Unknown:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
+                if (isBunkerContain()) return TerranStrategy::BunkerContain;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
                 if (isProxy()) return TerranStrategy::ProxyRush;
                 if (isWallIn()) return TerranStrategy::WallIn;
@@ -289,8 +306,17 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 }
 
                 break;
+            case TerranStrategy::BunkerContain:
+                if (!isBunkerContain(true))
+                {
+                    strategy = TerranStrategy::Unknown;
+                    continue;
+                }
+
+                break;
             case TerranStrategy::ProxyRush:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
+                if (isBunkerContain()) return TerranStrategy::BunkerContain;
 
                 // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their depot
                 if (currentFrame < 6000 && !isProxy())
@@ -320,6 +346,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 break;
             case TerranStrategy::MarineRush:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
+                if (isBunkerContain()) return TerranStrategy::BunkerContain;
 
                 if (!isMarineRush())
                 {
@@ -329,6 +356,8 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
 
                 break;
             case TerranStrategy::MarinePressure:
+                if (isBunkerContain()) return TerranStrategy::BunkerContain;
+
                 if (isMarineRush())
                 {
                     strategy = TerranStrategy::MarineRush;
@@ -345,6 +374,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 break;
             case TerranStrategy::WallIn:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
+                if (isBunkerContain()) return TerranStrategy::BunkerContain;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
 
@@ -357,6 +387,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
                 break;
             case TerranStrategy::BlockScouting:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
+                if (isBunkerContain()) return TerranStrategy::BunkerContain;
                 if (isProxy()) return TerranStrategy::ProxyRush;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
                 if (isFastExpansion()) return TerranStrategy::FastExpansion;
@@ -379,6 +410,7 @@ PvT::TerranStrategy PvT::recognizeEnemyStrategy()
             case TerranStrategy::FastExpansion:
             case TerranStrategy::NormalOpening:
                 if (isWorkerRush()) return TerranStrategy::WorkerRush;
+                if (isBunkerContain()) return TerranStrategy::BunkerContain;
                 if (isProxy()) return TerranStrategy::ProxyRush;
                 if (isMarineRush()) return TerranStrategy::MarineRush;
 

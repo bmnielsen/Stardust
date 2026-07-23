@@ -19,7 +19,7 @@ TEST(EnemyProxyAtNatural, Bunkers)
     };
     test.map = Maps::GetOne("Circuit");
     test.randomSeed = 44046;
-    test.frameLimit = 8000;
+    test.frameLimit = 12000;
     test.expectWin = false;
     test.clearOpponentModuleAtFrame = 4000;
 

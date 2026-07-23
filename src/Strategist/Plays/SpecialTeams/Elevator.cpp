@@ -304,24 +304,7 @@ void Elevator::update()
             return;
         }
 
-        if (!fromOurMain)
-        {
-            // Wait to start the play if any of the following checks fail:
-            // - The enemy has taken their natural behind a bunker
-            // - We have a stable contain
-            // - We have at least 5 dragoons
-            auto enemyNatural = Map::getEnemyStartingNatural();
-            if (!Strategist::isEnemyContained() ||
-                Units::countCompleted(unitType) < 5 ||
-                !enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy())
-            {
-                return;
-            }
-            for (const auto &bunker : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Bunker))
-            {
-                if (bunker->getDistance(enemyNatural->getPosition()) > 640) return;
-            }
-        }
+        if (!fromOurMain && !isElevatorFeasible(unitType)) return;
 
         status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Shuttle, pickupPosition);
         return;
@@ -615,4 +598,24 @@ std::pair<BWAPI::TilePosition, BWAPI::TilePosition> Elevator::selectPositions(Ba
 #endif
 
     return std::make_pair(baseTile, mapTile);
+}
+
+bool Elevator::isElevatorFeasible(BWAPI::UnitType elevatorUnitType)
+{
+    if (currentFrame > 12000) return false;
+
+    auto enemyNatural = Map::getEnemyStartingNatural();
+    if (!Strategist::isEnemyContained() ||
+        Units::countCompleted(elevatorUnitType) < 5 ||
+        !enemyNatural || enemyNatural->owner != BWAPI::Broodwar->enemy())
+    {
+        return false;
+    }
+
+    for (const auto &bunker : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Bunker))
+    {
+        if (bunker->getDistance(enemyNatural->getPosition()) > 640) return false;
+    }
+
+    return true;
 }
