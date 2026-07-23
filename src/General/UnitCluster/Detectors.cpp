@@ -223,10 +223,19 @@ void Squad::executeDetectors()
             currentVanguardCluster->center + centerToVanguardVector + centerToVanguardVector);
     };
 
-    // Assign any detectors that are a long way away from the army to move towards it
+    // Assign any detectors that are a long way away from the army, or have shield damage, to hang out with the vanguard
     bool assignedOneToEscort = false;
     for (auto it = pendingDetectors.begin(); it != pendingDetectors.end(); )
     {
+        if ((*it)->lastShields < (*it)->type.maxShields())
+        {
+            assignedOneToEscort = true;
+            (*it)->setActivity(ObserverActivity::EscortingArmy);
+            moveToArmyVanguard(*it);
+            it = pendingDetectors.erase(it);
+            continue;
+        }
+
         int distToTarget = (*it)->getDistance(targetPosition);
         if (distToTarget > (vanguardClusterDistToTargetPosition + 480))
         {
@@ -317,23 +326,16 @@ void Squad::executeDetectors()
             }
         }
 
-        auto otherBasePosition = targetPosition;
+        auto threatDirection = targetPosition;
         if (Map::getEnemyStartingMain() && Map::getEnemyStartingNatural())
         {
-            if (targetPosition == Map::getEnemyStartingNatural()->getPosition())
-            {
-                otherBasePosition = Map::getEnemyStartingMain()->getPosition();
-            }
-            else
-            {
-                otherBasePosition = Map::getEnemyStartingNatural()->getPosition();
-            }
+            threatDirection = (Map::getEnemyStartingMain()->getPosition() + Map::getEnemyStartingNatural()->getPosition()) / 2;
         }
 
         for (auto detector : pendingDetectors)
         {
             detector->setActivity(ObserverActivity::ScoutingEnemyArmy);
-            moveTowards(detector, targetPosition, otherBasePosition);
+            moveTowards(detector, targetPosition, threatDirection);
         }
     }
     else
