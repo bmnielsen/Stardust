@@ -59,15 +59,14 @@ namespace
 #endif
         if (ahead.isValid())
         {
-            // Avoid all threats if detected, and avoid threats that can kill us in two hits against Terran, since they can always scan for detection
+            // Avoid all threats if detected, and avoid threats regardless if a Terran opponent has a comsat
             auto &grid = Players::grid(BWAPI::Broodwar->enemy());
             std::function<bool(BWAPI::Position)> isThreat;
             if (Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Scanner_Sweep))
             {
                 isThreat = [&](BWAPI::Position pos)
                 {
-                    return (grid.airThreat(pos) > 0 && grid.detection(pos) > 0) ||
-                           (grid.airThreat(pos) * 2) > (detector->lastHealth + detector->lastShields);
+                    return grid.airThreat(pos) > 0;
                 };
             }
             else
