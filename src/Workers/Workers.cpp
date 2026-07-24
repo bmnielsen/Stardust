@@ -815,6 +815,18 @@ namespace Workers
                     // If the worker has cargo, return it
                     if (worker->bwapiUnit->isCarryingMinerals() || worker->bwapiUnit->isCarryingGas())
                     {
+                        // If the worker is in a narrow choke, use the return cargo command to ensure it doesn't get stuck on other units
+                        if (Map::isInNarrowChoke(worker->getTilePosition()))
+                        {
+                            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnMinerals &&
+                                             worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnGas &&
+                                             worker->lastCommandFrame > (currentFrame - BWAPI::Broodwar->getLatencyFrames()))
+                            {
+                                worker->returnCargo();
+                            }
+                            continue;
+                        }
+
                         // Handle the special case when the worker is harvesting from a base without a completed depot
                         if (!base->resourceDepot || !base->resourceDepot->completed)
                         {
