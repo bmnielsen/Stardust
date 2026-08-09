@@ -64,6 +64,14 @@ TEST(InitializeMapData, AllSSCAIT)
     });
 }
 
+TEST(InitializeMapData, AllCOG2026)
+{
+    Maps::RunOnEach(Maps::Get("cog2026"), [&](BWTest test)
+    {
+        run(test, {});
+    });
+}
+
 TEST(InitializeMapData, Benzene)
 {
     BWTest test;

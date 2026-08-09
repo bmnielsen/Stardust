@@ -267,6 +267,14 @@ TEST(InitializeOrderProcessTimerResetValues, AllSSCAIT)
     });
 }
 
+TEST(InitializeOrderProcessTimerResetValues, AllCOG2026)
+{
+    Maps::RunOnEach(Maps::Get("cog2026"), [&](BWTest test)
+    {
+        initializeOrderProcessTimerResetValues(*test.map);
+    });
+}
+
 TEST(ExploreInitialStartPositions, Vermeer)
 {
     initialPathExploration(*Maps::GetOne("Vermeer"));
@@ -295,6 +303,14 @@ TEST(ExploreInitialStartPositions, Destination)
 TEST(ExploreInitialStartPositions, AllSSCAIT)
 {
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        initialPathExploration(*test.map);
+    });
+}
+
+TEST(ExploreInitialStartPositions, AllCOG2026)
+{
+    Maps::RunOnEach(Maps::Get("cog2026"), [&](BWTest test)
     {
         initialPathExploration(*test.map);
     });

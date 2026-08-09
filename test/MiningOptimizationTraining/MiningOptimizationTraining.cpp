@@ -168,6 +168,14 @@ TEST(PathExploration, AllSSCAIT)
     });
 }
 
+TEST(PathExploration, AllCOG2026)
+{
+    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        run(test, {});
+    });
+}
+
 TEST(AddResendAlwaysArrivesToArrivalNodes, Benzene)
 {
     BWTest test;
