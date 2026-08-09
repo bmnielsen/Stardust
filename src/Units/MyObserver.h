@@ -25,6 +25,7 @@ enum class ObserverActivity
 
 namespace
 {
+#if CHERRYVIS_ENABLED
     std::string toString(const ObserverActivity &activity)
     {
         switch (activity)
@@ -40,6 +41,7 @@ namespace
         }
         return "UNKNOWN";
     }
+#endif
 }
 
 class MyObserverImpl : public MyUnitImpl
