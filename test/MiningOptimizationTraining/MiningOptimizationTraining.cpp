@@ -170,7 +170,7 @@ TEST(PathExploration, AllSSCAIT)
 
 TEST(PathExploration, AllCOG2026)
 {
-    Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    Maps::RunOnEach(Maps::Get("cog2026"), [&](BWTest test)
     {
         run(test, {});
     });
