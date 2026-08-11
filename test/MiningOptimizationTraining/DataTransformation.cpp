@@ -71,6 +71,14 @@ TEST(DataTransformation, AllSSCAIT)
     });
 }
 
+TEST(DataTransformation, AllCOG2026)
+{
+    Maps::RunOnEach(Maps::Get("cog2026"), [&](BWTest test)
+    {
+        transform(test.map->openbwHash);
+    });
+}
+
 TEST(ExportDataFiles, Benzene)
 {
     auto map = Maps::GetOne("Benzene");
@@ -80,6 +88,14 @@ TEST(ExportDataFiles, Benzene)
 TEST(ExportDataFiles, AllSSCAIT)
 {
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
+    {
+        exportDataFile(test.map->openbwHash, test.map->hash);
+    });
+}
+
+TEST(ExportDataFiles, AllCOG2026)
+{
+    Maps::RunOnEach(Maps::Get("cog2026"), [&](BWTest test)
     {
         exportDataFile(test.map->openbwHash, test.map->hash);
     });

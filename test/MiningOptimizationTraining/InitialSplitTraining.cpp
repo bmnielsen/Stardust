@@ -259,6 +259,11 @@ TEST(InitializeOrderProcessTimerResetValues, Destination)
     initializeOrderProcessTimerResetValues(*Maps::GetOne("sscai/(2)Destination"));
 }
 
+TEST(InitializeOrderProcessTimerResetValues, Retro)
+{
+    initializeOrderProcessTimerResetValues(*Maps::GetOne("cog2026/(4)Retro"));
+}
+
 TEST(InitializeOrderProcessTimerResetValues, AllSSCAIT)
 {
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
@@ -314,6 +319,16 @@ TEST(ExploreInitialStartPositions, AllCOG2026)
     {
         initialPathExploration(*test.map);
     });
+}
+
+TEST(ExploreInitialStartPositions, Retro)
+{
+    initialPathExploration(*Maps::GetOne("cog2026/(4)Retro"));
+}
+
+TEST(ExploreInitialStartPositions, ClayFields)
+{
+    initialPathExploration(*Maps::GetOne("cog2026/(4)Clay"));
 }
 
 TEST(InitialSplitTest, Vermeer)
