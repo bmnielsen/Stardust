@@ -71,6 +71,12 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             return true;
         }
 
+        // If our strategy is 2-gate DT, don't require using an anti-rush strategy if the zealot counts are reasonably close
+        if (ourStrategy == OurStrategy::TwoGateDT && Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) <= ((unitCount * 5) / 4))
+        {
+            return true;
+        }
+
         // Require Dragoon Range to be started
         // TODO: This is probably much too conservative
         if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0 &&

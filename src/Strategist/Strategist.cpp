@@ -71,6 +71,11 @@ namespace Strategist
 
         void updateUnitAssignments()
         {
+            for (auto &play : plays)
+            {
+                play->assignedIncompleteUnits.clear();
+            }
+            
             struct ReassignableUnit
             {
                 static bool cmp(const ReassignableUnit &a, const ReassignableUnit &b)
@@ -530,7 +535,6 @@ namespace Strategist
         {
             play->status.unitRequirements.clear();
             play->status.removedUnits.clear();
-            play->assignedIncompleteUnits.clear();
             play->update();
         }
 

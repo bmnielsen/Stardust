@@ -139,7 +139,7 @@ TEST(BananaBrain, RunOne)
     BananaBrain* bbModule;
     test.opponentName = "BananaBrain";
     test.opponentRace = BWAPI::Races::Protoss;
-    test.maps = Maps::Get("sscait");
+    test.maps = Maps::Get("cog2026");
     test.opponentModule = [&]()
     {
         bbModule = new BananaBrain();
@@ -487,5 +487,54 @@ TEST(BananaBrain, ZCoreZ)
         test.replayName = replayName.str();
     };
     test.expectWin = false;
+    test.run();
+}
+
+TEST(BananaBrain, TwoGateDTTesting)
+{
+    BWTest test;
+    BananaBrain* bbModule;
+    test.myOpening = "TwoGateDT";
+    test.frameLimit = 8000;
+    test.expectWin = false;
+    test.opponentName = "BananaBrain";
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.maps = Maps::Get("cog2026");
+    test.opponentModule = [&]()
+    {
+        bbModule = new BananaBrain();
+        bbModule->strategyName = randomOpening();
+        bbModule->strategyName = ProtossStrategy::kPvP_3GateSpeedZeal;
+        return bbModule;
+    };
+    test.onStartOpponent = [&]()
+    {
+        std::cout << "BananaBrain strategy: " << bbModule->strategyName << std::endl;
+        if (test.sharedMemory)
+        {
+            strncpy(test.sharedMemory,
+                    bbModule->strategyName.c_str(),
+                    std::min(255UL, bbModule->strategyName.size()));
+        }
+
+        std::cout.setstate(std::ios_base::failbit);
+    };
+    test.onEndMine = [&test](bool won)
+    {
+        std::ostringstream replayName;
+        replayName << "BananaBrain_" << test.map->shortname();
+        if (!won)
+        {
+            replayName << "_LOSS";
+        }
+        if (test.sharedMemory)
+        {
+            std::string opening = test.sharedMemory;
+            std::replace(opening.begin(), opening.end(), '/', '_');
+            replayName << "_" << opening;
+        }
+        replayName << "_" << test.randomSeed;
+        test.replayName = replayName.str();
+    };
     test.run();
 }
