@@ -397,7 +397,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             case PvP::OurStrategy::DTExpand:
             {
                 // Transition to normal if a DT expand is no longer feasible
-                if (!isDTExpandFeasible())
+                if (Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0 && !isDTExpandFeasible())
                 {
                     strategy = OurStrategy::Normal;
                     continue;
