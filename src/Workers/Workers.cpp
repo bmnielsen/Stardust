@@ -860,7 +860,7 @@ namespace Workers
                                                                                      -1);
                                 if (baseToBaseTime != -1 && closestTime + baseToBaseTime < base->resourceDepot->bwapiUnit->getRemainingBuildTime())
                                 {
-                                    if (worker->getDistance(closestBase->resourceDepot) > 200)
+                                    if (worker->getDistance(closestBase->resourceDepot) > 800)
                                     {
                                         worker->moveTo(closestBase->getPosition());
                                     }
