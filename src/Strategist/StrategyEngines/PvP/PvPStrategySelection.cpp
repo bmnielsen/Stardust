@@ -338,7 +338,11 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                 if (newEnemyStrategy == ProtossStrategy::DarkTemplarRush &&
                     !canTransitionFromAntiDarkTemplarRush())
                 {
-                    strategy = OurStrategy::AntiDarkTemplarRush;
+                    // If we are later in the opening, wait until the enemy has actually built a DT before transitioning
+                    if (currentFrame < 9000 || Units::countEnemy(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
+                    {
+                        strategy = OurStrategy::AntiDarkTemplarRush;
+                    }
                     continue;
                 }
 
