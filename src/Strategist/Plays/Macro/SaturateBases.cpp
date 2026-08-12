@@ -87,4 +87,22 @@ void SaturateBases::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
                                                                       base);
         }
     }
+
+    // Finally make sure we always produce probes at low priority on one base
+    // This will allow us to ramp up our natural faster
+    if (Map::getMyBases().size() == 1 && Map::getMyMain() && Map::getMyNatural())
+    {
+        int desiredProbes = (Map::getMyMain()->mineralPatchCount() + Map::getMyNatural()->mineralPatchCount()) * 2 +
+            (Map::getMyMain()->geysersOrRefineries().size() + Map::getMyNatural()->geysersOrRefineries().size()) * 3 -
+                Units::countAll(BWAPI::UnitTypes::Protoss_Probe);
+        if (desiredProbes > 0)
+        {
+            prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                      label,
+                                                                      BWAPI::UnitTypes::Protoss_Probe,
+                                                                      desiredProbes,
+                                                                      1,
+                                                                      Map::getMyMain());
+        }
+    }
 }
