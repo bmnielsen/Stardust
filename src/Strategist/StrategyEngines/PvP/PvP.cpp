@@ -711,7 +711,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
     auto hiddenBasePlay = getPlay<HiddenBase>(plays);
 
     bool cancel = true;
-    bool buildProbes = false;
     switch (ourStrategy)
     {
         case OurStrategy::ForgeExpandDT:
@@ -721,7 +720,16 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::TwoGateDT:
         {
+            // If there is a backdoor natural, take it once we start the citadel
+            if (Map::mapSpecificOverride()->hasBackdoorNatural() && Units::countAll(BWAPI::UnitTypes::Protoss_Citadel_of_Adun) > 0)
+            {
+                CherryVis::setBoardValue("natural", "take-backdoor");
+                takeNaturalExpansion(plays, prioritizedProductionGoals);
+                return;
+            }
+
             // Handled by transition to DTExpand after DTs are created
+            CherryVis::setBoardValue("natural", "wait-for-dts");
             return;
         }
 
@@ -779,9 +787,18 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 return;
             }
 
-            // We never expand before frame 10000 (12000 if the enemy is doing a dragoon all-in) unless the enemy has done so
-            // or is doing an opening that will not give immediate pressure
-            if (currentFrame < (enemyStrategy == ProtossStrategy::DragoonAllIn ? 12000 : 10000) &&
+            // We never expand before a frame breakpoint unless the enemy has done so or is doing an opening that will not give immediate pressure
+            // The frame breakpoint is higher if the enemy is doing a dragoon all-in and lower if we have a backdoor natural
+            int naturalFrame = 10000;
+            if (Map::mapSpecificOverride()->hasBackdoorNatural())
+            {
+                naturalFrame = 6500;
+            }
+            else if (enemyStrategy == ProtossStrategy::DragoonAllIn)
+            {
+                naturalFrame = 12000;
+            }
+            if (currentFrame < naturalFrame &&
                 Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) < 2 &&
                 enemyStrategy != ProtossStrategy::EarlyRobo &&
                 enemyStrategy != ProtossStrategy::Turtle)
@@ -789,10 +806,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 CherryVis::setBoardValue("natural", "too-early");
                 break;
             }
-
-            // We expect to want to take our natural soon, so build probes
-            // Exception if we might want to take our hidden base
-            buildProbes = (hiddenBasePlay == nullptr);
 
             auto squad = mainArmyPlay->getSquad();
             if (!squad || squad->getUnits().size() < 5)
@@ -810,11 +823,14 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // Cluster should be past our own natural
-            int naturalDist = PathFinding::GetGroundDistance(natural->getPosition(), mainArmyPlay->base->getPosition());
-            if (naturalDist != -1 && dist > (naturalDist - 320))
+            if (!Map::mapSpecificOverride()->hasBackdoorNatural())
             {
-                CherryVis::setBoardValue("natural", "vanguard-cluster-not-beyond-natural");
-                break;
+                int naturalDist = PathFinding::GetGroundDistance(natural->getPosition(), mainArmyPlay->base->getPosition());
+                if (naturalDist != -1 && dist > (naturalDist - 320))
+                {
+                    CherryVis::setBoardValue("natural", "vanguard-cluster-not-beyond-natural");
+                    break;
+                }
             }
 
             // Get an observatory before expanding
@@ -875,8 +891,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                 return;
             }
 
-            buildProbes = true;
-
             // Take our natural as soon as the army has moved beyond it
             auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
             if (!mainArmyPlay || typeid(*mainArmyPlay) != typeid(AttackEnemyBase))
@@ -900,12 +914,15 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // Ensure the cluster is at least 10 tiles further from the natural than it is from the main
-            int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
-            int distToNatural = PathFinding::GetGroundDistance(natural->getPosition(), vanguardCluster->center);
-            if (distToNatural < 500 || distToMain < (distToNatural + 500))
+            if (!Map::mapSpecificOverride()->hasBackdoorNatural())
             {
-                CherryVis::setBoardValue("natural", "vanguard-too-close");
-                break;
+                int distToMain = PathFinding::GetGroundDistance(Map::getMyMain()->getPosition(), vanguardCluster->center);
+                int distToNatural = PathFinding::GetGroundDistance(natural->getPosition(), vanguardCluster->center);
+                if (distToNatural < 500 || distToMain < (distToNatural + 500))
+                {
+                    CherryVis::setBoardValue("natural", "vanguard-too-close");
+                    break;
+                }
             }
 
             // Cluster should not be fleeing
@@ -937,21 +954,6 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
                                                                      BWAPI::UnitTypes::Protoss_Nexus,
                                                                      buildLocation);
 
-        }
-    }
-
-    // If requested, build up to 10 probes for our natural
-    // They are queued at lowest priority, so will not interfere with army production
-    if (buildProbes)
-    {
-        auto idleWorkers = Workers::idleWorkerCount();
-        if (idleWorkers < 10)
-        {
-            prioritizedProductionGoals[PRIORITY_LOWEST].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                     "SE",
-                                                                     BWAPI::UnitTypes::Protoss_Probe,
-                                                                     10 - idleWorkers,
-                                                                     1);
         }
     }
 }
