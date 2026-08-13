@@ -215,3 +215,36 @@ TEST(Locutus, PlasmaProxy2Gate)
 
     test.run();
 }
+
+TEST(Locutus, ForgeExpandVsFourGateLosingNatural)
+{
+    BWTest test;
+    test.opponentName = "Locutus";
+    test.map = Maps::GetOne("Mancha");
+    test.randomSeed = 97016;
+    test.frameLimit = 16000;
+    test.opponentRace = BWAPI::Races::Protoss;
+    test.opponentModule = []()
+    {
+        Locutus::LocutusBotModule::setStrategy("4GateGoon");
+        return new Locutus::LocutusBotModule();
+    };
+    test.myOpening = "ForgeExpandDT";
+
+    test.onFrameMine = []()
+    {
+        if (BWAPI::Broodwar->getFrameCount() == 9000)
+        {
+            for (auto unit : BWAPI::Broodwar->self()->getUnits())
+            {
+                if (unit->getType() == BWAPI::UnitTypes::Protoss_Nexus && unit->getTilePosition() != BWAPI::Broodwar->self()->getStartLocation())
+                {
+                    BWAPI::Broodwar->killUnit(unit);
+                    return;
+                }
+            }
+        }
+    };
+
+    test.run();
+}

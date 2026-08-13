@@ -340,14 +340,22 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
     };
     bool takeMineralOnly = shouldTakeMineralOnly();
 
-    // Create a TakeExpansion play for the next expansion
-    for (const auto &expansion : Map::getUntakenExpansions())
+    auto tryExpandTo = [&](Base *expansion)
     {
-        if (!takeMineralOnly && expansion->gas == 0) continue;
+        if (expansion->owner)
+        {
+            // Skip bases owned by a different player or where we already have a nexus
+            if (expansion->owner != BWAPI::Broodwar->self() || expansion->resourceDepot) return false;
+
+            // Don't re-take the base if it is almost mined out
+            if (expansion->minerals < 2000) return false;
+        }
+
+        if (!takeMineralOnly && expansion->gas == 0) return false;
 
         // Don't take expansions that have a blocking neutral
         // We currently only handle this for island expansions
-        if (!expansion->blockingNeutrals.empty()) continue;
+        if (!expansion->blockingNeutrals.empty()) return false;
 
         // Don't take expansions that are blocked by the enemy and that we don't know how to unblock
         if (expansion->blockedByEnemy)
@@ -355,14 +363,14 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
             auto &baseStaticDefenseLocations = BuildingPlacement::baseStaticDefenseLocations(expansion);
             if (!baseStaticDefenseLocations.isValid())
             {
-                continue;
+                return false;
             }
         }
 
         auto enemyValue = enemyCombatValueAtBase(expansion);
         if (enemyValue > 4 * CombatSim::unitValue(BWAPI::UnitTypes::Protoss_Dragoon))
         {
-            continue;
+            return false;
         }
 
         auto play = std::make_shared<TakeExpansion>(expansion, enemyValue);
@@ -374,7 +382,18 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
 #if CHERRYVIS_ENABLED
         CherryVis::log() << "Added TakeExpansion play for base @ " << BWAPI::WalkPosition(play->depotPosition);
 #endif
-        break;
+
+        return true;
+    };
+
+    // Create a TakeExpansion play for the next expansion
+    for (const auto &base : Map::getMyBases())
+    {
+        if (tryExpandTo(base)) return;
+    }
+    for (const auto &expansion : Map::getUntakenExpansions())
+    {
+        if (tryExpandTo(expansion)) return;
     }
 }
 
