@@ -312,6 +312,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
                 for (const auto &unit : enemyArmy.units)
                 {
                     if (!unit->lastPositionValid || !unit->lastPositionVisible) continue;
+                    if (unit->needsDetection() && detectors.empty()) continue;
 
                     int dist = unit->getDistance(center);
                     if (dist < bestDist)
