@@ -324,8 +324,10 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             if (!enemyVanguard) continue;
 
             // Army is blocking only if their vanguard is closer to our main than ours
+            // A threshold is used that varies depending on whether the enemy unit is in a narrow choke
+            int threshold = Map::isInNarrowChoke(enemyVanguard->getTilePosition()) ? 0 : 64;
             if (PathFinding::GetGroundDistance(vanguard->lastPosition, Map::getMyMain()->getPosition()) <
-                (PathFinding::GetGroundDistance(enemyVanguard->lastPosition, Map::getMyMain()->getPosition()) + 64))
+                (PathFinding::GetGroundDistance(enemyVanguard->lastPosition, Map::getMyMain()->getPosition()) + threshold))
             {
                 continue;
             }
@@ -338,7 +340,14 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             }
         }
 
-        setSubActivity(SubActivity::Flee);
+        if (blockingEnemyArmy)
+        {
+            setSubActivity(SubActivity::AttackBlockingArmy);
+        }
+        else
+        {
+            setSubActivity(SubActivity::Flee);
+        }
     };
 
     // First choose which regrouping mode we want to use

@@ -144,7 +144,7 @@ namespace General
 
             // Try to find an army this unit fits into
             bool added = false;
-            for (auto army : enemyArmies)
+            for (auto &army : enemyArmies)
             {
                 if (army.tryAddUnit(enemyUnit))
                 {
