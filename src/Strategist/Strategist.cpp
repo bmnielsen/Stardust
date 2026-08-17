@@ -295,8 +295,7 @@ namespace Strategist
             if (!vanguardCluster) return false;
 
             // Don't consider the enemy contained if our main army is retreating
-            if (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping &&
-                vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
+            if (vanguardCluster->isFleeing())
             {
                 return false;
             }

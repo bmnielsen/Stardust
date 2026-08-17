@@ -204,8 +204,7 @@ void StrategyEngine::defaultExpansions(std::vector<std::shared_ptr<Play>> &plays
         // Cluster should not be moving or fleeing
         // In other words, we want the cluster to be in some kind of stable attack or contain state
         if (vanguardCluster->currentActivity == UnitCluster::Activity::Moving
-            || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
-                && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
+            || vanguardCluster->isFleeing())
         {
 #if LOGGING_ENABLED
             reasonUnsafe = "Main army play vanguard cluster is moving or fleeing";

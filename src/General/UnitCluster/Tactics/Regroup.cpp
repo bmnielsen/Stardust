@@ -8,6 +8,10 @@
 
 #include <iomanip>
 
+#include "EnemyArmy.h"
+#include "General.h"
+#include "Map.h"
+
 /*
  * Orders a cluster to regroup.
  *
@@ -16,6 +20,7 @@
  * - Hold choke: We can stay at a choke and hold off the enemy.
  * - Stand ground: We can stop a safe distance from the enemy until we are reinforced.
  * - Flee: Move back towards our main base until we are reinforced.
+ * - Attack blocking army: We want to flee, but there is an enemy army in the way, so attack it
  */
 
 namespace
@@ -173,6 +178,7 @@ namespace
             }
             case UnitCluster::SubActivity::StandGround:
             case UnitCluster::SubActivity::Flee:
+            case UnitCluster::SubActivity::AttackBlockingArmy:
             {
                 if (!simResult.decision) return false;
 
@@ -285,6 +291,56 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         });
     };
 
+    // We lazily-initialize a blocking enemy army if we are trying to flee
+    const EnemyArmy *blockingEnemyArmy = nullptr;
+    auto setAppropriateFleeingActivity = [&]()
+    {
+        int bestBlockingArmyDist = INT_MAX;
+        for (const auto &enemyArmy : General::getEnemyArmies())
+        {
+            // Ignore small armies
+            if (enemyArmy.units.size() < 4) continue;
+
+            // Ignore armies that are a long way away from our cluster
+            int centerDist = center.getApproxDistance(enemyArmy.center);
+            if (centerDist > 640) continue;
+
+            // Find the enemy unit closest to our cluster center
+            Unit enemyVanguard = nullptr;
+            {
+                int bestDist = INT_MAX;
+                for (const auto &unit : enemyArmy.units)
+                {
+                    if (!unit->lastPositionValid || !unit->lastPositionVisible) continue;
+
+                    int dist = unit->getDistance(center);
+                    if (dist < bestDist)
+                    {
+                        enemyVanguard = unit;
+                        bestDist = dist;
+                    }
+                }
+            }
+            if (!enemyVanguard) continue;
+
+            // Army is blocking only if their vanguard is closer to our main than ours
+            if (PathFinding::GetGroundDistance(vanguard->lastPosition, Map::getMyMain()->getPosition()) <
+                (PathFinding::GetGroundDistance(enemyVanguard->lastPosition, Map::getMyMain()->getPosition()) + 64))
+            {
+                continue;
+            }
+
+            // Replace the current one if this one is closer
+            if (centerDist < bestBlockingArmyDist)
+            {
+                blockingEnemyArmy = &enemyArmy;
+                bestBlockingArmyDist = centerDist;
+            }
+        }
+
+        setSubActivity(SubActivity::Flee);
+    };
+
     // First choose which regrouping mode we want to use
     switch (currentSubActivity)
     {
@@ -304,7 +360,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             }
             else
             {
-                setSubActivity(SubActivity::Flee);
+                setAppropriateFleeingActivity();
             }
 
             break;
@@ -313,7 +369,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         {
             if (!shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
-                setSubActivity(SubActivity::Flee);
+                setAppropriateFleeingActivity();
             }
             break;
         }
@@ -321,7 +377,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         {
             if (!shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
-                setSubActivity(SubActivity::Flee);
+                setAppropriateFleeingActivity();
             }
             break;
         }
@@ -335,12 +391,13 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             else if (!shouldStandGround(unitsAndTargets, simResult, hasValidTarget))
             {
                 // Flee if it is no longer safe to stand ground
-                setSubActivity(SubActivity::Flee);
+                setAppropriateFleeingActivity();
             }
 
             break;
         }
         case SubActivity::Flee:
+        case SubActivity::AttackBlockingArmy:
         {
             // We might be able to start containing static defense after fleeing a bit
             // We might also flee through a choke that we can contain from the other side
@@ -356,6 +413,10 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             {
                 // While fleeing we will often link up with reinforcements, or the enemy will not pursue, so it makes sense to stand ground instead
                 setSubActivity(SubActivity::StandGround);
+            }
+            else
+            {
+                setAppropriateFleeingActivity();
             }
 
             break;
@@ -403,6 +464,15 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             flee(enemyUnits);
 
             break;
+        }
+        case SubActivity::AttackBlockingArmy:
+        {
+            Log::Get() << "ATTACKING BLOCKING ARMY";
+
+            // Choose new targets with the enemy army as the target position, then attack
+            auto newUnitsAndTargets = selectTargets(enemyUnits, blockingEnemyArmy->center);
+            attack(newUnitsAndTargets, blockingEnemyArmy->center);
+            return;
         }
     }
 

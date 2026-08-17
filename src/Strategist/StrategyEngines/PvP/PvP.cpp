@@ -232,8 +232,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     && (!natural || natural->owner != BWAPI::Broodwar->self() || !natural->resourceDepot || !natural->resourceDepot->completed
                         || Map::mapSpecificOverride()->hasBackdoorNatural()))
                 {
-                    if (vanguard->currentActivity == UnitCluster::Activity::Regrouping &&
-                        vanguard->currentSubActivity == UnitCluster::SubActivity::Flee)
+                    if (vanguard->isFleeing())
                     {
                         auto inMain = [](BWAPI::Position pos)
                         {
@@ -858,9 +857,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // Cluster should not be moving or fleeing
             // In other words, we want the cluster to be in some kind of stable attack or contain state
             if (vanguardCluster->currentActivity == UnitCluster::Activity::Moving
-                || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
-                    && (vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee
-                        || vanguardCluster->currentSubActivity == UnitCluster::SubActivity::StandGround)))
+                || vanguardCluster->isFleeing())
             {
                 // We don't cancel a queued expansion in this case
                 cancel = false;
@@ -926,8 +923,7 @@ void PvP::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             }
 
             // Cluster should not be fleeing
-            if (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
-                && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
+            if (vanguardCluster->isFleeing())
             {
                 CherryVis::setBoardValue("natural", "vanguard-fleeing");
                 break;

@@ -388,8 +388,7 @@ bool Squad::canReassignFromVanguardCluster(MyUnit &unit) const
 
     // Allow if the vanguard cluster is not attacking or fleeing
     return currentVanguardCluster->currentActivity != UnitCluster::Activity::Attacking &&
-           (currentVanguardCluster->currentActivity != UnitCluster::Activity::Regrouping ||
-            currentVanguardCluster->currentSubActivity != UnitCluster::SubActivity::Flee);
+           !currentVanguardCluster->isFleeing();
 }
 
 void Squad::updateDetectionNeeds(std::set<Unit> &enemyUnits)

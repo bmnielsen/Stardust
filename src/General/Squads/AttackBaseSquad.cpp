@@ -432,6 +432,10 @@ void AttackBaseSquad::execute(UnitCluster &cluster)
         case UnitCluster::Activity::Regrouping:
             attack = shouldStopRegrouping(cluster, simResult, closestReinforcements, reinforcementPercentage);
             break;
+        default:
+            Log::Get() << "ERROR: Unknown cluster activity";
+            attack = false;
+            break;
     }
 
     if (attack || ignoreCombatSim)

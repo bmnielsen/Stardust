@@ -844,8 +844,7 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
             // Cluster should not be moving or fleeing
             // In other words, we want the cluster to be in some kind of stable attack or contain state
             if (vanguardCluster->currentActivity == UnitCluster::Activity::Moving
-                || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
-                    && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
+                || vanguardCluster->isFleeing())
             {
                 // We don't cancel a queued expansion in this case
                 CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");

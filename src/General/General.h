@@ -25,8 +25,8 @@ namespace General
     // Gets the army the specified unit is part of, or nullptr if it is not part of any army
     const EnemyArmy* armyForEnemyUnit(const Unit &enemyUnit);
 
-    // Gets an enemy army matching the given predicate, or nullptr if none match
-    const EnemyArmy* getEnemyArmy(const std::function<bool(const EnemyArmy &)> &predicate);
+    // Gets the enemy armies, which are groups of enemy units out on the map
+    const std::vector<EnemyArmy> &getEnemyArmies();
 
     void writeInstrumentation();
 }

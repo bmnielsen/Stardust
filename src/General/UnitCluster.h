@@ -15,7 +15,7 @@ public:
     };
     enum class SubActivity
     {
-        None, ContainStaticDefense, ContainChoke, StandGround, Flee
+        None, ContainStaticDefense, ContainChoke, StandGround, Flee, AttackBlockingArmy
     };
 
     BWAPI::Position center;
@@ -116,6 +116,12 @@ public:
                                      int *attack,
                                      int *regroup,
                                      int limit);
+
+    bool isFleeing() const
+    {
+        return currentActivity == Activity::Regrouping &&
+            (currentSubActivity == SubActivity::Flee || currentSubActivity == SubActivity::AttackBlockingArmy);
+    }
 
 protected:
     int area;

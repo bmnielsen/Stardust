@@ -247,15 +247,9 @@ namespace General
         return it->second;
     }
 
-    // Gets an enemy army matching the given predicate, or nullptr if none match
-    const EnemyArmy* getEnemyArmy(const std::function<bool(const EnemyArmy &)> &predicate)
+    const std::vector<EnemyArmy> &getEnemyArmies()
     {
-        for (const auto &enemyArmy : enemyArmies)
-        {
-            if (predicate(enemyArmy)) return &enemyArmy;
-        }
-
-        return nullptr;
+        return enemyArmies;
     }
 
     void writeInstrumentation()
