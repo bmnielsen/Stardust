@@ -57,6 +57,8 @@ namespace Units
 
     std::unordered_set<Unit> &enemyAtBase(Base *base);
 
+    std::unordered_set<Unit> &enemyCombatUnitsNotAtAnEnemyBase();
+
     int countAll(BWAPI::UnitType type);
 
     int countCompleted(BWAPI::UnitType type);

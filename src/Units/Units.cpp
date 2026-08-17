@@ -68,6 +68,7 @@ namespace Units
 
         std::unordered_map<Unit, Base *> enemyUnitsToBase;
         std::unordered_map<Base *, std::unordered_set<Unit>> basesToEnemyUnits;
+        std::unordered_set<Unit> enemyUnitsNotAtEnemyBase;
 
         std::set<BWAPI::UpgradeType> upgradesInProgress;
         std::set<BWAPI::TechType> researchInProgress;
@@ -306,6 +307,7 @@ namespace Units
                 basesToEnemyUnits[current->second].erase(unit);
                 enemyUnitsToBase.erase(current);
             }
+            enemyUnitsNotAtEnemyBase.erase(unit);
 
             OpponentEconomicModel::opponentUnitDestroyed(unit->type, unit->id);
         }
@@ -510,20 +512,22 @@ namespace Units
 
         void assignEnemyUnitsToBases()
         {
-            auto getBase = [](const Unit &unit) -> Base *
+            auto combatUnit = [](const Unit &unit)
+            {
+                return (UnitUtil::IsCombatUnit(unit->type) || unit->lastSeenAttacking >= (currentFrame - 120))
+                    && (unit->isTransport() || UnitUtil::CanAttackGround(unit->type));
+            };
+
+            auto getBase = [&combatUnit](const Unit &unit) -> Base *
             {
                 if (!unit->lastPositionValid) return nullptr;
-
-                auto combatUnit =
-                        (UnitUtil::IsCombatUnit(unit->type) || unit->lastSeenAttacking >= (currentFrame - 120))
-                        && (unit->isTransport() || UnitUtil::CanAttackGround(unit->type));
 
                 Base *closest = nullptr;
                 int closestDist = 1000;
                 for (auto &base : Map::allBases())
                 {
                     // Only consider combat units and units that block untaken bases
-                    if (!combatUnit &&
+                    if (!combatUnit(unit) &&
                         (base->owner != nullptr ||
                          !Geo::Overlaps(base->getTilePosition(), 4, 3, unit->getTilePosition(), 2, 2)))
                     {
@@ -589,6 +593,15 @@ namespace Units
                     basesToEnemyUnits[base].emplace(unit);
                     enemyUnitsToBase[unit] = base;
                 }
+
+                if (combatUnit(unit) && (!base || base->owner != BWAPI::Broodwar->enemy()))
+                {
+                    enemyUnitsNotAtEnemyBase.insert(unit);
+                }
+                else
+                {
+                    enemyUnitsNotAtEnemyBase.erase(unit);
+                }
             }
         }
     }
@@ -606,6 +619,7 @@ namespace Units
         enemyUnitTimings.clear();
         enemyUnitsToBase.clear();
         basesToEnemyUnits.clear();
+        enemyUnitsNotAtEnemyBase.clear();
         upgradesInProgress.clear();
         researchInProgress.clear();
 
@@ -1093,6 +1107,18 @@ namespace Units
                     }
                 }
             }
+
+            for (auto it = enemyUnitsNotAtEnemyBase.begin(); it != enemyUnitsNotAtEnemyBase.end();)
+            {
+                if (checkUnit(*it, "enemyUnitsNotAtEnemyBase"))
+                {
+                    it++;
+                }
+                else
+                {
+                    it = enemyUnitsNotAtEnemyBase.erase(it);
+                }
+            }
         }
 
         // Output debug info for our own units
@@ -1443,6 +1469,11 @@ namespace Units
     std::unordered_set<Unit> &enemyAtBase(Base *base)
     {
         return basesToEnemyUnits[base];
+    }
+
+    std::unordered_set<Unit> &enemyCombatUnitsNotAtAnEnemyBase()
+    {
+        return enemyUnitsNotAtEnemyBase;
     }
 
     int countAll(BWAPI::UnitType type)

@@ -7,6 +7,7 @@
 #include "Base.h"
 #include "Map.h"
 #include "Units.h"
+#include "EnemyArmy.h"
 
 #if INSTRUMENTATION_ENABLED
 #include <nlohmann/json.hpp>
@@ -16,6 +17,10 @@ namespace General
 {
     namespace
     {
+#if INSTRUMENTATION_ENABLED_VERBOSE
+        const double pi = 3.14159265358979323846;
+#endif
+
         std::unordered_set<std::shared_ptr<Squad>> squads;
 
         std::unordered_map<Base *, std::shared_ptr<AttackBaseSquad>> baseToAttackSquad;
@@ -23,6 +28,9 @@ namespace General
         std::unordered_map<MyUnit, std::shared_ptr<Squad>> cannonToSquad;
 
         std::shared_ptr<Squad> defendWallSquad;
+
+        std::vector<EnemyArmy> enemyArmies;
+        std::map<Unit, const EnemyArmy*> enemyUnitToArmy;
     }
 
     void initialize()
@@ -32,6 +40,8 @@ namespace General
         baseToDefendSquad.clear();
         cannonToSquad.clear();
         defendWallSquad = nullptr;
+        enemyArmies.clear();
+        enemyUnitToArmy.clear();
     }
 
     void updateClusters()
@@ -120,6 +130,45 @@ namespace General
         {
             squad->updateClusters();
         }
+
+        // Group enemy units not at any base into armies
+        // This is using a fairly fast and loose clustering
+        enemyArmies.clear();
+        enemyUnitToArmy.clear();
+        for (const auto &enemyUnit : Units::enemyCombatUnitsNotAtAnEnemyBase())
+        {
+            if (!enemyUnit->simPositionValid)
+            {
+                continue;
+            }
+
+            // Try to find an army this unit fits into
+            bool added = false;
+            for (auto army : enemyArmies)
+            {
+                if (army.tryAddUnit(enemyUnit))
+                {
+                    added = true;
+                    break;
+                }
+            }
+            if (added) continue;
+
+            // Create a new army with this unit
+            enemyArmies.emplace_back(enemyUnit);
+        }
+        for (const auto &enemyArmy : enemyArmies)
+        {
+            for (const auto &enemyUnit : enemyArmy.units)
+            {
+                enemyUnitToArmy.emplace(enemyUnit, &enemyArmy);
+            }
+
+#if INSTRUMENTATION_ENABLED_VERBOSE
+            int ballRadius = (int) sqrt((double) (32 * 32 * enemyArmy.units.size()) / pi);
+            CherryVis::drawCircle(enemyArmy.center.x, enemyArmy.center.y, ballRadius + 16, CherryVis::DrawColor::Blue);
+#endif
+        }
     }
 
     void issueOrders()
@@ -185,6 +234,25 @@ namespace General
         if (it != baseToAttackSquad.end())
         {
             return it->second.get();
+        }
+
+        return nullptr;
+    }
+
+    const EnemyArmy* armyForEnemyUnit(const Unit &enemyUnit)
+    {
+        auto it = enemyUnitToArmy.find(enemyUnit);
+        if (it == enemyUnitToArmy.end()) return nullptr;
+
+        return it->second;
+    }
+
+    // Gets an enemy army matching the given predicate, or nullptr if none match
+    const EnemyArmy* getEnemyArmy(const std::function<bool(const EnemyArmy &)> &predicate)
+    {
+        for (const auto &enemyArmy : enemyArmies)
+        {
+            if (predicate(enemyArmy)) return &enemyArmy;
         }
 
         return nullptr;
