@@ -1,3 +1,4 @@
+#include "General.h"
 #include "UnitCluster.h"
 
 #include "PathFinding.h"
@@ -435,42 +436,48 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 continue;
             }
 
-            // The next checks apply if we are not close to our target position
+            // The next checks ignore certain units if we are not close to our target position
+            // The idea is to avoid getting sidetracked chasing single units
+            // We ignore them if the target is part of a larger army, since we will actually want to engage it
             if (distanceToTargetPosition > 500 && !isAntiAir && !target.inMyMainOrNatural)
             {
-                // Skip targets that are out of range and moving away from us
-                if (distanceToTargetPosition > 500 && distToRange > 0)
+                auto army = General::armyForEnemyUnit(target.unit);
+                if (!army || army->units.size() < 3)
                 {
-                    if (!target.unit->bwapiUnit->isVisible())
+                    // Skip targets that are out of range and moving away from us
+                    if (distToRange > 0)
+                    {
+                        if (!target.unit->bwapiUnit->isVisible())
+                        {
+#if DEBUG_TARGETING
+                            dbg << "\n Skipping " << *target.unit << " as it is not visible";
+#endif
+                            continue;
+                        }
+
+                        auto predictedTargetPosition = target.unit->predictPosition(1);
+                        if (predictedTargetPosition.isValid() && unit->getDistance(target.unit, predictedTargetPosition) > range)
+                        {
+#if DEBUG_TARGETING
+                            dbg << "\n Skipping " << *target.unit << " as it is out of range and moving away from us";
+#endif
+                            continue;
+                        }
+                    }
+
+                    // Skip targets that are further away from the target position and are either:
+                    // - Out of range
+                    // - In our range, but we aren't in their range, and we are on cooldown
+                    if (unit->isFlying == target.unit->isFlying && unit->distToTargetPosition != -1 && target.unit->distToTargetPosition != -1
+                        && unit->distToTargetPosition < target.unit->distToTargetPosition
+                        && (distToRange > 0
+                            || (unit->cooldownUntil > currentFrame && !unit->isInEnemyWeaponRange(target.unit))))
                     {
 #if DEBUG_TARGETING
-                        dbg << "\n Skipping " << *target.unit << " as it is not visible";
+                        dbg << "\n Skipping " << *target.unit << " as it is further away from the target position";
 #endif
                         continue;
                     }
-
-                    auto predictedTargetPosition = target.unit->predictPosition(1);
-                    if (predictedTargetPosition.isValid() && unit->getDistance(target.unit, predictedTargetPosition) > range)
-                    {
-#if DEBUG_TARGETING
-                        dbg << "\n Skipping " << *target.unit << " as it is out of range and moving away from us";
-#endif
-                        continue;
-                    }
-                }
-
-                // Skip targets that are further away from the target position and are either:
-                // - Out of range
-                // - In our range, but we aren't in their range, and we are on cooldown
-                if (unit->isFlying == target.unit->isFlying && unit->distToTargetPosition != -1 && target.unit->distToTargetPosition != -1
-                    && unit->distToTargetPosition < target.unit->distToTargetPosition
-                    && (distToRange > 0
-                        || (unit->cooldownUntil > currentFrame && !unit->isInEnemyWeaponRange(target.unit))))
-                {
-#if DEBUG_TARGETING
-                    dbg << "\n Skipping " << *target.unit << " as it is further away from the target position";
-#endif
-                    continue;
                 }
             }
 
