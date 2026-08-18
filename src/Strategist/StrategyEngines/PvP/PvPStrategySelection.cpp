@@ -257,10 +257,18 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
             case PvP::OurStrategy::AntiDarkTemplarRush:
             {
-                // Transition to normal when we consider it safe to do so
+                // Transition when we consider it safe to do so
                 if (canTransitionFromAntiDarkTemplarRush())
                 {
-                    strategy = OurStrategy::Normal;
+                    // If we have a DT, transition to DTExpand
+                    if (Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0)
+                    {
+                        strategy = OurStrategy::DTExpand;
+                    }
+                    else
+                    {
+                        strategy = OurStrategy::Normal;
+                    }
                     continue;
                 }
 
@@ -397,7 +405,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             case PvP::OurStrategy::DTExpand:
             {
                 // Transition to normal if a DT expand is no longer feasible
-                if (Units::countAll(BWAPI::UnitTypes::Protoss_Dark_Templar) == 0 && !isDTExpandFeasible())
+                if (!isDTExpandFeasible())
                 {
                     strategy = OurStrategy::Normal;
                     continue;
