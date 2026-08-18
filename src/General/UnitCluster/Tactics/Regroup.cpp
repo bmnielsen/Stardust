@@ -477,8 +477,6 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::AttackBlockingArmy:
         {
-            Log::Get() << "ATTACKING BLOCKING ARMY";
-
             // Choose new targets with the enemy army as the target position, then attack
             auto newUnitsAndTargets = selectTargets(enemyUnits, blockingEnemyArmy->center);
             attack(newUnitsAndTargets, blockingEnemyArmy->center);
