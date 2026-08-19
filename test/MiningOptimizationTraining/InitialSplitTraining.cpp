@@ -10,119 +10,14 @@
 
 #include "DataTransformation/DataTransformer.h"
 
+#include "Trainers.h"
+
 #define VERBOSE_LOGGING false
 
 using namespace MiningOptimizationTraining;
 
 namespace
 {
-    void initializeOrderProcessTimerResetValues(const Maps::MapMetadata &map)
-    {
-        InitialWorkerMapData data;
-        Serialization::setGameParameters(map.openbwHash);
-        Serialization::readMapData(data);
-        data.startingWorkerPositionToOrderProcessTimerReset.clear();
-
-        bool opponentIsZerg;
-
-        auto runner = [&](BWTest test)
-        {
-            test.opponentModule = []()
-            {
-                return new DoNothingModule();
-            };
-            test.myModule = []()
-            {
-                return new DoNothingModule();
-            };
-            test.allowOpponentOutput = false;
-            test.expectWin = false;
-            test.writeReplay = false;
-            test.frameLimit = 15;
-            test.onFrameMine = [&]()
-            {
-                // The timer changes on the engine's frame 8, but there is misalignment due to how the test hooks are applied so we need to look at
-                // frame 9
-                if (BWAPI::Broodwar->getFrameCount() != 9) return;
-
-                for (auto unit : BWAPI::Broodwar->self()->getUnits())
-                {
-                    if (!unit->getType().isWorker()) continue;
-
-                    // Get the order process timer and rewind, since the value we read is after the unit's orders have been processed
-                    auto orderProcessTimer = unit->getOrderProcessTimer() + 1;
-                    if (orderProcessTimer == 9) orderProcessTimer = 0;
-
-                    auto &startingPositionData = data.startingWorkerPositionToOrderProcessTimerReset[unit->getPosition()];
-                    bool found = false;
-                    for (auto &existingData : startingPositionData)
-                    {
-                        if (existingData.value != orderProcessTimer) continue;
-                        if (existingData.opponentIsZerg != opponentIsZerg) continue;
-
-                        found = true;
-                        existingData.opponentStartLocationsCount++;
-                    }
-                    if (!found)
-                    {
-                        startingPositionData.emplace_back(orderProcessTimer, opponentIsZerg, 1, test.randomSeed);
-                    }
-                }
-            };
-            test.run();
-        };
-
-        opponentIsZerg = true;
-        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Zerg);
-
-        opponentIsZerg = false;
-        Maps::RunOnEachStartLocationPair({map}, runner, BWAPI::Races::Protoss);
-
-#if VERBOSE_LOGGING
-        for (const auto &[startPosition, observations] : data.startingWorkerPositionToOrderProcessTimerReset)
-        {
-            std::ostringstream dbg;
-            dbg << "\n" << startPosition << ":\n";
-            std::string sep;
-            for (const auto &observation : observations)
-            {
-                dbg << sep << " " << observation;
-                sep = "\n";
-            }
-            Log::Get() << dbg.str();
-        }
-#endif
-
-        Serialization::writeMapData(data);
-    }
-
-    void initialPathExploration(const Maps::MapMetadata &map)
-    {
-        BWTest test;
-        test.map = std::make_shared<Maps::MapMetadata>(map);
-        test.opponentRace = BWAPI::Races::Terran;
-        test.opponentModule = []()
-        {
-            return new ClearOpponentUnitsModule();
-        };
-
-        PathExplorationModuleOptions options;
-        options.loadMapData = false;
-        ExploreStartPositionsModule<ExploreInitialWorkerStartPosition> myModule(options);
-        test.myModule = [&]()
-        {
-            return &myModule;
-        };
-
-        test.allowOpponentOutput = false;
-        test.expectWin = false;
-        test.randomSeed = 42;
-        test.writeReplay = false;
-        test.frameLimit = 100;
-        test.timeLimit = INT_MAX;
-        test.run();
-    }
-
     void initialSplitTest(const Maps::MapMetadata &map)
     {
         InitialWorkerMapData data;
@@ -246,29 +141,29 @@ namespace
 
 TEST(InitializeOrderProcessTimerResetValues, Vermeer)
 {
-    initializeOrderProcessTimerResetValues(*Maps::GetOne("Vermeer"));
+    runInitializeOrderProcessTimerResetValues(*Maps::GetOne("Vermeer"));
 }
 
 TEST(InitializeOrderProcessTimerResetValues, Benzene)
 {
-    initializeOrderProcessTimerResetValues(*Maps::GetOne("Benzene"));
+    runInitializeOrderProcessTimerResetValues(*Maps::GetOne("Benzene"));
 }
 
 TEST(InitializeOrderProcessTimerResetValues, Destination)
 {
-    initializeOrderProcessTimerResetValues(*Maps::GetOne("sscai/(2)Destination"));
+    runInitializeOrderProcessTimerResetValues(*Maps::GetOne("sscai/(2)Destination"));
 }
 
 TEST(InitializeOrderProcessTimerResetValues, Retro)
 {
-    initializeOrderProcessTimerResetValues(*Maps::GetOne("cog2026/(4)Retro"));
+    runInitializeOrderProcessTimerResetValues(*Maps::GetOne("cog2026/(4)Retro"));
 }
 
 TEST(InitializeOrderProcessTimerResetValues, AllSSCAIT)
 {
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
     {
-        initializeOrderProcessTimerResetValues(*test.map);
+        runInitializeOrderProcessTimerResetValues(*test.map);
     });
 }
 
@@ -276,40 +171,40 @@ TEST(InitializeOrderProcessTimerResetValues, AllCOG2026)
 {
     Maps::RunOnEach(Maps::Get("cog2026"), [&](BWTest test)
     {
-        initializeOrderProcessTimerResetValues(*test.map);
+        runInitializeOrderProcessTimerResetValues(*test.map);
     });
 }
 
 TEST(ExploreInitialStartPositions, Vermeer)
 {
-    initialPathExploration(*Maps::GetOne("Vermeer"));
+    runInitialSplitExploration(*Maps::GetOne("Vermeer"));
 }
 
 TEST(ExploreInitialStartPositions, Benzene)
 {
-    initialPathExploration(*Maps::GetOne("Benzene"));
+    runInitialSplitExploration(*Maps::GetOne("Benzene"));
 }
 
 TEST(ExploreInitialStartPositions, CircuitBreaker)
 {
-    initialPathExploration(*Maps::GetOne("(4)Circuit Breaker"));
+    runInitialSplitExploration(*Maps::GetOne("(4)Circuit Breaker"));
 }
 
 TEST(ExploreInitialStartPositions, Roadrunner)
 {
-    initialPathExploration(*Maps::GetOne("sscai/(4)Roadrunner"));
+    runInitialSplitExploration(*Maps::GetOne("sscai/(4)Roadrunner"));
 }
 
 TEST(ExploreInitialStartPositions, Destination)
 {
-    initialPathExploration(*Maps::GetOne("sscai/(2)Destination"));
+    runInitialSplitExploration(*Maps::GetOne("sscai/(2)Destination"));
 }
 
 TEST(ExploreInitialStartPositions, AllSSCAIT)
 {
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
     {
-        initialPathExploration(*test.map);
+        runInitialSplitExploration(*test.map);
     });
 }
 
@@ -317,18 +212,18 @@ TEST(ExploreInitialStartPositions, AllCOG2026)
 {
     Maps::RunOnEach(Maps::Get("cog2026"), [&](BWTest test)
     {
-        initialPathExploration(*test.map);
+        runInitialSplitExploration(*test.map);
     });
 }
 
 TEST(ExploreInitialStartPositions, Retro)
 {
-    initialPathExploration(*Maps::GetOne("cog2026/(4)Retro"));
+    runInitialSplitExploration(*Maps::GetOne("cog2026/(4)Retro"));
 }
 
 TEST(ExploreInitialStartPositions, ClayFields)
 {
-    initialPathExploration(*Maps::GetOne("cog2026/(4)Clay"));
+    runInitialSplitExploration(*Maps::GetOne("cog2026/(4)Clay"));
 }
 
 TEST(InitialSplitTest, Vermeer)
@@ -369,7 +264,7 @@ TEST(InitialSplitMeasurement, AllSSCAIT)
 TEST(FullInitialSplit, Benzene)
 {
     auto map = *Maps::GetOne("Benzene");
-    initialPathExploration(map);
+    runInitialSplitExploration(map);
     initialSplitTest(map);
 
     MapData data;

@@ -1,39 +1,14 @@
 #include "BWTest.h"
 
-#include "MiningOptimizationTraining/PathExploration/ExploreStartPositionsModule.h"
-#include "ClearOpponentUnitsModule.h"
+#include "Trainers.h"
 
 using namespace MiningOptimizationTraining;
-
-namespace
-{
-    void run(BWTest &test, PathExplorationModuleOptions options)
-    {
-        options.loadInitialWorkerMapData = false;
-
-        test.opponentRace = BWAPI::Races::Terran;
-        test.opponentModule = []()
-        {
-            return new ClearOpponentUnitsModule();
-        };
-        test.myModule = [&]()
-        {
-            return new ExploreStartPositionsModule<InitializeStartPosition>(options);
-        };
-        test.allowOpponentOutput = false;
-        test.expectWin = false;
-        test.randomSeed = 42;
-        test.writeReplay = false;
-        test.frameLimit = 100;
-        test.run();
-    }
-}
 
 TEST(InitializeMapData, Vermeer)
 {
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    run(test, {});
+    runInitializeMapData(test, {});
 }
 
 TEST(InitializeMapData, VermeerOnePatch)
@@ -43,7 +18,7 @@ TEST(InitializeMapData, VermeerOnePatch)
 
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    run(test, options);
+    runInitializeMapData(test, options);
 }
 
 TEST(InitializeMapData, VermeerOneBase)
@@ -53,14 +28,14 @@ TEST(InitializeMapData, VermeerOneBase)
 
     BWTest test;
     test.map = Maps::GetOne("Vermeer");
-    run(test, options);
+    runInitializeMapData(test, options);
 }
 
 TEST(InitializeMapData, AllSSCAIT)
 {
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
     {
-        run(test, {});
+        runInitializeMapData(test, {});
     });
 }
 
@@ -68,7 +43,7 @@ TEST(InitializeMapData, AllCOG2026)
 {
     Maps::RunOnEach(Maps::Get("cog2026"), [&](BWTest test)
     {
-        run(test, {});
+        runInitializeMapData(test, {});
     });
 }
 
@@ -76,7 +51,7 @@ TEST(InitializeMapData, Benzene)
 {
     BWTest test;
     test.map = Maps::GetOne("Benzene");
-    run(test, {});
+    runInitializeMapData(test, {});
 }
 
 TEST(InitializeMapData, BenzeneOneBase)
@@ -86,14 +61,14 @@ TEST(InitializeMapData, BenzeneOneBase)
 
     BWTest test;
     test.map = Maps::GetOne("Benzene");
-    run(test, options);
+    runInitializeMapData(test, options);
 }
 
 TEST(InitializeMapData, Destination)
 {
     BWTest test;
     test.map = Maps::GetOne("Destination");
-    run(test, {});
+    runInitializeMapData(test, {});
 }
 
 TEST(InitializeMapData, All)
@@ -102,6 +77,6 @@ TEST(InitializeMapData, All)
     {
         PathExplorationModuleOptions options;
         options.skipIfMapDataExists = true;
-        run(test, options);
+        runInitializeMapData(test, options);
     });
 }
