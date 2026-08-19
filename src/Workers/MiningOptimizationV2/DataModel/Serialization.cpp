@@ -12,6 +12,8 @@
 
 #include "FileTools.h"
 
+#define OPENBW_MININGDATAPATH "/Users/bruce.nielsen/BW/mining-data/openbw-dist/"
+
 // Serialization logic for mining optimization data
 // We use the following techniques to reduce the data file size:
 // - Positions are stored as deltas instead of absolute positions wherever possible
@@ -140,6 +142,10 @@ namespace MiningOptimization::Serialization
 
     void readMapData(MapData &data)
     {
+#if IS_OPENBW
+        FileTools::overrideBasePath(OPENBW_MININGDATAPATH);
+#endif
+
         ensureGameParametersInitialized();
 
         // Don't need to reload the data if the map hasn't changed
@@ -170,6 +176,10 @@ namespace MiningOptimization::Serialization
         file.close();
 
         Log::Get() << "Read mining optimization data from " << filename;
+
+#if IS_OPENBW
+        FileTools::overrideBasePath("");
+#endif
     }
 
     void writeMapData(MapData &data)
@@ -197,5 +207,9 @@ namespace MiningOptimization::Serialization
         file.close();
 
         Log::Get() << "Wrote mining optimization data to " << filename;
+
+#if IS_OPENBW
+        FileTools::overrideBasePath("");
+#endif
     }
 }

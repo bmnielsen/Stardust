@@ -19,6 +19,8 @@
 
 #define ASSERT_RESULTS_EQUAL false
 
+#define BASE_PATH "/Users/bruce.nielsen/BW/mining-data/"
+
 namespace MiningOptimizationTraining::Serialization
 {
     namespace
@@ -292,6 +294,8 @@ namespace MiningOptimizationTraining::Serialization
 
     void readMapData(MapData &data)
     {
+        FileTools::overrideBasePath(BASE_PATH "path-training/");
+
         ensureGameParametersInitialized();
 
         // Don't need to reload the data if the map hasn't changed
@@ -322,10 +326,14 @@ namespace MiningOptimizationTraining::Serialization
         file.close();
 
         Log::Get() << "Read mining optimization data from " << filename;
+
+        FileTools::overrideBasePath("");
     }
 
     void writeMapData(MapData &data)
     {
+        FileTools::overrideBasePath(BASE_PATH "path-training/");
+
         ensureGameParametersInitialized();
 
         auto filename = getFilename("mining-optimization-training", true);
@@ -348,10 +356,14 @@ namespace MiningOptimizationTraining::Serialization
         file.close();
 
         Log::Get() << "Wrote mining optimization data to " << filename;
+
+        FileTools::overrideBasePath("");
     }
 
     void readMapData(InitialWorkerMapData &data)
     {
+        FileTools::overrideBasePath(BASE_PATH "initialsplit-training/");
+
         ensureGameParametersInitialized();
 
         // Don't need to reload the data if the map hasn't changed
@@ -382,10 +394,14 @@ namespace MiningOptimizationTraining::Serialization
         file.close();
 
         Log::Get() << "Read initial workers mining optimization data from " << filename;
+
+        FileTools::overrideBasePath("");
     }
 
     void writeMapData(InitialWorkerMapData &data)
     {
+        FileTools::overrideBasePath(BASE_PATH "initialsplit-training/");
+
         ensureGameParametersInitialized();
 
         auto filename = getFilename("mining-optimization-training-initialworkers", true);
@@ -443,5 +459,7 @@ namespace MiningOptimizationTraining::Serialization
                         });
 
 #endif
+
+        FileTools::overrideBasePath("");
     }
 }
