@@ -49,14 +49,20 @@ namespace Maps
             initializeSeeds();
         }
 
-        MapMetadata(const std::string &filename, std::string hash, std::string openbwHash, std::vector<std::vector<std::array<int, 3>>> seeds)
+        MapMetadata(const std::string &filename,
+                    const std::unordered_set<std::string> &mapPools,
+                    std::string hash,
+                    std::string openbwHash,
+                    std::vector<std::vector<std::array<int, 3> > > seeds)
                 : filename(filename)
+                , mapPools(mapPools)
                 , players(playersFromFilename(filename))
                 , hash(std::move(hash))
                 , openbwHash(std::move(openbwHash))
                 , seeds(std::move(seeds)) {}
 
         std::string filename;
+        std::unordered_set<std::string> mapPools;
         int players;
 
         std::string hash;
