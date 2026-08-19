@@ -7,7 +7,7 @@ using namespace MiningOptimizationTraining;
 
 namespace
 {
-    void run(BWTest &test, ExploreStartPositionsModuleOptions options)
+    void run(BWTest &test, PathExplorationModuleOptions options)
     {
         options.loadInitialWorkerMapData = false;
 
@@ -118,7 +118,7 @@ namespace
 
 TEST(PathExploration, VermeerSingleWorker)
 {
-    ExploreStartPositionsModuleOptions options;
+    PathExplorationModuleOptions options;
     options.onePatch = BWAPI::TilePosition(2, 11);
 
     BWTest test;
@@ -128,7 +128,7 @@ TEST(PathExploration, VermeerSingleWorker)
 
 TEST(PathExploration, VermeerOneBase)
 {
-    ExploreStartPositionsModuleOptions options;
+    PathExplorationModuleOptions options;
     options.oneBase = BWAPI::TilePosition(7, 6);
 
     BWTest test;
@@ -145,7 +145,7 @@ TEST(PathExploration, Vermeer)
 
 TEST(PathExploration, BenzeneOneBase)
 {
-    ExploreStartPositionsModuleOptions options;
+    PathExplorationModuleOptions options;
     options.oneBase = BWAPI::TilePosition(7, 96);
 
     BWTest test;
@@ -188,5 +188,15 @@ TEST(AddResendAlwaysArrivesToArrivalNodes, AllSSCAIT)
     Maps::RunOnEach(Maps::Get("sscai"), [&](BWTest test)
     {
         addResendAlwaysArrives(test.map->openbwHash);
+    });
+}
+
+TEST(PathExploration, All)
+{
+    Maps::RunOnEach(Maps::Get(), [&](BWTest test)
+    {
+        PathExplorationModuleOptions options;
+        options.skipIfMapDataExists = true;
+        run(test, options);
     });
 }

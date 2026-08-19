@@ -106,7 +106,7 @@ namespace
             return new ClearOpponentUnitsModule();
         };
 
-        ExploreStartPositionsModuleOptions options;
+        PathExplorationModuleOptions options;
         options.loadMapData = false;
         ExploreStartPositionsModule<ExploreInitialWorkerStartPosition> myModule(options);
         test.myModule = [&]()

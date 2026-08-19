@@ -21,6 +21,16 @@ namespace MiningOptimizationTraining
 
         // Whether to save the optimization training data for the map at completion
         bool saveInitialWorkerMapData = true;
+
+        // Define to liimit the scope to only one base
+        BWAPI::TilePosition oneBase = BWAPI::TilePositions::Invalid;
+
+        // Define to limit the scope to only one patch
+        BWAPI::TilePosition onePatch = BWAPI::TilePositions::Invalid;
+
+        // If set, nothing will be executed if map data already exists
+        bool skipIfMapDataExists = false;
+
     };
 
     // Abstract base class for a module that does path exploration
@@ -31,8 +41,8 @@ namespace MiningOptimizationTraining
     public:
         explicit PathExplorationModule(const PathExplorationModuleOptions &options)
             : InstrumentedDoNothingModule(false)
-            , simWorker(nullptr)
             , options(options)
+            , simWorker(nullptr)
             , simWorkerPosition(BWAPI::Positions::Invalid)
             , forgePosition(BWAPI::TilePositions::Invalid)
             {}
@@ -42,6 +52,8 @@ namespace MiningOptimizationTraining
         void onEnd(bool isWinner) override;
 
     protected:
+        PathExplorationModuleOptions options;
+
         MapData mapData;
         InitialWorkerMapData initialWorkerMapData;
 
@@ -67,8 +79,6 @@ namespace MiningOptimizationTraining
         virtual void run() = 0;
 
     private:
-        const PathExplorationModuleOptions options;
-
         BWAPI::Position simWorkerPosition;
         BWAPI::TilePosition forgePosition;
 

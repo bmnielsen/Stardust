@@ -77,6 +77,12 @@ namespace MiningOptimizationTraining
     template <>
     void ExploreStartPositionsModule<InitializeStartPosition>::initializeStartPositions()
     {
+        if (options.skipIfMapDataExists && !mapData.resourceToGatherPaths.empty())
+        {
+            options.saveMapData = false;
+            return;
+        }
+
         // At this stage we build a set of possible mining start positions around each patch that are oriented towards the depot
 
         // Build a set of blocked positions around all patches on the map

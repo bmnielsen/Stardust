@@ -23,20 +23,13 @@ namespace MiningOptimizationTraining
     struct SimulateAllSubpixelsOfPosition : StartPositionStateBase {};
     struct ExploreInitialWorkerStartPosition : StartPositionStateBase {};
 
-    struct ExploreStartPositionsModuleOptions : PathExplorationModuleOptions
-    {
-        BWAPI::TilePosition oneBase = BWAPI::TilePositions::Invalid;
-        BWAPI::TilePosition onePatch = BWAPI::TilePositions::Invalid;
-    };
-
     // Module that explores start positions, with how they are handled implemented in the template class
     template <typename StartPositionState>
     class ExploreStartPositionsModule : public PathExplorationModule
     {
     public:
-        explicit ExploreStartPositionsModule(const ExploreStartPositionsModuleOptions &options)
+        explicit ExploreStartPositionsModule(const PathExplorationModuleOptions &options)
                 : PathExplorationModule(options)
-                , options(options)
         {}
 
     protected:
@@ -148,7 +141,6 @@ namespace MiningOptimizationTraining
         }
 
     private:
-        const ExploreStartPositionsModuleOptions options;
         std::deque<StartPositionState> startPositions;
         bool executed = false;
         unsigned long processed = 0;

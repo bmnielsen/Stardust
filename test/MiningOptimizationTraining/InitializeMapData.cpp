@@ -7,7 +7,7 @@ using namespace MiningOptimizationTraining;
 
 namespace
 {
-    void run(BWTest &test, ExploreStartPositionsModuleOptions options)
+    void run(BWTest &test, PathExplorationModuleOptions options)
     {
         options.loadInitialWorkerMapData = false;
 
@@ -38,7 +38,7 @@ TEST(InitializeMapData, Vermeer)
 
 TEST(InitializeMapData, VermeerOnePatch)
 {
-    ExploreStartPositionsModuleOptions options;
+    PathExplorationModuleOptions options;
     options.onePatch = BWAPI::TilePosition(2, 11);
 
     BWTest test;
@@ -48,7 +48,7 @@ TEST(InitializeMapData, VermeerOnePatch)
 
 TEST(InitializeMapData, VermeerOneBase)
 {
-    ExploreStartPositionsModuleOptions options;
+    PathExplorationModuleOptions options;
     options.oneBase = BWAPI::TilePosition(7, 6);
 
     BWTest test;
@@ -81,7 +81,7 @@ TEST(InitializeMapData, Benzene)
 
 TEST(InitializeMapData, BenzeneOneBase)
 {
-    ExploreStartPositionsModuleOptions options;
+    PathExplorationModuleOptions options;
     options.oneBase = BWAPI::TilePosition(7, 96);
 
     BWTest test;
@@ -94,4 +94,14 @@ TEST(InitializeMapData, Destination)
     BWTest test;
     test.map = Maps::GetOne("Destination");
     run(test, {});
+}
+
+TEST(InitializeMapData, All)
+{
+    Maps::RunOnEach(Maps::Get(), [&](BWTest test)
+    {
+        PathExplorationModuleOptions options;
+        options.skipIfMapDataExists = true;
+        run(test, options);
+    });
 }

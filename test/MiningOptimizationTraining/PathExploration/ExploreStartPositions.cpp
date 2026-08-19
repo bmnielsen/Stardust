@@ -148,6 +148,11 @@ namespace MiningOptimizationTraining
                 }
             }
         }
+
+        if (startPositions.empty())
+        {
+            options.saveMapData = false;
+        }
     }
 
     template <>
