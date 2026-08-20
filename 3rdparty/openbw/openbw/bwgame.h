@@ -2297,11 +2297,23 @@ struct state_functions {
 		if (u->build_queue.empty() && !has_available_supply_for(u->owner, unit_type, true)) return false;
 		if (!has_available_resources_for(u->owner, unit_type, true)) return false;
 		u->build_queue.push_back(unit_type);
+		for (const unit_type_t* t : u->build_queue_limbo) {
+			u->build_queue.push_back(t);
+		}
+		u->build_queue_limbo.clear();
 		if (!ut_building(unit_type)) {
 			st.current_minerals[u->owner] -= unit_type->mineral_cost;
 			st.current_gas[u->owner] -= unit_type->gas_cost;
 		}
 		return true;
+	}
+
+
+	void build_queue_clear_single(unit_t* u ) {
+		if (u->build_queue.empty()) return;
+		u->build_queue.erase(u->build_queue.begin());
+		u->build_queue_limbo = u->build_queue;
+		u->build_queue.clear();
 	}
 
 	bool train_unit(unit_t* u, const unit_type_t* unit_type) {
@@ -2325,7 +2337,7 @@ struct state_functions {
 		if (unit_is_morphing_building(u)) {
 			if (u->build_queue.empty()) error("cancel_morphing_building: build queue is empty");
 			const unit_type_t* build_type = u->build_queue.front();
-			u->build_queue.erase(u->build_queue.begin());
+			build_queue_clear_single(u);
 			partially_refund_unit_costs(u->owner, build_type);
 			u_set_status_flag(u, unit_t::status_flag_completed);
 			add_completed_unit(u, -1, false);
@@ -2399,7 +2411,7 @@ struct state_functions {
 		}
 		if (morph_to) {
 			morph_unit(u, morph_to);
-			if (!u->build_queue.empty()) u->build_queue.erase(u->build_queue.begin());
+			if (!u->build_queue.empty()) build_queue_clear_single(u);
 			u->remaining_build_time = 0;
 			if (!u->previous_unit_type) error("cancel_building_unit: previous_unit_type is null");
 			replace_sprite_images(u->sprite, u->previous_unit_type->flingy->sprite->image, 0_dir);
@@ -2455,12 +2467,7 @@ struct state_functions {
 		if (!has_available_supply_for(u->owner, unit_type, true)) return;
 		if (!has_available_resources_for(u->owner, unit_type, true)) return;
 		set_unit_order(u, order_type, position);
-		if (!u->build_queue.empty()) {
-			for (size_t i = 5; i;) {
-				--i;
-				cancel_build_queue(u, i);
-			}
-		}
+		cancel_build_queue(u);
 		if (ut_building(u) && ut_building(unit_type)) {
 			u->building.addon_build_type = unit_type;
 		} else {
@@ -2540,12 +2547,11 @@ struct state_functions {
 		}
 		bool is_nydus_exit = u && unit_is_nydus(u);
 		if (ut_requires_creep(unit_type) || is_nydus_exit) {
-			bool require_visibility = !check_invisible_tiles || is_nydus_exit;
 			for (size_t y = tile_pos.y; y != tile_pos.y + tile_size.y; ++y) {
 				for (size_t x = tile_pos.x; x != tile_pos.x + tile_size.x; ++x) {
 					auto& tile = st.tiles[y * game_st.map_tile_width + x];
 					if (tile.explored & visibility_mask) return false;
-					if (require_visibility || ~tile.visible & visibility_mask) {
+					if (check_invisible_tiles || is_nydus_exit || ~tile.visible & visibility_mask) {
 						if (~tile.flags & tile_t::flag_has_creep) return false;
 					}
 				}
@@ -2961,7 +2967,7 @@ struct state_functions {
 		u->order_type = prev_order_type;
 		u->order_target = prev_order_target;
 		u->order_state = prev_order_state;
-		if (u_grounded_building(u) && !u->build_queue.empty()) u->build_queue.erase(u->build_queue.begin());
+		if (u_grounded_building(u) && !u->build_queue.empty()) build_queue_clear_single(u);
 		if (ut_resource(u)) set_unit_resources(u, prev_resources);
 		if (was_hatchery && unit_is_hatchery(u)) u->building.hatchery.larva_spawn_side_values = prev_larva_spawn_side_values;
 	}
@@ -3384,7 +3390,11 @@ struct state_functions {
 			if (unit_is_researching(u)) cancel_research(u);
 			if (unit_is_upgrading(u)) cancel_upgrade(u);
 		}
-		if (unit_is_reaver(u) || unit_is_carrier(u)) cancel_build_queue(u);
+		if (unit_is_reaver(u) || unit_is_carrier(u)) {
+			cancel_build_queue(u);
+			u->current_build_unit = nullptr;
+			u->secondary_order_state = 0;
+		}
 		set_unit_owner(u, new_owner, true);
 		if (new_owner < 8) set_sprite_owner(u, new_owner);
 		if (any_upgrades_granted) apply_upgrades_to_player_units(new_owner);
@@ -3980,7 +3990,7 @@ struct state_functions {
 		add_creep_provider(u);
 		set_construction_graphic(u, true);
 		u->hp = u->unit_type->hitpoints / 10;
-		if (!u->build_queue.empty()) u->build_queue.erase(u->build_queue.begin());
+		if (!u->build_queue.empty()) build_queue_clear_single(u);
 		set_unit_order(u, get_order_type(Orders::IncompleteMorphing));
 	}
 
@@ -4592,7 +4602,7 @@ struct state_functions {
 					unit_t* build_unit;
 					if (unit_type->id == UnitTypes::Terran_Refinery) build_unit = build_refinery(u, unit_type);
 					else build_unit = create_unit(unit_type, u->order_target.pos, u->owner);
-					u->build_queue.erase(u->build_queue.begin());
+					build_queue_clear_single(u);
 					if (build_unit) {
 						build_unit->connected_unit = u;
 						u->order_type = get_order_type(Orders::ConstructingBuilding);
@@ -5255,7 +5265,7 @@ struct state_functions {
 					for (unit_t* n : find_units_noexpand(unit_sprite_inner_bounding_box(u))) {
 						if (n == u) continue;
 						if (unit_target_is_enemy(n, u)) continue;
-						if ((!unit_can_move(u) && unit_can_attack(u)) || u_burrowed(u)) kill_unit(n);
+						if ((!unit_can_move(n) && unit_can_attack(n)) || u_burrowed(n)) kill_unit(n);
 					}
 					if (!u->order_queue.empty()) {
 						auto* o = &u->order_queue.front();
@@ -6322,7 +6332,7 @@ struct state_functions {
 				u->order_signal &= ~4;
 				morph_unit(u, unit_type);
 				// todo: callback for sound
-				u->build_queue.erase(u->build_queue.begin());
+				build_queue_clear_single(u);
 				if ((int)(ImageTypes)u->unit_type->construction_animation) {
 					set_construction_graphic(u, true);
 					sprite_run_anim(u->sprite, iscript_anims::SpecialState1);
@@ -6955,7 +6965,7 @@ struct state_functions {
 						unit_t* build_unit;
 						if (build_type->id == UnitTypes::Protoss_Assimilator) build_unit = build_refinery(u, build_type);
 						else build_unit = create_unit(build_type, u->order_target.pos, u->owner);
-						u->build_queue.erase(u->build_queue.begin());
+						build_queue_clear_single(u);
 						if (build_unit) {
 							replace_sprite_images(build_unit->sprite, get_image_type(ImageTypes::IMAGEID_Warp_Anchor), 0_dir);
 							if (unit_is(build_type, UnitTypes::Protoss_Assimilator)) create_image(get_image_type(ImageTypes::IMAGEID_Vespene_Geyser), build_unit->sprite, xy(), image_order_below);
@@ -9216,6 +9226,7 @@ struct state_functions {
 
             all_nodes.clear();
             open.clear();
+			goal_node = nullptr;
 
 			all_nodes.emplace_back();
 			node_t* start_node = &all_nodes.back();
@@ -9751,6 +9762,7 @@ struct state_functions {
 		};
 
 		auto pf_add_neighbor = [&](xy pos, int flags) {
+			if (!is_in_map_bounds(pos)) return;
 			if (pos == w.cur_pos) return;
 			bool is_goal = false;
 			if (w.target_unit) {
@@ -15484,13 +15496,13 @@ struct state_functions {
 	}
 
 	void unit_finder_reinsert(unit_t* u) {
-		if (u->unit_finder_bounding_box.from.x == -1) return;
+		if (u->unit_finder_bounding_box.to.x == -1) return;
 		rect bb = unit_sprite_inner_bounding_box(u);
 		unit_finder_reinsert(u, bb);
 	}
 
 	void unit_finder_remove(unit_t* u) {
-		if (u->unit_finder_bounding_box.from.x == -1) return;
+		if (u->unit_finder_bounding_box.to.x == -1) return;
 		if (unit_finder_search_index) error("attempt to modify unit finder while search is active");
 		auto remove = [&](auto& vec, int value) {
 			auto cmp_l = [&](auto& a, int b) {
@@ -16090,6 +16102,7 @@ struct state_functions {
 					destroy_sprite(u->building.pylon.psi_field_sprite);
 					u->building.pylon.psi_field_sprite = nullptr;
 				}
+				break;
 			case UnitTypes::Zerg_Nydus_Canal:
 				if (u->building.nydus.exit) {
 					unit_t* exit = u->building.nydus.exit;
@@ -16097,6 +16110,7 @@ struct state_functions {
 					exit->building.nydus.exit = nullptr;
 					kill_unit(exit);
 				}
+				break;
 			default:
 				break;
 			}
@@ -16266,6 +16280,7 @@ struct state_functions {
 		if (!initialize_unit_type(u, unit_type, pos, owner)) return false;
 
 		new (&u->build_queue) static_vector<const unit_type_t*, 5>();
+		new (&u->build_queue_limbo) static_vector<const unit_type_t*, 5>();
 		++u->unit_id_generation;
 		u->wireframe_randomizer = lcg_rand(15) & 0xff;
 		if (ut_turret(u)) u->hp = 1_fp8;
@@ -19473,8 +19488,8 @@ struct state_functions {
 		unit_area.from.y = pos.y / 32u - unit_type->placement_size.y / 32u / 2;
 		unit_area.to.x = unit_area.from.x + unit_type->placement_size.x / 32u;
 		unit_area.to.y = unit_area.from.y + unit_type->placement_size.y / 32u;
-		st.tiles.at(unit_area.from.y * game_st.map_tile_width + unit_area.from.x);
-		if (unit_area.from != unit_area.to) st.tiles.at((unit_area.to.y - 1) * game_st.map_tile_width + unit_area.to.x - 1);
+		(void)st.tiles.at(unit_area.from.y * game_st.map_tile_width + unit_area.from.x);
+		if (unit_area.from != unit_area.to) (void)st.tiles.at((unit_area.to.y - 1) * game_st.map_tile_width + unit_area.to.x - 1);
 		for (size_t y = unit_area.from.y; y != unit_area.to.y; ++y) {
 			for (size_t x = unit_area.from.x; x != unit_area.to.x; ++x) {
 				if (!tile_can_have_creep({x, y})) continue;
@@ -19569,6 +19584,7 @@ struct state_copier {
 			remap_unit(u->auto_target_unit);
 			remap_unit(u->connected_unit);
 			new (&u->build_queue) static_vector<const unit_type_t*, 5>(v->build_queue);
+			new (&u->build_queue_limbo) static_vector<const unit_type_t*, 5>(v->build_queue_limbo);
 			if (u->unit_type) {
 				if (funcs.unit_is(u, UnitTypes::Protoss_Interceptor) || funcs.unit_is(u, UnitTypes::Protoss_Scarab)) {
 					remap_unit(u->fighter.parent);
@@ -21639,6 +21655,10 @@ struct game_load_functions : state_functions {
 
 				if (valid_flags & 8 && flags & 8) {
 					make_unit_hallucination(u);
+				}
+
+				if (valid_flags & 0x10 && flags & 0x10) {
+					u_set_status_flag(u, unit_t::status_flag_invincible);
 				}
 
 				if (unit_is(u, UnitTypes::Zerg_Broodling)) {
