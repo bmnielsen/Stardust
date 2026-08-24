@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 project(Stardust)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 include_directories(${CMAKE_SOURCE_DIR}/3rdparty)
 
@@ -35,6 +35,14 @@ file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR} *.cpp)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Workers/MiningOptimizationV2/Solver/Solver_Common.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Workers/MiningOptimizationV2/Takeover/PatchOccupiedForecast.cpp PROPERTIES COMPILE_FLAGS -O0)
 #SET_SOURCE_FILES_PROPERTIES(${PROJECT_SOURCE_DIR}/Workers/WorkerMiningInstrumentation.cpp PROPERTIES COMPILE_FLAGS -O0)
+
+# Disables debug info for the mining optimization on RelWithDebInfo
+# This is often the slowest part of the bot, and isn't being changed much
+# This doesn't seem to work (it disables debug info for all files)
+#if (CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
+#    file(GLOB_RECURSE MINING_OPTIMIZATION_SRC_FILES ${PROJECT_SOURCE_DIR}/Workers/MiningOptimizationV2 *.cpp)
+#    set_source_files_properties(${MINING_OPTIMIZATION_SRC_FILES} PROPERTIES COMPILE_FLAGS -g0)
+#endif(CMAKE_BUILD_TYPE MATCHES RelWithDebInfo)
 
 add_library(Stardust SHARED ${SRC_FILES})
 
