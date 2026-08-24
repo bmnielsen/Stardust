@@ -619,6 +619,10 @@ namespace BuildingPlacement
                 Log::Debug() << "Error scoring wall forge " << forge << ", gateway " << gateway << ", geo1 size " << geo1.size() << ", geo2 size "
                              << geo2->size();
                 wallOptions.emplace_back(forge, gateway);
+                if (!geo)
+                {
+                    delete geo2;
+                }
                 return;
             }
 
@@ -1563,7 +1567,6 @@ namespace BuildingPlacement
 
             double bestWallQuality = DBL_MAX;
             double bestDistCentroid = 0;
-            BWAPI::Position bestCentroid;
 
             for (auto const &wall : wallOptions)
             {
@@ -1589,7 +1592,6 @@ namespace BuildingPlacement
 
                 // Prefer walls that create a longer path
                 auto distIncrease = pathLength() - optimalPathLength;
-                if (distIncrease < 0) continue; // Shouldn't be possible, but guard for it just in case
 
                 // Prefer walls that are slightly crooked, so we get better cannon placements
                 // For walls where the forge and gateway are touching, measure this by comparing the slope of the wall building centers to the slope of the gap, rounded to 15 degree increments
@@ -1632,7 +1634,6 @@ namespace BuildingPlacement
                     bestWallOption = wall;
                     bestWallQuality = wallQuality;
                     bestDistCentroid = distCentroidNat;
-                    bestCentroid = centroid;
 #if DEBUG_PLACEMENT
                     Log::Debug() << "(best)";
 #endif
@@ -1920,7 +1921,7 @@ namespace BuildingPlacement
                           bestWall.naturalCannons.end(),
                           [&bestWall](const BWAPI::TilePosition &a, const BWAPI::TilePosition &b)
                           {
-                              return a.getApproxDistance(bestWall.forge) > a.getApproxDistance(bestWall.forge);
+                              return a.getApproxDistance(bestWall.forge) > b.getApproxDistance(bestWall.forge);
                           });
 
                 for (auto naturalCannon : bestWall.naturalCannons)

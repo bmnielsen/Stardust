@@ -681,6 +681,7 @@ void CorsairSquad::clusterAttack(UnitCluster &cluster, std::set<Unit> &targets)
     switch (cluster.currentActivity)
     {
         case UnitCluster::Activity::Moving:
+        default:
             attack = shouldStartAttack(cluster, simResult);
             break;
         case UnitCluster::Activity::Attacking:
@@ -779,6 +780,7 @@ void CorsairSquad::clusterDefend(UnitCluster &cluster, Base *base, std::set<Unit
         switch (cluster.currentActivity)
         {
             case UnitCluster::Activity::Moving:
+            default:
                 attack = shouldStartAttack(cluster, simResult);
                 break;
             case UnitCluster::Activity::Attacking:

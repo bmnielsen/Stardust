@@ -82,7 +82,7 @@ namespace
                 // Try to find the closest position to the target that is valid and safe
                 std::vector<BWAPI::Position> candidates;
                 auto vector = ahead - detector->lastPosition;
-                auto perpendicular = BWAPI::Position(vector.y, vector.x);
+                auto perpendicular = BWAPI::Position(vector.y, vector.x); // NOLINT intentionally swapping x and y
                 auto scaleAndAdd = [&](BWAPI::Position pos)
                 {
                     for (int length = 48; length <= 112; length += 32)

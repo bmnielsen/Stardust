@@ -125,7 +125,7 @@ namespace Log
             csvFiles.clear();
 #endif
         }
-        catch (std::exception &ex)
+        catch (std::exception&)
         {
             // Ignore
         }

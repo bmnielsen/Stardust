@@ -113,7 +113,7 @@ namespace
     {
         int length = origin.getApproxDistance(target);
         auto scaledVector = Geo::ScaleVector(target - origin, 16);
-        auto scaledInverse = BWAPI::Position(scaledVector.y, scaledVector.x);
+        auto scaledInverse = BWAPI::Position(scaledVector.y, scaledVector.x); // NOLINT intentionally swapping x and y
 
         std::set<BWAPI::TilePosition> result;
         auto insertIfValid = [&result](BWAPI::TilePosition tile)

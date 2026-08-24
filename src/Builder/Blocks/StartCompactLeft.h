@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Block.h"
 
 // This start block is useful on maps with a narrow main, e.g. La Mancha 1 o'clock

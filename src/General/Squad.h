@@ -55,6 +55,7 @@ public:
 
     Squad (const Squad&) = delete;
     Squad &operator=(const Squad&) = delete;
+    virtual ~Squad() = default;
 
 protected:
     BWAPI::Position targetPosition;

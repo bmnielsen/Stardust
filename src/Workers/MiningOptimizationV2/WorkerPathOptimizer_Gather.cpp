@@ -405,7 +405,7 @@ namespace MiningOptimization
         auto bwapiUnit = resource->getBwapiUnitIfVisible();
         if (!bwapiUnit)
         {
-            BWAPI::Broodwar->setLastError(BWAPI::Errors::Unit_Not_Visible);
+            BWAPI::Broodwar->setLastError(BWAPI::Errors::Unit_Not_Visible); // NOLINT This actually has side-effects despite being const
             return false;
         }
 

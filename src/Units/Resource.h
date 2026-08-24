@@ -46,8 +46,6 @@ public:
 
     [[nodiscard]] int getDistance(BWAPI::UnitType type, BWAPI::Position center) const;
 
-    void update();
-
 private:
     mutable BWAPI::Unit bwapiUnit;
 };

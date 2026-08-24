@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Block.h"
 
 // This start block is useful in mains with a geyser on left and minerals on right, like Tau Cross 6 o'clock

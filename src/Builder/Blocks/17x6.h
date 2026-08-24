@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Block.h"
 
 class Block17x6 : public Block

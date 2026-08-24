@@ -56,7 +56,7 @@ namespace Opponent
                     return mapHashIt->get<std::string>() == BWAPI::Broodwar->mapHash();
                 }
             }
-            catch (std::exception &ex)
+            catch (std::exception&)
             {
                 // Just skip this game result
             }
@@ -304,7 +304,7 @@ namespace Opponent
 
                 result = std::min(result, valIt->get<int>());
             }
-            catch (std::exception &ex)
+            catch (std::exception&)
             {
                 // Just skip this game result
             }
@@ -333,7 +333,7 @@ namespace Opponent
                     (valIt->get<bool>() ? wins : losses)++;
                 }
             }
-            catch (std::exception &ex)
+            catch (std::exception&)
             {
                 // Just skip this game result
             }
@@ -382,7 +382,7 @@ namespace Opponent
                     losses++;
                 }
             }
-            catch (std::exception &ex)
+            catch (std::exception&)
             {
                 // Just skip this game result
             }

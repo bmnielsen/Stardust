@@ -184,6 +184,7 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             case OurStrategy::Normal:
             case OurStrategy::ThreeGateRobo:
             case OurStrategy::MidGame:
+            default:
             {
                 auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
                 if (!mainArmyPlay)
