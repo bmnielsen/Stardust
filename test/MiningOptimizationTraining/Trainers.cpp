@@ -4,7 +4,7 @@
 #include "FileTools.h"
 #include "MiningOptimizationTraining/DataTransformation/DataTransformer.h"
 
-#define EXPORT_PATH "/Users/bmnielsen/BW/mining-data/bw-dist/"
+#define BASE_PATH "/Users/bruce.nielsen/BW/mining-data/"
 
 namespace MiningOptimizationTraining
 {
@@ -173,7 +173,9 @@ namespace MiningOptimizationTraining
         std::cout << "Loading initial split data for " << mapHash << "..." << std::endl;
         Serialization::readMapData(initialWorkerData);
 
+        FileTools::overrideBasePath(BASE_PATH "openbw-dist/");
         DataTransformer::transform(data, initialWorkerData);
+        FileTools::overrideBasePath("");
     }
 
     void exportDataFile(const std::string &openbwMapHash, const std::string &mapHash)
@@ -181,10 +183,12 @@ namespace MiningOptimizationTraining
         std::ostringstream sourceFilenameBuilder;
         sourceFilenameBuilder << "mining-optimization";
         sourceFilenameBuilder << "_" << openbwMapHash;
+        FileTools::overrideBasePath(BASE_PATH "openbw-dist/");
         auto sourceFilename = FileTools::getFilePath(sourceFilenameBuilder.str(), "bin.zstd", false);
+        FileTools::overrideBasePath("");
 
         std::ostringstream destinationFilenameBuilder;
-        destinationFilenameBuilder << EXPORT_PATH;
+        destinationFilenameBuilder << (BASE_PATH "bw-dist/");
         destinationFilenameBuilder << "mining-optimization";
         destinationFilenameBuilder << "_" << mapHash;
         destinationFilenameBuilder << ".bin.zstd";
