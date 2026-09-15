@@ -37,12 +37,26 @@ namespace
             }
             os << "}";
         };
+        auto mapPools = [](const std::unordered_set<std::string> &pools)
+        {
+            std::ostringstream o;
+            std::string sep;
+            o << "{";
+            for (const auto &pool : pools)
+            {
+                o << sep << "\"" << pool << "\"";
+                sep = ",";
+            }
+            o << "}";
+            return o.str();
+        };
         std::string sep;
         for (const auto &map : maps)
         {
             os << sep
                << "Maps::MapMetadata"
                << "(\"" << map.filename << "\""
+               << "," << mapPools(map.mapPools)
                << ",\"" << map.hash << "\""
                << ",\"" << map.openbwHash << "\""
                << ",";
