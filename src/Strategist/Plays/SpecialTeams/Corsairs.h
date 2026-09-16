@@ -9,7 +9,7 @@ class Corsairs : public Play
 public:
     explicit Corsairs();
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    [[nodiscard]] std::shared_ptr<Squad> getSquad() const override { return squad; }
 
     void update() override;
 

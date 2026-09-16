@@ -127,12 +127,12 @@ namespace Strategist
 
                 // Remove reassignable units already belonging to this play
                 // This also makes them unavailable to later (lower-priority) plays
-                // TODO: Need to figure out how to allow the scout squad to take a detector from the main army squad when it doesn't need it
+                // The only exception is excess detectors, which we allow to be reassigned
                 for (auto &typeAndReassignableUnits : typeToReassignableUnits)
                 {
                     for (auto it = typeAndReassignableUnits.second.begin(); it != typeAndReassignableUnits.second.end();)
                     {
-                        if (it->currentPlay == play)
+                        if (it->currentPlay == play && !play->isExcessDetector(it->unit))
                         {
                             it = typeAndReassignableUnits.second.erase(it);
                         }
@@ -222,6 +222,8 @@ namespace Strategist
                 {
                     for (auto &reassignableUnit : typeAndReassignableUnits.second)
                     {
+                        if (reassignableUnit.currentPlay == playReceivingUnassignedUnits) continue;
+
                         if (reassignableUnit.currentPlay != nullptr)
                         {
                             Log::Get() << "WARNING: Unit assigned to unknown play: " << *reassignableUnit.unit

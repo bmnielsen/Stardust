@@ -15,4 +15,6 @@ public:
     void update() override;
 
     void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+
+    [[nodiscard]] bool isExcessDetector(const MyUnit &detector) const override;
 };

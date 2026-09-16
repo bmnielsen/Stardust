@@ -11,7 +11,7 @@ public:
 
     explicit AttackExpansion(Base *base, int enemyDefenseValue);
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    [[nodiscard]] std::shared_ptr<Squad> getSquad() const override { return squad; }
 
     void update() override;
 

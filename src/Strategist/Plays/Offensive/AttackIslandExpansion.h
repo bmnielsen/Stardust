@@ -10,7 +10,7 @@ public:
 
     explicit AttackIslandExpansion(Base *base);
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    [[nodiscard]] std::shared_ptr<Squad> getSquad() const override { return squad; }
 
     void update() override;
 

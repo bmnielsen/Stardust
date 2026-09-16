@@ -82,7 +82,7 @@ public:
     [[nodiscard]] virtual bool canReassignUnit(const MyUnit &unit) const { return true; }
 
     // Returns the play's squad, if it has one
-    virtual std::shared_ptr<Squad> getSquad() { return nullptr; }
+    [[nodiscard]] virtual std::shared_ptr<Squad> getSquad() const { return nullptr; }
 
     // Add a unit to the play. By default, this adds it to the play's squad, if it has one.
     virtual void addUnit(const MyUnit &unit);
@@ -107,4 +107,6 @@ public:
     // to it via addUnit (and not removed earlier through status.removedUnits).
     virtual void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
                          const std::function<void(const MyUnit)> &movableUnitCallback);
+
+    [[nodiscard]] virtual bool isExcessDetector(const MyUnit &detector) const { return false; }
 };

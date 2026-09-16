@@ -12,7 +12,7 @@ public:
 
     [[nodiscard]] bool isDefensive() const override { return false; }
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    [[nodiscard]] std::shared_ptr<Squad> getSquad() const override { return squad; }
 
 private:
     std::shared_ptr<AttackBaseSquad> squad;
