@@ -92,6 +92,8 @@ void StardustAIModule::onStart()
         Log::Get() << "Module base address: 0x" << std::hex << moduleBaseAddress;
     }
 
+    Timer::initialize();
+
     Timer::start("Startup");
 
     Units::initialize();
@@ -156,6 +158,7 @@ void StardustAIModule::onEnd(bool isWinner)
     CherryVis::gameEnd();
 
     PerformanceManager::gameEnd();
+    Timer::gameEnd();
 }
 
 void StardustAIModule::onFrame()
