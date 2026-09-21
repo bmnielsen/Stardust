@@ -17,6 +17,7 @@
 #include "Bullets.h"
 #include "Players.h"
 #include "Geo.h"
+#include "PerformanceManager.h"
 
 int currentFrame;
 
@@ -81,6 +82,7 @@ void StardustAIModule::onStart()
     Geo::initialize();
     PathFinding::clearGrids();
     PathFinding::initializeSearch();
+    PerformanceManager::initialize();
 
     Log::SetDebug(true);
     CherryVis::initialize();
@@ -152,6 +154,8 @@ void StardustAIModule::onEnd(bool isWinner)
     Opponent::gameEnd(isWinner);
     WORKERGATHEROPTIMIZER::gameEnd();
     CherryVis::gameEnd();
+
+    PerformanceManager::gameEnd();
 }
 
 void StardustAIModule::onFrame()
@@ -177,6 +181,7 @@ void StardustAIModule::onFrame()
 #endif
 
     Timer::start("Frame");
+    PerformanceManager::frameStart();
 
     // Before doing anything else, check if the opponent has left or been eliminated
     for (auto &event : BWAPI::Broodwar->getEvents())
@@ -253,6 +258,8 @@ void StardustAIModule::onFrame()
 
     // Hook our test infrastructure in here in case we want to have our units do different stuff
     if (testOnFrame) testOnFrame();
+
+    PerformanceManager::frameFinishedUpdateStep();
 
     // Update stuff that issues orders
     General::issueOrders();
@@ -401,7 +408,7 @@ void StardustAIModule::onFrame()
     CherryVis::frameEnd();
     Timer::checkpoint("Instrumentation");
 
-    Timer::stop();
+    Timer::stop(PerformanceManager::frameEnd());
 
     currentFrame++;
 }
