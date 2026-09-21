@@ -34,6 +34,8 @@ namespace
 
 void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position position, int delta)
 {
+    range = std::max(range, 0);
+
     int startX = position.x >> 3U;
     int startY = position.y >> 3U;
     for (auto &pos : getPositionsInRange(type, range))
