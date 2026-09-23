@@ -82,6 +82,7 @@ void StardustAIModule::onStart()
     Geo::initialize();
     PathFinding::clearGrids();
     PathFinding::initializeSearch();
+    Producer::initialize();
     PerformanceManager::initialize();
 
     Log::SetDebug(true);
@@ -268,8 +269,11 @@ void StardustAIModule::onFrame()
     General::issueOrders();
     Timer::checkpoint("General::issueOrders");
 
-    Producer::update();
-    Timer::checkpoint("Producer::update");
+    if (currentFrame >= (Producer::frameLastUpdated() + 6) || !PerformanceManager::shouldSkipProducer())
+    {
+        Producer::update();
+        Timer::checkpoint("Producer::update");
+    }
 
     Builder::issueOrders();
     Timer::checkpoint("Builder::issueOrders");

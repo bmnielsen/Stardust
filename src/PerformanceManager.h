@@ -19,5 +19,17 @@ namespace PerformanceManager
     // This is essentially the baseline frame time that we always allow the bot to use regardless of performance
     void frameFinishedUpdateStep();
 
+    // The time limit for a combat sim execution in microseconds
+    // There will always be a high limit returned to avoid extremely slow performance
+    // In frame limited configurations the limit will be lower, and will be dynamically adjusted lower again if the frame has already
+    // been taking a long time to process
+    unsigned int combatSimTimeLimitMicroseconds();
 
+    // Whether we should skip running the producer this frame
+    // The caller may ignore this if the producer hasn't been run for a while
+    bool shouldSkipProducer();
+
+    // Whether we should avoid running the mining optimization solver for gather paths
+    // Return paths are always allowed since they are much simpler
+    bool shouldAvoidMiningOptimizationGatherSolver();
 }

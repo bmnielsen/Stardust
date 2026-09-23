@@ -153,6 +153,10 @@ namespace MiningOptimization
     bool optimizeStartOfMining(Base *base, std::vector<std::tuple<MyWorker, MyUnit, Resource>> &workersAndDepotsAndResources)
     {
 #if ENABLE_TAKEOVER_LOGIC
+        // Check if we are under performance pressure
+        // If this is the case, we scan for any workers that need to do a new path solve
+        // If there are workers needing a path solve, we defer it to a later frame
+
         // Loop through the given workers, update their paths, and check if any require takeover optimization
         std::vector<std::tuple<WorkerPathOptimizer<GatherArrivalData>*, std::set<int>, int>> takeoverWorkers;
         std::map<MyWorker, WorkerPathOptimizer<GatherArrivalData>*> pathingWorkers;

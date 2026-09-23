@@ -1,8 +1,10 @@
 #pragma once
 
-#include "Common.h"
-
 namespace Producer
 {
+    void initialize();
+
     void update();
+
+    int frameLastUpdated();
 }

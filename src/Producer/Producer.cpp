@@ -21,6 +21,8 @@ namespace Producer
 {
     namespace
     {
+        int _frameLastUpdated;
+
         int PREDICT_FRAMES;
         std::vector<int> minerals;
         std::vector<int> gas;
@@ -2108,6 +2110,11 @@ namespace Producer
         }
     }
 
+    void initialize()
+    {
+        _frameLastUpdated = -1;
+    }
+
     void update()
     {
         // The overall objective is, for each production goal, to determine what should be produced next and
@@ -2364,5 +2371,10 @@ namespace Producer
                 }
             }
         }
+    }
+
+    int frameLastUpdated()
+    {
+        return _frameLastUpdated;
     }
 }

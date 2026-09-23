@@ -10,8 +10,7 @@
 
 #include "DebugFlag_CombatSim.h"
 #include "EnemyBunker.h"
-
-#define LIMIT_MICROSECONDS 5000
+#include "PerformanceManager.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define DEBUG_COMBATSIM_CSV false          // Writes a CSV file for each cluster with detailed sim information
@@ -381,6 +380,7 @@ namespace
 #endif
 
         auto startTime = std::chrono::high_resolution_clock::now();
+        auto timeLimit = PerformanceManager::combatSimTimeLimitMicroseconds();
         int i = 0;
         while (true)
         {
@@ -468,7 +468,7 @@ namespace
             if (i >= iterations) break;
 
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count();
-            if (duration > LIMIT_MICROSECONDS)
+            if (duration > timeLimit)
             {
                 if (iterations < maxIterations) CherryVis::log() << "Sim aborted after " << i << "iterations";
                 break;

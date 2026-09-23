@@ -2,7 +2,7 @@
 
 #include "MapData.h"
 
-#define CAPACITY 5000
+#define CAPACITY 50000
 
 #define LOG_CACHE_OPERATIONS false
 

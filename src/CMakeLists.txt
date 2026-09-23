@@ -50,6 +50,10 @@ IF (VS_HUMAN)
     target_compile_definitions(Stardust PUBLIC VS_HUMAN=true)
 ENDIF (VS_HUMAN)
 
+IF (FRAME_TIME_LIMIT)
+    target_compile_definitions(Stardust PUBLIC FRAME_TIME_LIMIT=true)
+ENDIF (FRAME_TIME_LIMIT)
+
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     target_compile_definitions(Stardust PUBLIC DEBUG=1)
 endif (CMAKE_BUILD_TYPE MATCHES Debug)
