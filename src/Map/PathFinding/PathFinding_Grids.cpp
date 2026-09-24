@@ -1,6 +1,7 @@
 #include "PathFinding.h"
 
 #include "Map.h"
+#include "PerformanceManager.h"
 
 #if INSTRUMENTATION_ENABLED
 #define OUTPUT_GRID_TIMING false
@@ -41,6 +42,17 @@ namespace PathFinding
             if (choke != Map::getMyMainChoke() && !choke->isNarrowChoke) continue;
 
             createNavigationGrid(BWAPI::TilePosition(choke->center));
+        }
+    }
+
+    void updateGrids()
+    {
+        for (auto &[_, grids] : goalToNavigationGrid)
+        {
+            if (!PerformanceManager::canPerformOptionalCalculations()) return;
+            grids.first.update();
+            if (!PerformanceManager::canPerformOptionalCalculations()) return;
+            grids.second.update();
         }
     }
 

@@ -290,6 +290,10 @@ void StardustAIModule::onFrame()
     WORKERGATHEROPTIMIZER::update();
     Timer::checkpoint("MiningOptimization::update");
 
+    // If we have extra computation time available, update some navigation grids
+    PathFinding::updateGrids();
+    Timer::checkpoint("PathFinding::updateGrids");
+
     // Surrender logic
     if (enableSurrender)
     {

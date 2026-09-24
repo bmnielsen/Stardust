@@ -47,7 +47,8 @@ TEST(SAIDA, RunOne)
     BWTest test;
     test.opponentName = "SAIDA";
     test.opponentRace = BWAPI::Races::Terran;
-    test.maps = Maps::Get("sscait");
+    test.randomSeed = 10340;
+    test.maps = Maps::Get("Andromeda");
     test.opponentModule = []()
     {
         return new MyBot::MyBotModule();

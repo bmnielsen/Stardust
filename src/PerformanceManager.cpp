@@ -4,7 +4,12 @@
 
 #include <chrono>
 
+#if IS_OPENBW
 #define FRAME_LIMIT 15000
+#else
+// The actual limit for AIIDE / COG is 55ms, but we don't want to get too close to this as the resolution of the BWAPI / TM timer is poor
+#define FRAME_LIMIT 35000
+#endif
 
 /*
  * This component is responsible for trying to keep us within our frame time limit when running in a time-limited environment.
@@ -143,8 +148,15 @@ namespace PerformanceManager
     unsigned int combatSimTimeLimitMicroseconds()
     {
 #if FRAME_TIME_LIMIT
-        // TODO: Add dynamic scaling based on frame time so far
-
+        auto time = microsecondsFromFrameStart();
+        if (time > FRAME_LIMIT / 2)
+        {
+            return 1000;
+        }
+        if (time > FRAME_LIMIT / 3)
+        {
+            return 2000;
+        }
         return 5000;
 #else
         return 10000;
@@ -154,8 +166,7 @@ namespace PerformanceManager
     bool shouldSkipProducer()
     {
 #if FRAME_TIME_LIMIT
-        // TODO: Add timing logic
-        return true;
+        return microsecondsFromFrameStart() > (FRAME_LIMIT * 2 / 3);
 #else
         return false;
 #endif
@@ -164,9 +175,18 @@ namespace PerformanceManager
     bool shouldAvoidMiningOptimizationGatherSolver()
     {
 #if FRAME_TIME_LIMIT
-        // TODO: Add timing logic
-        return true;
+        return microsecondsFromFrameStart() > (FRAME_LIMIT * 3 / 4);
 #else
+        return false;
+#endif
+    }
+
+    bool canPerformOptionalCalculations()
+    {
+#if FRAME_TIME_LIMIT
+        return microsecondsFromFrameStart() < (FRAME_LIMIT * 2 / 3);
+#else
+        // Technically we can, but there's no reason to do it since lazy evaluation isn't penalized
         return false;
 #endif
     }

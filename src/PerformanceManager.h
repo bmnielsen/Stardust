@@ -32,4 +32,8 @@ namespace PerformanceManager
     // Whether we should avoid running the mining optimization solver for gather paths
     // Return paths are always allowed since they are much simpler
     bool shouldAvoidMiningOptimizationGatherSolver();
+
+    // Whether we can perform optional calculations like updating navigation grids without exceeding the frame time limit
+    // This should be called within the calculation loop so it breaks out when enough time has been used
+    bool canPerformOptionalCalculations();
 }
