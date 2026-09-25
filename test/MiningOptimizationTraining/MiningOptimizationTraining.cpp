@@ -16,6 +16,7 @@ TEST(MiningOptimizationTraining, All)
         if (!data.positionDeltas.empty())
         {
             std::cout << "Skipping " << test.map->shortname() << " as it already has dist data" << std::endl;
+            if (!test.map->hash.empty()) exportDataFile(test.map->openbwHash, test.map->hash);
             return;
         }
 
@@ -28,6 +29,6 @@ TEST(MiningOptimizationTraining, All)
         runInitialSplitExploration(*test.map);
 
         transform(test.map->openbwHash);
-        exportDataFile(test.map->openbwHash, test.map->hash);
+        if (!test.map->hash.empty()) exportDataFile(test.map->openbwHash, test.map->hash);
     });
 }
