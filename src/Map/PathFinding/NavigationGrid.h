@@ -74,7 +74,7 @@ public:
 
     const GridNode &operator[](BWAPI::TilePosition pos) const;
 
-    void update();
+    void update(bool optional);
 
     void addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size);
 

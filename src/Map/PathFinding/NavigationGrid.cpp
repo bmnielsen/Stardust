@@ -2,6 +2,7 @@
 
 #include <queue>
 #include "Map.h"
+#include "PerformanceManager.h"
 
 #if INSTRUMENTATION_ENABLED
 #define NAVIGATION_HEATMAP_ENABLED false
@@ -83,7 +84,7 @@ NavigationGrid::NavigationGrid(BWAPI::TilePosition goalCenter,
         pushInitialTile(goalCenter);
     }
 
-    update();
+    update(false);
 }
 
 NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::Position pos)
@@ -116,7 +117,7 @@ const NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::TilePosition p
     return grid[pos.x + pos.y * mapWidth];
 }
 
-void NavigationGrid::update()
+void NavigationGrid::update(bool optional)
 {
     updateBlockingTiles();
     if (nodeQueue.empty()) return;
@@ -221,7 +222,7 @@ void NavigationGrid::update()
         }
     };
 
-    while (!nodeQueue.empty())
+    while (!nodeQueue.empty() && (!optional || PerformanceManager::canPerformOptionalCalculations()))
     {
         std::tuple<unsigned short, GridNode *, bool> current = nodeQueue.top();
         nodeQueue.pop();

@@ -50,9 +50,9 @@ namespace PathFinding
         for (auto &[_, grids] : goalToNavigationGrid)
         {
             if (!PerformanceManager::canPerformOptionalCalculations()) return;
-            grids.first.update();
+            grids.first.update(true);
             if (!PerformanceManager::canPerformOptionalCalculations()) return;
-            grids.second.update();
+            grids.second.update(true);
         }
     }
 
@@ -62,7 +62,7 @@ namespace PathFinding
         if (gridIt == goalToNavigationGrid.end()) return nullptr;
 
         auto &grid = ignoreEnemyBuildings ? gridIt->second.second : gridIt->second.first;
-        grid.update();
+        grid.update(false);
         return &grid;
     }
 

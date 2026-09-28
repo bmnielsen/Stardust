@@ -171,7 +171,7 @@ TEST(UpdateNavigationGrid, Pylon)
     test.onFrameMine = [&]()
     {
         if (BWAPI::Broodwar->getFrameCount() == 5) addBuilding(grid, BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(118, 11));
-        grid->update();
+        grid->update(false);
 
         CherryVis::frameEnd();
     };
@@ -190,7 +190,7 @@ TEST(UpdateNavigationGrid, Gateway)
     test.onFrameMine = [&]()
     {
         if (BWAPI::Broodwar->getFrameCount() == 5) addBuilding(grid, BWAPI::UnitTypes::Protoss_Gateway, BWAPI::TilePosition(112, 13));
-        grid->update();
+        grid->update(false);
 
         CherryVis::frameEnd();
     };
@@ -238,7 +238,7 @@ TEST(UpdateNavigationGrid, ManyBuildings)
 
         if (BWAPI::Broodwar->getFrameCount() == 30)
         {
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -249,7 +249,7 @@ TEST(UpdateNavigationGrid, ManyBuildings)
 
         if (BWAPI::Broodwar->getFrameCount() == 40)
         {
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -273,14 +273,14 @@ TEST(UpdateNavigationGrid, EnemyStaticDefense)
             addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(116, 114));
             addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(118, 114));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 2)
         {
             addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(120, 114));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -323,7 +323,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
                         BWAPI::TilePosition(BWAPI::WalkPosition(412, 104)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 2)
@@ -332,7 +332,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
                         BWAPI::TilePosition(BWAPI::WalkPosition(412, 96)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 3)
@@ -341,7 +341,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                         BWAPI::UnitTypes::Protoss_Pylon,
                         BWAPI::TilePosition(BWAPI::WalkPosition(420, 96)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 4)
@@ -350,7 +350,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                         BWAPI::UnitTypes::Protoss_Nexus,
                         BWAPI::TilePosition(BWAPI::WalkPosition(412, 84)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 5)
@@ -359,7 +359,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                         BWAPI::UnitTypes::Protoss_Forge,
                         BWAPI::TilePosition(BWAPI::WalkPosition(428, 96)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 6)
@@ -371,7 +371,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
                         BWAPI::TilePosition(BWAPI::WalkPosition(396, 100)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 7)
@@ -380,7 +380,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
                         BWAPI::TilePosition(BWAPI::WalkPosition(420, 104)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 8)
@@ -389,7 +389,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
                            BWAPI::TilePosition(BWAPI::WalkPosition(404, 104)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 9)
@@ -398,7 +398,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                            BWAPI::UnitTypes::Protoss_Photon_Cannon,
                            BWAPI::TilePosition(BWAPI::WalkPosition(396, 100)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
         if (BWAPI::Broodwar->getFrameCount() == 10)
@@ -407,7 +407,7 @@ TEST(UpdateNavigationGrid, BlockedMainChokeBug)
                         BWAPI::UnitTypes::Protoss_Photon_Cannon,
                         BWAPI::TilePosition(BWAPI::WalkPosition(440, 100)));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -430,7 +430,7 @@ TEST(UpdateNavigationGrid, PylonEmpireOfTheSun)
         {
             addBuilding(grid, BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(115, 120));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
             EXPECT_TRUE((*grid)[BWAPI::TilePosition(118, 122)].cost < USHRT_MAX);
         }
@@ -454,7 +454,7 @@ TEST(UpdateNavigationGrid, HeartbreakRidgeBug)
         {
             addBuilding(grid, BWAPI::UnitTypes::Zerg_Hatchery, BWAPI::TilePosition(13, 66));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -462,7 +462,7 @@ TEST(UpdateNavigationGrid, HeartbreakRidgeBug)
         {
             addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(17, 67));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -470,7 +470,7 @@ TEST(UpdateNavigationGrid, HeartbreakRidgeBug)
         {
             addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(19, 67));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -478,7 +478,7 @@ TEST(UpdateNavigationGrid, HeartbreakRidgeBug)
         {
             addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(21, 66));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -486,7 +486,7 @@ TEST(UpdateNavigationGrid, HeartbreakRidgeBug)
         {
             removeBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(21, 66));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -494,7 +494,7 @@ TEST(UpdateNavigationGrid, HeartbreakRidgeBug)
         {
             addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(21, 67));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
         }
 
@@ -502,7 +502,7 @@ TEST(UpdateNavigationGrid, HeartbreakRidgeBug)
         {
             addBuilding(grid, BWAPI::UnitTypes::Zerg_Sunken_Colony, BWAPI::TilePosition(21, 65));
 
-            grid->update();
+            grid->update(false);
             EXPECT_TRUE(validateGrid(*grid));
             EXPECT_TRUE((*grid)[BWAPI::TilePosition(32, 70)].cost < USHRT_MAX);
         }

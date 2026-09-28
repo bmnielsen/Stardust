@@ -323,7 +323,7 @@ void MyUnitImpl::updateMoveWaypoints()
     // We have a grid we can use for navigation
     if (grid)
     {
-        grid->update();
+        grid->update(false);
 
         // If we are no longer in the same node, update it and move to the next waypoint
         if (tilePositionX != gridNode->x || tilePositionY != gridNode->y)
