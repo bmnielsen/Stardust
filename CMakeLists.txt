@@ -4,7 +4,6 @@ project(Stardust)
 set(CMAKE_CXX_STANDARD 23)
 
 option(VS_HUMAN "Vs. Human Build" OFF)
-option(FRAME_TIME_LIMIT "Frame time limit" OFF)
 
 IF(MSVC)
     option(TOURNAMENT_BUILD "Tournament build" OFF)

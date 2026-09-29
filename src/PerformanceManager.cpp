@@ -5,10 +5,10 @@
 #include <chrono>
 
 #if IS_OPENBW
-#define FRAME_LIMIT 15000
+#define FRAME_LIMIT 24000
 #else
 // The actual limit for AIIDE / COG is 55ms, but we don't want to get too close to this as the resolution of the BWAPI / TM timer is poor
-#define FRAME_LIMIT 35000
+#define FRAME_LIMIT 36000
 #endif
 
 /*
@@ -44,10 +44,13 @@ namespace PerformanceManager
 {
     namespace
     {
+#if LOGGING_ENABLED && FRAME_TIME_LIMIT_ENABLED
         // Vectors to track overall statistics
         std::vector<long long> allFrameTimes;
         std::vector<long long> allUpdateStepTimes;
+#endif
 
+#if FRAME_TIME_LIMIT_ENABLED
         // Set at the start of every frame
         std::chrono::steady_clock::time_point frameStartTime;
 
@@ -55,23 +58,29 @@ namespace PerformanceManager
         {
             return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - frameStartTime).count();
         }
+#endif
     }
 
     void initialize()
     {
+#if LOGGING_ENABLED && FRAME_TIME_LIMIT_ENABLED
         allFrameTimes.clear();
         allFrameTimes.reserve(30000);
         allUpdateStepTimes.clear();
         allUpdateStepTimes.reserve(30000);
+#endif
     }
 
     void frameStart()
     {
+#if FRAME_TIME_LIMIT_ENABLED
         frameStartTime = std::chrono::high_resolution_clock::now();
+#endif
     }
 
     bool frameEnd()
     {
+#if LOGGING_ENABLED && FRAME_TIME_LIMIT_ENABLED
         if (currentFrame < 1) return false;
 
         auto time = microsecondsFromFrameStart();
@@ -85,17 +94,23 @@ namespace PerformanceManager
         }
 
         return false;
+#else
+        return false;
+#endif
     }
 
     void frameFinishedUpdateStep()
     {
+#if LOGGING_ENABLED && FRAME_TIME_LIMIT_ENABLED
         if (currentFrame < 1) return;
 
         allUpdateStepTimes.push_back(microsecondsFromFrameStart());
+#endif
     }
 
     void gameEnd()
     {
+#if LOGGING_ENABLED && FRAME_TIME_LIMIT_ENABLED
         if (allFrameTimes.empty()) return;
 
         std::vector<double> allPercentSpentInUpdateStep;
@@ -143,11 +158,12 @@ namespace PerformanceManager
                    << "p95=" << std::left << std::setw(6) << allPercentSpentInUpdateStep[(allPercentSpentInUpdateStep.size() * 95) / 100]
                    << "p90=" << std::left << std::setw(6) << allPercentSpentInUpdateStep[(allPercentSpentInUpdateStep.size() * 90) / 100]
                    << "p50=" << std::left << std::setw(6) << allPercentSpentInUpdateStep[(allPercentSpentInUpdateStep.size() * 50) / 100];
+#endif
     }
 
     unsigned int combatSimTimeLimitMicroseconds()
     {
-#if FRAME_TIME_LIMIT
+#if FRAME_TIME_LIMIT_ENABLED
         auto time = microsecondsFromFrameStart();
         if (time > FRAME_LIMIT / 2)
         {
@@ -165,7 +181,7 @@ namespace PerformanceManager
 
     bool shouldSkipProducer()
     {
-#if FRAME_TIME_LIMIT
+#if FRAME_TIME_LIMIT_ENABLED
         return microsecondsFromFrameStart() > (FRAME_LIMIT * 2 / 3);
 #else
         return false;
@@ -174,7 +190,7 @@ namespace PerformanceManager
 
     bool shouldAvoidMiningOptimizationGatherSolver()
     {
-#if FRAME_TIME_LIMIT
+#if FRAME_TIME_LIMIT_ENABLED
         return microsecondsFromFrameStart() > (FRAME_LIMIT * 3 / 4);
 #else
         return false;
@@ -183,7 +199,7 @@ namespace PerformanceManager
 
     bool canPerformOptionalCalculations()
     {
-#if FRAME_TIME_LIMIT
+#if FRAME_TIME_LIMIT_ENABLED
         return microsecondsFromFrameStart() < (FRAME_LIMIT * 2 / 3);
 #else
         // Technically we can, but there's no reason to do it since lazy evaluation isn't penalized
