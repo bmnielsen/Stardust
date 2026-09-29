@@ -31,6 +31,36 @@ namespace MiningOptimization
             SwitchedPatch                   = 1 << 7,
         };
 
+        struct DeferredPosition
+        {
+            PositionAndVelocity pos;
+            std::multiset<int> possibleOrderProcessTimerValues;
+            int frame;
+#if IS_OPENBW
+            BWAPI::ExactPosition startPosition;
+
+            DeferredPosition(const PositionAndVelocity pos,
+                             std::multiset<int> possibleOrderProcessTimerValues,
+                             const int frame,
+                             const BWAPI::ExactPosition &startPosition)
+                : pos(pos)
+                , possibleOrderProcessTimerValues(std::move(possibleOrderProcessTimerValues))
+                , frame(frame)
+                , startPosition(startPosition)
+            {
+            }
+#else
+            DeferredPosition(const PositionAndVelocity pos,
+                             std::multiset<int> possibleOrderProcessTimerValues,
+                             const int frame)
+                : pos(pos)
+                , possibleOrderProcessTimerValues(std::move(possibleOrderProcessTimerValues))
+                , frame(frame)
+            {
+            }
+#endif
+        };
+
         MyWorker worker;
         MyUnit depot;
         Resource resource;
@@ -143,6 +173,10 @@ namespace MiningOptimization
         std::unique_ptr<BWAPI::ExactPosition> startPosition;
 #endif
 
+        // If we defer running the solver because of performance pressure, we put the skipped positions onto this vector
+        // so that we can fast-forward to the correct state later
+        std::vector<DeferredPosition> deferredPositions;
+
         // The expected path tree the worker will visit, returned from the solver
         std::unique_ptr<SolverResult<ObservationType>> expectedPath;
 
@@ -151,6 +185,11 @@ namespace MiningOptimization
 
         // The resends needed to achieve the current expected takeover frame
         std::set<int> takeoverResendFrames;
+
+        // Does the path update for the given position
+        // Normally this just gets called once from updatePath with the current position, but if we have deferred some processing because of
+        // performance constraints, we may have a queue of positions to handle
+        bool updatePathForPosition(const PositionAndVelocity &pos);
 
         void resetPath()
         {

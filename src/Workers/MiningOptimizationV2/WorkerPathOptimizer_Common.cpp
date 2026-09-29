@@ -4,6 +4,8 @@
 
 #include "DebugFlag_MiningOptimization.h"
 #include "OrderProcessTimer.h"
+#include "Geo.h"
+#include "PerformanceManager.h"
 
 #if INSTRUMENTATION_ENABLED_VERBOSE
 #define LOG_PATH_FAILURES false
@@ -37,11 +39,36 @@ namespace MiningOptimization
         // If the worker hasn't been optimized last frame, reset the state and initialize the pathing
         if (lastProcessedFrame != (currentFrame - 1))
         {
+            // Handle deferred planning
+            // This is done for gather paths if we are under performance pressure
+            if constexpr (std::is_same_v<ObservationType, GatherArrivalData>)
+            {
+                // Start by clearing the deferred positions if they are not up-to-date
+                if (!deferredPositions.empty())
+                {
+                    if (deferredPositions.back().frame != (currentFrame - 1)) deferredPositions.clear();
+                }
+
+                // Now defer this position if we are under performance pressure
+                if (PerformanceManager::shouldAvoidMiningOptimizationGatherSolver())
+                {
+#if IS_OPENBW
+                    deferredPositions.emplace_back(getCurrentPosition(worker),
+                                                   worker->possibleOrderProcessTimerValues,
+                                                   currentFrame,
+                                                   worker->bwapiUnit->getExactPosition());
+#else
+                    deferredPositions.emplace_back(getCurrentPosition(worker), worker->possibleOrderProcessTimerValues, currentFrame);
+#endif
+                    return false;
+                }
+            }
+
             reset();
             setStartOfPathFlags();
 
             // If a root node for pathing is here, run the solver to plan our approach
-            auto currentPosition = getCurrentPosition(worker);
+            auto currentPosition = deferredPositions.empty() ? getCurrentPosition(worker) : deferredPositions.front().pos;
 
 #if VERBOSE_PATH_LOGGING
 #if IS_OPENBW
@@ -55,12 +82,13 @@ namespace MiningOptimization
             if (path)
             {
                 setFlag(StatusFlags::CapturedPath);
-                Solver<ObservationType> solver(mapData,
-                                               resource,
-                                               currentPosition,
-                                               *path->path,
-                                               currentFrame,
-                                               worker->possibleOrderProcessTimerValues);
+                Solver<ObservationType> solver(
+                    mapData,
+                    resource,
+                    currentPosition,
+                    *path->path,
+                    deferredPositions.empty() ? currentFrame : deferredPositions.front().frame,
+                    deferredPositions.empty() ? worker->possibleOrderProcessTimerValues : deferredPositions.front().possibleOrderProcessTimerValues);
                 expectedPath = std::make_unique<SolverResult<ObservationType>>(solver.execute());
 
 #if VERBOSE_PATH_LOGGING
@@ -71,8 +99,14 @@ namespace MiningOptimization
             }
 
 #if IS_OPENBW
-            startPosition = std::make_unique<BWAPI::ExactPosition>(worker->bwapiUnit->getExactPosition());
+            startPosition = std::make_unique<BWAPI::ExactPosition>(
+                deferredPositions.empty() ? worker->bwapiUnit->getExactPosition() : deferredPositions.front().startPosition);
 #endif
+
+            for (const auto &deferredPosition : deferredPositions)
+            {
+                updatePathForPosition(deferredPosition.pos);
+            }
         }
         lastProcessedFrame = currentFrame;
 
@@ -195,6 +229,14 @@ namespace MiningOptimization
             return true;
         }
 
+        return updatePathForPosition(getCurrentPosition(worker));
+    }
+
+    template <typename ObservationType>
+    bool WorkerPathOptimizer<ObservationType>::updatePathForPosition(const PositionAndVelocity &pos)
+    {
+        if (!expectedPath) return false;
+
         auto lostPath = [&]()
         {
             setFlag(StatusFlags::LostPath);
@@ -230,13 +272,11 @@ namespace MiningOptimization
             return false;
         };
 
-        auto currentPosition = getCurrentPosition(worker);
-
         // Ensure we are following the path
         if (!expectedPath->pathToNextBranch.empty())
         {
             // We are at a non-branching node, so just validate the next node
-            if (expectedPath->pathToNextBranch.front() != currentPosition)
+            if (expectedPath->pathToNextBranch.front() != pos)
             {
                 return lostPath();
             }
@@ -259,7 +299,7 @@ namespace MiningOptimization
                     return false;
                 }
 
-                if (candidate.pathToNextBranch.front() == currentPosition)
+                if (candidate.pathToNextBranch.front() == pos)
                 {
                     foundNextBranch = true;
                     candidate.pathToNextBranch.pop_front();
