@@ -49,6 +49,7 @@ TEST(SAIDA, RunOne)
     test.opponentRace = BWAPI::Races::Terran;
     test.randomSeed = 10340;
     test.maps = Maps::Get("Andromeda");
+    test.myOpening = "FastExpansion";
     test.opponentModule = []()
     {
         return new MyBot::MyBotModule();

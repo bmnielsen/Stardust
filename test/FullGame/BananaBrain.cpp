@@ -200,6 +200,7 @@ TEST(BananaBrain, 2GateDT)
     test.opponentRace = BWAPI::Races::Protoss;
     test.map = Maps::GetOne("Breakers");
     test.frameLimit = 15000;
+    test.myOpening = "3GateRobo";
     test.opponentModule = []()
     {
         auto bbModule = new BananaBrain();
@@ -358,6 +359,7 @@ TEST(BananaBrain, NZCoreDt)
     test.map = Maps::GetOne("Breakers");
     test.frameLimit = 15000;
     test.randomSeed = 62090;
+    test.myOpening = "3GateRobo";
     test.opponentModule = []()
     {
         auto bbModule = new BananaBrain();

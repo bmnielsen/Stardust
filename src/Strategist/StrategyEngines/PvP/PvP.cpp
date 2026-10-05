@@ -55,6 +55,7 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
             opening = Opponent::selectOpeningUCB1(
                     {
                             OurStrategyNames[OurStrategy::EarlyGameDefense],
+                            OurStrategyNames[OurStrategy::ThreeGateRobo],
                             OurStrategyNames[OurStrategy::TwoGateDT],
                             OurStrategyNames[OurStrategy::ForgeExpandDT]
                     });
@@ -72,6 +73,10 @@ void PvP::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
             if (opening == OurStrategyNames[OurStrategy::TwoGateDT])
             {
                 ourStrategy = OurStrategy::TwoGateDT;
+            }
+            else if (opening == OurStrategyNames[OurStrategy::ThreeGateRobo])
+            {
+                ourStrategy = OurStrategy::ThreeGateRobo;
             }
         }
         Log::Get() << "Selected opening " << OurStrategyNames[ourStrategy];

@@ -49,20 +49,28 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
         plays.emplace_back(std::make_shared<EjectEnemyScout>());
         plays.emplace_back(std::make_shared<DefendMyMain>());
-    }
 
-    // AIST S4 vs. Human match - do a fast expansion on Fighting Spirit and Circuit Breaker
-    /*
-    if (BWAPI::Broodwar->mapHash() == "d2f5633cc4bb0fca13cd1250729d5530c82c7451" ||
-        BWAPI::Broodwar->mapHash() == "dcabb11c83e68f47c5c5bdbea0204167a00e336f" ||
-        BWAPI::Broodwar->mapHash() == "5731c103687826de48ba3cc7d6e37e2537b0e902" ||
-        BWAPI::Broodwar->mapHash() == "bf84532dcdd21b3328670d766edc209fa1520149" ||
-        BWAPI::Broodwar->mapHash() == "450a792de0e544b51af5de578061cb8a2f020f32" ||
-        BWAPI::Broodwar->mapHash() == "1221d83d6ff9a87955d3083257b31131261bc366")
-    {
-        ourStrategy = OurStrategy::FastExpansion;
+        std::string opening = openingOverride;
+        if (opening.empty())
+        {
+#if VS_HUMAN
+            // TODO: Vs. humans do something like a weighted random selection
+            opening = OurStrategyNames[OurStrategy::EarlyGameDefense];
+#else
+            opening = Opponent::selectOpeningUCB1(
+                    {
+                            OurStrategyNames[OurStrategy::EarlyGameDefense],
+                            OurStrategyNames[OurStrategy::FastExpansion]
+                    });
+#endif
+        }
+        if (opening == OurStrategyNames[OurStrategy::FastExpansion])
+        {
+            ourStrategy = OurStrategy::FastExpansion;
+        }
+
+        Log::Get() << "Selected opening " << OurStrategyNames[ourStrategy];
     }
-    */
 
     Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
     Opponent::addEnemyStrategyChange(TerranStrategyNames[enemyStrategy]);
