@@ -4,7 +4,7 @@
 #include "Map.h"
 #include "Strategist.h"
 #include "DoNothingModule.h"
-#include "TestAttackBasePlay.h"
+#include "TestMainArmyAttackBasePlay.h"
 #include "UpgradeStrategyEngine.h"
 #include "DoNothingStrategyEngine.h"
 
@@ -14,19 +14,11 @@ TEST(AoEAvoidance, Storm)
     test.opponentRace = BWAPI::Races::Protoss;
     test.opponentModule = []()
     {
-        auto module = new StardustAIModule();
-        CherryVis::disable();
-        return module;
+        return new DoNothingModule();
     };
-    test.myModule = []()
-    {
-        auto module = new StardustAIModule();
-        module->frameSkip = 5000;
-        return module;
-    };
-    test.map = Maps::GetOne("Fighting Spirit");
+    test.map = Maps::GetOne("FightingSpirit");
     test.randomSeed = 42;
-    test.frameLimit = 7000;
+    test.frameLimit = 1000;
     test.expectWin = false;
 
     test.myInitialUnits = {
@@ -39,19 +31,6 @@ TEST(AoEAvoidance, Storm)
     };
 
     test.opponentInitialUnits = {
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Pylon, BWAPI::TilePosition(115, 117)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Gateway, BWAPI::TilePosition(111, 117)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Templar_Archives, BWAPI::TilePosition(111, 120)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(122, 116)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(122, 117)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(122, 118)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(122, 119)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(122, 120)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(121, 116)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(121, 117)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(121, 118)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(121, 119)),
-            UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Probe, BWAPI::TilePosition(121, 120)),
             UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_High_Templar, BWAPI::TilePosition(105, 97)),
     };
 
@@ -61,22 +40,31 @@ TEST(AoEAvoidance, Storm)
     {
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(117, 117)));
 
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
         Strategist::setOpening(openingPlays);
     };
 
     test.onStartOpponent = []()
     {
-        Strategist::setStrategyEngine(std::make_unique<UpgradeStrategyEngine>(BWAPI::TechTypes::Psionic_Storm));
-        Strategist::setOpening({});
+        BWAPI::Broodwar->self()->setResearched(BWAPI::TechTypes::Psionic_Storm, true);
     };
 
     test.onFrameOpponent = []()
     {
+        if (BWAPI::Broodwar->getFrameCount() % 5 != 0) return;
+
         for (auto unit : BWAPI::Broodwar->self()->getUnits())
         {
             if (unit->getType() != BWAPI::UnitTypes::Protoss_High_Templar) continue;
+
+            if (unit->getEnergy() < 200)
+            {
+                unit->setEnergy(200);
+                return;
+            }
 
             for (auto target : BWAPI::Broodwar->enemy()->getUnits())
             {
@@ -146,7 +134,7 @@ TEST(AoEAvoidance, Scarabs)
         Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
@@ -232,7 +220,7 @@ TEST(AoEAvoidance, Spines)
         baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 116)));
 
         std::vector<std::shared_ptr<Play>> openingPlays;
-        openingPlays.emplace_back(std::make_shared<TestAttackBasePlay>(baseToAttack, true));
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack, true));
         Strategist::setOpening(openingPlays);
     };
 
