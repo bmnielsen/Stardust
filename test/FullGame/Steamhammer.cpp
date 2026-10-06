@@ -14,19 +14,16 @@ TEST(Steamhammer, RunThirty)
     {
         BWTest test;
         test.opponentName = "Steamhammer";
-        test.opponentRace = BWAPI::Races::Zerg;
-//        test.maps = Maps::Get("cog2022");
-        test.map = Maps::GetOne("Vermeer");
+        test.opponentRace = BWAPI::Races::Terran;
+        test.maps = Maps::Get("sscai");
+        test.myOpening = "FastExpansion";
+        // test.map = Maps::GetOne("Vermeer");
 //        test.randomSeed = 73549;
         test.opponentModule = []()
         {
             auto module = new UAlbertaBot::UAlbertaBotModule();
 //            Config::StardustTestStrategyName = "ZvZ_12PoolLing";
             return module;
-        };
-        test.onStartMine = []()
-        {
-            Strategist::setStrategyEngine(std::make_unique<PvZ>(), "FFEDragoons");
         };
         test.onStartOpponent = [&test]()
         {

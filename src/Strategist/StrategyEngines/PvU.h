@@ -10,6 +10,7 @@ public:
     {
         TwoGateZealots,
         ForgeFastExpand,
+        OneGateCore,
     };
     static std::map<OurStrategy, std::string> OurStrategyNames;
 

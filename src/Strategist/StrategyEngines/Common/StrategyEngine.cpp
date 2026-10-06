@@ -325,8 +325,11 @@ void StrategyEngine::cancelTrainingUnits(std::map<int, std::vector<ProductionGoa
 void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                         int dragoonCount,
                                         int zealotCount,
-                                        int desiredZealots)
+                                        int desiredZealots,
+                                        int desiredDragoons)
 {
+    if (desiredDragoons > 0 && dragoonCount >= desiredDragoons) return;
+
     // If we don't want any zealots and have one less than half complete, cancel it
     if (desiredZealots == 0 && Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot) > 0)
     {
@@ -336,14 +339,16 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
                             UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Zealot) / 2);
     }
 
-    // If our core is done or we want no zealots just return dragoons
-    if (desiredZealots <= zealotCount || Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0)
+    // If we want no zealots, our core is done, or our assimilator isn't started yet, just return dragoons
+    if (desiredZealots <= zealotCount ||
+        Units::countCompleted(BWAPI::UnitTypes::Protoss_Cybernetics_Core) > 0 ||
+        Units::countAll(BWAPI::UnitTypes::Protoss_Assimilator) == 0)
     {
         prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                    "SE-1gc",
                                                                    BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                   -1,
-                                                                   -1);
+                                                                   desiredDragoons,
+                                                                   (desiredZealots <= zealotCount) ? -1 : 1);
         return;
     }
 
@@ -361,6 +366,7 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
                                                                    BWAPI::UnitTypes::Protoss_Dragoon,
                                                                    1,
                                                                    1);
+        if (desiredDragoons > 0) desiredDragoons--;
     }
 
     if (zealotCount < desiredZealots)
@@ -372,11 +378,14 @@ void StrategyEngine::oneGateCoreOpening(std::map<int, std::vector<ProductionGoal
                                                                    1);
     }
 
-    prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                               "SE-1gc",
-                                                               BWAPI::UnitTypes::Protoss_Dragoon,
-                                                               -1,
-                                                               -1);
+    if (desiredDragoons != 0)
+    {
+        prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                   "SE-1gc",
+                                                                   BWAPI::UnitTypes::Protoss_Dragoon,
+                                                                   desiredDragoons,
+                                                                    -1);
+    }
 }
 
 void StrategyEngine::mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,

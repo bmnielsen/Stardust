@@ -542,23 +542,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::ThreeGateRobo:
         {
-            if (zealotCount == 0 && dragoonCount == 0)
-            {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           "SE-3grobo",
-                                                                           BWAPI::UnitTypes::Protoss_Zealot,
-                                                                           1,
-                                                                           1);
-            }
-
-            if (dragoonCount < 2)
-            {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
-                                                                           "SE-3grobo",
-                                                                           BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                           2 - dragoonCount,
-                                                                           1);
-            }
+            oneGateCoreOpening(prioritizedProductionGoals, dragoonCount, zealotCount, 1, 3);
 
             int observerCount = completedUnits[BWAPI::UnitTypes::Protoss_Observer] + incompleteUnits[BWAPI::UnitTypes::Protoss_Observer];
             if (observerCount == 0)
@@ -576,7 +560,7 @@ void PvP::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                                                                        -1,
                                                                        -1);
 
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
+            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
             break;
         }
 

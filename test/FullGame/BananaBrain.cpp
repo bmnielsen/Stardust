@@ -82,6 +82,7 @@ TEST(BananaBrain, RunThirty)
         BananaBrain* bbModule;
         test.maps = Maps::Get("cog2026");
         test.opponentRace = BWAPI::Races::Protoss;
+        test.myOpening = "3GateRobo";
         // test.frameLimit = 8000;
         test.opponentModule = [&]()
         {

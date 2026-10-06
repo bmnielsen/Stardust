@@ -80,7 +80,8 @@ protected:
     static void oneGateCoreOpening(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                    int dragoonCount,
                                    int zealotCount,
-                                   int desiredZealots);
+                                   int desiredZealots,
+                                   int desiredDragoons = -1);
 
     static void mainArmyProduction(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
                                    BWAPI::UnitType unitType,

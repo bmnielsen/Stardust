@@ -31,7 +31,7 @@ public:
     {
         ForgeExpandDT,          // FFE strategy we use against Random and as a counter to 4-gate / other player DT expand
         TwoGateDT,              // Build that starts with 2-gate zealots and transitions into DT
-        EarlyGameDefense,       // We don't have enough scouting data yet
+        EarlyGameDefense,       // Default opening, stays in this state until we have some idea of what the enemy is doing
         AntiZealotRush,         // For fast rushes, proxy rushes or any serious early pressure, defends main until it can get tech out
         AntiDarkTemplarRush,    // For responding to a DT rush
         FastExpansion,          // For when the opponent plays a greedy or turtle strategy
