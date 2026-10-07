@@ -392,6 +392,13 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
+                // Transition to normal once we have an observer
+                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0)
+                {
+                    strategy = OurStrategy::Normal;
+                    continue;
+                }
+
                 // Transition to mid-game when the enemy has done so or we are on two bases
                 // TODO: This is very vaguely defined
                 if (newEnemyStrategy == ProtossStrategy::MidGame || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
