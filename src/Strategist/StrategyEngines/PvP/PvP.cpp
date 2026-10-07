@@ -139,6 +139,9 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
     }
 
+    auto mainArmyPlay = Strategist::getMainArmyPlay();
+    bool currentlyDefensive = !mainArmyPlay || mainArmyPlay->isDefensive();
+
     bool defendOurMain;
     if (hasEnemyStolenOurGas())
     {
@@ -191,7 +194,6 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             case OurStrategy::MidGame:
             default:
             {
-                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
                 if (!mainArmyPlay)
                 {
                     defendOurMain = true;
@@ -213,9 +215,17 @@ void PvP::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     break;
                 }
 
-                // Use a defend play if we are doing a 3 gate robo or the main army needs detection and doesn't have any observers
-                if ((ourStrategy == OurStrategy::ThreeGateRobo && Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0)
-                    || (mainArmyPlay->getSquad()->needsDetection() && mainArmyPlay->getSquad()->getDetectors().empty()))
+                // If we are doing a 3 gate robo, stay defensive until we have completed the first observer
+                if (currentlyDefensive &&
+                    ourStrategy == OurStrategy::ThreeGateRobo &&
+                    Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) == 0)
+                {
+                    defendOurMain = true;
+                    break;
+                }
+
+                // Use a defend play if the main army needs detection and doesn't have any observers
+                if (mainArmyPlay->getSquad()->needsDetection() && mainArmyPlay->getSquad()->getDetectors().empty())
                 {
                     defendOurMain = true;
                     break;
