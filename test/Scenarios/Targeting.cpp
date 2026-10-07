@@ -1,5 +1,6 @@
 #include "BWTest.h"
 #include "DoNothingModule.h"
+#include "DoNothingStrategyEngine.h"
 
 #include "Map.h"
 #include "Strategist.h"
@@ -302,3 +303,98 @@ TEST(Targeting, CannonsVsZealots)
     test.run();
 }
 
+TEST(Targeting, WalledRamp)
+{
+    BWTest test;
+    test.opponentRace = BWAPI::Races::Terran;
+    test.opponentModule = []()
+    {
+        return new DoNothingModule();
+    };
+    test.map = Maps::GetOne("Pamir");
+    test.randomSeed = 42;
+    test.frameLimit = 500;
+    test.expectWin = false;
+
+    test.myInitialUnits = {
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(972, 3735), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1083, 3665), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1101, 3730), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1004, 3735), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1120, 3606), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(999, 3767), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(977, 3800), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(908, 3699), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1138, 3753), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1036, 3735), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1075, 3697), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1049, 3618), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1078, 3773), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1031, 3767), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1068, 3740), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1110, 3804), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(927, 3767), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1009, 3671), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1045, 3801), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(977, 3671), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1039, 3703), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1041, 3671), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Arbiter, BWAPI::Position(894, 3577), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1017, 3637), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1126, 3639), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(979, 3607), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1085, 3633), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(953, 3639), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(876, 3695), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1066, 3580), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(940, 3703), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(876, 3728), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(914, 3502), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(957, 3575), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(975, 3703), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1007, 3703), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(940, 3735), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(947, 3607), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(985, 3639), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1141, 3720), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(964, 3768), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(930, 3577), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(1031, 3589), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(928, 3536), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(945, 3671), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(854, 3525), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(985, 3573), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(927, 3558), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(1008, 3589), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(1144, 3573), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(907, 3579), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(1007, 3608), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Dragoon, BWAPI::Position(892, 3536), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Zealot, BWAPI::Position(901, 3558), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Arbiter, BWAPI::Position(1011, 3685), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Protoss_Shuttle, BWAPI::Position(998, 3645), true),
+    };
+
+    test.opponentInitialUnits = {
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_SCV, BWAPI::Position(600, 3461), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Goliath, BWAPI::Position(565, 3461), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Supply_Depot, BWAPI::Position(720, 3264), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Supply_Depot, BWAPI::Position(560, 3808), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Supply_Depot, BWAPI::Position(560, 3744), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Barracks, BWAPI::Position(768, 3536), true),
+        UnitTypeAndPosition(BWAPI::UnitTypes::Terran_Supply_Depot, BWAPI::Position(848, 3456), true),
+    };
+
+    test.onStartMine = []()
+    {
+        auto baseToAttack = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(7, 118)));
+
+        Strategist::setStrategyEngine(std::make_unique<DoNothingStrategyEngine>());
+
+        std::vector<std::shared_ptr<Play>> openingPlays;
+        openingPlays.emplace_back(std::make_shared<TestMainArmyAttackBasePlay>(baseToAttack));
+        Strategist::setOpening(openingPlays);
+    };
+
+    test.run();
+}

@@ -179,6 +179,7 @@ namespace
         int attackerCount;          // How many attackers have this target in their closeTargets vector
         bool cliffedTank;
         bool inMyMainOrNatural;
+        bool onOtherSideOfWall = false;
 
         explicit Target(const Unit &unit, const MyUnit &vanguard)
                 : unit(unit)
@@ -216,7 +217,7 @@ namespace
         explicit Attacker(MyUnit unit) : unit(std::move(unit)), framesToAttack(INT_MAX) {}
     };
 
-    bool isTargetReachableEnemyBase(BWAPI::Position targetPosition, const MyUnit &vanguard)
+    bool isTargetReachableEnemyBase(BWAPI::Position targetPosition, const MyUnit &vanguard, NavigationGrid *&grid)
     {
         // First check if the target is an enemy base
         auto targetBase = Map::baseNear(targetPosition);
@@ -226,7 +227,7 @@ namespace
 
         if (!vanguard) return true;
 
-        auto grid = PathFinding::getNavigationGrid(targetBase->getPosition());
+        grid = PathFinding::getNavigationGrid(targetBase->getPosition());
         if (!grid) return true;
 
         auto &node = (*grid)[vanguard->lastPosition];
@@ -273,7 +274,8 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
     // - The base is owned by the enemy
     // - The base has a resource depot or hasn't been scouted yet
     // - The base has a navigation grid path from our main choke (i.e. hasn't been walled-off)
-    bool targetIsReachableEnemyBase = !staticPosition && isTargetReachableEnemyBase(targetPosition, vanguard);
+    NavigationGrid *blockedBaseGrid = nullptr;
+    bool targetIsReachableEnemyBase = !staticPosition && isTargetReachableEnemyBase(targetPosition, vanguard, blockedBaseGrid);
 
     // Create the target objects
     // This also updates the enemy AOE radius
@@ -284,7 +286,17 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
     {
         if (targetUnit->exists())
         {
-            targets.emplace_back(targetUnit, vanguard);
+            auto &target = targets.emplace_back(targetUnit, vanguard);
+
+            // If the target is a blocked enemy base, check if the target is on the other side of the wall
+            // We can detect this by seeing that the target has a valid path to the target
+            if (!targetIsReachableEnemyBase && blockedBaseGrid)
+            {
+                // Using lastPosition isntead of simPosition here since we assume the unit hasn't crossed the wall since we last saw it, and don't
+                // want strange simmed positions to confuse us
+                auto &node = (*blockedBaseGrid)[targetUnit->lastPosition];
+                target.onOtherSideOfWall = (node.nextNode != nullptr);
+            }
 
             enemyAoeRadius = std::max(enemyAoeRadius, targetUnit->groundWeapon().outerSplashRadius());
         }
@@ -427,11 +439,18 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 continue;
             }
 
-            // Cliffed tanks can only be attacked by units in range with vision
-            if (target.cliffedTank && (distToRange > 0 || !target.unit->bwapiUnit->isVisible()))
+            // Cliffed tanks or units on the other side of a wall can only be attacked by units in range with vision
+            if ((target.cliffedTank || target.onOtherSideOfWall) && (distToRange > 0 || !target.unit->bwapiUnit->isVisible()))
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as it is a cliffed tank";
+                if (target.cliffedTank)
+                {
+                    dbg << "\n Skipping " << *target.unit << " as it is a cliffed tank";
+                }
+                else
+                {
+                    dbg << "\n Skipping " << *target.unit << " as it is on the other side of a wall";
+                }
 #endif
                 continue;
             }
