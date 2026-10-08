@@ -12,6 +12,7 @@
 #include "Units.h"
 #include "UnitUtil.h"
 #include "General.h"
+#include "Strategist.h"
 
 namespace
 {
@@ -185,6 +186,12 @@ void StrategyEngine::updateAttackPlays(std::vector<std::shared_ptr<Play>> &plays
     else
     {
         setMainPlay<MopUp>(mainArmyPlay);
+    }
+
+    // If we have been unable to break the enemy position normally, treat it as an island expansion
+    if (mainArmyTarget && islandExpansions.empty() && Strategist::areWeUnableToBreakEnemyPosition())
+    {
+        islandExpansions.insert(mainArmyTarget);
     }
 
     // Remove AttackExpansion plays that are no longer needed

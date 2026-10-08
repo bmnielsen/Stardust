@@ -40,6 +40,7 @@ namespace Strategist
         std::vector<std::pair<int, int>> mineralReservations;
         bool enemyContained;
         int enemyContainedChanged;
+        bool unableToBreakEnemyPosition;
         WorkerScoutStatus workerScoutStatus;
         StrategicState strategicState;
 
@@ -367,6 +368,20 @@ namespace Strategist
             return true;
         }
 
+        void updateUnableToBreakEnemyPosition()
+        {
+            auto compute = []()
+            {
+                if (currentFrame < 25000) return false;
+                if (Map::getMyBases().size() - Map::getEnemyBases().size() < 4) return false;
+                if (BWAPI::Broodwar->self()->minerals() < 6000) return false;
+
+                return true;
+            };
+
+            unableToBreakEnemyPosition = compute();
+        }
+
         std::string workerScoutStatusToString()
         {
             switch (workerScoutStatus)
@@ -489,6 +504,7 @@ namespace Strategist
         mineralReservations.clear();
         enemyContained = false;
         enemyContainedChanged = 0;
+        unableToBreakEnemyPosition = false;
         workerScoutStatus = WorkerScoutStatus::Unstarted;
         strategicState.income = 0.5;
         strategicState.availableResources = 0.5;
@@ -513,6 +529,8 @@ namespace Strategist
             enemyContained = !enemyContained;
             enemyContainedChanged = currentFrame;
         }
+
+        updateUnableToBreakEnemyPosition();
 
         updateStrategicState();
 
@@ -660,6 +678,11 @@ namespace Strategist
         if (!area) return false;
 
         return Map::getMyMainAreas().contains(area);
+    }
+
+    bool areWeUnableToBreakEnemyPosition()
+    {
+        return unableToBreakEnemyPosition;
     }
 
     double pressure()

@@ -5,11 +5,13 @@
 #include "Units.h"
 #include "UnitUtil.h"
 #include "General.h"
+#include "Strategist.h"
 
 #include "Plays/MainArmy/AttackEnemyBase.h"
 #include "Plays/MainArmy/MopUp.h"
 #include "Plays/Macro/CullArmy.h"
 #include "Plays/Defensive/DefendBase.h"
+#include "Plays/Offensive/AttackIslandExpansion.h"
 #include "Plays/Scouting/ScoutEnemyExpos.h"
 #include "Plays/SpecialTeams/DarkTemplarHarass.h"
 #include "Plays/SpecialTeams/ShuttleHarass.h"
@@ -196,28 +198,24 @@ bool StrategyEngine::handleIslandExpansionProduction(std::vector<std::shared_ptr
         plays.emplace(plays.begin(), std::make_shared<CullArmy>(requiredSupply));
     };
 
-    // Only relevant when the main army is in mop-up mode
-    auto mopUp = getPlay<MopUp>(plays);
-    if (!mopUp)
+    // Require an attack island expansion play
+    auto islandExpansionPlay = getPlay<AttackIslandExpansion>(plays);
+    if (!islandExpansionPlay)
     {
         setCulling(0);
         return false;
     }
 
-    // Only relevant when the enemy has at least one island base
-    bool enemyHasIslandBase = false;
-    for (const auto &base : Map::getEnemyBases())
+    // Unless we are using this to break an unbreakable enemy position, only transition once in mop-up mode, indicating our ground army has killed
+    // all the other enemy bases
+    if (!Strategist::areWeUnableToBreakEnemyPosition())
     {
-        if (base->island)
+        auto mopUp = getPlay<MopUp>(plays);
+        if (!mopUp)
         {
-            enemyHasIslandBase = true;
-            break;
+            setCulling(0);
+            return false;
         }
-    }
-    if (!enemyHasIslandBase)
-    {
-        setCulling(0);
-        return false;
     }
 
     // Produce up to 10 carriers with relevant upgrades
