@@ -347,6 +347,14 @@ namespace Opponent
 
     std::string selectOpeningUCB1(const std::vector<std::string> &openings, double decayFactor)
     {
+        if (openings.size() == 1)
+        {
+#if LOGGING_ENABLED
+            Log::Get() << "Choosing opening " << openings.front() << " as it is the only one available";
+#endif
+            return openings.front();
+        }
+
         // Gather wins, losses, reward, and potential for previous games
         // To account for the opponent changing strategies, we weight recent results above older ones using the decay factor
         // We also give a bonus weighting to results on the same map

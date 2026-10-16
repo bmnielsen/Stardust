@@ -60,7 +60,7 @@ void PvT::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
             opening = Opponent::selectOpeningUCB1(
                     {
                             OurStrategyNames[OurStrategy::EarlyGameDefense],
-                            OurStrategyNames[OurStrategy::FastExpansion]
+                            // OurStrategyNames[OurStrategy::FastExpansion]
                     });
 #endif
         }
