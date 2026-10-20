@@ -16,6 +16,7 @@ std::map<PvP::OurStrategy, std::string> PvP::OurStrategyNames = {
         {OurStrategy::FastExpansion,       "FastExpansion"},
         {OurStrategy::Defensive,           "Defensive"},
         {OurStrategy::Normal,              "Normal"},
+        {OurStrategy::OneGateCoreNoZealot, "OneGateCoreNoZealot"},
         {OurStrategy::ThreeGateRobo,       "3GateRobo"},
         {OurStrategy::DTExpand,            "DTExpand"},
         {OurStrategy::MidGame,             "MidGame"}
@@ -26,18 +27,18 @@ namespace
     std::map<BWAPI::UnitType, int> emptyUnitCountMap;
 }
 
-PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, std::vector <std::shared_ptr<Play>> &plays)
+PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, std::vector <std::shared_ptr<PlayItem>> &playList)
 {
     auto canTransitionFromAntiZealotRush = [&]()
     {
-        // Count total combat units
-        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        /* Count total combat units */
+        auto mainArmyPlay = getPlay<MainArmyPlay>(playList);
         auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
         auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
         int unitCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot] +
                         completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
 
-        // Transition immediately if we've misdetected a proxy rush
+        /* Transition immediately if we've misdetected a proxy rush */
         if (enemyStrategy == ProtossStrategy::ProxyRush &&
             newEnemyStrategy != ProtossStrategy::WorkerRush &&
             newEnemyStrategy != ProtossStrategy::ProxyRush &&
@@ -47,13 +48,13 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             return true;
         }
 
-        // Transition immediately if we're past frame 4500 and haven't seen an enemy zealot yet
-        if (currentFrame > 4500 && !Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot))
+        /* Transition immediately if we're past frame 4500 and haven't seen an enemy zealot yet */
+        if (frameNow > 4500 && !UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Zealot))
         {
             return true;
         }
 
-        // Transition immediately if we've discovered a different enemy strategy and have at least three completed dragoons
+        /* Transition immediately if we've discovered a different enemy strategy and have at least three completed dragoons */
         if (newEnemyStrategy != ProtossStrategy::BlockScouting &&
             newEnemyStrategy != ProtossStrategy::WorkerRush &&
             newEnemyStrategy != ProtossStrategy::ProxyRush &&
@@ -61,31 +62,31 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             newEnemyStrategy != ProtossStrategy::ZealotAllIn &&
             completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] > 2)
         {
-            if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) <= unitCount) return true;
+            if (UnitMgr::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) <= unitCount) return true;
         }
 
-        // Transition immediately if we have at least two dragoons and the enemy has expanded
-        if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) > 1 &&
+        /* Transition immediately if we have at least two dragoons and the enemy has expanded */
+        if (UnitMgr::countEnemy(BWAPI::UnitTypes::Protoss_Nexus) > 1 &&
             completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] > 1)
         {
             return true;
         }
 
-        // Require Dragoon Range to be started
-        // TODO: This is probably much too conservative
+        /* Require Dragoon Range to be started */
+        /* TODO: This is probably much too conservative */
         if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) == 0 &&
-            !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+            !UnitMgr::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
         {
             return false;
         }
 
-        // Transition when we have at least 10 units
+        /* Transition when we have at least 10 units */
         return unitCount >= 10;
     };
 
     auto canTransitionFromAntiDarkTemplarRush = [&]()
     {
-        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        auto mainArmyPlay = getPlay<MainArmyPlay>(playList);
         if (!mainArmyPlay) return false;
 
         return mainArmyPlay->getSquad()->hasDetection();
@@ -96,10 +97,10 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         if (enemyStrategy == ProtossStrategy::DarkTemplarRush) return false;
         if (Map::mapSpecificOverride()->hasBackdoorNatural()) return false;
 
-        auto frameCutoff = getPlay<HiddenBase>(plays) == nullptr ? 9000 : 10500;
-        if (ourStrategy != OurStrategy::DTExpand && currentFrame > frameCutoff) return false;
+        auto frameCutoff = getPlay<HiddenBase>(playList) == nullptr ? 9000 : 10500;
+        if (ourStrategy != OurStrategy::DTExpand && frameNow > frameCutoff) return false;
 
-        // Make sure our main choke is easily defensible
+        /* Make sure our main choke is easily defensible */
         auto choke = Map::getMyMainChoke();
         if (!choke || !choke->isNarrowChoke || !choke->isRamp) return false;
         if (!Map::mapSpecificOverride()->hasBackdoorNatural() && Map::getMyMain() && Map::getMyNatural() &&
@@ -109,24 +110,40 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             return false;
         }
 
-        return !(Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Forge) ||
-                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Photon_Cannon) ||
-                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) ||
-                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory) ||
-                 Units::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer));
+        return !(UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Forge) ||
+                 UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Photon_Cannon) ||
+                 UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) ||
+                 UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observatory) ||
+                 UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Observer));
     };
 
     auto strategy = ourStrategy;
+
+    /* P1-B (2026-09-20 report v2): one-base all-in lines have a ~14 minute */
+    /* decision window. Past the configured frame with one base and no */
+    /* army-value lead, rotate into MidGame so the natural expansion and */
+    /* mid-game production take over (PvP::allinExitDue). Expansion-owning */
+    /* lines (FFE/2GateDT/DTExpand) and an in-progress MidGame are excluded - */
+    /* the exit never fights its own transition. */
+    if (ourStrategy != OurStrategy::ForgeExpandDT &&
+        ourStrategy != OurStrategy::TwoGateDT &&
+        ourStrategy != OurStrategy::DTExpand &&
+        ourStrategy != OurStrategy::MidGame &&
+        allinExitDue())
+    {
+        strategy = OurStrategy::MidGame;
+    }
+
     for (int i = 0; i < 10; i++)
     {
         switch (strategy)
         {
             case PvP::OurStrategy::ForgeExpandDT:
             {
-                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+                auto mainArmyPlay = getPlay<MainArmyPlay>(playList);
                 if (!mainArmyPlay) break;
 
-                // If the enemy is doing a rush and our main army play has transitioned to defending the main, switch to anti all-in strategy
+                /* If the enemy is doing a rush and our main army play has transitioned to defending the main, switch to anti all-in strategy */
                 if ((enemyStrategy == ProtossStrategy::ZealotRush || enemyStrategy == ProtossStrategy::ProxyRush)
                     && typeid(*mainArmyPlay) == typeid(DefendMyMain))
                 {
@@ -134,7 +151,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                // Transition to mid game when we have gone on the attack, indicating the opening is done
+                /* Transition to mid game when we have gone on the attack, indicating the opening is done */
                 if (typeid(*mainArmyPlay) == typeid(AttackEnemyBase))
                 {
                     strategy = OurStrategy::MidGame;
@@ -155,10 +172,10 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                // If we failed to eject the enemy scout early enough, abandon DTs and go for a normal strategy
-                if (currentFrame > 7500)
+                /* If we failed to eject the enemy scout early enough, abandon DTs and go for a normal strategy */
+                if (frameNow > 7500)
                 {
-                    auto ejectScoutPlay = getPlay<EjectEnemyScout>(plays);
+                    auto ejectScoutPlay = getPlay<EjectEnemyScout>(playList);
                     if (ejectScoutPlay && !ejectScoutPlay->hasEjectedScout())
                     {
                         strategy = OurStrategy::Normal;
@@ -166,8 +183,8 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     }
                 }
 
-                // Transition to DTExpand when our DTs are completed
-                if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) > 1)
+                /* Transition to DTExpand when our DTs are completed */
+                if (UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) > 1)
                 {
                     strategy = OurStrategy::DTExpand;
                     continue;
@@ -177,7 +194,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             }
             case PvP::OurStrategy::EarlyGameDefense:
             {
-                // Transition appropriately as soon as we have an idea of what the enemy is doing
+                /* Transition appropriately as soon as we have an idea of what the enemy is doing */
                 switch (newEnemyStrategy)
                 {
                     case ProtossStrategy::Unknown:
@@ -232,7 +249,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
             case PvP::OurStrategy::AntiZealotRush:
             {
-                // Transition to normal when we consider it safe to do so
+                /* Transition to normal when we consider it safe to do so */
                 if (canTransitionFromAntiZealotRush())
                 {
                     strategy = OurStrategy::Normal;
@@ -244,7 +261,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
             case PvP::OurStrategy::AntiDarkTemplarRush:
             {
-                // Transition to normal when we consider it safe to do so
+                /* Transition to normal when we consider it safe to do so */
                 if (canTransitionFromAntiDarkTemplarRush())
                 {
                     strategy = OurStrategy::Normal;
@@ -256,9 +273,9 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
 
             case PvP::OurStrategy::FastExpansion:
             {
-                // Transition to normal when the expansion is taken
-                auto natural = Map::getMyNatural();
-                if (!natural || natural->ownedSince != -1)
+                /* Transition to normal when the expansion is taken */
+                auto natBase = Map::getMyNatural();
+                if (!natBase || natBase->ownedSince != -1)
                 {
                     strategy = OurStrategy::Normal;
                     continue;
@@ -290,7 +307,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                // Transition to normal when we either detect another opening or when there are six units in the vanguard cluster
+                /* Transition to normal when we either detect another opening or when there are six units in the vanguard cluster */
 
                 if (newEnemyStrategy == ProtossStrategy::Turtle || newEnemyStrategy == ProtossStrategy::MidGame)
                 {
@@ -298,7 +315,7 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+                auto mainArmyPlay = getPlay<MainArmyPlay>(playList);
                 if (mainArmyPlay && mainArmyPlay->isDefensive())
                 {
                     auto vanguard = mainArmyPlay->getSquad()->vanguardCluster();
@@ -335,17 +352,17 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                // Transition to mid-game when the enemy has done so or we are on two bases
-                // TODO: This is very vaguely defined
-                if (newEnemyStrategy == ProtossStrategy::MidGame || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                /* Transition to mid-game when the enemy has done so or we are on two bases */
+                /* TODO: This is very vaguely defined */
+                if (newEnemyStrategy == ProtossStrategy::MidGame || UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;
                 }
 
-                // TODO: Define conditions to go 3-gate robo based on opponent model
-//                strategy = OurStrategy::ThreeGateRobo;
-//                continue;
+                /* TODO: Define conditions to go 3-gate robo based on opponent model */
+/* strategy = OurStrategy::ThreeGateRobo; */
+/* continue; */
 
                 break;
             }
@@ -367,9 +384,9 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
                     continue;
                 }
 
-                // Transition to mid-game when the enemy has done so or we are on two bases
-                // TODO: This is very vaguely defined
-                if (newEnemyStrategy == ProtossStrategy::MidGame || Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                /* Transition to mid-game when the enemy has done so or we are on two bases */
+                /* TODO: This is very vaguely defined */
+                if (newEnemyStrategy == ProtossStrategy::MidGame || UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;
@@ -379,16 +396,16 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
             }
             case PvP::OurStrategy::DTExpand:
             {
-                // Transition to normal if a DT expand is no longer feasible
+                /* Transition to normal if a DT expand is no longer feasible */
                 if (!isDTExpandFeasible())
                 {
                     strategy = OurStrategy::Normal;
                     continue;
                 }
 
-                // Transition to mid-game when we have taken our natural
-                auto natural = Map::getMyNatural();
-                if (!natural || natural->ownedSince != -1)
+                /* Transition to mid-game when we have taken our natural */
+                auto natBase = Map::getMyNatural();
+                if (!natBase || natBase->ownedSince != -1)
                 {
                     strategy = OurStrategy::MidGame;
                     continue;
@@ -410,6 +427,6 @@ PvP::OurStrategy PvP::chooseOurStrategy(PvP::ProtossStrategy newEnemyStrategy, s
         return strategy;
     }
 
-    Log::Get() << "ERROR: Loop in strategy selection, ended on " << OurStrategyNames[strategy];
+    AppLog::Get() << "ERROR: Loop in strategy selection, ended on " << OurStrategyNames[strategy];
     return strategy;
 }

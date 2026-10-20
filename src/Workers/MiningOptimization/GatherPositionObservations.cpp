@@ -4,16 +4,16 @@
 
 namespace
 {
-    // Packs the arrival delay (already verified to be between -64 and 63 inclusive) and the facing patch boolean into one 8-bit value.
-    // The highest 7 bits are used to store the arrival delay and the lowest is 1 if not facing patch.
+    /* Packs the arrival delay (already verified to be between -64 and 63 inclusive) and the facing patch boolean into one 8-bit value. */
+    /* The highest 7 bits are used to store the arrival delay and the lowest is 1 if not facing patch. */
     int8_t packArrivalDelayAndFacingPatch(int arrivalDelay, bool facingPatch)
     {
-        int8_t result = (int8_t)arrivalDelay * 2;
+        int8_t outcome = (int8_t)arrivalDelay * 2;
         if (!facingPatch)
         {
-            result |= 0b00000001;
+            outcome |= 0b00000001;
         }
-        return result;
+        return outcome;
     }
 }
 
@@ -23,11 +23,11 @@ namespace WorkerMiningOptimization
     {
         if (arrivalDelta > 63 || arrivalDelta < -64)
         {
-            Log::Get() << "ERROR: Arrival delta " << arrivalDelta << " out of bounds";
+            AppLog::Get() << "ERROR: Arrival delta " << arrivalDelta << " out of bounds";
             return false;
         }
 
-        bool result = empty();
+        bool outcome = empty();
 
         auto addArrival = [&]()
         {
@@ -35,9 +35,9 @@ namespace WorkerMiningOptimization
             packedArrivalDelayAndFacingPatchToOccurrences[packArrivalDelayAndFacingPatch(arrivalDelta, facingPatch)]++;
         };
 
-        // If there is only one observation before this one, replace it
-        // This is to handle the situation where we have made a provisional observation in two-worker mining where we know
-        // the worker didn't arrive on time, but not what its exact arrival would have been without resending a command
+        /* If there is only one observation before this one, replace it */
+        /* This is to handle the situation where we have made a provisional observation in two-worker mining where we know */
+        /* the worker didn't arrive on time, but not what its exact arrival would have been without resending a command */
         if (packedArrivalDelayAndFacingPatchToOccurrences.size() == 1 && packedArrivalDelayAndFacingPatchToOccurrences.begin()->second == 1)
         {
             packedArrivalDelayAndFacingPatchToOccurrences.clear();
@@ -45,7 +45,7 @@ namespace WorkerMiningOptimization
         }
         addArrival();
         packedArrivalDelayAndFacingPatchToOccurrenceRate = computeOccurrenceRateMap(packedArrivalDelayAndFacingPatchToOccurrences);
-        return result;
+        return outcome;
     }
 
     int8_t GatherResendArrivalObservations::mostCommonPackedArrivalDelayAndFacingPatch() const
@@ -80,7 +80,7 @@ namespace WorkerMiningOptimization
             return packedArrivalDelayAndFacingPatchToMiningDelay(packedArrivalDelayAndFacingPatchToOccurrenceRate.begin()->first, commandFrame);
         }
 
-        // If the most common arrival delay is positive, or most common does not face patch, return it
+        /* If the most common arrival delay is positive, or most common does not face patch, return it */
         auto mostCommon = mostCommonPackedArrivalDelayAndFacingPatch();
         if (unpackArrivalDelay(mostCommon) > 0 || !unpackFacingPatch(mostCommon))
         {
@@ -103,14 +103,14 @@ namespace WorkerMiningOptimization
     {
         int arrivalDelay = unpackArrivalDelay(packedArrivalDelayAndFacingPatch);
 
-        // If the worker is not facing the patch, add a penalty to the expected mining start time
-        // This will usually be a full order process timer cycle. Technically it could be shortened by an order process timer reset, but generally
-        // we just want to avoid these paths anyway.
+        /* If the worker is not facing the patch, add a penalty to the expected mining start time */
+        /* This will usually be a full order process timer cycle. Technically it could be shortened by an order process timer reset, but generally */
+        /* we just want to avoid these paths anyway. */
         int facePatchPenalty = unpackFacingPatch(packedArrivalDelayAndFacingPatch) ? 0 : 9;
 
-        // Compute the delay between the gather command kicking in and mining starting
-        // If the worker arrives at the patch on time, the delay is 0
-        // If not, the delay will correspond to how long it takes the worker's order process timer to reach 0 again
+        /* Compute the delay between the gather command kicking in and mining starting */
+        /* If the worker arrives at the patch on time, the delay is 0 */
+        /* If not, the delay will correspond to how long it takes the worker's order process timer to reach 0 again */
         int miningDelay;
         if (arrivalDelay <= 0)
         {
@@ -122,22 +122,22 @@ namespace WorkerMiningOptimization
             if (miningDelay % 9 != 0) miningDelay += (9 - miningDelay % 9);
         }
 
-        // Check for order process timer resets that will affect start of mining
+        /* Check for order process timer resets that will affect start of mining */
         int framesToNextReset = OrderProcessTimer::framesToNextReset(commandFrame + BWAPI::Broodwar->getLatencyFrames() + 1);
         if (framesToNextReset < (11 + arrivalDelay))
         {
-            // A reset will happen before the worker arrives at the patch
-            // On average we will need to wait 4 frames after arrival before mining
+            /* A reset will happen before the worker arrives at the patch */
+            /* On average we will need to wait 4 frames after arrival before mining */
             return arrivalDelay + 4.0 + facePatchPenalty;
         }
         if (framesToNextReset < (11 + miningDelay))
         {
-            // A reset will happen after the worker arrives at the patch, but before it can start mining
-            // On average we will need to wait 3.5 frames after the reset
+            /* A reset will happen after the worker arrives at the patch, but before it can start mining */
+            /* On average we will need to wait 3.5 frames after the reset */
             return framesToNextReset - 11 + 3.5 + facePatchPenalty;
         }
 
-        // No reset, return the computed mining delay
+        /* No reset, return the computed mining delay */
         return (double)miningDelay + facePatchPenalty;
     }
 
@@ -230,9 +230,9 @@ namespace WorkerMiningOptimization
                 upperThreshold = unstableUpperThreshold;
             }
 
-            for (const auto &[val, _] : map)
+            for (const auto &[value, _] : map)
             {
-                auto convertedValue = valueConverter ? (*valueConverter)(val) : (int)val;
+                auto convertedValue = valueConverter ? (*valueConverter)(value) : (int)value;
                 if (convertedValue < lowerThreshold) return true;
                 if (convertedValue > upperThreshold) return true;
             }
@@ -240,10 +240,10 @@ namespace WorkerMiningOptimization
             return false;
         };
 
-        // If we haven't observed the "normal" path, try to use resend arrivals
+        /* If we haven't observed the "normal" path, try to use resend arrivals */
         if (deltaToBenchmarkAndOccurrenceRate.empty())
         {
-            // If there are no resend arrivals, we allow the position to be used
+            /* If there are no resend arrivals, we allow the position to be used */
             if (noSecondResendArrivalObservations.packedArrivalDelayAndFacingPatchToOccurrenceRate.empty())
             {
                 return true;
@@ -277,20 +277,20 @@ namespace WorkerMiningOptimization
 
     std::ostream &operator<<(std::ostream &os, const GatherPositionObservationPtr &ptr)
     {
-        if (ptr.pos)
+        if (ptr.pt)
         {
-            os << ptr.pos->pos;
+            os << ptr.pt->pt;
         }
         else
         {
-            os << ptr.secondResendPos->pos;
+            os << ptr.secondResendPos->pt;
         }
         return os;
     }
 
     std::ostream &operator<<(std::ostream &os, const GatherPositionObservations &optimalGatherPositionMetadata)
     {
-        os << optimalGatherPositionMetadata.pos
+        os << optimalGatherPositionMetadata.pt
            << " (d=" << optimalGatherPositionMetadata.probableDeltaToBenchmark() << ")";
 
         return os;

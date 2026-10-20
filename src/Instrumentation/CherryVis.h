@@ -7,7 +7,7 @@
 #define CHERRYVIS_ENABLED true
 #endif
 
-namespace CherryVis
+namespace Telemetry
 {
     enum class DrawColor
     {
@@ -58,11 +58,11 @@ namespace CherryVis
 
     void setBoardListValue(const std::string &key, std::vector<std::string> &values);
 
-    void unitFirstSeen(BWAPI::Unit unit);
+    void unitFirstSeen(BWAPI::Unit gameUnit);
 
     LogWrapper log(int unitId = -1);
 
-    LogWrapper log(BWAPI::Unit unit);
+    LogWrapper log(BWAPI::Unit gameUnit);
 
     void addHeatmap(const std::string &key, const std::vector<long> &data, int sizeX, int sizeY);
 

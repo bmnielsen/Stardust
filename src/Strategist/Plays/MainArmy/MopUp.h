@@ -10,7 +10,7 @@ public:
 
     [[nodiscard]] bool isDefensive() const override { return false; }
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    std::shared_ptr<UnitSquad> getSquad() override { return squad; }
 
 private:
     std::shared_ptr<MopUpSquad> squad;

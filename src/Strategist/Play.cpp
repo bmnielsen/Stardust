@@ -3,40 +3,40 @@
 #include "General.h"
 #include "CherryVis.h"
 
-void Play::addUnit(const MyUnit &unit)
+void PlayItem::addUnit(const OwnedUnit &gameUnit)
 {
     if (getSquad() != nullptr)
     {
-        getSquad()->addUnit(unit);
+        getSquad()->addUnit(gameUnit);
     }
 }
 
-void Play::removeUnit(const MyUnit &unit)
+void PlayItem::removeUnit(const OwnedUnit &gameUnit)
 {
     if (getSquad() != nullptr)
     {
-        getSquad()->removeUnit(unit);
+        getSquad()->removeUnit(gameUnit);
     }
 }
 
-void Play::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                   const std::function<void(const MyUnit)> &movableUnitCallback)
+void PlayItem::disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                   const std::function<void(const OwnedUnit)> &movableUnitCallback)
 {
-    // By default, all units in the squad except cannons are considered movable
+    /* By default, all units in the squad except cannons are considered movable */
     if (getSquad() != nullptr)
     {
-        for (const auto &unit : getSquad()->getUnits())
+        for (const auto &gameUnit : getSquad()->getUnits())
         {
-            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            if (gameUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
             {
-                removedUnitCallback(unit);
+                removedUnitCallback(gameUnit);
             }
             else
             {
-                movableUnitCallback(unit);
+                movableUnitCallback(gameUnit);
             }
         }
 
-        General::removeSquad(getSquad());
+        Marshal::removeSquad(getSquad());
     }
 }

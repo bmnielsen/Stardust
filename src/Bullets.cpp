@@ -8,8 +8,8 @@ namespace Bullets
 {
     namespace
     {
-        // Map of bullet types to unit types for bullets that deal damage after a delay
-        // We use this for determining damage from bullets that come out of the fog
+        /* Map of bullet types to unit types for bullets that deal damage after a delay */
+        /* We use this for determining damage from bullets that come out of the fog */
         const std::map<BWAPI::BulletType, std::set<std::pair<BWAPI::UnitType, int>>> delayedDamageBulletUnits = {
                 {BWAPI::BulletTypes::Burst_Lasers, {{BWAPI::UnitTypes::Terran_Wraith, 254}}},
                 {BWAPI::BulletTypes::Gemini_Missiles, {{BWAPI::UnitTypes::Terran_Wraith, 254}}},
@@ -32,86 +32,86 @@ namespace Bullets
 
         void trackResearch(BWAPI::Bullet bullet)
         {
-            // Terran
+            /* Terran */
             if (bullet->getType() == BWAPI::BulletTypes::EMP_Missile)
             {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::EMP_Shockwave);
+                PlayerInfo::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::EMP_Shockwave);
             }
             if (bullet->getType() == BWAPI::BulletTypes::Yamato_Gun)
             {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Yamato_Gun);
+                PlayerInfo::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Yamato_Gun);
             }
             if (bullet->getType() == BWAPI::BulletTypes::Optical_Flare_Grenade)
             {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Optical_Flare);
+                PlayerInfo::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Optical_Flare);
             }
 
-            // Zerg
+            /* Zerg */
             if (bullet->getType() == BWAPI::BulletTypes::Plague_Cloud)
             {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Plague);
+                PlayerInfo::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Plague);
             }
             if (bullet->getType() == BWAPI::BulletTypes::Consume)
             {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Consume);
+                PlayerInfo::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Consume);
             }
             if (bullet->getType() == BWAPI::BulletTypes::Ensnare)
             {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Ensnare);
+                PlayerInfo::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Ensnare);
             }
 
-            // Protoss
+            /* Protoss */
             if (bullet->getType() == BWAPI::BulletTypes::Psionic_Storm)
             {
-                Players::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Psionic_Storm);
+                PlayerInfo::setHasResearched(bullet->getPlayer(), BWAPI::TechTypes::Psionic_Storm);
             }
         }
 
         void checkBunkerRange(BWAPI::Bullet bullet)
         {
-            // Bail out if we already know the enemy has the upgrade
-            if (Players::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::WeaponTypes::Gauss_Rifle) == 160) return;
+            /* Bail out if we already know the enemy has the upgrade */
+            if (PlayerInfo::weaponRange(BWAPI::Broodwar->enemy(), BWAPI::WeaponTypes::Gauss_Rifle) == 160) return;
 
-            // If the bullet has a source, it definitely isn't from a bunker
-            // The bullet may still be from a marine if it has died in the meantime, but since we
-            // analyze on the second frame, this is unlikely to happen
+            /* If the bullet has a source, it definitely isn't from a bunker */
+            /* The bullet may still be from a marine if it has died in the meantime, but since we */
+            /* analyze on the second frame, this is unlikely to happen */
             if (bullet->getSource()) return;
 
-            // Ignore bullets where the target has died in the meantime
+            /* Ignore bullets where the target has died in the meantime */
             if (!bullet->getTarget()) return;
 
-            // Get the closest visible bunker to the bullet
+            /* Get the closest visible bunker to the bullet */
             int bestDist = INT_MAX;
             BWAPI::Unit bunker = nullptr;
-            for (auto &unit : BWAPI::Broodwar->enemy()->getUnits())
+            for (auto &gameUnit : BWAPI::Broodwar->enemy()->getUnits())
             {
-                if (!unit->exists() || !unit->isVisible() || !unit->isCompleted()) continue;
-                if (unit->getType() != BWAPI::UnitTypes::Terran_Bunker) continue;
-                int dist = unit->getDistance(bullet->getPosition());
-                if (dist < bestDist)
+                if (!gameUnit->exists() || !gameUnit->isVisible() || !gameUnit->isCompleted()) continue;
+                if (gameUnit->getType() != BWAPI::UnitTypes::Terran_Bunker) continue;
+                int span = gameUnit->getDistance(bullet->getPosition());
+                if (span < bestDist)
                 {
-                    bestDist = dist;
-                    bunker = unit;
+                    bestDist = span;
+                    bunker = gameUnit;
                 }
             }
             if (!bunker) return;
 
-            // The bullet seems to always be located 7 pixels "inside" the target, so use this to compute distance between bunker and target
+            /* The bullet seems to always be located 7 pixels "inside" the target, so use this to compute distance between bunker and target */
             bestDist -= 7;
 
-            // Now use this to determine if the marines have the range upgrade
-            // We get some false positives, so use a relatively conservative distance range and
-            // make sure we have seen a few volleys
+            /* Now use this to determine if the marines have the range upgrade */
+            /* We get some false positives, so use a relatively conservative distance range and */
+            /* make sure we have seen a few volleys */
             if (bestDist >= 190 && bestDist <= 192)
             {
                 bulletsSeenAtExtendedMarineRange++;
                 if (bulletsSeenAtExtendedMarineRange > 4)
                 {
-                    CherryVis::log() << "Detected ranged marines in bunker @ " << BWAPI::WalkPosition(bunker->getTilePosition())
+                    Telemetry::log() << "Detected ranged marines in bunker @ " << BWAPI::WalkPosition(bunker->getTilePosition())
                                      << "; target @ " << BWAPI::WalkPosition(bullet->getTarget()->getTilePosition()) << "; dist=" << bestDist;
-                    Log::Get() << "Detected ranged marines in bunker @ " << bunker->getTilePosition()
+                    AppLog::Get() << "Detected ranged marines in bunker @ " << bunker->getTilePosition()
                                << "; target @ " << bullet->getTarget()->getTilePosition() << "; dist=" << bestDist;
-                    Players::setWeaponRange(BWAPI::Broodwar->enemy(), BWAPI::WeaponTypes::Gauss_Rifle, 160);
+                    PlayerInfo::setWeaponRange(BWAPI::Broodwar->enemy(), BWAPI::WeaponTypes::Gauss_Rifle, 160);
                 }
             }
         }
@@ -127,30 +127,30 @@ namespace Bullets
     {
         for (auto bullet : BWAPI::Broodwar->getBullets())
         {
-            // Ignore invalid bullets
+            /* Ignore invalid bullets */
             if (!bullet->exists() || !bullet->isVisible() ||
                 (!bullet->getSource() && !bullet->getTarget()))
             {
                 continue;
             }
 
-            // Track enemy research
+            /* Track enemy research */
             trackResearch(bullet);
 
-            // Call onBulletCreate on the first frame the bullet is seen
-            auto frame = seenBulletFrames.find(bullet->getID());
-            if (frame == seenBulletFrames.end())
+            /* Call onBulletCreate on the first frame the bullet is seen */
+            auto tick = seenBulletFrames.find(bullet->getID());
+            if (tick == seenBulletFrames.end())
             {
-                Units::onBulletCreate(bullet);
+                UnitMgr::onBulletCreate(bullet);
                 NoGoAreas::onBulletCreate(bullet);
-                seenBulletFrames[bullet->getID()] = currentFrame;
+                seenBulletFrames[bullet->getID()] = frameNow;
                 continue;
             }
 
-            // For marine rifle hits, check if we can deduce whether or not the enemy has the range upgrade for shots from a bunker
-            // We check on the frame after we first see the bullet, since this is the frame hidden units appear from the fog
+            /* For marine rifle hits, check if we can deduce whether or not the enemy has the range upgrade for shots from a bunker */
+            /* We check on the frame after we first see the bullet, since this is the frame hidden units appear from the fog */
             if (bullet->getType() == BWAPI::BulletTypes::Gauss_Rifle_Hit &&
-                frame->second == (currentFrame - 1))
+                tick->second == (frameNow - 1))
             {
                 checkBunkerRange(bullet);
             }
@@ -164,10 +164,10 @@ namespace Bullets
 
     int upcomingDamage(BWAPI::Bullet bullet)
     {
-        // Require target
+        /* Require target */
         if (!bullet->getTarget() || !bullet->getTarget()->getPlayer()) return 0;
 
-        // Get the player owning the bullet
+        /* Get the player owning the bullet */
         BWAPI::Player attackingPlayer = bullet->getPlayer();
         if (bullet->getSource())
         {
@@ -175,14 +175,14 @@ namespace Bullets
         }
         if (!attackingPlayer) return 0;
 
-        // Set weapon override for Yamato
+        /* Set weapon override for Yamato */
         auto weaponOverride = BWAPI::WeaponTypes::None;
         if (bullet->getType() == BWAPI::BulletTypes::Yamato_Gun)
         {
             weaponOverride = BWAPI::WeaponTypes::Yamato_Gun;
         }
 
-        // Require ranged bullet that deals damage after a delay
+        /* Require ranged bullet that deals damage after a delay */
         auto bulletInfo = delayedDamageBulletUnits.find(bullet->getType());
         if (bulletInfo == delayedDamageBulletUnits.end()) return 0;
 
@@ -195,19 +195,19 @@ namespace Bullets
             sourceUnitType = unitTypeAndInitialRemoveTimer.first;
         }
 
-        // If we hit this block, we didn't see the bullet on its first frame and couldn't get an exact match
+        /* If we hit this block, we didn't see the bullet on its first frame and couldn't get an exact match */
         if (sourceUnitType == BWAPI::UnitTypes::None)
         {
             if (bullet->getSource())
             {
-                return Players::attackDamage(attackingPlayer,
+                return PlayerInfo::attackDamage(attackingPlayer,
                                              bullet->getSource()->getType(),
                                              bullet->getTarget()->getPlayer(),
                                              bullet->getTarget()->getType(),
                                              weaponOverride);
             }
 
-            return Players::attackDamage(attackingPlayer,
+            return PlayerInfo::attackDamage(attackingPlayer,
                                          bulletInfo->second.begin()->first,
                                          bullet->getTarget()->getPlayer(),
                                          bullet->getTarget()->getType(),
@@ -216,7 +216,7 @@ namespace Bullets
 
         if (bullet->getTargetPosition() != bullet->getTarget()->getPosition()) return 0;
 
-        return Players::attackDamage(attackingPlayer,
+        return PlayerInfo::attackDamage(attackingPlayer,
                                      sourceUnitType,
                                      bullet->getTarget()->getPlayer(),
                                      bullet->getTarget()->getType(),

@@ -2,7 +2,7 @@
 
 #include "Common.h"
 
-// Stores information about a Forge/Gateway wall.
+/* Stores information about a Forge/Gateway wall. */
 class ForgeGatewayWall
 {
 public:
@@ -63,14 +63,14 @@ public:
         else
         {
             out << "pylon@" << wall.pylon << ";forge@" << wall.forge << ";gate@" << wall.gateway << "cannons@";
-            for (auto const &tile : wall.cannons)
+            for (auto const &tilePos : wall.cannons)
             {
-                out << tile;
+                out << tilePos;
             }
             out << ";natCannons@";
-            for (auto const &tile : wall.naturalCannons)
+            for (auto const &tilePos : wall.naturalCannons)
             {
-                out << tile;
+                out << tilePos;
             }
             out << ";gapSize=" << wall.gapSize;
         }
@@ -79,33 +79,33 @@ public:
 
     void addToHeatmap(std::vector<long> &wallHeatmap)
     {
-        // Values:
-        // - Gateway: 10
-        // - Forge: 10
-        // - Pylon: 40
-        // - Cannon: 20
-        // - Natural Cannon: 20
-        // - tilesInsideWall: 2
-        // - tilesOutsideWall: -2
-        // - tilesOutsideButCloseToWall: -1
+        /* Values: */
+        /* - Gateway: 10 */
+        /* - Forge: 10 */
+        /* - Pylon: 40 */
+        /* - Cannon: 20 */
+        /* - Natural Cannon: 20 */
+        /* - tilesInsideWall: 2 */
+        /* - tilesOutsideWall: -2 */
+        /* - tilesOutsideButCloseToWall: -1 */
 
-        auto addLocation = [&wallHeatmap](BWAPI::TilePosition tile, int width, int height, int value)
+        auto addLocation = [&wallHeatmap](BWAPI::TilePosition tilePos, int width, int height, int value)
         {
-            auto bottomRight = tile + BWAPI::TilePosition(width, height);
+            auto bottomRight = tilePos + BWAPI::TilePosition(width, height);
 
-            for (int y = tile.y; y < bottomRight.y; y++)
+            for (int y = tilePos.y; y < bottomRight.y; y++)
             {
                 if (y > BWAPI::Broodwar->mapHeight() - 1)
                 {
-                    Log::Get() << "ERROR: WALL LOCATION OUT OF BOUNDS @ " << tile;
+                    AppLog::Get() << "ERROR: WALL LOCATION OUT OF BOUNDS @ " << tilePos;
                     continue;
                 }
 
-                for (int x = tile.x; x < bottomRight.x; x++)
+                for (int x = tilePos.x; x < bottomRight.x; x++)
                 {
                     if (x > BWAPI::Broodwar->mapWidth() - 1)
                     {
-                        Log::Get() << "ERROR: WALL LOCATION OUT OF BOUNDS @ " << tile;
+                        AppLog::Get() << "ERROR: WALL LOCATION OUT OF BOUNDS @ " << tilePos;
                         continue;
                     }
 
@@ -126,17 +126,17 @@ public:
             addLocation(cannon, 2, 2, 25);
         }
 
-        for (const auto &tile : tilesInsideWall)
+        for (const auto &tilePos : tilesInsideWall)
         {
-            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] += 2;
+            wallHeatmap[tilePos.x + tilePos.y * BWAPI::Broodwar->mapWidth()] += 2;
         }
-        for (const auto &tile : tilesOutsideWall)
+        for (const auto &tilePos : tilesOutsideWall)
         {
-            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] -= 2;
+            wallHeatmap[tilePos.x + tilePos.y * BWAPI::Broodwar->mapWidth()] -= 2;
         }
-        for (const auto &tile : tilesOutsideButCloseToWall)
+        for (const auto &tilePos : tilesOutsideButCloseToWall)
         {
-            wallHeatmap[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] -= 1;
+            wallHeatmap[tilePos.x + tilePos.y * BWAPI::Broodwar->mapWidth()] -= 1;
         }
     }
 };

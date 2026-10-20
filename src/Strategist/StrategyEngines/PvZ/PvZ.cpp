@@ -6,6 +6,11 @@
 #include "Players.h"
 #include "Workers.h"
 #include "Opponent.h"
+#include "StrategySelector.h"
+#include "Config.h"
+#include "FileTools.h"
+
+#include <fstream>
 
 #include "Plays/Macro/SaturateBases.h"
 #include "Plays/MainArmy/DefendMyMain.h"
@@ -29,21 +34,21 @@ namespace
 
     bool enemyHasOurNatural()
     {
-        auto natural = Map::getMyNatural();
-        return natural && natural->owner == BWAPI::Broodwar->enemy();
+        auto natBase = Map::getMyNatural();
+        return natBase && natBase->owner == BWAPI::Broodwar->enemy();
     }
 }
 
-void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride)
+void PvZ::initialize(std::vector<std::shared_ptr<PlayItem>> &playList, bool transitioningFromRandom, const std::string &openingOverride)
 {
-    if (!openingOverride.empty()) plays.clear();
+    if (!openingOverride.empty()) playList.clear();
 
     if (transitioningFromRandom)
     {
-        plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<EjectEnemyScout>());
-        plays.emplace(beforePlayIt<MainArmyPlay>(plays), std::make_shared<Corsairs>());
+        playList.emplace(beforePlayIt<MainArmyPlay>(playList), std::make_shared<EjectEnemyScout>());
+        playList.emplace(beforePlayIt<MainArmyPlay>(playList), std::make_shared<Corsairs>());
 
-        auto ffePlay = getPlay<ForgeFastExpand>(plays);
+        auto ffePlay = getPlay<ForgeFastExpand>(playList);
         if (ffePlay)
         {
             ourStrategy = OurStrategy::FFEDragoons;
@@ -51,26 +56,24 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
     }
     else
     {
-        plays.emplace_back(std::make_shared<SaturateBases>());
-        plays.emplace_back(std::make_shared<EarlyGameWorkerScout>());
-        plays.emplace_back(std::make_shared<EjectEnemyScout>());
-        plays.emplace_back(std::make_shared<Corsairs>());
+        playList.emplace_back(std::make_shared<SaturateBases>());
+        playList.emplace_back(std::make_shared<EarlyGameWorkerScout>());
+        playList.emplace_back(std::make_shared<EjectEnemyScout>());
+        playList.emplace_back(std::make_shared<Corsairs>());
 
         std::string opening = openingOverride;
         if (opening.empty())
         {
-            opening = Opponent::selectOpeningUCB1(
-                    {
-                            OurStrategyNames[OurStrategy::FFEDragoons],
-                            OurStrategyNames[OurStrategy::SairSpeedlot],
-                            OurStrategyNames[OurStrategy::EarlyGameDefense]
-                    });
+            /* L2 seam (S4): JSON strategy library first (legality + Tier-0); */
+            /* "" when engine=legacy or nothing legal -> legacy selection below. */
+            opening = StrategySelector::selectOpening("PvZ");
         }
+        if (opening.empty()) opening = StrategySelector::selectOpeningScored("PvZ");
         if ((opening == OurStrategyNames[OurStrategy::SairSpeedlot]
              || opening == OurStrategyNames[OurStrategy::FFEDragoons])
             && BuildingPlacement::hasForgeGatewayWall())
         {
-            plays.emplace_back(std::make_shared<ForgeFastExpand>());
+            playList.emplace_back(std::make_shared<ForgeFastExpand>());
             if (opening == OurStrategyNames[OurStrategy::SairSpeedlot])
             {
                 ourStrategy = OurStrategy::SairSpeedlot;
@@ -82,41 +85,42 @@ void PvZ::initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioni
         }
         else
         {
-            plays.emplace_back(std::make_shared<DefendMyMain>());
+            playList.emplace_back(std::make_shared<DefendMyMain>());
         }
-        Log::Get() << "Selected opening " << OurStrategyNames[ourStrategy];
+        AppLog::Get() << "Selected opening " << OurStrategyNames[ourStrategy];
     }
 
     Opponent::addMyStrategyChange(OurStrategyNames[ourStrategy]);
     Opponent::addEnemyStrategyChange(ZergStrategyNames[enemyStrategy]);
 }
 
-void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
+void PvZ::updatePlays(std::vector<std::shared_ptr<PlayItem>> &playList)
 {
     auto newEnemyStrategy = recognizeEnemyStrategy();
-    auto newStrategy = chooseOurStrategy(newEnemyStrategy, plays);
+
+    auto newStrategy = chooseOurStrategy(newEnemyStrategy, playList);
 
     if (enemyStrategy != newEnemyStrategy)
     {
 #if LOGGING_ENABLED
-        Log::Get() << "Enemy strategy changed from " << ZergStrategyNames[enemyStrategy] << " to " << ZergStrategyNames[newEnemyStrategy];
+        AppLog::Get() << "Enemy strategy changed from " << ZergStrategyNames[enemyStrategy] << " to " << ZergStrategyNames[newEnemyStrategy];
 #endif
 #if CHERRYVIS_ENABLED
-        CherryVis::log() << "Enemy strategy changed from " << ZergStrategyNames[enemyStrategy] << " to " << ZergStrategyNames[newEnemyStrategy];
+        Telemetry::log() << "Enemy strategy changed from " << ZergStrategyNames[enemyStrategy] << " to " << ZergStrategyNames[newEnemyStrategy];
 #endif
 
         enemyStrategy = newEnemyStrategy;
-        enemyStrategyChanged = currentFrame;
+        enemyStrategyChanged = frameNow;
         Opponent::addEnemyStrategyChange(ZergStrategyNames[enemyStrategy]);
     }
 
     if (ourStrategy != newStrategy)
     {
 #if LOGGING_ENABLED
-        Log::Get() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
+        AppLog::Get() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
 #endif
 #if CHERRYVIS_ENABLED
-        CherryVis::log() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
+        Telemetry::log() << "Our strategy changed from " << OurStrategyNames[ourStrategy] << " to " << OurStrategyNames[newStrategy];
 #endif
 
         ourStrategy = newStrategy;
@@ -130,55 +134,55 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
     }
     else
     {
-        auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+        auto mainArmyPlay = getPlay<MainArmyPlay>(playList);
         auto canTransitionToAttack = [&](int requiredUnitCount, bool requireDragoon)
         {
             if (!mainArmyPlay)
             {
-                CherryVis::setBoardValue("defend-main-reason", "no-main-army-play");
+                Telemetry::setBoardValue("defend-main-reason", "no-main-army-play");
                 return false;
             }
 
             auto vanguardCluster = mainArmyPlay->getSquad()->vanguardCluster();
             if (!vanguardCluster || !vanguardCluster->vanguard)
             {
-                CherryVis::setBoardValue("defend-main-reason", "no-vanguard");
+                Telemetry::setBoardValue("defend-main-reason", "no-vanguard");
                 return false;
             }
 
             int radius = mainArmyPlay->isDefensive() ? 200 : 250;
             bool hasDragoon = false;
             int count = 0;
-            for (const auto &unit : vanguardCluster->units)
+            for (const auto &gameUnit : vanguardCluster->units)
             {
-                if (unit->isStaticGroundDefense()) continue;
+                if (gameUnit->isStaticGroundDefense()) continue;
 
-                if (unit->getDistance(vanguardCluster->vanguard) < radius)
+                if (gameUnit->getDistance(vanguardCluster->vanguard) < radius)
                 {
-                    if (unit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
+                    if (gameUnit->type == BWAPI::UnitTypes::Protoss_Dragoon) hasDragoon = true;
                     count++;
                 }
             }
 
             if (count < requiredUnitCount)
             {
-                CherryVis::setBoardValue("defend-main-reason", "not-enough-units");
+                Telemetry::setBoardValue("defend-main-reason", "not-enough-units");
                 return false;
             }
             if (requireDragoon && !hasDragoon)
             {
-                CherryVis::setBoardValue("defend-main-reason", "no-dragoon");
+                Telemetry::setBoardValue("defend-main-reason", "no-dragoon");
                 return false;
             }
 
-            // If the enemy has done a sneak attack recently, don't leave our base until we have built defensive cannons
+            /* If the enemy has done a sneak attack recently, don't leave our base until we have built defensive cannons */
             if (isFFE()) return true; // only relevant for non-FFE builds
-            if (currentFrame > 10000) return true; // only relevant in early game
+            if (frameNow > 10000) return true; // only relevant in early game
             if (enemyHasOurNatural()) return true; // exception if the enemy has our natural
             auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
-            if (sneakAttack <= 10000 && Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) < 2)
+            if (sneakAttack <= 10000 && UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) < 2)
             {
-                CherryVis::setBoardValue("defend-main-reason", "no-anti-sneak-attack-cannons");
+                Telemetry::setBoardValue("defend-main-reason", "no-anti-sneak-attack-cannons");
                 return false;
             }
             return true;
@@ -194,16 +198,16 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             }
             case OurStrategy::AntiSunkenContain:
             {
-                // Attack when we have +1 and speed
+                /* Attack when we have +1 and speed */
                 defendOurMain = (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) == 0 ||
                                  BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) == 0);
 
-                // Elevator some units out of our main to attack the enemy main
+                /* Elevator some units out of our main to attack the enemy main */
                 {
-                    auto elevatorPlay = getPlay<Elevator>(plays);
+                    auto elevatorPlay = getPlay<Elevator>(playList);
                     if (!elevatorPlay)
                     {
-                        plays.emplace(beforePlayIt<MainArmyPlay>(plays),
+                        playList.emplace(beforePlayIt<MainArmyPlay>(playList),
                                       std::make_shared<Elevator>(true, BWAPI::UnitTypes::Protoss_Zealot));
                     }
                 }
@@ -212,12 +216,12 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
             }
             case OurStrategy::SairSpeedlot:
             {
-                // Attack when we have +1 and speed or 6 corsairs and an army
-                // This strategy transitions to mid game as soon as it has gone on the attack, so the opposite transition is not needed
+                /* Attack when we have +1 and speed or 6 corsairs and an army */
+                /* This strategy transitions to mid game as soon as it has gone on the attack, so the opposite transition is not needed */
                 defendOurMain = true;
                 if ((BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) > 0 &&
                      BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Leg_Enhancements) > 0)
-                    || (Units::countCompleted(BWAPI::UnitTypes::Protoss_Corsair) > 5 && canTransitionToAttack(5, false)))
+                    || (UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Corsair) > 5 && canTransitionToAttack(5, false)))
                 {
                     defendOurMain = false;
                 }
@@ -232,12 +236,12 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     break;
                 }
 
-                // Transition to attack when we have 5 units in our army and range is started
+                /* Transition to attack when we have 5 units in our army and range is started */
                 if (mainArmyPlay->isDefensive())
                 {
                     defendOurMain = true;
                     if ((BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Singularity_Charge) > 0
-                         || Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+                         || UnitMgr::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
                         && canTransitionToAttack(5, true))
                     {
                         defendOurMain = false;
@@ -246,7 +250,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
                     break;
                 }
 
-                // TODO: Should we ever transition back to defense?
+                /* TODO: Should we ever transition back to defense? */
                 defendOurMain = false;
                 break;
             }
@@ -260,7 +264,7 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
 
                 defendOurMain = false;
 
-                // Transition from defense when appropriate
+                /* Transition from defense when appropriate */
                 if (mainArmyPlay->isDefensive())
                 {
                     if (ourStrategy == OurStrategy::FastExpansion)
@@ -278,16 +282,16 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
     }
 
-    updateAttackPlays(plays, defendOurMain);
+    updateAttackPlays(playList, defendOurMain);
 
-    // Set the worker scout to monitor the enemy choke once the pool is finished if we are in a defensive mode
-    if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::EnemyBaseScouted &&
+    /* Set the worker scout to monitor the enemy choke once the pool is finished if we are in a defensive mode */
+    if (Director::getWorkerScoutStatus() == Director::WorkerScoutStatus::EnemyBaseScouted &&
         (ourStrategy == OurStrategy::AntiAllIn || ourStrategy == OurStrategy::Defensive))
     {
-        auto play = getPlay<EarlyGameWorkerScout>(plays);
+        auto play = getPlay<EarlyGameWorkerScout>(playList);
         if (play)
         {
-            auto pools = Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Spawning_Pool);
+            auto pools = UnitMgr::allEnemyOfType(BWAPI::UnitTypes::Zerg_Spawning_Pool);
             if (!pools.empty() && (*pools.begin())->completed)
             {
                 play->monitorEnemyChoke();
@@ -295,87 +299,87 @@ void PvZ::updatePlays(std::vector<std::shared_ptr<Play>> &plays)
         }
     }
 
-    updateDefendBasePlays(plays);
-    updateSpecialTeamsPlays(plays);
-    // When doing an FFE, wait until at least frame 10000 to take a third
-    if (!isFFE() || currentFrame > 10000)
+    updateDefendBasePlays(playList);
+    updateSpecialTeamsPlays(playList);
+    /* When doing an FFE, wait until at least frame 10000 to take a third */
+    if (!isFFE() || frameNow > 10000)
     {
-        defaultExpansions(plays);
+        defaultExpansions(playList);
     }
-    scoutExpos(plays, 10000);
+    scoutExpos(playList, 10000);
 }
 
-void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                           std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+void PvZ::updateProduction(std::vector<std::shared_ptr<PlayItem>> &playList,
+                           std::map<int, std::vector<ProductionGoal>> &prioProdGoals,
                            std::vector<std::pair<int, int>> &mineralReservations)
 {
     reserveMineralsForExpansion(mineralReservations);
-    handleNaturalExpansion(plays, prioritizedProductionGoals);
-    handleDetection(prioritizedProductionGoals);
+    handleNaturalExpansion(playList, prioProdGoals);
+    handleDetection(prioProdGoals);
 
-    if (handleIslandExpansionProduction(plays, prioritizedProductionGoals)) return;
+    if (handleIslandExpansionProduction(playList, prioProdGoals)) return;
 
-    auto mainArmyPlay = getPlay<MainArmyPlay>(plays);
+    auto mainArmyPlay = getPlay<MainArmyPlay>(playList);
     auto completedUnits = mainArmyPlay ? mainArmyPlay->getSquad()->getUnitCountByType() : emptyUnitCountMap;
     auto &incompleteUnits = mainArmyPlay ? mainArmyPlay->assignedIncompleteUnits : emptyUnitCountMap;
 
     int zealotCount = completedUnits[BWAPI::UnitTypes::Protoss_Zealot] + incompleteUnits[BWAPI::UnitTypes::Protoss_Zealot];
     int dragoonCount = completedUnits[BWAPI::UnitTypes::Protoss_Dragoon] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dragoon];
     int dtCount = completedUnits[BWAPI::UnitTypes::Protoss_Dark_Templar] + incompleteUnits[BWAPI::UnitTypes::Protoss_Dark_Templar];
-    int corsairCount = Units::countAll(BWAPI::UnitTypes::Protoss_Corsair);
+    int corsairCount = UnitMgr::countAll(BWAPI::UnitTypes::Protoss_Corsair);
 
-    int inProgressCount = Units::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot)
-                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
-                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar)
-                          + Units::countIncomplete(BWAPI::UnitTypes::Protoss_Corsair);
+    int inProgressCount = UnitMgr::countIncomplete(BWAPI::UnitTypes::Protoss_Zealot)
+                          + UnitMgr::countIncomplete(BWAPI::UnitTypes::Protoss_Dragoon)
+                          + UnitMgr::countIncomplete(BWAPI::UnitTypes::Protoss_Dark_Templar)
+                          + UnitMgr::countIncomplete(BWAPI::UnitTypes::Protoss_Corsair);
 
     if (!isFFE())
     {
-        handleGasStealProduction(prioritizedProductionGoals, zealotCount);
+        handleGasStealProduction(prioProdGoals, zealotCount);
     }
 
     auto buildAntiSneakAttackCannons = [&]()
     {
-        // Not relevant when we are doing an FFE
+        /* Not relevant when we are doing an FFE */
         if (isFFE())
         {
-            CherryVis::setBoardValue("anti-sneak-attack", "ffe");
+            Telemetry::setBoardValue("anti-sneak-attack", "ffe");
             return;
         }
 
-        // Only relevant in early game
-        if (currentFrame > 10000) return;
+        /* Only relevant in early game */
+        if (frameNow > 10000) return;
 
-        // Check if the enemy has done a sneak attack recently
+        /* Check if the enemy has done a sneak attack recently */
         auto sneakAttack = Opponent::minValueInPreviousGames("sneakAttack", INT_MAX, 20, 0);
         if (sneakAttack > 10000) return;
 
-        // Build three cannons
-        buildDefensiveCannons(prioritizedProductionGoals, false, 0, 3);
+        /* Build three cannons */
+        buildDefensiveCannons(prioProdGoals, false, 0, 3);
     };
 
     auto desiredCorsairs = [&]()
     {
-        // Limit to 7 + 1 for every 2 enemy mutalisks
-        int limit = 7 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) / 2);
+        /* Limit to 7 + 1 for every 2 enemy mutalisks */
+        int limit = 7 + (UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) / 2);
         int desired = limit - corsairCount;
         if (desired <= 0) return 0;
 
-        // Always build if we have DTs to force enemy to defend its overlords
+        /* Always build if we have DTs to force enemy to defend its overlords */
         if (dtCount > 0) return desired;
 
-        // Always build if the enemy has air units that can threaten our bases
-        if (Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk)) return desired;
+        /* Always build if the enemy has air units that can threaten our bases */
+        if (UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Mutalisk)) return desired;
 
-        // Don't build if the enemy has defended its overlords
-        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+        /* Don't build if the enemy has defended its overlords */
+        auto &grid = PlayerInfo::grid(BWAPI::Broodwar->enemy());
         int defendedOverlords = 0;
         int undefendedOverlords = 0;
-        for (auto &overlord : Units::allEnemyOfType(BWAPI::UnitTypes::Zerg_Overlord))
+        for (auto &overlord : UnitMgr::allEnemyOfType(BWAPI::UnitTypes::Zerg_Overlord))
         {
             if (!overlord->lastPositionValid) continue;
 
-            long threat = grid.airThreat(overlord->lastPosition);
+            long threat = grid.airThreat(overlord->prevPos);
             ((threat == 0) ? undefendedOverlords : defendedOverlords)++;
         }
         if (defendedOverlords > undefendedOverlords) return 0;
@@ -383,13 +387,13 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         return desired;
     };
 
-    // Main army production
+    /* Main army production */
     switch (ourStrategy)
     {
         case OurStrategy::EarlyGameDefense:
         {
-            // We start with two-gate zealots until we have more scouting information
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+            /* We start with two-gate zealots until we have more scouting information */
+            prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
@@ -398,7 +402,7 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         }
         case OurStrategy::AntiAllIn:
         {
-            // Get at least six zealots before dragoons, more if our choke is hard to defend
+            /* Get at least six zealots before dragoons, more if our choke is hard to defend */
             int desiredZealots = 6;
             auto mainChoke = Map::getMyMainChoke();
             if (mainChoke && !mainChoke->isNarrowChoke)
@@ -406,22 +410,22 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 desiredZealots = 10;
             }
 
-            // Also bump up the number of zealots if the enemy has a lot of lings
-            desiredZealots = std::max(desiredZealots, 2 + Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 3);
+            /* Also bump up the number of zealots if the enemy has a lot of lings */
+            desiredZealots = std::max(desiredZealots, 2 + UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) / 3);
 
             int zealotsRequired = desiredZealots - zealotCount;
 
-            handleAntiRushProduction(prioritizedProductionGoals, dragoonCount, zealotCount, zealotsRequired);
+            handleAntiRushProduction(prioProdGoals, dragoonCount, zealotCount, zealotsRequired);
 
-            // We can build anti-sneak-attack cannons when we have started goon range
-            if (Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+            /* We can build anti-sneak-attack cannons when we have started goon range */
+            if (UnitMgr::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
             {
-                CherryVis::setBoardValue("anti-sneak-attack", "started-goon-range");
+                Telemetry::setBoardValue("anti-sneak-attack", "started-goon-range");
                 buildAntiSneakAttackCannons();
             }
             else
             {
-                CherryVis::setBoardValue("anti-sneak-attack", "not-started-goon-range");
+                Telemetry::setBoardValue("anti-sneak-attack", "not-started-goon-range");
             }
 
             break;
@@ -429,60 +433,60 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::AntiSunkenContain:
         {
-            // Cancel goons, goon range
-            cancelTrainingUnits(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon);
-            if (Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
+            /* Cancel goons, goon range */
+            cancelTrainingUnits(prioProdGoals, BWAPI::UnitTypes::Protoss_Dragoon);
+            if (UnitMgr::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Singularity_Charge))
             {
-                for (const auto &core : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
+                for (const auto &core : UnitMgr::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Cybernetics_Core))
                 {
-                    if (core->bwapiUnit->isUpgrading())
+                    if (core->rawUnit->isUpgrading())
                     {
-                        core->bwapiUnit->cancelUpgrade();
+                        core->rawUnit->cancelUpgrade();
                     }
                 }
             }
 
-            // Build pure zealots
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+            /* Build pure zealots */
+            prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE-anticontain",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
 
-            // Get +1 weapons, then zealot speed
-            upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
-            if (Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) ||
+            /* Get +1 weapons, then zealot speed */
+            upgrade(prioProdGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons);
+            if (UnitMgr::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) ||
                 BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Ground_Weapons) > 0)
             {
-                upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements);
+                upgrade(prioProdGoals, BWAPI::UpgradeTypes::Leg_Enhancements);
             }
 
-            // Get a shuttle
-            if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1)
+            /* Get a shuttle */
+            if (UnitMgr::countAll(BWAPI::UnitTypes::Protoss_Shuttle) < 1)
             {
-                prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+                prioProdGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                                "SE",
                                                                                BWAPI::UnitTypes::Protoss_Shuttle,
                                                                                1,
                                                                                1);
             }
 
-            // Take one expansion using a shuttle
-            if (Units::countAll(BWAPI::UnitTypes::Protoss_Nexus) < 2) takeExpansionWithShuttle(plays);
+            /* Take one expansion using a shuttle */
+            if (UnitMgr::countAll(BWAPI::UnitTypes::Protoss_Nexus) < 2) takeExpansionWithShuttle(playList);
 
             break;
         }
 
         case OurStrategy::FastExpansion:
         {
-            // We've scouted a non-threatening opening, so generally skip zealots and go straight for dragoons
-            // Build a couple of zealots though if we have seen zerglings on the way and have nothing to defend with
-            if (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 0)
+            /* We've scouted a non-threatening opening, so generally skip zealots and go straight for dragoons */
+            /* Build a couple of zealots though if we have seen zerglings on the way and have nothing to defend with */
+            if (UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) > 0)
             {
                 int unitCount = zealotCount + dragoonCount;
                 if (unitCount < 2)
                 {
-                    prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                    prioProdGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                                   "SE-fe",
                                                                                   BWAPI::UnitTypes::Protoss_Zealot,
                                                                                   2 - unitCount,
@@ -490,21 +494,21 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 }
             }
 
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+            prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE-fe",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+            prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE-fe",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
 
-            // Default upgrades
-            handleUpgrades(prioritizedProductionGoals);
+            /* Default upgrades */
+            handleUpgrades(prioProdGoals);
 
-            // Build anti-sneak-attack cannons immediately
+            /* Build anti-sneak-attack cannons immediately */
             buildAntiSneakAttackCannons();
 
             break;
@@ -513,14 +517,14 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::SairSpeedlot:
         {
             bool isEnemyMutaBuild = (enemyStrategy == ZergStrategy::MutaRush) ||
-                                    Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 5;
+                                    UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 5;
 
             int corsairs = std::max(7 - corsairCount, desiredCorsairs());
 
-            // First sair is prioritized highest
+            /* First sair is prioritized highest */
             if (corsairCount == 0)
             {
-                prioritizedProductionGoals[PRIORITY_DEPOTS + 1].emplace_back(std::in_place_type<UnitProductionGoal>,
+                prioProdGoals[PRIORITY_DEPOTS + 1].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                              "SE",
                                                                              BWAPI::UnitTypes::Protoss_Corsair,
                                                                              1,
@@ -528,10 +532,10 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 corsairs--;
             }
 
-            // First zealots are prioritized next
+            /* First zealots are prioritized next */
             if (zealotCount < 2)
             {
-                prioritizedProductionGoals[PRIORITY_DEPOTS + 1].emplace_back(std::in_place_type<UnitProductionGoal>,
+                prioProdGoals[PRIORITY_DEPOTS + 1].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                              "SE",
                                                                              BWAPI::UnitTypes::Protoss_Zealot,
                                                                              2 - zealotCount,
@@ -540,33 +544,33 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
             if (!isEnemyMutaBuild || corsairs > 4)
             {
-                upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, 1, PRIORITY_NORMAL);
-                upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, 1, PRIORITY_NORMAL);
+                upgrade(prioProdGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, 1, PRIORITY_NORMAL);
+                upgrade(prioProdGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, 1, PRIORITY_NORMAL);
             }
             if (!isEnemyMutaBuild)
             {
-                upgrade(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, 1, PRIORITY_NORMAL);
+                upgrade(prioProdGoals, BWAPI::UpgradeTypes::Leg_Enhancements, 1, PRIORITY_NORMAL);
             }
 
             if (corsairs > 0)
             {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                            "SE",
                                                                            BWAPI::UnitTypes::Protoss_Corsair,
                                                                            corsairs,
-                                                                           ((Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 2) ? 2 : 1));
+                                                                           ((UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 2) ? 2 : 1));
             }
 
             if (isEnemyMutaBuild)
             {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                            "SE",
                                                                            BWAPI::UnitTypes::Protoss_Dragoon,
                                                                            -1,
                                                                            -1);
             }
 
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+            prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
@@ -577,39 +581,64 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
 
         case OurStrategy::FFEDragoons:
         {
-            // Scale our desired zealots based on enemy ling count
-            // Start with one before goons
+            /* Scale our desired zealots based on enemy ling count */
+            /* Start with one before goons */
             int unitCount = zealotCount + dragoonCount;
-            int cannonCount = Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon);
-            int desiredZealots = std::max(1 - unitCount, (1 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3) - cannonCount);
+            int cannonCount = UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon);
+            int desiredZealots = std::max(1 - unitCount, (1 + (UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3) - cannonCount);
             if (zealotCount < desiredZealots)
             {
-                prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                prioProdGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                               "SE",
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                               desiredZealots - zealotCount,
                                                                               -1);
             }
 
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+            prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+            prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
 
-            // Upgrade goon range at 1 dragoon
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
+            /* Upgrade goon range at 1 dragoon */
+            upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 1);
 
-            // Upgrade +1 attack at 2 zealots
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 2);
+            /* Upgrade +1 attack at 2 zealots */
+            upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 2);
 
-            // Upgrade leg speed at 5 zealots
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 5);
+            /* Upgrade leg speed at 5 zealots */
+            upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 5);
+
+            /* D4 reactive transitions (AIIDE2025 report 2026-09-17), gated by
+             * params d4_transitions=on. ZerglingRush -> 2 defensive cannons
+             * (BB FFE adaptive-cannon analog); MutaRush -> plug the corsair
+             * gap on this line via the shared desiredCorsairs() helper. */
+            if (Config::d4Transitions())
+            {
+                if (enemyStrategy == ZergStrategy::ZerglingRush)
+                {
+                    buildDefensiveCannons(prioProdGoals, false, 0, 2);
+                }
+                else if (enemyStrategy == ZergStrategy::MutaRush)
+                {
+                    int corsairs = desiredCorsairs();
+                    if (corsairs > 0)
+                    {
+                        Telemetry::setBoardValue("d4", "corsairs");
+                        prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                                                                                   "SE",
+                                                                                   BWAPI::UnitTypes::Protoss_Corsair,
+                                                                                   corsairs,
+                                                                                   -1);
+                    }
+                }
+            }
 
             break;
         }
@@ -617,19 +646,19 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::Defensive:
         case OurStrategy::Normal:
         {
-            // Scale our desired zealots based on enemy ling count
-            // Start with three before goons
+            /* Scale our desired zealots based on enemy ling count */
+            /* Start with three before goons */
             int unitCount = zealotCount + dragoonCount;
-            int desiredZealots = std::max(3 - unitCount, 1 + (Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3);
+            int desiredZealots = std::max(3 - unitCount, 1 + (UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Zergling) + 2) / 3);
             if (zealotCount < desiredZealots)
             {
-                prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+                prioProdGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                               "SE",
                                                                               BWAPI::UnitTypes::Protoss_Zealot,
                                                                               desiredZealots - zealotCount,
                                                                               2);
 
-                cancelTrainingUnits(prioritizedProductionGoals,
+                cancelTrainingUnits(prioProdGoals,
                                     BWAPI::UnitTypes::Protoss_Dragoon,
                                     desiredZealots - zealotCount,
                                     BWAPI::UnitTypes::Protoss_Zealot.buildTime());
@@ -638,82 +667,82 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
             int corsairs = desiredCorsairs();
             if (corsairs > 0)
             {
-                prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+                prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                            "SE",
                                                                            BWAPI::UnitTypes::Protoss_Corsair,
                                                                            1,
                                                                            1);
             }
 
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+            prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE",
                                                                        BWAPI::UnitTypes::Protoss_Dragoon,
                                                                        -1,
                                                                        -1);
-            prioritizedProductionGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
+            prioProdGoals[PRIORITY_MAINARMY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        "SE",
                                                                        BWAPI::UnitTypes::Protoss_Zealot,
                                                                        -1,
                                                                        -1);
 
-            // Upgrade goon range at 2 dragoons
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+            /* Upgrade goon range at 2 dragoons */
+            upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
-            // Upgrade zealots at varying cutoffs depending on whether we already have a forge
-            if (Units::countAll(BWAPI::UnitTypes::Protoss_Forge) > 0)
+            /* Upgrade zealots at varying cutoffs depending on whether we already have a forge */
+            if (UnitMgr::countAll(BWAPI::UnitTypes::Protoss_Forge) > 0)
             {
-                upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 4);
+                upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 4);
             }
             else
             {
-                upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 6);
+                upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 6);
             }
 
-            // Build anti-sneak-attack cannons on 4 completed units
-            // Exception is if the enemy has taken our natural, in which case we skip this
+            /* Build anti-sneak-attack cannons on 4 completed units */
+            /* Exception is if the enemy has taken our natural, in which case we skip this */
             if (enemyHasOurNatural())
             {
-                CherryVis::setBoardValue("anti-sneak-attack", "enemy-has-our-natural");
+                Telemetry::setBoardValue("anti-sneak-attack", "enemy-has-our-natural");
             }
             else if ((zealotCount + dragoonCount - inProgressCount) >= 4)
             {
-                CherryVis::setBoardValue("anti-sneak-attack", "enough-units");
+                Telemetry::setBoardValue("anti-sneak-attack", "enough-units");
                 buildAntiSneakAttackCannons();
             }
             else
             {
-                CherryVis::setBoardValue("anti-sneak-attack", "not-enough-units");
+                Telemetry::setBoardValue("anti-sneak-attack", "not-enough-units");
             }
 
             break;
         }
         case OurStrategy::MidGame:
         {
-            // TODO: Higher-tech units
+            /* TODO: Higher-tech units */
 
-            // Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base)
-            int higherPriorityCount = (Workers::mineralWorkers() / 6) - inProgressCount;
+            /* Baseline production is one combat unit for every 6 workers (approximately 3 units per mining base) */
+            int higherPriorityCount = (WorkerMgr::mineralWorkers() / 6) - inProgressCount;
 
-            // Compute enemy unit mix
-            int enemyLings = Units::countEnemy(BWAPI::UnitTypes::Zerg_Zergling);
-            int enemyHydras = Units::countEnemy(BWAPI::UnitTypes::Zerg_Hydralisk);
-            int enemyMutas = Units::countEnemy(BWAPI::UnitTypes::Zerg_Lurker_Egg)
-                    + Units::countEnemy(BWAPI::UnitTypes::Zerg_Lurker)
-                    + Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk);
+            /* Compute enemy unit mix */
+            int enemyLings = UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Zergling);
+            int enemyHydras = UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Hydralisk);
+            int enemyMutas = UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Lurker_Egg)
+                    + UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Lurker)
+                    + UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk);
 
-            // Simulate future units if we've seen tech
-            if (enemyHydras == 0 && Units::countEnemy(BWAPI::UnitTypes::Zerg_Hydralisk_Den) > 0) enemyHydras = 3;
-            if (enemyMutas == 0 && Units::countEnemy(BWAPI::UnitTypes::Zerg_Spire) > 0) enemyMutas = 3;
+            /* Simulate future units if we've seen tech */
+            if (enemyHydras == 0 && UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Hydralisk_Den) > 0) enemyHydras = 3;
+            if (enemyMutas == 0 && UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Spire) > 0) enemyMutas = 3;
 
-            // Compute the enemy ling percentage, weighted to count mutas a bit higher
+            /* Compute the enemy ling percentage, weighted to count mutas a bit higher */
             double enemyLingPercentage = 1.0;
             if ((enemyLings + enemyHydras + enemyMutas) > 0)
             {
                 enemyLingPercentage = (double)enemyLings / (double)(enemyLings + enemyHydras + enemyMutas * 2);
             }
 
-            // Now use this to determine our unit mix
-            // We prefer zealots more and more as the enemy ling percentage goes up, but still build some goons
+            /* Now use this to determine our unit mix */
+            /* We prefer zealots more and more as the enemy ling percentage goes up, but still build some goons */
             double desiredZealotRatio = enemyLingPercentage * 0.8;
 
             double actualZealotRatio = 0.0;
@@ -728,29 +757,29 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
                 int toBuild = 1;
                 int stargates = 1;
 
-                // Boost the count to build at a time if the enemy has mutas
-                if (corsairs > 2 && Units::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 4)
+                /* Boost the count to build at a time if the enemy has mutas */
+                if (corsairs > 2 && UnitMgr::countEnemy(BWAPI::UnitTypes::Zerg_Mutalisk) > 4)
                 {
                     toBuild = 2;
                     stargates = 2;
-                    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
+                    if (UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1)
                     {
                         toBuild = 3;
                     }
                 }
 
-                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Corsair, toBuild, higherPriorityCount, stargates);
+                mainArmyProduction(prioProdGoals, BWAPI::UnitTypes::Protoss_Corsair, toBuild, higherPriorityCount, stargates);
             }
             if (actualZealotRatio > desiredZealotRatio)
             {
-                mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
+                mainArmyProduction(prioProdGoals, BWAPI::UnitTypes::Protoss_Dragoon, -1, higherPriorityCount);
             }
-            mainArmyProduction(prioritizedProductionGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
+            mainArmyProduction(prioProdGoals, BWAPI::UnitTypes::Protoss_Zealot, -1, higherPriorityCount);
 
-            // Make sure we get weapons upgrade for zealots
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 4);
+            /* Make sure we get weapons upgrade for zealots */
+            upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Protoss_Ground_Weapons, BWAPI::UnitTypes::Protoss_Zealot, 4);
 
-            handleUpgrades(prioritizedProductionGoals);
+            handleUpgrades(prioProdGoals);
             buildAntiSneakAttackCannons();
 
             break;
@@ -758,26 +787,26 @@ void PvZ::updateProduction(std::vector<std::shared_ptr<Play>> &plays,
     }
 }
 
-void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
-                                 std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<PlayItem>> &playList,
+                                 std::map<int, std::vector<ProductionGoal>> &prioProdGoals)
 {
-    // Hop out if the natural has already been taken
-    auto natural = Map::getMyNatural();
-    if (!natural || natural->ownedSince != -1)
+    /* Hop out if the natural has already been taken */
+    auto natBase = Map::getMyNatural();
+    if (!natBase || natBase->ownedSince != -1)
     {
-        CherryVis::setBoardValue("natural", "complete");
+        Telemetry::setBoardValue("natural", "complete");
         return;
     }
 
-    // If we have a backdoor natural, expand when our third goon is being produced or we have lots of money
+    /* If we have a backdoor natural, expand when our third goon is being produced or we have lots of money */
     if (Map::mapSpecificOverride()->hasBackdoorNatural())
     {
         if (BWAPI::Broodwar->self()->minerals() > 450 ||
-            Units::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 2)
+            UnitMgr::countAll(BWAPI::UnitTypes::Protoss_Dragoon) > 2)
         {
-            CherryVis::setBoardValue("natural", "take-backdoor");
+            Telemetry::setBoardValue("natural", "take-backdoor");
 
-            takeNaturalExpansion(plays, prioritizedProductionGoals);
+            takeNaturalExpansion(playList, prioProdGoals);
             return;
         }
     }
@@ -788,134 +817,134 @@ void PvZ::handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
         case OurStrategy::AntiAllIn:
         case OurStrategy::AntiSunkenContain:
         case OurStrategy::Defensive:
-            // Don't take our natural if the enemy could be rushing or doing an all-in
-            CherryVis::setBoardValue("natural", "wait-defensive");
+            /* Don't take our natural if the enemy could be rushing or doing an all-in */
+            Telemetry::setBoardValue("natural", "wait-defensive");
             break;
 
         case OurStrategy::SairSpeedlot:
         case OurStrategy::FFEDragoons:
-            // Handled by the play
-            CherryVis::setBoardValue("natural", "forge-expand");
+            /* Handled by the play */
+            Telemetry::setBoardValue("natural", "forge-expand");
             return;
 
         case OurStrategy::FastExpansion:
-            CherryVis::setBoardValue("natural", "take-fast-expo");
-            takeNaturalExpansion(plays, prioritizedProductionGoals);
+            Telemetry::setBoardValue("natural", "take-fast-expo");
+            takeNaturalExpansion(playList, prioProdGoals);
             return;
 
         case OurStrategy::Normal:
         case OurStrategy::MidGame:
         {
-            // In this case we want to expand when we consider it safe to do so: we have an attacking or containing army
-            // that is close to the enemy base
+            /* In this case we want to expand when we consider it safe to do so: we have an attacking or containing army */
+            /* that is close to the enemy base */
 
-            auto mainArmyPlay = getPlay<AttackEnemyBase>(plays);
+            auto mainArmyPlay = getPlay<AttackEnemyBase>(playList);
             if (!mainArmyPlay)
             {
-                CherryVis::setBoardValue("natural", "no-attack-play");
+                Telemetry::setBoardValue("natural", "no-attack-play");
                 break;
             }
 
-            auto corsairCount = Units::countCompleted(BWAPI::UnitTypes::Protoss_Corsair);
+            auto corsairCount = UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Corsair);
             auto squad = mainArmyPlay->getSquad();
             auto squadUnitCount = squad ? squad->getUnits().size() : 0;
             if (squadUnitCount < 5 || (corsairCount == 0 && squadUnitCount < 8))
             {
-                CherryVis::setBoardValue("natural", "attack-play-too-small");
+                Telemetry::setBoardValue("natural", "attack-play-too-small");
                 break;
             }
 
-            int dist;
-            auto vanguardCluster = squad->vanguardCluster(&dist);
+            int span;
+            auto vanguardCluster = squad->vanguardCluster(&span);
             if (!vanguardCluster)
             {
-                CherryVis::setBoardValue("natural", "no-vanguard-cluster");
+                Telemetry::setBoardValue("natural", "no-vanguard-cluster");
                 break;
             }
 
-            // Cluster should be past our own natural
-            int naturalDist = PathFinding::GetGroundDistance(natural->getPosition(), mainArmyPlay->base->getPosition());
-            if (naturalDist != -1 && dist > (naturalDist - 320))
+            /* Cluster should be past our own natural */
+            int naturalDist = Pathfinder::GetGroundDistance(natBase->getPosition(), mainArmyPlay->baseLoc->getPosition());
+            if (naturalDist != -1 && span > (naturalDist - 320))
             {
-                CherryVis::setBoardValue("natural", "vanguard-cluster-too-close");
+                Telemetry::setBoardValue("natural", "vanguard-cluster-too-close");
                 break;
             }
 
-            // Cluster should not be moving or fleeing
-            // In other words, we want the cluster to be in some kind of stable attack or contain state
+            /* Cluster should not be moving or fleeing */
+            /* In other words, we want the cluster to be in some kind of stable attack or contain state */
             if (vanguardCluster->currentActivity == UnitCluster::Activity::Moving
                 || (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping
                     && vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee))
             {
-                // We don't cancel a queued expansion in this case
-                CherryVis::setBoardValue("natural", "vanguard-cluster-not-attacking");
+                /* We don't cancel a queued expansion in this case */
+                Telemetry::setBoardValue("natural", "vanguard-cluster-not-attacking");
                 return;
             }
 
-            CherryVis::setBoardValue("natural", "take");
-            takeNaturalExpansion(plays, prioritizedProductionGoals);
+            Telemetry::setBoardValue("natural", "take");
+            takeNaturalExpansion(playList, prioProdGoals);
             return;
         }
     }
 
-    cancelNaturalExpansion(plays, prioritizedProductionGoals);
+    cancelNaturalExpansion(playList, prioProdGoals);
 }
 
-void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+void PvZ::handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioProdGoals)
 {
-    // Basic infantry skill upgrades are queued when we have enough of them and are still building them
-    upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 5);
-    upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
+    /* Basic infantry skill upgrades are queued when we have enough of them and are still building them */
+    upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Leg_Enhancements, BWAPI::UnitTypes::Protoss_Zealot, 5);
+    upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Singularity_Charge, BWAPI::UnitTypes::Protoss_Dragoon, 2);
 
-    // Cases where we want the upgrade as soon as we start building one of the units
-    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
-    upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
+    /* Cases where we want the upgrade as soon as we start building one of the units */
+    upgradeWhenUnitCreated(prioProdGoals, BWAPI::UpgradeTypes::Gravitic_Drive, BWAPI::UnitTypes::Protoss_Shuttle, false, true);
+    upgradeWhenUnitCreated(prioProdGoals, BWAPI::UpgradeTypes::Carrier_Capacity, BWAPI::UnitTypes::Protoss_Carrier, true);
 
-    // Upgrade observer speed on three gas
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 3)
+    /* Upgrade observer speed on three gas */
+    if (UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) >= 3)
     {
-        upgradeWhenUnitCreated(prioritizedProductionGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
+        upgradeWhenUnitCreated(prioProdGoals, BWAPI::UpgradeTypes::Gravitic_Boosters, BWAPI::UnitTypes::Protoss_Observer);
     }
 
-    defaultGroundUpgrades(prioritizedProductionGoals);
+    defaultGroundUpgrades(prioProdGoals);
 
-    // Air weapon upgrades
-    if (!Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Air_Weapons))
+    /* Air weapon upgrades */
+    if (!UnitMgr::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Air_Weapons))
     {
-        // Keep one level ahead of enemy armor when we have 5 corsairs
+        /* Keep one level ahead of enemy armor when we have 5 corsairs */
         if (BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons) <=
             BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Zerg_Flyer_Carapace))
         {
-            upgradeAtCount(prioritizedProductionGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, BWAPI::UnitTypes::Protoss_Corsair, 5);
+            upgradeAtCount(prioProdGoals, BWAPI::UpgradeTypes::Protoss_Air_Weapons, BWAPI::UnitTypes::Protoss_Corsair, 5);
         }
     }
 }
 
-void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioProdGoals)
 {
-    // The main army play will reactively request mobile detection when it sees a cloaked enemy unit
-    // The logic here is to look ahead to make sure we already have detection available when we need it
+    /* The main army play will reactively request mobile detection when it sees a cloaked enemy unit */
+    /* The logic here is to look ahead to make sure we already have detection available when we need it */
 
-    // Break out if we already have an observer
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0 || Units::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0)
+    /* Break out if we already have an observer */
+    if (UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Observer) > 0 || UnitMgr::countIncomplete(BWAPI::UnitTypes::Protoss_Observer) > 0)
     {
         return;
     }
 
-    bool enemyHasLurkerTech = Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker_Egg) ||
-                              Units::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker) ||
-                              Players::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect);
+    bool enemyHasLurkerTech = UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker_Egg) ||
+                              UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Zerg_Lurker) ||
+                              PlayerInfo::hasResearched(BWAPI::Broodwar->enemy(), BWAPI::TechTypes::Lurker_Aspect);
 
     auto buildObserver = [&]()
     {
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+        prioProdGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  "SE",
                                                                  BWAPI::UnitTypes::Protoss_Observer,
                                                                  1,
                                                                  1);
     };
 
-    // If we are doing an FFE, only build an observer if we have seen lurkers
+    /* If we are doing an FFE, only build an observer if we have seen lurkers */
     if (isFFE())
     {
         if (enemyHasLurkerTech)
@@ -925,16 +954,16 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
         return;
     }
 
-    // If the opponent has done a lurker rush recently, build a cannon at the choke to protect our main
+    /* If the opponent has done a lurker rush recently, build a cannon at the choke to protect our main */
     auto lurkerInMain = Opponent::minValueInPreviousGames("firstLurkerAtOurMain", INT_MAX, 20, 0);
     if (lurkerInMain < 12000)
     {
-        buildDefensiveCannons(prioritizedProductionGoals, true, lurkerInMain - 500, 2);
+        buildDefensiveCannons(prioProdGoals, true, lurkerInMain - 500, 2);
     }
 
-    // Build an observer when we are on two gas or the enemy has lurker tech
-    if (Units::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
-        (Units::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && currentFrame > 10000) ||
+    /* Build an observer when we are on two gas or the enemy has lurker tech */
+    if (UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Assimilator) > 1 ||
+        (UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Nexus) > 1 && frameNow > 10000) ||
         enemyHasLurkerTech)
     {
         buildObserver();
@@ -943,7 +972,7 @@ void PvZ::handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritize
 
 bool PvZ::isFFE()
 {
-    // Return true if we are executing a FFE strategy
+    /* Return true if we are executing a FFE strategy */
     switch (ourStrategy)
     {
         case OurStrategy::SairSpeedlot:

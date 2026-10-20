@@ -9,58 +9,58 @@ namespace WorkerMiningOptimization
 {
     struct WorkerReturnStatus
     {
-        // The worker gathering
-        MyWorker worker;
+        /* The worker gathering */
+        OwnedWorker wrk;
 
-        // The depot returning to
-        MyUnit depot;
+        /* The depot returning to */
+        OwnedUnit depot;
 
-        // The resource being gathered from
-        // May be null if the worker returns resources later after being reassigned
+        /* The resource being gathered from */
+        /* May be null if the worker returns resources later after being reassigned */
         Resource resource;
 
-        // The last frame this worker was optimized
+        /* The last frame this worker was optimized */
         int lastProcessedFrame;
 
-        // The positions this worker has visited while on its way to the depot
+        /* The positions this worker has visited while on its way to the depot */
         std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
 
-        // Whether the path started at the patch
+        /* Whether the path started at the patch */
         bool pathStartsAtPatch;
 
-        // Whether the worker has left the patch
+        /* Whether the worker has left the patch */
         bool hasLeftPatch;
 
-        // Whether we have planned the resend we want to send on this path
+        /* Whether we have planned the resend we want to send on this path */
         bool resendPlanned;
 
-        // Planned resend position
+        /* Planned resend position */
         ReturnPositionObservations* plannedResendPosition;
 
-        // The expected path the worker will follow
+        /* The expected path the worker will follow */
         std::deque<ReturnPositionObservations*> expectedPath;
 
-        // The root node of the path being followed
-        // This is stored here to ensure the entire path is kept in memory until the gather status is destroyed
+        /* The root node of the path being followed */
+        /* This is stored here to ensure the entire path is kept in memory until the gather status is destroyed */
         std::unique_ptr<ReturnPositionObservations> rootNode;
 
-        // The current position of the worker in the expected path
+        /* The current position of the worker in the expected path */
         ReturnPositionObservations* currentNode;
 
-        // Whether the planned resend position is being tried for exploratory purposes
+        /* Whether the planned resend position is being tried for exploratory purposes */
         bool plannedResendIsForExploration;
 
-        // The expected delay in frames between the resend and delivery of resource
+        /* The expected delay in frames between the resend and delivery of resource */
         double expectedDelayAfterResend;
 
-        // Position at which the return command was resent
+        /* Position at which the return command was resent */
         std::shared_ptr<const PositionAndVelocity> resentPosition;
 
-        // Whether the worker had path data it could use on this approach
+        /* Whether the worker had path data it could use on this approach */
         bool hasPathData;
 
-        WorkerReturnStatus(MyWorker worker, MyUnit depot, Resource resource)
-                : worker(std::move(worker))
+        WorkerReturnStatus(OwnedWorker wrk, OwnedUnit depot, Resource resource)
+                : wrk(std::move(wrk))
                 , depot(std::move(depot))
                 , resource(std::move(resource))
                 , lastProcessedFrame(-2)

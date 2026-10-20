@@ -4,27 +4,27 @@
 #include "MyUnit.h"
 #include "MyWorker.h"
 
-// Used to store data about buildings that are either under construction or about to be constructed
+/* Used to store data about buildings that are either under construction or about to be constructed */
 class Building
 {
 public:
     BWAPI::UnitType type;               // The type of the building
-    BWAPI::TilePosition tile;           // The position of the building
-    MyUnit unit;                        // The building itself
-    MyWorker builder;                     // The unit that will build the building
+    BWAPI::TilePosition tilePos;           // The position of the building
+    OwnedUnit gameUnit;                        // The building itself
+    OwnedWorker builder;                     // The unit that will build the building
     int desiredStartFrame;              // The desired start frame given by the producer
     int buildCommandSuccessFrames;      // Number of frames in which a successful build command was issued
     int buildCommandFailureFrames;      // Number of frames in which a failed build command was issued
     bool noGoAreaAdded;                 // Whether the no-go area has been added
 
-    // TODO: State required by the builder
+    /* TODO: State required by the builder */
 
-    // Constructor
-    // We always decide on the position and builder unit before storing the building
-    // If something happens to invalidate them before the building is started, we will create a new building
-    Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyWorker builder, int desiredStartFrame);
+    /* Constructor */
+    /* We always decide on the position and builder unit before storing the building */
+    /* If something happens to invalidate them before the building is started, we will create a new building */
+    Building(BWAPI::UnitType type, BWAPI::TilePosition tilePos, OwnedWorker builder, int desiredStartFrame);
 
-    void constructionStarted(MyUnit unit);
+    void constructionStarted(OwnedUnit gameUnit);
 
     [[nodiscard]] BWAPI::Position getPosition() const;
 
@@ -40,11 +40,11 @@ public:
 
     void removeNoGoArea();
 
-    // TODO: Stuff like handling things blocking construction, picking a new location, cancelling, etc.
+    /* TODO: Stuff like handling things blocking construction, picking a new location, cancelling, etc. */
 
     friend std::ostream &operator<<(std::ostream &out, const Building &b)
     {
-        out << b.type << " @ " << b.tile;
+        out << b.type << " @ " << b.tilePos;
         return out;
     };
 

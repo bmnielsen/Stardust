@@ -7,7 +7,7 @@
 #define DLLEXPORT
 #endif
 
-#include "StardustAIModule.h"
+#include "ShushanKingAIModule.h"
 
 namespace
 {
@@ -34,7 +34,7 @@ BOOL APIENTRY DllMain( HANDLE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 
 extern "C" DLLEXPORT BWAPI::AIModule *newAIModule()
 {
-    auto module = new StardustAIModule();
+    auto module = new ShushanKingAIModule();
     module->moduleBaseAddress = moduleBaseAddress;
     return module;
 }

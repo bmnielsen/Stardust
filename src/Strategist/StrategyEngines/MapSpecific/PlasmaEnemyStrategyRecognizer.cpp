@@ -14,21 +14,21 @@ namespace
 {
     bool isProxy()
     {
-        if (currentFrame >= 10000) return false;
+        if (frameNow >= 10000) return false;
 
-        // We expect enemies to bug out or do weird things on Plasma, so ignore their main base timings
+        /* We expect enemies to bug out or do weird things on Plasma, so ignore their main base timings */
 
-        // Check if we have directly scouted an enemy building or ground combat unit in one of our main areas
+        /* Check if we have directly scouted an enemy building or ground combat unit in one of our main areas */
         std::set<const BWEM::Area *> accessibleAreas;
         Map::mapSpecificOverride()->modifyMainBaseBuildingPlacementAreas(accessibleAreas);
-        for (const auto &enemyUnit : Units::allEnemy())
+        for (const auto &enemyUnit : UnitMgr::allEnemy())
         {
             if (enemyUnit->isFlying) continue;
-            if (!enemyUnit->type.isBuilding() && !UnitUtil::IsCombatUnit(enemyUnit->type)) continue;
+            if (!enemyUnit->type.isBuilding() && !UnitHelper::IsCombatUnit(enemyUnit->type)) continue;
             if (enemyUnit->type.isRefinery()) continue; // Don't count gas steals
             if (enemyUnit->type.isResourceDepot()) continue; // Don't count expansions
 
-            auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(enemyUnit->lastPosition));
+            auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(enemyUnit->prevPos));
             if (accessibleAreas.contains(area)) return true;
         }
 
@@ -44,9 +44,9 @@ PlasmaStrategyEngine::EnemyStrategy PlasmaStrategyEngine::recognizeEnemyStrategy
         switch (strategy)
         {
             case EnemyStrategy::Unknown:
-                // Assume zergs won't do a proxy, and that others would do a proxy before frame 6000
+                /* Assume zergs won't do a proxy, and that others would do a proxy before frame 6000 */
                 if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg ||
-                    currentFrame > 6000)
+                    frameNow > 6000)
                 {
                     strategy = EnemyStrategy::Normal;
                     continue;
@@ -70,6 +70,6 @@ PlasmaStrategyEngine::EnemyStrategy PlasmaStrategyEngine::recognizeEnemyStrategy
         return strategy;
     }
 
-    Log::Get() << "ERROR: Loop in strategy recognizer, ended on " << EnemyStrategyNames[strategy];
+    AppLog::Get() << "ERROR: Loop in strategy recognizer, ended on " << EnemyStrategyNames[strategy];
     return strategy;
 }

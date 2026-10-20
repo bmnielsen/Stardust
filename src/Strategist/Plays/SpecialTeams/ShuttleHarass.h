@@ -2,17 +2,17 @@
 
 #include "Play.h"
 
-class ShuttleHarass : public Play
+class ShuttleHarass : public PlayItem
 {
 public:
-    ShuttleHarass() : Play("ShuttleHarass") {}
+    ShuttleHarass() : PlayItem("ShuttleHarass") {}
 
     void update() override;
 
-    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                 const std::function<void(const MyUnit)> &movableUnitCallback) override
+    void disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                 const std::function<void(const OwnedUnit)> &movableUnitCallback) override
     {
-        std::set<MyUnit> allUnits;
+        std::set<OwnedUnit> allUnits;
         for (auto &shuttleAndCargo : shuttlesAndCargo)
         {
             allUnits.insert(shuttleAndCargo.first);
@@ -26,78 +26,78 @@ public:
             allUnits.insert(cargoAndTarget.first);
         }
 
-        for (auto &unit : allUnits)
+        for (auto &gameUnit : allUnits)
         {
-            movableUnitCallback(unit);
+            movableUnitCallback(gameUnit);
         }
     }
 
-    [[nodiscard]] bool canReassignUnit(const MyUnit &unit) const override
+    [[nodiscard]] bool canReassignUnit(const OwnedUnit &gameUnit) const override
     {
-        // Allow shuttles to be reassigned only if they are not carrying anything
-        if (unit->type == BWAPI::UnitTypes::Protoss_Shuttle)
+        /* Allow shuttles to be reassigned only if they are not carrying anything */
+        if (gameUnit->type == BWAPI::UnitTypes::Protoss_Shuttle)
         {
-            return unit->bwapiUnit->getLoadedUnits().empty();
+            return gameUnit->rawUnit->getLoadedUnits().empty();
         }
 
-        // Allow other units to be reassigned only if they are not being carried and don't have a target
-        if (unit->bwapiUnit->isLoaded()) return false;
-        auto it = cargoAndTargets.find(unit);
-        return it == cargoAndTargets.end() || it->second == nullptr || !it->second->exists();
+        /* Allow other units to be reassigned only if they are not being carried and don't have a target */
+        if (gameUnit->rawUnit->isLoaded()) return false;
+        auto iterRef = cargoAndTargets.find(gameUnit);
+        return iterRef == cargoAndTargets.end() || iterRef->second == nullptr || !iterRef->second->exists();
     }
 
-    void addUnit(const MyUnit &unit) override
+    void addUnit(const OwnedUnit &gameUnit) override
     {
-        if (unit->type == BWAPI::UnitTypes::Protoss_Shuttle)
+        if (gameUnit->type == BWAPI::UnitTypes::Protoss_Shuttle)
         {
-            shuttlesAndCargo[unit] = {};
+            shuttlesAndCargo[gameUnit] = {};
         }
         else
         {
-            // This unit will be the cargo of the nearest shuttle not currently "full"
-            MyUnit closestShuttle = nullptr;
+            /* This unit will be the cargo of the nearest shuttle not currently "full" */
+            OwnedUnit closestShuttle = nullptr;
             int closestShuttleDist = INT_MAX;
             for (auto &shuttleAndCargo : shuttlesAndCargo)
             {
                 if (shuttleAndCargo.second.size() >= 2) continue;
 
-                int dist = shuttleAndCargo.first->getDistance(unit);
-                if (dist < closestShuttleDist)
+                int span = shuttleAndCargo.first->getDistance(gameUnit);
+                if (span < closestShuttleDist)
                 {
-                    closestShuttleDist = dist;
+                    closestShuttleDist = span;
                     closestShuttle = shuttleAndCargo.first;
                 }
             }
 
             if (closestShuttle)
             {
-                shuttlesAndCargo[closestShuttle].insert(unit);
+                shuttlesAndCargo[closestShuttle].insert(gameUnit);
             }
             else
             {
-                Log::Get() << "Error: Tried to add " << (*unit) << " to shuttle harass, but no valid shuttle available";
-                status.removedUnits.emplace_back(unit);
+                AppLog::Get() << "Error: Tried to add " << (*gameUnit) << " to shuttle harass, but no valid shuttle available";
+                status.removedUnits.emplace_back(gameUnit);
             }
         }
-        Play::addUnit(unit);
+        PlayItem::addUnit(gameUnit);
     }
 
-    void removeUnit(const MyUnit &unit) override
+    void removeUnit(const OwnedUnit &gameUnit) override
     {
-        // Remove as cargo from any shuttles
+        /* Remove as cargo from any shuttles */
         for (auto &shuttleAndCargo : shuttlesAndCargo)
         {
-            shuttleAndCargo.second.erase(unit);
+            shuttleAndCargo.second.erase(gameUnit);
         }
 
-        // Remove shuttle or cargo
-        shuttlesAndCargo.erase(unit);
-        cargoAndTargets.erase(unit);
+        /* Remove shuttle or cargo */
+        shuttlesAndCargo.erase(gameUnit);
+        cargoAndTargets.erase(gameUnit);
 
-        Play::removeUnit(unit);
+        PlayItem::removeUnit(gameUnit);
     }
 
 private:
-    std::map<MyUnit, std::set<MyUnit>> shuttlesAndCargo;
-    std::map<MyUnit, Unit> cargoAndTargets;
+    std::map<OwnedUnit, std::set<OwnedUnit>> shuttlesAndCargo;
+    std::map<OwnedUnit, Unit> cargoAndTargets;
 };

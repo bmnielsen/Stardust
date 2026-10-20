@@ -29,18 +29,18 @@
  * units from the producer and influence the organization and behaviour of its managed units. The StrategyEngine also
  * orders production for our main army.
  */
-namespace Strategist
+namespace Director
 {
     namespace
     {
         std::unique_ptr<StrategyEngine> engine;
-        std::unordered_map<MyUnit, std::shared_ptr<Play>> unitToPlay;
-        std::vector<std::shared_ptr<Play>> plays;
+        std::unordered_map<OwnedUnit, std::shared_ptr<PlayItem>> unitToPlay;
+        std::vector<std::shared_ptr<PlayItem>> playList;
         std::vector<ProductionGoal> productionGoals;
         std::vector<std::pair<int, int>> mineralReservations;
         bool enemyContained;
         int enemyContainedChanged;
-        Strategist::WorkerScoutStatus workerScoutStatus;
+        Director::WorkerScoutStatus workerScoutStatus;
 
         void setStrategyEngine(bool transitioningFromRandom)
         {
@@ -65,7 +65,7 @@ namespace Strategist
                 }
             }
 
-            engine->initialize(plays, transitioningFromRandom, "");
+            engine->initialize(playList, transitioningFromRandom, "");
         }
 
         void updateUnitAssignments()
@@ -77,62 +77,62 @@ namespace Strategist
                     return a.distance < b.distance;
                 }
 
-                explicit ReassignableUnit(MyUnit unit) : unit(std::move(std::move(unit))), currentPlay(nullptr), distance(0) {}
+                explicit ReassignableUnit(OwnedUnit gameUnit) : gameUnit(std::move(std::move(gameUnit))), currentPlay(nullptr), distance(0) {}
 
-                ReassignableUnit(MyUnit unit, std::shared_ptr<Play> currentPlay)
-                        : unit(std::move(std::move(unit))), currentPlay(std::move(currentPlay)), distance(0) {}
+                ReassignableUnit(OwnedUnit gameUnit, std::shared_ptr<PlayItem> currentPlay)
+                        : gameUnit(std::move(std::move(gameUnit))), currentPlay(std::move(currentPlay)), distance(0) {}
 
-                MyUnit unit;
-                std::shared_ptr<Play> currentPlay;
+                OwnedUnit gameUnit;
+                std::shared_ptr<PlayItem> currentPlay;
                 int distance;
             };
 
-            // Gather a map of all reassignable units by type
+            /* Gather a map of all reassignable units by type */
             std::unordered_map<int, std::vector<ReassignableUnit>> typeToReassignableUnits;
-            for (const auto &unit : Units::allMine())
+            for (const auto &gameUnit : UnitMgr::allMine())
             {
-                if (!unit->completed) continue;
-                if (unit->type.isBuilding()) continue;
-                if (unit->type.isWorker()) continue;
+                if (!gameUnit->completed) continue;
+                if (gameUnit->type.isBuilding()) continue;
+                if (gameUnit->type.isWorker()) continue;
 
-                auto playIt = unitToPlay.find(unit);
+                auto playIt = unitToPlay.find(gameUnit);
                 if (playIt == unitToPlay.end())
                 {
-                    typeToReassignableUnits[unit->type].emplace_back(unit);
+                    typeToReassignableUnits[gameUnit->type].emplace_back(gameUnit);
                 }
-                else if (playIt->second->canReassignUnit(unit))
+                else if (playIt->second->canReassignUnit(gameUnit))
                 {
-                    typeToReassignableUnits[unit->type].emplace_back(unit, playIt->second);
+                    typeToReassignableUnits[gameUnit->type].emplace_back(gameUnit, playIt->second);
                 }
             }
 
-            // Grab a copy of our incomplete units
-            auto typeToIncompleteUnits = Units::allMineIncompleteByType();
+            /* Grab a copy of our incomplete units */
+            auto typeToIncompleteUnits = UnitMgr::allMineIncompleteByType();
 
-            // Process each play
-            // They greedily take the reassignable units closest to where they want them
-            std::shared_ptr<Play> playReceivingUnassignedUnits = nullptr;
-            for (auto &play : plays)
+            /* Process each play */
+            /* They greedily take the reassignable units closest to where they want them */
+            std::shared_ptr<PlayItem> playReceivingUnassignedUnits = nullptr;
+            for (auto &play : playList)
             {
                 if (play->receivesUnassignedUnits())
                 {
                     playReceivingUnassignedUnits = play;
                 }
 
-                // Remove reassignable units already belonging to this play
-                // This also makes them unavailable to later (lower-priority) plays
-                // TODO: Need to figure out how to allow the scout squad to take a detector from the main army squad when it doesn't need it
+                /* Remove reassignable units already belonging to this play */
+                /* This also makes them unavailable to later (lower-priority) plays */
+                /* TODO: Need to figure out how to allow the scout squad to take a detector from the main army squad when it doesn't need it */
                 for (auto &typeAndReassignableUnits : typeToReassignableUnits)
                 {
-                    for (auto it = typeAndReassignableUnits.second.begin(); it != typeAndReassignableUnits.second.end();)
+                    for (auto iterRef = typeAndReassignableUnits.second.begin(); iterRef != typeAndReassignableUnits.second.end();)
                     {
-                        if (it->currentPlay == play)
+                        if (iterRef->currentPlay == play)
                         {
-                            it = typeAndReassignableUnits.second.erase(it);
+                            iterRef = typeAndReassignableUnits.second.erase(iterRef);
                         }
                         else
                         {
-                            it++;
+                            iterRef++;
                         }
                     }
                 }
@@ -143,60 +143,60 @@ namespace Strategist
 
                     auto &reassignableUnits = typeToReassignableUnits[unitRequirement.type];
 
-                    // Score the available units by distance to the desired position
-                    // TODO: Include some measurement of whether it is safe for the unit to get to the position
+                    /* Score the available units by distance to the desired position */
+                    /* TODO: Include some measurement of whether it is safe for the unit to get to the position */
                     for (auto &reassignableUnit : reassignableUnits)
                     {
-                        reassignableUnit.distance = reassignableUnit.unit->isFlying
-                                                    ? reassignableUnit.unit->getDistance(unitRequirement.position)
-                                                    : PathFinding::GetGroundDistance(reassignableUnit.unit->lastPosition,
+                        reassignableUnit.distance = reassignableUnit.gameUnit->isFlying
+                                                    ? reassignableUnit.gameUnit->getDistance(unitRequirement.position)
+                                                    : Pathfinder::GetGroundDistance(reassignableUnit.gameUnit->prevPos,
                                                                                      unitRequirement.position,
                                                                                      unitRequirement.type);
                     }
 
-                    // Pick the unit(s) with the lowest distance
+                    /* Pick the unit(s) with the lowest distance */
                     std::sort(reassignableUnits.begin(), reassignableUnits.end(), ReassignableUnit::cmp);
                     auto reassign = [&](bool checkGridNode)
                     {
-                        for (auto it = reassignableUnits.begin();
-                             it != reassignableUnits.end() && unitRequirement.count > 0;)
+                        for (auto iterRef = reassignableUnits.begin();
+                             iterRef != reassignableUnits.end() && unitRequirement.count > 0;)
                         {
-                            if (it->distance > unitRequirement.distanceLimit) break;
+                            if (iterRef->distance > unitRequirement.distanceLimit) break;
 
-                            if (!unitRequirement.allowFromVanguardCluster && it->currentPlay && it->currentPlay->getSquad()
-                                && !it->currentPlay->getSquad()->canReassignFromVanguardCluster(it->unit))
+                            if (!unitRequirement.allowFromVanguardCluster && iterRef->currentPlay && iterRef->currentPlay->getSquad()
+                                && !iterRef->currentPlay->getSquad()->canReassignFromVanguardCluster(iterRef->gameUnit))
                             {
-                                it++;
+                                iterRef++;
                                 continue;
                             }
                             if (checkGridNode && unitRequirement.gridNodePredicate &&
-                                !PathFinding::checkGridPath(it->unit->getTilePosition(),
+                                !Pathfinder::checkGridPath(iterRef->gameUnit->getTilePosition(),
                                                             BWAPI::TilePosition(unitRequirement.position),
                                                             unitRequirement.gridNodePredicate))
                             {
-                                it++;
+                                iterRef++;
                                 continue;
                             }
 
-                            if (it->currentPlay != nullptr)
+                            if (iterRef->currentPlay != nullptr)
                             {
-                                it->currentPlay->removeUnit(it->unit);
-                                CherryVis::log(it->unit->id) << "Removed from play: " << it->currentPlay->label;
+                                iterRef->currentPlay->removeUnit(iterRef->gameUnit);
+                                Telemetry::log(iterRef->gameUnit->ident) << "Removed from play: " << iterRef->currentPlay->label;
                             }
 
-                            unitToPlay[it->unit] = play;
-                            play->addUnit(it->unit);
-                            CherryVis::log(it->unit->id) << "Added to play: " << play->label;
+                            unitToPlay[iterRef->gameUnit] = play;
+                            play->addUnit(iterRef->gameUnit);
+                            Telemetry::log(iterRef->gameUnit->ident) << "Added to play: " << play->label;
 
                             unitRequirement.count--;
 
-                            it = reassignableUnits.erase(it);
+                            iterRef = reassignableUnits.erase(iterRef);
                         }
                     };
                     reassign(true);
                     if (unitRequirement.allowFailingGridNodePredicate) reassign(false);
 
-                    // "Reserve" incomplete units if possible
+                    /* "Reserve" incomplete units if possible */
                     auto incompleteUnits = typeToIncompleteUnits.find(unitRequirement.type);
                     while (incompleteUnits != typeToIncompleteUnits.end() && !incompleteUnits->second.empty() && unitRequirement.count > 0)
                     {
@@ -209,7 +209,7 @@ namespace Strategist
                 }
             }
 
-            // Add any unassigned units to the appropriate play
+            /* Add any unassigned units to the appropriate play */
             if (playReceivingUnassignedUnits != nullptr)
             {
                 for (auto &typeAndReassignableUnits : typeToReassignableUnits)
@@ -218,22 +218,22 @@ namespace Strategist
                     {
                         if (reassignableUnit.currentPlay != nullptr)
                         {
-                            Log::Get() << "WARNING: Unit assigned to unknown play: " << *reassignableUnit.unit
+                            AppLog::Get() << "WARNING: Unit assigned to unknown play: " << *reassignableUnit.gameUnit
                                        << " in " << reassignableUnit.currentPlay->label;
-                            unitToPlay.erase(reassignableUnit.unit);
+                            unitToPlay.erase(reassignableUnit.gameUnit);
                         }
 
-                        // Skip units our main army plays don't know how to use
-                        if (reassignableUnit.unit->isFlying &&
-                            !reassignableUnit.unit->type.isDetector() &&
-                            reassignableUnit.unit->type != BWAPI::UnitTypes::Protoss_Arbiter)
+                        /* Skip units our main army plays don't know how to use */
+                        if (reassignableUnit.gameUnit->isFlying &&
+                            !reassignableUnit.gameUnit->type.isDetector() &&
+                            reassignableUnit.gameUnit->type != BWAPI::UnitTypes::Protoss_Arbiter)
                         {
                             continue;
                         }
 
-                        unitToPlay[reassignableUnit.unit] = playReceivingUnassignedUnits;
-                        playReceivingUnassignedUnits->addUnit(reassignableUnit.unit);
-                        CherryVis::log(reassignableUnit.unit->id) << "Added to play: " << playReceivingUnassignedUnits->label;
+                        unitToPlay[reassignableUnit.gameUnit] = playReceivingUnassignedUnits;
+                        playReceivingUnassignedUnits->addUnit(reassignableUnit.gameUnit);
+                        Telemetry::log(reassignableUnit.gameUnit->ident) << "Added to play: " << playReceivingUnassignedUnits->label;
                     }
                 }
 
@@ -257,24 +257,24 @@ namespace Strategist
 
         bool enemyIsContained()
         {
-            // Only change our minds after at least 5 seconds
-            if (currentFrame - enemyContainedChanged < 120) return enemyContained;
+            /* Only change our minds after at least 5 seconds */
+            if (frameNow - enemyContainedChanged < 120) return enemyContained;
 
-            // We consider the enemy to be contained if the following is true:
-            // - The enemy has a known main base
-            // - Our main army play is AttackEnemyBase
-            // - The vanguard cluster in that play is either attacking or containing the enemy main or natural
-            // - We have no knowledge of enemy combat units outside the enemy main and natural
+            /* We consider the enemy to be contained if the following is true: */
+            /* - The enemy has a known main base */
+            /* - Our main army play is AttackEnemyBase */
+            /* - The vanguard cluster in that play is either attacking or containing the enemy main or natural */
+            /* - We have no knowledge of enemy combat units outside the enemy main and natural */
 
-            // If we don't know where the enemy main is, we don't have it contained
+            /* If we don't know where the enemy main is, we don't have it contained */
             auto enemyMain = Map::getEnemyMain();
             if (!enemyMain) return false;
 
-            // We only consider the enemy contained if our main army play is AttackEnemyBase
-            Play *attackMainPlay = nullptr;
-            for (auto &spPlay : plays)
+            /* We only consider the enemy contained if our main army play is AttackEnemyBase */
+            PlayItem *attackMainPlay = nullptr;
+            for (auto &spPlay : playList)
             {
-                Play *play = spPlay.get();
+                PlayItem *play = spPlay.get();
                 if (typeid(*play) == typeid(AttackEnemyBase))
                 {
                     attackMainPlay = play;
@@ -283,19 +283,19 @@ namespace Strategist
             }
             if (!attackMainPlay) return false;
 
-            // Get the vanguard cluster with its distance to the enemy main
+            /* Get the vanguard cluster with its distance to the enemy main */
             int vanguardDist;
             auto vanguardCluster = attackMainPlay->getSquad()->vanguardCluster(&vanguardDist);
             if (!vanguardCluster) return false;
 
-            // Don't consider the enemy contained if our main army is retreating
+            /* Don't consider the enemy contained if our main army is retreating */
             if (vanguardCluster->currentActivity == UnitCluster::Activity::Regrouping &&
                 vanguardCluster->currentSubActivity == UnitCluster::SubActivity::Flee)
             {
                 return false;
             }
 
-            // Now gather the areas considered to be part of the enemy main and natural
+            /* Now gather the areas considered to be part of the enemy main and natural */
             std::set<const BWEM::Area *> enemyMainAreas;
             enemyMainAreas.insert(enemyMain->getArea());
             if (Map::getEnemyStartingMain() == enemyMain)
@@ -304,15 +304,15 @@ namespace Strategist
                 if (enemyNatural)
                 {
                     enemyMainAreas.insert(enemyNatural->getArea());
-                    for (const auto &choke : PathFinding::GetChokePointPath(enemyMain->getPosition(), enemyNatural->getPosition()))
+                    for (const auto &choke : Pathfinder::GetChokePointPath(enemyMain->getPosition(), enemyNatural->getPosition()))
                     {
                         enemyMainAreas.insert(choke->GetAreas().first);
                         enemyMainAreas.insert(choke->GetAreas().second);
                     }
 
-                    // Update the vanguard cluster's distance if it is closer to the natural
-                    int vanguardDistanceNatural = PathFinding::GetGroundDistance(
-                            vanguardCluster->vanguard ? vanguardCluster->vanguard->lastPosition : vanguardCluster->center,
+                    /* Update the vanguard cluster's distance if it is closer to the natural */
+                    int vanguardDistanceNatural = Pathfinder::GetGroundDistance(
+                            vanguardCluster->vanguard ? vanguardCluster->vanguard->prevPos : vanguardCluster->midpoint,
                             enemyNatural->getPosition());
                     if (vanguardDistanceNatural != -1 && vanguardDistanceNatural < vanguardDist)
                     {
@@ -321,10 +321,10 @@ namespace Strategist
                 }
             }
 
-            // The enemy is not contained if the vanguard unit is not in one of the identified areas and we aren't doing a contain
+            /* The enemy is not contained if the vanguard unit is not in one of the identified areas and we aren't doing a contain */
             auto vanguardArea = BWEM::Map::Instance().GetNearestArea(BWAPI::WalkPosition(vanguardCluster->vanguard
-                                                                                         ? vanguardCluster->vanguard->lastPosition
-                                                                                         : vanguardCluster->center));
+                                                                                         ? vanguardCluster->vanguard->prevPos
+                                                                                         : vanguardCluster->midpoint));
             if (!enemyMainAreas.contains(vanguardArea) &&
                 (vanguardDist > 1000 || (vanguardCluster->currentSubActivity != UnitCluster::SubActivity::ContainChoke
                                          && vanguardCluster->currentSubActivity != UnitCluster::SubActivity::ContainStaticDefense)))
@@ -332,23 +332,23 @@ namespace Strategist
                 return false;
             }
 
-            // The enemy is not contained if it either has a combat unit or something capable of training units outside of the identified areas
-            for (const auto &unit : Units::allEnemy())
+            /* The enemy is not contained if it either has a combat unit or something capable of training units outside of the identified areas */
+            for (const auto &gameUnit : UnitMgr::allEnemy())
             {
-                // Any flying non-building indicates the enemy isn't contained
-                if (unit->isFlying && !unit->type.isBuilding()) return false;
+                /* Any flying non-building indicates the enemy isn't contained */
+                if (gameUnit->isFlying && !gameUnit->type.isBuilding()) return false;
 
-                if (!unit->lastPositionValid) continue;
-                if (unit->type.isWorker() && unit->lastSeenAttacking < (currentFrame - 120)) continue;
-                if (!(unit->type.isBuilding() && unit->type.canProduce()) && !UnitUtil::CanAttackGround(unit->type)) continue;
+                if (!gameUnit->lastPositionValid) continue;
+                if (gameUnit->type.isWorker() && gameUnit->lastSeenAttacking < (frameNow - 120)) continue;
+                if (!(gameUnit->type.isBuilding() && gameUnit->type.canProduce()) && !UnitHelper::CanAttackGround(gameUnit->type)) continue;
 
-                auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
+                auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(gameUnit->prevPos));
                 if (!area) continue;
 
                 if (enemyMainAreas.contains(area)) continue;
 
-                // Allow units close to our vanguard cluster, since these are units that might be contained but just on the other side of the choke
-                if (unit->getDistance(vanguardCluster->center) < 640) continue;
+                /* Allow units close to our vanguard cluster, since these are units that might be contained but just on the other side of the choke */
+                if (gameUnit->getDistance(vanguardCluster->midpoint) < 640) continue;
 
                 return false;
             }
@@ -385,12 +385,12 @@ namespace Strategist
         {
 #if CVIS_BOARD_VALUES
             std::vector<std::string> values;
-            values.reserve(plays.size());
-            for (const auto &play : plays)
+            values.reserve(playList.size());
+            for (const auto &play : playList)
             {
                 values.emplace_back(play->label);
             }
-            CherryVis::setBoardListValue("play", values);
+            Telemetry::setBoardListValue("play", values);
 
             values.clear();
             values.reserve(productionGoals.size());
@@ -398,7 +398,7 @@ namespace Strategist
             {
                 values.emplace_back((std::ostringstream() << productionGoal).str());
             }
-            CherryVis::setBoardListValue("prodgoal", values);
+            Telemetry::setBoardListValue("prodgoal", values);
 
             values.clear();
             values.reserve(mineralReservations.size());
@@ -406,17 +406,17 @@ namespace Strategist
             {
                 values.emplace_back((std::ostringstream() << mineralReservation.first << ":" << mineralReservation.second).str());
             }
-            CherryVis::setBoardListValue("mineralreservations", values);
+            Telemetry::setBoardListValue("mineralreservations", values);
 
             if (engine)
             {
-                CherryVis::setBoardValue("strategy", engine->getOurStrategy());
-                CherryVis::setBoardValue("strategyEnemy", engine->getEnemyStrategy());
+                Telemetry::setBoardValue("strategy", engine->getOurStrategy());
+                Telemetry::setBoardValue("strategyEnemy", engine->getEnemyStrategy());
             }
 
-            CherryVis::setBoardValue("enemyContained", enemyContained ? "true" : "false");
-            CherryVis::setBoardValue("workerScoutStatus", workerScoutStatusToString());
-            CherryVis::setBoardValue("pressure", (std::ostringstream() << std::setprecision(2) << pressure()).str());
+            Telemetry::setBoardValue("enemyContained", enemyContained ? "true" : "false");
+            Telemetry::setBoardValue("workerScoutStatus", workerScoutStatusToString());
+            Telemetry::setBoardValue("pressure", (std::ostringstream() << std::setprecision(2) << pressure()).str());
 #endif
         }
     }
@@ -426,7 +426,7 @@ namespace Strategist
         OpponentEconomicModel::initialize();
 
         unitToPlay.clear();
-        plays.clear();
+        playList.clear();
         productionGoals.clear();
         mineralReservations.clear();
         enemyContained = false;
@@ -440,7 +440,7 @@ namespace Strategist
     {
         OpponentEconomicModel::update();
 
-        // Change the strategy engine when we discover the race of a random opponent
+        /* Change the strategy engine when we discover the race of a random opponent */
         if (Opponent::hasRaceJustBeenDetermined())
         {
             setStrategyEngine(true);
@@ -448,28 +448,28 @@ namespace Strategist
 
         if (enemyContained != enemyIsContained())
         {
-            Log::Get() << "Enemy is " << (enemyContained ? "no longer " : "") << "contained";
+            AppLog::Get() << "Enemy is " << (enemyContained ? "no longer " : "") << "contained";
             enemyContained = !enemyContained;
-            enemyContainedChanged = currentFrame;
+            enemyContainedChanged = frameNow;
         }
 
-        // Remove all dead or renegaded units from plays
-        // This cascades down to squads and unit clusters
-        for (auto it = unitToPlay.begin(); it != unitToPlay.end();)
+        /* Remove all dead or renegaded units from plays */
+        /* This cascades down to squads and unit clusters */
+        for (auto iterRef = unitToPlay.begin(); iterRef != unitToPlay.end();)
         {
-            if (it->first->exists())
+            if (iterRef->first->exists())
             {
-                it++;
+                iterRef++;
                 continue;
             }
 
-            it->second->removeUnit(it->first);
-            it = unitToPlay.erase(it);
+            iterRef->second->removeUnit(iterRef->first);
+            iterRef = unitToPlay.erase(iterRef);
         }
 
-        // Update the plays
-        // They signal interesting changes to the Strategist through their PlayStatus object.
-        for (auto &play : plays)
+        /* Update the plays */
+        /* They signal interesting changes to the Strategist through their PlayStatus object. */
+        for (auto &play : playList)
         {
             play->status.unitRequirements.clear();
             play->status.removedUnits.clear();
@@ -477,88 +477,88 @@ namespace Strategist
             play->update();
         }
 
-        // Allow the strategy engine to change our plays
-        engine->updatePlays(plays);
+        /* Allow the strategy engine to change our plays */
+        engine->updatePlays(playList);
 
-        // Process the changes signalled by the PlayStatus objects
-        for (auto it = plays.begin(); it != plays.end();)
+        /* Process the changes signalled by the PlayStatus objects */
+        for (auto iterRef = playList.begin(); iterRef != playList.end();)
         {
-            auto removeUnit = [&](const MyUnit& unit)
+            auto removeUnit = [&](const OwnedUnit& gameUnit)
             {
-                CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
+                Telemetry::log(gameUnit->ident) << "Removed from play: " << (*iterRef)->label;
 
-                (*it)->removeUnit(unit);
-                unitToPlay.erase(unit);
+                (*iterRef)->removeUnit(gameUnit);
+                unitToPlay.erase(gameUnit);
             };
 
-            // Update our unit map for units released from the play
-            // We don't do this for the play receiving unassigned units to avoid instability
-            if (!(*it)->receivesUnassignedUnits())
+            /* Update our unit map for units released from the play */
+            /* We don't do this for the play receiving unassigned units to avoid instability */
+            if (!(*iterRef)->receivesUnassignedUnits())
             {
-                for (const auto &unit : (*it)->status.removedUnits)
+                for (const auto &gameUnit : (*iterRef)->status.removedUnits)
                 {
-                    removeUnit(unit);
+                    removeUnit(gameUnit);
                 }
             }
 
-            // Handle play transition
-            // This replaces the current play with a new one, moving all units
-            if ((*it)->status.transitionTo != nullptr)
+            /* Handle play transition */
+            /* This replaces the current play with a new one, moving all units */
+            if ((*iterRef)->status.transitionTo != nullptr)
             {
-                auto moveUnit = [&](const MyUnit& unit)
+                auto moveUnit = [&](const OwnedUnit& gameUnit)
                 {
-                    unitToPlay[unit] = (*it)->status.transitionTo;
-                    (*it)->status.transitionTo->addUnit(unit);
-                    CherryVis::log(unit->id) << "Removed from play: " << (*it)->label;
-                    CherryVis::log(unit->id) << "Added to play: " << (*it)->status.transitionTo->label;
+                    unitToPlay[gameUnit] = (*iterRef)->status.transitionTo;
+                    (*iterRef)->status.transitionTo->addUnit(gameUnit);
+                    Telemetry::log(gameUnit->ident) << "Removed from play: " << (*iterRef)->label;
+                    Telemetry::log(gameUnit->ident) << "Added to play: " << (*iterRef)->status.transitionTo->label;
                 };
 
-                (*it)->disband(removeUnit, moveUnit);
+                (*iterRef)->disband(removeUnit, moveUnit);
 
-                CherryVis::log() << "Play transition: " << (*it)->label << "->" << (*it)->status.transitionTo->label;
+                Telemetry::log() << "Play transition: " << (*iterRef)->label << "->" << (*iterRef)->status.transitionTo->label;
 
-                *it = (*it)->status.transitionTo;
-                (*it)->postTransition();
-                it++;
+                *iterRef = (*iterRef)->status.transitionTo;
+                (*iterRef)->postTransition();
+                iterRef++;
             }
 
-                // Erase the play if it is marked complete
-            else if ((*it)->status.complete)
+                /* Erase the play if it is marked complete */
+            else if ((*iterRef)->status.complete)
             {
-                CherryVis::log() << "Play complete: " << (*it)->label;
-                (*it)->disband(removeUnit, removeUnit);
-                it = plays.erase(it);
+                Telemetry::log() << "Play complete: " << (*iterRef)->label;
+                (*iterRef)->disband(removeUnit, removeUnit);
+                iterRef = playList.erase(iterRef);
             }
             else
             {
-                it++;
+                iterRef++;
             }
         }
 
         updateUnitAssignments();
 
-        // Ask all of the plays for their mineral reservations
-        // We are not prioritizing them right now, as the expectation is that not many plays will need mineral reservations, but this can be
-        // added later.
+        /* Ask all of the plays for their mineral reservations */
+        /* We are not prioritizing them right now, as the expectation is that not many plays will need mineral reservations, but this can be */
+        /* added later. */
         mineralReservations.clear();
-        for (auto &play : plays)
+        for (auto &play : playList)
         {
             play->addMineralReservations(mineralReservations);
         }
 
-        // Ask all of the plays for their production goals
-        std::map<int, std::vector<ProductionGoal>> prioritizedProductionGoals;
-        for (auto &play : plays)
+        /* Ask all of the plays for their production goals */
+        std::map<int, std::vector<ProductionGoal>> prioProdGoals;
+        for (auto &play : playList)
         {
-            play->addPrioritizedProductionGoals(prioritizedProductionGoals);
+            play->addPrioritizedProductionGoals(prioProdGoals);
         }
 
-        // Feed everything through the strategy engine
-        engine->updateProduction(plays, prioritizedProductionGoals, mineralReservations);
+        /* Feed everything through the strategy engine */
+        engine->updateProduction(playList, prioProdGoals, mineralReservations);
 
-        // Flatten the production goals into a vector ordered by priority
+        /* Flatten the production goals into a vector ordered by priority */
         productionGoals.clear();
-        for (auto &priorityAndProductionGoals : prioritizedProductionGoals)
+        for (auto &priorityAndProductionGoals : prioProdGoals)
         {
             productionGoals.reserve(productionGoals.size() + priorityAndProductionGoals.second.size());
             std::move(priorityAndProductionGoals.second.begin(), priorityAndProductionGoals.second.end(), std::back_inserter(productionGoals));
@@ -584,8 +584,8 @@ namespace Strategist
 
     bool areWeContained()
     {
-        // We consider ourselves to be contained if our main army is in our base and wants to attack, but can't
-        auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(plays);
+        /* We consider ourselves to be contained if our main army is in our base and wants to attack, but can't */
+        auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(playList);
         if (!mainArmyPlay) return false;
 
         if (typeid(*mainArmyPlay) != typeid(AttackEnemyBase)) return false;
@@ -594,7 +594,7 @@ namespace Strategist
         if (!vanguard) return false;
         if (vanguard->currentActivity != UnitCluster::Activity::Regrouping) return false;
 
-        auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(vanguard->vanguard ? vanguard->vanguard->lastPosition : vanguard->center));
+        auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(vanguard->vanguard ? vanguard->vanguard->prevPos : vanguard->midpoint));
         if (!area) return false;
 
         return Map::getMyMainAreas().contains(area);
@@ -602,7 +602,7 @@ namespace Strategist
 
     double pressure()
     {
-        auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(plays);
+        auto mainArmyPlay = StrategyEngine::getPlay<MainArmyPlay>(playList);
         if (!mainArmyPlay) return 1.0;
 
         if (mainArmyPlay->isDefensive()) return 1.0;
@@ -624,37 +624,37 @@ namespace Strategist
         if (workerScoutStatus != status)
         {
             workerScoutStatus = status;
-            Log::Get() << "Worker scout status changed to: " << workerScoutStatusToString();
+            AppLog::Get() << "Worker scout status changed to: " << workerScoutStatusToString();
         }
     }
 
     bool isWorkerScoutComplete()
     {
-        return workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingCompleted ||
-               workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingFailed ||
-               workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingBlocked;
+        return workerScoutStatus == Director::WorkerScoutStatus::ScoutingCompleted ||
+               workerScoutStatus == Director::WorkerScoutStatus::ScoutingFailed ||
+               workerScoutStatus == Director::WorkerScoutStatus::ScoutingBlocked;
     }
 
     bool hasWorkerScoutCompletedInitialBaseScan()
     {
         return
-                workerScoutStatus == Strategist::WorkerScoutStatus::EnemyBaseScouted ||
-                workerScoutStatus == Strategist::WorkerScoutStatus::MonitoringEnemyChoke ||
-                workerScoutStatus == Strategist::WorkerScoutStatus::ScoutingCompleted;
+                workerScoutStatus == Director::WorkerScoutStatus::EnemyBaseScouted ||
+                workerScoutStatus == Director::WorkerScoutStatus::MonitoringEnemyChoke ||
+                workerScoutStatus == Director::WorkerScoutStatus::ScoutingCompleted;
     }
 
 
-    // Following methods are used by tests to force specific behaviour
+    /* Following methods are used by tests to force specific behaviour */
 
-    void setOpening(std::vector<std::shared_ptr<Play>> openingPlays)
+    void setOpening(std::vector<std::shared_ptr<PlayItem>> openingPlays)
     {
-        plays = std::move(openingPlays);
+        playList = std::move(openingPlays);
     }
 
     void setStrategyEngine(std::unique_ptr<StrategyEngine> strategyEngine, const std::string &opening)
     {
         engine = std::move(strategyEngine);
-        engine->initialize(plays, false, opening);
+        engine->initialize(playList, false, opening);
     }
 
     StrategyEngine *getStrategyEngine()
@@ -664,6 +664,6 @@ namespace Strategist
 
     MainArmyPlay *getMainArmyPlay()
     {
-        return StrategyEngine::getPlay<MainArmyPlay>(plays);
+        return StrategyEngine::getPlay<MainArmyPlay>(playList);
     }
 }

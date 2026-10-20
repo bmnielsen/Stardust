@@ -7,7 +7,7 @@
 #include "StrategyEngines/PvZ.h"
 #include "StrategyEngines/PvU.h"
 
-namespace Strategist
+namespace Director
 {
     bool isOurStrategy(std::variant<PvP::OurStrategy, PvT::OurStrategy, PvZ::OurStrategy, PvU::OurStrategy> strategy);
 

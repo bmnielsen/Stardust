@@ -2,11 +2,11 @@
 
 #include "Map.h"
 
-namespace PathFinding
+namespace Pathfinder
 {
     namespace
     {
-        // Define some positions for use in searching outwards from a point at tile resolution
+        /* Define some positions for use in searching outwards from a point at tile resolution */
         const BWAPI::Position tileSpiral[] = {
                 BWAPI::Position(-32, 0),
                 BWAPI::Position(0, -32),
@@ -47,17 +47,17 @@ namespace PathFinding
             return ((int) options & (int) PathFindingOptions::UseNeighbouringBWEMArea) != 0;
         }
 
-        // Adjusts the position so it can be used for BWEM pathfinding given the options
+        /* Adjusts the position so it can be used for BWEM pathfinding given the options */
         BWAPI::Position adjustForBWEMPathFinding(BWAPI::Position position, PathFindingOptions options)
         {
-            // If we are allowing using the nearest area, accept the input position
+            /* If we are allowing using the nearest area, accept the input position */
             if (useNearestBWEMArea(options)) return position;
 
-            // If the input position has an area, accept it
+            /* If the input position has an area, accept it */
             auto wp = BWAPI::WalkPosition(position);
             if (BWEM::Map::Instance().GetArea(wp)) return position;
 
-            // If we want to use a neighbour, try to find one and adjust the position
+            /* If we want to use a neighbour, try to find one and adjust the position */
             if (useNeighbouringBWEMArea(options))
             {
                 for (const auto &offset : tileSpiral)
@@ -71,9 +71,9 @@ namespace PathFinding
             return BWAPI::Positions::Invalid;
         }
 
-        // Creates a BWEM-style choke point path using an algorithm similar to BWEB's tile-resolution path finding.
-        // Used when we want to generate paths with additional constraints beyond what BWEM provides, like taking
-        // choke width and mineral walking into consideration.
+        /* Creates a BWEM-style choke point path using an algorithm similar to BWEB's tile-resolution path finding. */
+        /* Used when we want to generate paths with additional constraints beyond what BWEM provides, like taking */
+        /* choke width and mineral walking into consideration. */
         BWEM::CPPath CustomChokePointPath(
                 BWAPI::Position start,
                 BWAPI::Position end,
@@ -100,11 +100,11 @@ namespace PathFinding
 
             struct Node
             {
-                Node(const BWEM::ChokePoint *choke, int const dist, const BWEM::Area *toArea, const BWEM::ChokePoint *parent)
-                        : choke{choke}, dist{dist}, toArea{toArea}, parent{parent} {}
+                Node(const BWEM::ChokePoint *choke, int const span, const BWEM::Area *toArea, const BWEM::ChokePoint *parent)
+                        : choke{choke}, span{span}, toArea{toArea}, parent{parent} {}
 
                 mutable const BWEM::ChokePoint *choke;
-                mutable int dist;
+                mutable int span;
                 mutable const BWEM::Area *toArea;
                 mutable const BWEM::ChokePoint *parent = nullptr;
             };
@@ -133,7 +133,7 @@ namespace PathFinding
             };
 
             auto cmp = [](Node left, Node right)
-            { return left.dist > right.dist; };
+            { return left.span > right.span; };
             std::priority_queue<Node, std::vector<Node>, decltype(cmp)> nodeQueue(cmp);
             for (auto choke : startArea->ChokePoints())
             {
@@ -152,28 +152,28 @@ namespace PathFinding
                 auto const current = nodeQueue.top();
                 nodeQueue.pop();
 
-                // If already has a parent, continue
+                /* If already has a parent, continue */
                 if (parentMap.contains(current.choke)) continue;
 
-                // Set parent
+                /* Set parent */
                 parentMap[current.choke] = current.parent;
 
-                // If at target, return path
-                // We're ignoring the distance from this last choke to the target position; it's an unlikely
-                // edge case that there is an alternate choke giving a significantly better result
+                /* If at target, return path */
+                /* We're ignoring the distance from this last choke to the target position; it's an unlikely */
+                /* edge case that there is an alternate choke giving a significantly better result */
                 if (current.toArea == targetArea)
                 {
-                    if (pathLength) *pathLength = current.dist + end.getApproxDistance(BWAPI::Position(current.choke->Center()));
+                    if (pathLength) *pathLength = current.span + end.getApproxDistance(BWAPI::Position(current.choke->Center()));
                     return createPath(current, parentMap);
                 }
 
-                // Add valid connected chokes we haven't visited yet
+                /* Add valid connected chokes we haven't visited yet */
                 for (auto choke : current.toArea->ChokePoints())
                 {
                     if (validChoke(choke, unitType.width(), unitType.isWorker()) && !parentMap.contains(choke))
                         nodeQueue.emplace(
                                 choke,
-                                current.dist + BWAPI::Position(choke->Center()).getApproxDistance(BWAPI::Position(current.choke->Center())),
+                                current.span + BWAPI::Position(choke->Center()).getApproxDistance(BWAPI::Position(current.choke->Center())),
                                 chokeTo(choke, current.toArea),
                                 current.choke);
                 }
@@ -185,7 +185,7 @@ namespace PathFinding
 
     int GetGroundDistance(BWAPI::Position start, BWAPI::Position end, BWAPI::UnitType unitType, PathFindingOptions options)
     {
-        // Use grid cost if we have one, regardless of input options
+        /* Use grid cost if we have one, regardless of input options */
         auto grid = getNavigationGrid(end);
         if (grid)
         {
@@ -193,7 +193,7 @@ namespace PathFinding
             if (cost < USHRT_MAX) return cost;
         }
 
-        // Adjust the start and end positions based on the options
+        /* Adjust the start and end positions based on the options */
         auto adjustedStart = adjustForBWEMPathFinding(start, options);
         auto adjustedEnd = adjustForBWEMPathFinding(end, options);
         if (adjustedStart == BWAPI::Positions::Invalid || adjustedEnd == BWAPI::Positions::Invalid)
@@ -201,9 +201,9 @@ namespace PathFinding
             return start.getApproxDistance(end);
         }
 
-        int dist;
-        GetChokePointPath(start, end, unitType, options, &dist);
-        return dist;
+        int span;
+        GetChokePointPath(start, end, unitType, options, &span);
+        return span;
     }
 
     BWEM::CPPath GetChokePointPath(
@@ -215,23 +215,23 @@ namespace PathFinding
     {
         if (pathLength) *pathLength = -1;
 
-        // Adjust the start and end positions based on the options
+        /* Adjust the start and end positions based on the options */
         auto adjustedStart = adjustForBWEMPathFinding(start, options);
         auto adjustedEnd = adjustForBWEMPathFinding(end, options);
         if (adjustedStart == BWAPI::Positions::Invalid || adjustedEnd == BWAPI::Positions::Invalid) return {};
 
-        // Start with the BWEM path
+        /* Start with the BWEM path */
         auto &bwemPath = BWEM::Map::Instance().GetPath(adjustedStart, adjustedEnd, pathLength);
 
-        // We can always use BWEM's default pathfinding if:
-        // - The minimum choke width is equal to or greater than the unit width
-        // - The map doesn't have mineral walking chokes or the unit can't mineral walk
-        // An exception to the second case is Plasma, where BWEM doesn't mark the mineral walking chokes as blocked
+        /* We can always use BWEM's default pathfinding if: */
+        /* - The minimum choke width is equal to or greater than the unit width */
+        /* - The map doesn't have mineral walking chokes or the unit can't mineral walk */
+        /* An exception to the second case is Plasma, where BWEM doesn't mark the mineral walking chokes as blocked */
         bool canUseBwemPath =
                 std::max(unitType.width(), unitType.height()) <= Map::minChokeWidth() &&
                 Map::mapSpecificOverride()->canUseBwemPath(unitType);
 
-        // If we can't automatically use it, validate the chokes
+        /* If we can't automatically use it, validate the chokes */
         if (!canUseBwemPath && !bwemPath.empty())
         {
             canUseBwemPath = true;
@@ -245,11 +245,11 @@ namespace PathFinding
             }
         }
 
-        // Use BWEM path if it is usable
+        /* Use BWEM path if it is usable */
         if (canUseBwemPath)
             return bwemPath;
 
-        // Otherwise do our own path analysis
+        /* Otherwise do our own path analysis */
         return CustomChokePointPath(adjustedStart, adjustedEnd, options, unitType, pathLength);
     }
 
@@ -259,7 +259,7 @@ namespace PathFinding
             BWAPI::UnitType unitType,
             PathFindingOptions options)
     {
-        for (auto &bwemChoke : PathFinding::GetChokePointPath(start, end, unitType, options))
+        for (auto &bwemChoke : Pathfinder::GetChokePointPath(start, end, unitType, options))
         {
             auto thisChoke = Map::choke(bwemChoke);
             if (thisChoke->isNarrowChoke) return thisChoke;
@@ -282,9 +282,9 @@ namespace PathFinding
             return (int) ((double) start.getApproxDistance(end) / unitType.topSpeed());
         }
 
-        int dist = GetGroundDistance(start, end, unitType, options);
-        if (dist == -1) return defaultIfInaccessible;
-        return (int) ((double) dist * penaltyFactor / unitType.topSpeed());
+        int span = GetGroundDistance(start, end, unitType, options);
+        if (span == -1) return defaultIfInaccessible;
+        return (int) ((double) span * penaltyFactor / unitType.topSpeed());
     }
 
     int ExpectedTravelTime(

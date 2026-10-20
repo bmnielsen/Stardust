@@ -15,7 +15,7 @@ public:
     const BWEM::ChokePoint *choke;
 
     int width;
-    BWAPI::Position center;
+    BWAPI::Position midpoint;
 
     bool isNarrowChoke;
     int length;
@@ -44,5 +44,5 @@ private:
 
     void computeNarrowRampHighGroundPosition();
 
-    static void computeScoutBlockingPositions(BWAPI::Position center, BWAPI::UnitType type, std::set<BWAPI::Position> &result);
+    static void computeScoutBlockingPositions(BWAPI::Position midpoint, BWAPI::UnitType type, std::set<BWAPI::Position> &outcome);
 };

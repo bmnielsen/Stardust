@@ -8,35 +8,35 @@ public:
     uint8_t x;
     uint8_t y;
 
-    bool operator == (const TilePosition &pos) const
+    bool operator == (const TilePosition &pt) const
     {
-        return std::tie(this->x, this->y) == std::tie(pos.x, pos.y);
+        return std::tie(this->x, this->y) == std::tie(pt.x, pt.y);
     };
-    bool operator != (const TilePosition &pos) const
+    bool operator != (const TilePosition &pt) const
     {
-        return !(*this == pos);
+        return !(*this == pt);
     };
-    bool operator  < (const TilePosition &pos) const
+    bool operator  < (const TilePosition &pt) const
     {
-        return std::tie(this->x, this->y) < std::tie(pos.x, pos.y);
-    };
-
-    friend std::ostream &operator << (std::ostream &os, const TilePosition &pos)
-    {
-        return os << '(' << (int)pos.x << ',' << (int)pos.y << ')';
+        return std::tie(this->x, this->y) < std::tie(pt.x, pt.y);
     };
 
-    static TilePosition fromBWAPI(BWAPI::TilePosition tile)
+    friend std::ostream &operator << (std::ostream &os, const TilePosition &pt)
     {
-        if (tile.x < 0 || tile.x > 255)
+        return os << '(' << (int)pt.x << ',' << (int)pt.y << ')';
+    };
+
+    static TilePosition fromBWAPI(BWAPI::TilePosition tilePos)
+    {
+        if (tilePos.x < 0 || tilePos.x > 255)
         {
             throw std::runtime_error("Failed to construct TilePosition from BWAPI::TilePosition: x out of bounds");
         }
-        if (tile.y < 0 || tile.y > 255)
+        if (tilePos.y < 0 || tilePos.y > 255)
         {
             throw std::runtime_error("Failed to construct TilePosition from BWAPI::TilePosition: y out of bounds");
         }
-        return TilePosition{(uint8_t)tile.x, (uint8_t)tile.y};
+        return TilePosition{(uint8_t)tilePos.x, (uint8_t)tilePos.y};
     }
 
     template <typename S>

@@ -2,18 +2,18 @@
 
 #include "Play.h"
 
-class HiddenBase : public Play
+class HiddenBase : public PlayItem
 {
 public:
-    Base *base;
+    Base *baseLoc;
 
-    HiddenBase() : Play("HiddenBase"), base(nullptr) {}
+    HiddenBase() : PlayItem("HiddenBase"), baseLoc(nullptr) {}
 
     void update() override;
 
-    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
+    void disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                 const std::function<void(const OwnedUnit)> &movableUnitCallback) override;
 
 private:
-    MyWorker builder;
+    OwnedWorker builder;
 };

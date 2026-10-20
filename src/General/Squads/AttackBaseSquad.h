@@ -5,34 +5,34 @@
 
 namespace
 {
-    std::string squadLabel(Base *base, const std::string &playLabel)
+    std::string squadLabel(Base *baseLoc, const std::string &playLabel)
     {
         std::ostringstream builder;
         if (!playLabel.empty())
         {
             builder << playLabel << ":";
         }
-        builder << "Attack base @ " << base->getTilePosition();
+        builder << "Attack base @ " << baseLoc->getTilePosition();
         return builder.str();
     }
 }
 
-class AttackBaseSquad : public Squad
+class AttackBaseSquad : public UnitSquad
 {
 public:
-    explicit AttackBaseSquad(Base *base, const std::string &playLabel = "")
-            : Squad(squadLabel(base, playLabel))
-            , base(base)
+    explicit AttackBaseSquad(Base *baseLoc, const std::string &playLabel = "")
+            : UnitSquad(squadLabel(baseLoc, playLabel))
+            , baseLoc(baseLoc)
             , ignoreCombatSim(false)
     {
-        targetPosition = base->getPosition();
+        targetPosition = baseLoc->getPosition();
     };
 
     virtual ~AttackBaseSquad() = default;
 
-    Base *base;
+    Base *baseLoc;
     bool ignoreCombatSim;
 
 private:
-    void execute(UnitCluster &cluster) override;
+    void execute(UnitCluster &clump) override;
 };

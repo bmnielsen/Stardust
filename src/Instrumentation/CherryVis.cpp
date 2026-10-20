@@ -17,7 +17,7 @@
 #endif
 #endif
 
-namespace CherryVis
+namespace Telemetry
 {
     namespace
     {
@@ -27,11 +27,11 @@ namespace CherryVis
 
         int cvisFrame()
         {
-            // Subtract one from the frame to align it with the engine data seen by the bot
-            // More discussion of why we do this is in the readme for mining optimization
-            int frame = BWAPI::Broodwar->getFrameCount();
-            if (frame == 0) return 0;
-            return frame - 1;
+            /* Subtract one from the frame to align it with the engine data seen by the bot */
+            /* More discussion of why we do this is in the readme for mining optimization */
+            int tick = BWAPI::Broodwar->getFrameCount();
+            if (tick == 0) return 0;
+            return tick - 1;
         }
 
         enum DataFileType {
@@ -72,12 +72,12 @@ namespace CherryVis
 
             [[nodiscard]] std::unordered_map<std::string, std::string> index() const
             {
-                std::unordered_map<std::string, std::string> result;
+                std::unordered_map<std::string, std::string> outcome;
                 for (const auto &part : parts)
                 {
-                    result[std::to_string(part.firstFrame)] = part.filename;
+                    outcome[std::to_string(part.firstFrame)] = part.filename;
                 }
-                return result;
+                return outcome;
             }
 
             void writeEntry(const nlohmann::json &entry)
@@ -130,7 +130,7 @@ namespace CherryVis
 
                     count++;
 
-                    // For some reason this sometimes throws a resource unavailable exception, so retry if that happens
+                    /* For some reason this sometimes throws a resource unavailable exception, so retry if that happens */
                     while (true)
                     {
                         try
@@ -148,7 +148,7 @@ namespace CherryVis
                 }
                 catch (std::exception &ex)
                 {
-                    Log::Get() << "Exception caught in DataFile::writeEntry: " << ex.what();
+                    AppLog::Get() << "Exception caught in DataFile::writeEntry: " << ex.what();
                     disabled = true;
                 }
             }
@@ -184,7 +184,7 @@ namespace CherryVis
                 }
                 catch (std::exception &ex)
                 {
-                    Log::Get() << "Exception caught in DataFile::close: " << ex.what();
+                    AppLog::Get() << "Exception caught in DataFile::close: " << ex.what();
                     disabled = true;
                 }
             }
@@ -239,7 +239,7 @@ namespace CherryVis
                 }
                 catch (std::exception &ex)
                 {
-                    Log::Get() << "Exception caught in DataFile::createPart: " << ex.what();
+                    AppLog::Get() << "Exception caught in DataFile::createPart: " << ex.what();
                     disabled = true;
                 }
             }
@@ -373,10 +373,10 @@ namespace CherryVis
 
         std::filesystem::create_directories("bwapi-data/write/cvis");
 
-        // Mark all static neutrals as seen
-        for (auto unit : BWAPI::Broodwar->getStaticNeutralUnits())
+        /* Mark all static neutrals as seen */
+        for (auto gameUnit : BWAPI::Broodwar->getStaticNeutralUnits())
         {
-            unitFirstSeen(unit);
+            unitFirstSeen(gameUnit);
         }
 
         log() << "CherryVis initialized!";
@@ -416,26 +416,26 @@ namespace CherryVis
 #endif
     }
 
-    void unitFirstSeen(BWAPI::Unit unit)
+    void unitFirstSeen(BWAPI::Unit gameUnit)
     {
 #if CHERRYVIS_ENABLED
         if (disabled) return;
 
-        int frame = cvisFrame();
-        if (frame == 0) frame = 1;
+        int tick = cvisFrame();
+        if (tick == 0) tick = 1;
 
 #if IS_OPENBW
-        unitIds.emplace_back(unit->getID(), unit->getBWID());
+        unitIds.emplace_back(gameUnit->getID(), gameUnit->getBWID());
 #endif
-        frameToUnitsFirstSeen[std::to_string(frame)].push_back({
-                                                                       {"id",   unit->getID()},
-                                                                       {"type", unit->getType().getID()},
-                                                                       {"x",    unit->getPosition().x},
-                                                                       {"y",    unit->getPosition().y}
+        frameToUnitsFirstSeen[std::to_string(tick)].push_back({
+                                                                       {"id",   gameUnit->getID()},
+                                                                       {"type", gameUnit->getType().getID()},
+                                                                       {"x",    gameUnit->getPosition().x},
+                                                                       {"y",    gameUnit->getPosition().y}
                                                                });
 
-        unitIdToFrameToUnitUpdate[std::to_string(unit->getID())][std::to_string(frame)] = {
-                {"type", unit->getType().getID()}
+        unitIdToFrameToUnitUpdate[std::to_string(gameUnit->getID())][std::to_string(tick)] = {
+                {"type", gameUnit->getType().getID()}
         };
 #endif
     }
@@ -453,18 +453,18 @@ namespace CherryVis
         long max = 0;
         long min = LONG_MAX;
         long long sum = 0;
-        for (long val : data)
+        for (long value : data)
         {
-            max = std::max(max, val);
-            min = std::min(min, val);
-            sum += val;
+            max = std::max(max, value);
+            min = std::min(min, value);
+            sum += value;
         }
 
         double mean = (double)sum / (double)data.size();
         double variance = 0.0;
-        for (long val : data)
+        for (long value : data)
         {
-            double diff = (double)val - mean;
+            double diff = (double)value - mean;
             variance += diff * diff;
         }
         double stddev = std::sqrt(variance / (double)data.size());
@@ -549,7 +549,7 @@ namespace CherryVis
             frameHasBoardUpdates = false;
         }
 
-        // Flush data files every 500 frames
+        /* Flush data files every 500 frames */
         if (cvisFrame() % 500 == 0)
         {
             for (auto &[heatmapName, heatmapFile] : heatmapNameToDataFile)
@@ -684,20 +684,20 @@ namespace CherryVis
         }
         catch (std::exception &ex)
         {
-            Log::Get() << "Exception caught writing trace file: " << ex.what();
+            AppLog::Get() << "Exception caught writing trace file: " << ex.what();
         }
 #endif
     }
 }
 
-void CherryVis::disable()
+void Telemetry::disable()
 {
 #if CHERRYVIS_ENABLED
     disabled = true;
 #endif
 }
 
-void CherryVis::writeFrameData(const std::string &label, const nlohmann::json &entry, int framesPerPartition)
+void Telemetry::writeFrameData(const std::string &label, const nlohmann::json &entry, int framesPerPartition)
 {
 #if CHERRYVIS_ENABLED
     if (disabled) return;

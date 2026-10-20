@@ -9,85 +9,85 @@
 
 namespace
 {
-    void unloadNear(MyUnit &shuttle, BWAPI::Position target)
+    void unloadNear(OwnedUnit &shuttle, BWAPI::Position target)
     {
-        // Ensure the target is walkable
-        auto tile = BWAPI::TilePosition(target);
-        auto spiral = Geo::Spiral();
-        while (!Map::isWalkable(tile))
+        /* Ensure the target is walkable */
+        auto tilePos = BWAPI::TilePosition(target);
+        auto spiral = Geom::Spiral();
+        while (!Map::isWalkable(tilePos))
         {
             spiral.Next();
-            tile = BWAPI::TilePosition(target) + BWAPI::TilePosition(spiral.x, spiral.y);
-            if (!tile.isValid())
+            tilePos = BWAPI::TilePosition(target) + BWAPI::TilePosition(spiral.x, spiral.y);
+            if (!tilePos.isValid())
             {
-                tile = BWAPI::TilePosition(target);
+                tilePos = BWAPI::TilePosition(target);
                 break;
             }
         }
 
-        auto pos = BWAPI::Position(tile) + BWAPI::Position(16, 16);
-        if (shuttle->getDistance(pos) < 128)
+        auto pt = BWAPI::Position(tilePos) + BWAPI::Position(16, 16);
+        if (shuttle->getDistance(pt) < 128)
         {
-            if (shuttle->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Unload_All_Position) return;
-            shuttle->unloadAll(pos);
+            if (shuttle->rawUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Unload_All_Position) return;
+            shuttle->unloadAll(pt);
         }
         else
         {
-            shuttle->moveTo(pos);
+            shuttle->moveTo(pt);
         }
     }
 }
 
-TakeIslandExpansion::TakeIslandExpansion(Base *base, bool canCancel, bool transferWorkers)
-        : TakeExpansion(base, 0)
+TakeIslandExpansion::TakeIslandExpansion(Base *baseLoc, bool canCancel, bool transferWorkers)
+        : TakeExpansion(baseLoc, 0)
         , canCancel(canCancel)
         , shuttle(nullptr)
         , workerTransferState(transferWorkers ? 0 : 2) {}
 
 void TakeIslandExpansion::update()
 {
-    auto nexus = Units::myBuildingAt(depotPosition);
+    auto nexus = UnitMgr::myBuildingAt(depotPosition);
 
-    // Clean up dead or unneeded workers
+    /* Clean up dead or unneeded workers */
     if (builder && !builder->exists()) builder = nullptr;
-    for (auto it = workerTransfer.begin(); it != workerTransfer.end();)
+    for (auto iterRef = workerTransfer.begin(); iterRef != workerTransfer.end();)
     {
-        auto &worker = *it;
-        if (worker->exists() && (worker->bwapiUnit->isLoaded() || worker->getDistance(base->getPosition()) > 300))
+        auto &wrk = *iterRef;
+        if (wrk->exists() && (wrk->rawUnit->isLoaded() || wrk->getDistance(baseLoc->getPosition()) > 300))
         {
-            it++;
+            iterRef++;
         }
         else
         {
-            // The worker has been unloaded near the island base, so unreserve it
-            if (worker->exists()) Workers::releaseWorker(worker);
-            it = workerTransfer.erase(it);
+            /* The worker has been unloaded near the island base, so unreserve it */
+            if (wrk->exists()) WorkerMgr::releaseWorker(wrk);
+            iterRef = workerTransfer.erase(iterRef);
         }
     }
 
-    // If the shuttle dies, we usually want to cancel the play
+    /* If the shuttle dies, we usually want to cancel the play */
     if (shuttle && !shuttle->exists())
     {
         shuttle = nullptr;
 
-        if (!nexus && (!builder || builder->getDistance(base->getPosition()) > 300))
+        if (!nexus && (!builder || builder->getDistance(baseLoc->getPosition()) > 300))
         {
             status.complete = true;
             return;
         }
     }
 
-    // Handle the case where we've discovered the expansion is already taken by the opponent
-    if (base->owner == BWAPI::Broodwar->enemy())
+    /* Handle the case where we've discovered the expansion is already taken by the opponent */
+    if (baseLoc->owner == BWAPI::Broodwar->enemy())
     {
-        // If the builder is loaded in the shuttle, tell the shuttle to unload it near our main
-        if (shuttle && builder && builder->bwapiUnit->isLoaded())
+        /* If the builder is loaded in the shuttle, tell the shuttle to unload it near our main */
+        if (shuttle && builder && builder->rawUnit->isLoaded())
         {
             unloadNear(shuttle, Map::getMyMain()->mineralLineCenter);
             return;
         }
 
-        // Otherwise treat the play as complete
+        /* Otherwise treat the play as complete */
         status.complete = true;
         return;
     }
@@ -102,48 +102,48 @@ void TakeIslandExpansion::update()
 
         if (!builder)
         {
-            builder = Workers::getClosestReassignableWorker(shuttle->lastPosition, false);
+            builder = WorkerMgr::getClosestReassignableWorker(shuttle->prevPos, false);
             if (!builder) return;
 
-            Workers::reserveWorker(builder);
-            builder->moveTo(shuttle->lastPosition);
-            shuttle->load(builder->bwapiUnit);
+            WorkerMgr::reserveWorker(builder);
+            builder->moveTo(shuttle->prevPos);
+            shuttle->load(builder->rawUnit);
         }
 
-        if (builder->bwapiUnit->isLoaded())
+        if (builder->rawUnit->isLoaded())
         {
-            unloadNear(shuttle, base->getPosition());
+            unloadNear(shuttle, baseLoc->getPosition());
             return;
         }
 
-        // Jump out now if the shuttle hasn't loaded the builder yet
-        if (builder->getDistance(base->getPosition()) > 128) return;
+        /* Jump out now if the shuttle hasn't loaded the builder yet */
+        if (builder->getDistance(baseLoc->getPosition()) > 128) return;
 
-        // The shuttle has transferred the builder and doesn't need to transfer workers, release it
+        /* The shuttle has transferred the builder and doesn't need to transfer workers, release it */
         if (shuttle && workerTransferState == 2)
         {
             status.removedUnits.push_back(shuttle);
         }
 
-        // Ensure the builder clears a blocking neutral
-        for (const auto &blockingNeutral : base->blockingNeutrals)
+        /* Ensure the builder clears a blocking neutral */
+        for (const auto &blockingNeutral : baseLoc->blockingNeutrals)
         {
             if (!blockingNeutral->exists()) continue;
 
             if (blockingNeutral->getType().isMineralField())
             {
-                // No need to do anything if the builder is gathering
-                if (builder->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Gather &&
-                    builder->bwapiUnit->getLastCommand().getTarget() == blockingNeutral)
+                /* No need to do anything if the builder is gathering */
+                if (builder->rawUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Gather &&
+                    builder->rawUnit->getLastCommand().getTarget() == blockingNeutral)
                     return;
 
                 builder->gather(blockingNeutral);
             }
             else
             {
-                // No need to do anything if the builder is attacking
-                if (builder->bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
-                    builder->bwapiUnit->getLastCommand().getTarget() == blockingNeutral)
+                /* No need to do anything if the builder is attacking */
+                if (builder->rawUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Attack_Unit &&
+                    builder->rawUnit->getLastCommand().getTarget() == blockingNeutral)
                     return;
 
                 builder->attack(blockingNeutral);
@@ -152,13 +152,13 @@ void TakeIslandExpansion::update()
             return;
         }
 
-        Builder::build(BWAPI::UnitTypes::Protoss_Nexus, depotPosition, builder);
+        Constructor::build(BWAPI::UnitTypes::Protoss_Nexus, depotPosition, builder);
     }
     else
     {
         if (builder)
         {
-            Workers::releaseWorker(builder);
+            WorkerMgr::releaseWorker(builder);
             builder = nullptr;
         }
 
@@ -168,21 +168,21 @@ void TakeIslandExpansion::update()
         }
     }
 
-    // Have the shuttle transfer some probes from a nearby base
+    /* Have the shuttle transfer some probes from a nearby base */
     if (shuttle)
     {
         switch (workerTransferState)
         {
             case 0:
             {
-                // Find the base to transfer from
+                /* Find the base to transfer from */
                 Base *bestBase = nullptr;
                 int bestScore = INT_MAX;
                 for (auto &b : Map::getMyBases())
                 {
                     if (b->island) continue;
 
-                    int availableWorkers = Workers::baseMineralWorkerCount(b);
+                    int availableWorkers = WorkerMgr::baseMineralWorkerCount(b);
                     if (availableWorkers < 8) continue;
 
                     int score = shuttle->getDistance(b->getPosition()) - availableWorkers * 200;
@@ -195,56 +195,56 @@ void TakeIslandExpansion::update()
 
                 if (!bestBase) break;
 
-                // First ensure the shuttle has arrived at the base
+                /* First ensure the shuttle has arrived at the base */
                 if (workerTransfer.empty() && shuttle->getDistance(bestBase->mineralLineCenter) > 320)
                 {
                     shuttle->moveTo(bestBase->mineralLineCenter);
                     break;
                 }
 
-                // Now wait until the nexus is sufficiently complete
-                // We try to approximately handle transit time + 300 frames to load & unload the workers
+                /* Now wait until the nexus is sufficiently complete */
+                /* We try to approximately handle transit time + 300 frames to load & unload the workers */
                 if (!nexus) break;
                 if (!nexus->completed && workerTransfer.empty())
                 {
                     int frames = 600 +
-                                 PathFinding::ExpectedTravelTime(base->getPosition(), bestBase->getPosition(), BWAPI::UnitTypes::Protoss_Shuttle);
-                    if (nexus->estimatedCompletionFrame - currentFrame > frames)
+                                 Pathfinder::ExpectedTravelTime(baseLoc->getPosition(), bestBase->getPosition(), BWAPI::UnitTypes::Protoss_Shuttle);
+                    if (nexus->estimatedCompletionFrame - frameNow > frames)
                     {
                         break;
                     }
                 }
 
-                // Then reserve the appropriate number of workers
-                int desiredWorkers = std::min(8, (int) (workerTransfer.size() + Workers::baseMineralWorkerCount(bestBase)) / 2);
+                /* Then reserve the appropriate number of workers */
+                int desiredWorkers = std::min(8, (int) (workerTransfer.size() + WorkerMgr::baseMineralWorkerCount(bestBase)) / 2);
                 while (desiredWorkers > workerTransfer.size())
                 {
-                    auto worker = Workers::getClosestReassignableWorker(shuttle->lastPosition, false);
-                    if (!worker || shuttle->getDistance(worker) > 500) break;
+                    auto wrk = WorkerMgr::getClosestReassignableWorker(shuttle->prevPos, false);
+                    if (!wrk || shuttle->getDistance(wrk) > 500) break;
 
-                    Workers::reserveWorker(worker);
-                    workerTransfer.push_back(worker);
+                    WorkerMgr::reserveWorker(wrk);
+                    workerTransfer.push_back(wrk);
                 }
 
-                // Then load all of the workers
+                /* Then load all of the workers */
                 bool allLoaded = true;
-                for (auto &worker : workerTransfer)
+                for (auto &wrk : workerTransfer)
                 {
-                    if (!worker->bwapiUnit->isLoaded())
+                    if (!wrk->rawUnit->isLoaded())
                     {
-                        worker->moveTo(shuttle->lastPosition);
+                        wrk->moveTo(shuttle->prevPos);
 
-                        // Load the first not-loaded worker
+                        /* Load the first not-loaded worker */
                         if (allLoaded)
                         {
-                            shuttle->load(worker->bwapiUnit);
+                            shuttle->load(wrk->rawUnit);
                         }
 
                         allLoaded = false;
                     }
                 }
 
-                // State transition when all desired workers are loaded
+                /* State transition when all desired workers are loaded */
                 if (allLoaded && workerTransfer.size() == desiredWorkers)
                 {
                     workerTransferState = 1;
@@ -254,13 +254,13 @@ void TakeIslandExpansion::update()
             }
             case 1:
             {
-                unloadNear(shuttle, base->mineralLineCenter);
+                unloadNear(shuttle, baseLoc->mineralLineCenter);
 
-                // State transition when all workers are unloaded
+                /* State transition when all workers are unloaded */
                 bool anyLoaded = false;
-                for (const auto &worker : workerTransfer)
+                for (const auto &wrk : workerTransfer)
                 {
-                    if (worker->bwapiUnit->isLoaded())
+                    if (wrk->rawUnit->isLoaded())
                     {
                         anyLoaded = true;
                         break;
@@ -281,27 +281,27 @@ void TakeIslandExpansion::update()
     }
 }
 
-void TakeIslandExpansion::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                                  const std::function<void(const MyUnit)> &movableUnitCallback)
+void TakeIslandExpansion::disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                                  const std::function<void(const OwnedUnit)> &movableUnitCallback)
 {
-    // TODO: Avoid stranding the worker on the island
+    /* TODO: Avoid stranding the worker on the island */
 
-    if (builder) Workers::releaseWorker(builder);
+    if (builder) WorkerMgr::releaseWorker(builder);
     if (shuttle) removedUnitCallback(shuttle);
 }
 
-void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals)
 {
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
 
-        // We only build a shuttle if we don't already have one
-        // If we have one, we'll wait until it is available for island expo duties
+        /* We only build a shuttle if we don't already have one */
+        /* If we have one, we'll wait until it is available for island expo duties */
         if (unitRequirement.type != BWAPI::UnitTypes::Protoss_Shuttle) continue;
-        if (Units::countAll(BWAPI::UnitTypes::Protoss_Shuttle) > 0) continue;
+        if (UnitMgr::countAll(BWAPI::UnitTypes::Protoss_Shuttle) > 0) continue;
 
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
+        prioProdGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                  label,
                                                                  unitRequirement.type,
                                                                  unitRequirement.count,
@@ -309,14 +309,14 @@ void TakeIslandExpansion::addPrioritizedProductionGoals(std::map<int, std::vecto
     }
 }
 
-void TakeIslandExpansion::addUnit(const MyUnit &unit)
+void TakeIslandExpansion::addUnit(const OwnedUnit &gameUnit)
 {
-    if (unit->type == BWAPI::UnitTypes::Protoss_Shuttle) shuttle = unit;
+    if (gameUnit->type == BWAPI::UnitTypes::Protoss_Shuttle) shuttle = gameUnit;
 }
 
-void TakeIslandExpansion::removeUnit(const MyUnit &unit)
+void TakeIslandExpansion::removeUnit(const OwnedUnit &gameUnit)
 {
-    if (shuttle == unit) shuttle = nullptr;
+    if (shuttle == gameUnit) shuttle = nullptr;
 }
 
 bool TakeIslandExpansion::cancellable()
@@ -329,7 +329,7 @@ bool TakeIslandExpansion::cancellable()
 
 int TakeIslandExpansion::framesToClearBlocker()
 {
-    for (const auto &blockingNeutral : base->blockingNeutrals)
+    for (const auto &blockingNeutral : baseLoc->blockingNeutrals)
     {
         if (!blockingNeutral->exists()) continue;
 
@@ -342,7 +342,7 @@ int TakeIslandExpansion::framesToClearBlocker()
         }
 
         return (hp * BWAPI::UnitTypes::Protoss_Probe.groundWeapon().damageCooldown())
-               / Players::attackDamage(BWAPI::Broodwar->self(),
+               / PlayerInfo::attackDamage(BWAPI::Broodwar->self(),
                                        BWAPI::UnitTypes::Protoss_Probe,
                                        blockingNeutral->getPlayer(),
                                        blockingNeutral->getType());

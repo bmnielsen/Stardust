@@ -3,10 +3,10 @@
 #include "Play.h"
 #include "Squads/AttackBaseSquad.h"
 
-class MainArmyPlay : public Play
+class MainArmyPlay : public PlayItem
 {
 public:
-    explicit MainArmyPlay(std::string label) : Play(std::move(label)) {};
+    explicit MainArmyPlay(std::string label) : PlayItem(std::move(label)) {};
 
     [[nodiscard]] virtual bool isDefensive() const = 0;
 
@@ -14,5 +14,5 @@ public:
 
     void update() override;
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals) override;
 };

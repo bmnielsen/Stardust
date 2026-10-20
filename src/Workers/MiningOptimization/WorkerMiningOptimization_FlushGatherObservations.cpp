@@ -1,5 +1,5 @@
-// Worker mining optimization is split into multiple files
-// This file contains the logic needed to update the data maps with new observations related to optimizing the start of mining
+/* Worker mining optimization is split into multiple files */
+/* This file contains the logic needed to update the data maps with new observations related to optimizing the start of mining */
 
 #include "WorkerMiningOptimization.h"
 #include "DebugFlag_WorkerMiningOptimization.h"
@@ -43,28 +43,28 @@ namespace WorkerMiningOptimization
             std::vector<GatherPositionObservationPtr> positionHistory;
             std::vector<GatherPositionObservationPtr> resendsWithObservationData;
 
-            // Whether the worker is facing the patch closely enough to be able to begin mining without incurring an extra order process timer
-            // cycle to make a turn.
+            /* Whether the worker is facing the patch closely enough to be able to begin mining without incurring an extra order process timer */
+            /* cycle to make a turn. */
             bool facingPatch = true;
         };
 
         bool extractPositionsInHistory(PositionsInHistory &positionsInHistory,
-                                       WorkerGatherStatus &workerStatus,
+                                       WorkerGatherStatus &wrkStatus,
                                        bool createObservations)
         {
-            if (!workerStatus.hasLeftDepot && workerStatus.pathStartsAtDepot && !workerStatus.switchedPatches)
+            if (!wrkStatus.hasLeftDepot && wrkStatus.pathStartsAtDepot && !wrkStatus.switchedPatches)
             {
-                Log::Get() << "ERROR: Worker was not tracked as leaving depot"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+                AppLog::Get() << "ERROR: Worker was not tracked as leaving depot"
+                           << "; worker id " << wrkStatus.wrk->ident << " @ " << wrkStatus.wrk->getTilePosition();
                 return false;
             }
 
-            // If the path is too short to possibly optimize, return here
-            // This might happen if we have a case where the worker gets reassigned or otherwise doesn't follow a normal mining path
-            if (workerStatus.positionHistory.size() < (BWAPI::Broodwar->getLatencyFrames() + 11))
+            /* If the path is too short to possibly optimize, return here */
+            /* This might happen if we have a case where the worker gets reassigned or otherwise doesn't follow a normal mining path */
+            if (wrkStatus.positionHistory.size() < (BWAPI::Broodwar->getLatencyFrames() + 11))
             {
 #if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "Position history too short to use for path optimization";
+                Telemetry::log(wrkStatus.wrk->ident) << "Position history too short to use for path optimization";
 #endif
                 return false;
             }
@@ -73,93 +73,93 @@ namespace WorkerMiningOptimization
             auto extractPositions = [&]()
             {
                 positionsInHistory.resendItsBeforeArrival.clear();
-                positionsInHistory.arrivalPositionIt = workerStatus.positionHistory.end();
-                positionsInHistory.tenDistancePositionIt = workerStatus.positionHistory.end();
+                positionsInHistory.arrivalPositionIt = wrkStatus.positionHistory.end();
+                positionsInHistory.tenDistancePositionIt = wrkStatus.positionHistory.end();
 
                 positionsInHistory.positionHistory.clear();
                 positionsInHistory.resendsWithObservationData.clear();
 
                 resendPositionIts.clear();
-                auto nextResendPositionIt = workerStatus.resentPositions.begin();
+                auto nextResendPositionIt = wrkStatus.resentPositions.begin();
 
-                for (auto it = workerStatus.positionHistory.begin(); it != workerStatus.positionHistory.end(); it++)
+                for (auto iterRef = wrkStatus.positionHistory.begin(); iterRef != wrkStatus.positionHistory.end(); iterRef++)
                 {
-                    if (nextResendPositionIt != workerStatus.resentPositions.end() && **nextResendPositionIt == **it)
+                    if (nextResendPositionIt != wrkStatus.resentPositions.end() && **nextResendPositionIt == **iterRef)
                     {
-                        // We filter out resend positions after arrival later
-                        resendPositionIts.push_back(it);
+                        /* We filter out resend positions after arrival later */
+                        resendPositionIts.push_back(iterRef);
                         nextResendPositionIt++;
                     }
 
-                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                        (*it)->pos(),
+                    auto span = Geom::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                        (*iterRef)->pt(),
                                                         BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                        workerStatus.resource->center);
+                                                        wrkStatus.resource->midpoint);
 
-                    // Arrival position is defined as the position where:
-                    // - distance to the patch is 0
-                    // - position is the same as the position at mining start
-                    // - heading is stable
-                    if (positionsInHistory.arrivalPositionIt == workerStatus.positionHistory.end()
-                        && dist == 0
-                        && workerStatus.worker->lastPosition == (*it)->pos()
-                        && PositionAndVelocity::isStableArrivalPosition(workerStatus.positionHistory, it))
+                    /* Arrival position is defined as the position where: */
+                    /* - distance to the patch is 0 */
+                    /* - position is the same as the position at mining start */
+                    /* - heading is stable */
+                    if (positionsInHistory.arrivalPositionIt == wrkStatus.positionHistory.end()
+                        && span == 0
+                        && wrkStatus.wrk->prevPos == (*iterRef)->pt()
+                        && PositionAndVelocity::isStableArrivalPosition(wrkStatus.positionHistory, iterRef))
                     {
-                        positionsInHistory.arrivalPositionIt = it;
+                        positionsInHistory.arrivalPositionIt = iterRef;
                     }
 
-                    if (positionsInHistory.tenDistancePositionIt == workerStatus.positionHistory.end() && dist <= 10)
+                    if (positionsInHistory.tenDistancePositionIt == wrkStatus.positionHistory.end() && span <= 10)
                     {
-                        positionsInHistory.tenDistancePositionIt = it - BWAPI::Broodwar->getLatencyFrames() - 1;
+                        positionsInHistory.tenDistancePositionIt = iterRef - BWAPI::Broodwar->getLatencyFrames() - 1;
                     }
                 }
             };
             extractPositions();
 
-            // Shorten too long paths
-            auto startToEnd = std::distance(workerStatus.positionHistory.begin(), positionsInHistory.arrivalPositionIt);
-            int pathLengthLimit = workerStatus.pathStartsAtSpawnPosition ? 125 : 100;
+            /* Shorten too long paths */
+            auto startToEnd = std::distance(wrkStatus.positionHistory.begin(), positionsInHistory.arrivalPositionIt);
+            int pathLengthLimit = wrkStatus.pathStartsAtSpawnPosition ? 125 : 100;
             if (startToEnd > pathLengthLimit)
             {
 #if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "Path length from start to arrival is " << startToEnd
+                Telemetry::log(wrkStatus.wrk->ident) << "Path length from start to arrival is " << startToEnd
                                                         << "; trimming to " << pathLengthLimit;
 #endif
 
-                workerStatus.positionHistory.erase(workerStatus.positionHistory.begin(),
-                                                   workerStatus.positionHistory.begin() + (startToEnd - pathLengthLimit));
+                wrkStatus.positionHistory.erase(wrkStatus.positionHistory.begin(),
+                                                   wrkStatus.positionHistory.begin() + (startToEnd - pathLengthLimit));
                 extractPositions();
-                startToEnd = std::distance(workerStatus.positionHistory.begin(), positionsInHistory.arrivalPositionIt);
+                startToEnd = std::distance(wrkStatus.positionHistory.begin(), positionsInHistory.arrivalPositionIt);
             }
 
-            // Don't process too short paths
+            /* Don't process too short paths */
             if (startToEnd < (BWAPI::Broodwar->getLatencyFrames() + 11))
             {
 #if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "Path length from start to arrival is " << startToEnd
+                Telemetry::log(wrkStatus.wrk->ident) << "Path length from start to arrival is " << startToEnd
                                                         << ", too short to use for path optimization";
 #endif
                 return false;
             }
 
-            // Clear the ten distance position iterator if it is invalid
-            if (positionsInHistory.tenDistancePositionIt != workerStatus.positionHistory.end() &&
-                std::distance(workerStatus.positionHistory.begin(), positionsInHistory.tenDistancePositionIt) < 0)
+            /* Clear the ten distance position iterator if it is invalid */
+            if (positionsInHistory.tenDistancePositionIt != wrkStatus.positionHistory.end() &&
+                std::distance(wrkStatus.positionHistory.begin(), positionsInHistory.tenDistancePositionIt) < 0)
             {
-                positionsInHistory.tenDistancePositionIt = workerStatus.positionHistory.end();
+                positionsInHistory.tenDistancePositionIt = wrkStatus.positionHistory.end();
             }
 
-            // Return false if any of the resend positions couldn't be found
-            if (workerStatus.resentPositions.size() != resendPositionIts.size())
+            /* Return false if any of the resend positions couldn't be found */
+            if (wrkStatus.resentPositions.size() != resendPositionIts.size())
             {
 #if LOGGING_ENABLED
-                Log::Get() << "ERROR: Not all resent positions found in position history"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+                AppLog::Get() << "ERROR: Not all resent positions found in position history"
+                           << "; worker id " << wrkStatus.wrk->ident << " @ " << wrkStatus.wrk->getTilePosition();
 #endif
                 return false;
             }
 
-            // Filter out the resends that happened before arrival
+            /* Filter out the resends that happened before arrival */
             for (auto resendPositionIt : resendPositionIts)
             {
                 if (std::distance(resendPositionIt, positionsInHistory.arrivalPositionIt) <= BWAPI::Broodwar->getLatencyFrames())
@@ -170,65 +170,65 @@ namespace WorkerMiningOptimization
                 positionsInHistory.resendItsBeforeArrival.push_back(resendPositionIt);
             }
 
-            // No further calculations are needed unless we are exploring
+            /* No further calculations are needed unless we are exploring */
             if (!isExploring()) return true;
 
-            // Determine if the worker's heading will require turning to start mining
-            // The worker has two frames to turn before the order process timer will be nonzero and it will have to wait 9 frames
-            // The worker always points directly at the center of the patch when mining
-            auto vectorToPatch = workerStatus.resource->center - workerStatus.worker->lastPosition;
-            auto angleDiff = Geo::BWAngleDiff(workerStatus.worker->BWHeading(), Geo::BWDirection(vectorToPatch));
-            if (angleDiff > 2 * workerStatus.worker->type.turnRadius())
+            /* Determine if the worker's heading will require turning to start mining */
+            /* The worker has two frames to turn before the order process timer will be nonzero and it will have to wait 9 frames */
+            /* The worker always points directly at the center of the patch when mining */
+            auto vectorToPatch = wrkStatus.resource->midpoint - wrkStatus.wrk->prevPos;
+            auto angleDiff = Geom::BWAngleDiff(wrkStatus.wrk->BWHeading(), Geom::BWDirection(vectorToPatch));
+            if (angleDiff > 2 * wrkStatus.wrk->type.turnRadius())
             {
                 positionsInHistory.facingPatch = false;
 #if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "Not facing patch, angle diff is " << angleDiff;
+                Telemetry::log(wrkStatus.wrk->ident) << "Not facing patch, angle diff is " << angleDiff;
 #endif
             }
 
-            // Reference the observations and potentially create new nodes
+            /* Reference the observations and potentially create new nodes */
 
-            // Start by finding or creating the root node
-            auto rootNode = findGatherPositionObservations(workerStatus.resource, **workerStatus.positionHistory.begin(), createObservations);
+            /* Start by finding or creating the root node */
+            auto rootNode = findGatherPositionObservations(wrkStatus.resource, **wrkStatus.positionHistory.begin(), createObservations);
             if (!rootNode) return false;
             if (rootNode->occurrences < UINT32_MAX) rootNode->occurrences++;
 
             auto current = GatherPositionObservationPtr(rootNode);
             positionsInHistory.positionHistory.push_back(current);
 
-            // Add main line positions up to the first resend (or arrival position if there was no resend)
+            /* Add main line positions up to the first resend (or arrival position if there was no resend) */
             auto limit = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames();
             if (!positionsInHistory.resendItsBeforeArrival.empty())
             {
                 limit = positionsInHistory.resendItsBeforeArrival[0] + 1;
             }
-            for (auto positionIt = workerStatus.positionHistory.begin() + 1; positionIt != limit; positionIt++)
+            for (auto positionIt = wrkStatus.positionHistory.begin() + 1; positionIt != limit; positionIt++)
             {
-                // Try to find the next position
-                auto [next, atLimit] = findNextPositionCheckingOccurrences(**positionIt, current.pos->nextPositions);
+                /* Try to find the next position */
+                auto [next, atLimit] = findNextPositionCheckingOccurrences(**positionIt, current.pt->nextPositions);
 
-                // If we have a new path branch that we can't create, bail out now
+                /* If we have a new path branch that we can't create, bail out now */
                 if (!next && (!createObservations || atLimit))
                 {
 #if OPTIMALPOSITIONS_DEBUG
                     if (createObservations && atLimit)
                     {
-                        CherryVis::log(workerStatus.worker->id) << "Found new branch in path, but observation limit has been reached";
+                        Telemetry::log(wrkStatus.wrk->ident) << "Found new branch in path, but observation limit has been reached";
                     }
 #endif
                     return false;
                 }
 
-                // Create a new item if needed, otherwise bump the occurrence count if possible
+                /* Create a new item if needed, otherwise bump the occurrence count if possible */
                 if (!next)
                 {
-                    next = &current.pos->nextPositions.emplace_back(**positionIt);
+                    next = &current.pt->nextPositions.emplace_back(**positionIt);
                 }
                 else if (!atLimit)
                 {
                     next->occurrences++;
                 }
-                updateNextOccurenceRates(current.pos->nextPositions);
+                updateNextOccurenceRates(current.pt->nextPositions);
 
                 current = GatherPositionObservationPtr(next);
                 positionsInHistory.positionHistory.push_back(current);
@@ -237,7 +237,7 @@ namespace WorkerMiningOptimization
 
             positionsInHistory.resendsWithObservationData.push_back(current);
 
-            // Add second resend positions up to the second resend (or arrival position if there was no second resend)
+            /* Add second resend positions up to the second resend (or arrival position if there was no second resend) */
             limit = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames();
             if (positionsInHistory.resendItsBeforeArrival.size() > 1)
             {
@@ -245,23 +245,23 @@ namespace WorkerMiningOptimization
             }
             for (auto positionIt = positionsInHistory.resendItsBeforeArrival[0] + 1; positionIt != limit; positionIt++)
             {
-                // Try to find the next position
+                /* Try to find the next position */
                 auto &nextPositions = current.nextSecondResendPositions();
                 auto [next, atLimit] = findNextPositionCheckingOccurrences(**positionIt, nextPositions);
 
-                // If we have a new path branch that we can't create, bail out now
+                /* If we have a new path branch that we can't create, bail out now */
                 if (!next && (!createObservations || atLimit))
                 {
 #if OPTIMALPOSITIONS_DEBUG
                     if (createObservations && atLimit)
                     {
-                        CherryVis::log(workerStatus.worker->id) << "Found new branch in second resend path, but observation limit has been reached";
+                        Telemetry::log(wrkStatus.wrk->ident) << "Found new branch in second resend path, but observation limit has been reached";
                     }
 #endif
                     return false;
                 }
 
-                // Create a new item if needed, otherwise bump the occurrence count if possible
+                /* Create a new item if needed, otherwise bump the occurrence count if possible */
                 if (!next)
                 {
                     next = &nextPositions.emplace_back(**positionIt);
@@ -284,10 +284,10 @@ namespace WorkerMiningOptimization
             return true;
         }
 
-        // Used to track whether a mining worker collides with the patch after mining
+        /* Used to track whether a mining worker collides with the patch after mining */
         struct MiningWorker
         {
-            MyWorker worker;
+            OwnedWorker wrk;
             Resource resource;
             std::vector<PositionAndVelocity> positionHistoryWithObservationData;
             std::vector<PositionAndVelocity> resendsWithObservationData;
@@ -308,15 +308,15 @@ namespace WorkerMiningOptimization
 
         void handlePossiblePatchCollision(MiningWorker &miningWorker)
         {
-            // There is a collision if the worker is at the patch and isn't moving
-            bool collision = (miningWorker.resource->getDistance(miningWorker.worker) == 0
-                    && (currentFrame - miningWorker.worker->frameLastMoved) > 2);
+            /* There is a collision if the worker is at the patch and isn't moving */
+            bool collision = (miningWorker.resource->getDistance(miningWorker.wrk) == 0
+                    && (frameNow - miningWorker.wrk->frameLastMoved) > 2);
             WorkerMiningInstrumentation::trackCollisionObservation(miningWorker.resource, collision);
 
 #if OPTIMALPOSITIONS_DEBUG
             if (collision)
             {
-                CherryVis::log(miningWorker.worker->id) << "Collision with patch";
+                Telemetry::log(miningWorker.wrk->ident) << "Collision with patch";
                 collisions++;
             }
             else
@@ -326,22 +326,22 @@ namespace WorkerMiningOptimization
 #endif
             if (!WorkerMiningOptimization::isExploring()) return;
 
-            // If there have been more than two resends, we can't record an observation since the path may have changed in an unexpected way
+            /* If there have been more than two resends, we can't record an observation since the path may have changed in an unexpected way */
             if (miningWorker.resendsBeforeArrivalCount > 2) return;
 
-            // Guard against invalid data
+            /* Guard against invalid data */
             if (miningWorker.positionHistoryWithObservationData.empty()) return;
             if (miningWorker.resendsWithObservationData.size() != miningWorker.resendsBeforeArrivalCount) return;
 
-            // Find the root node
+            /* Find the root node */
             auto rootNode = findGatherPositionObservations(miningWorker.resource,
                                                            miningWorker.positionHistoryWithObservationData.front(),
                                                            false);
             if (!rootNode)
             {
 #if LOGGING_ENABLED
-                Log::Get() << "ERROR: No root node found when handling gather collisions"
-                           << "; worker id " << miningWorker.worker->id << " @ " << miningWorker.worker->getTilePosition();
+                AppLog::Get() << "ERROR: No root node found when handling gather collisions"
+                           << "; worker id " << miningWorker.wrk->ident << " @ " << miningWorker.wrk->getTilePosition();
 #endif
                 return;
             }
@@ -365,7 +365,7 @@ namespace WorkerMiningOptimization
                     return;
                 }
 
-                node.pos->addNoResendCollision(collision);
+                node.pt->addNoResendCollision(collision);
             };
 
             auto current = GatherPositionObservationPtr(rootNode);
@@ -383,59 +383,59 @@ namespace WorkerMiningOptimization
             }
         }
 
-        void updateApproachOptimization(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory)
+        void updateApproachOptimization(WorkerGatherStatus &wrkStatus, PositionsInHistory &positionsInHistory)
         {
 #if LOGGING_ENABLED
-            auto &worker = workerStatus.worker;
+            auto &wrk = wrkStatus.wrk;
 #endif
 
-            // Iterator to the apparent optimal position in the position history
+            /* Iterator to the apparent optimal position in the position history */
             auto optimalPositionIt = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames() - 11;
 
 #if LOGGING_ENABLED
             if (!isExploring())
             {
-                if (workerStatus.plannedResendPosition && workerStatus.resentPositions.empty())
+                if (wrkStatus.plannedResendPosition && wrkStatus.resentPositions.empty())
                 {
-                    Log::Get() << "WARNING: Worker didn't resend at planned position " << *workerStatus.plannedResendPosition
-                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                    AppLog::Get() << "WARNING: Worker didn't resend at planned position " << *wrkStatus.plannedResendPosition
+                               << "; worker id " << wrk->ident << " @ " << wrk->getTilePosition();
                 }
-                else if (workerStatus.plannedSecondResendPosition && workerStatus.resentPositions.size() < 2)
+                else if (wrkStatus.plannedSecondResendPosition && wrkStatus.resentPositions.size() < 2)
                 {
-                    Log::Get() << "WARNING: Worker didn't resend at second planned position " << *workerStatus.plannedSecondResendPosition
-                               << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                    AppLog::Get() << "WARNING: Worker didn't resend at second planned position " << *wrkStatus.plannedSecondResendPosition
+                               << "; worker id " << wrk->ident << " @ " << wrk->getTilePosition();
                 }
             }
 #endif
 
-            // Check if we want to make any provisional observations about resend positions where we know the worker doesn't arrive on time,
-            // but don't know the exact timing as we were forced to resend another command later
-            // We only do this if there are no earlier observations of the position, and we replace this observation later if we get a clean
-            // path
-            if (workerStatus.switchedPatches || positionsInHistory.resendItsBeforeArrival.size() > std::min(2, workerStatus.plannedResendCount()))
+            /* Check if we want to make any provisional observations about resend positions where we know the worker doesn't arrive on time, */
+            /* but don't know the exact timing as we were forced to resend another command later */
+            /* We only do this if there are no earlier observations of the position, and we replace this observation later if we get a clean */
+            /* path */
+            if (wrkStatus.switchedPatches || positionsInHistory.resendItsBeforeArrival.size() > std::min(2, wrkStatus.plannedResendCount()))
             {
                 auto provisionalObservation = [&](int resendIndex)
                 {
-                    // There must be a resend after this - otherwise we could just make a normal observation
+                    /* There must be a resend after this - otherwise we could just make a normal observation */
                     if (positionsInHistory.resendItsBeforeArrival.size() < (resendIndex + 2)) return;
 
-                    // Must have resend data for this position
+                    /* Must have resend data for this position */
                     if (positionsInHistory.resendsWithObservationData.size() > resendIndex) return;
 
-                    // There must have been a full order process cycle after this resend before the next one
+                    /* There must have been a full order process cycle after this resend before the next one */
                     if (std::distance(positionsInHistory.resendItsBeforeArrival[resendIndex],
                                       positionsInHistory.resendItsBeforeArrival[resendIndex + 1]) < 11)
                     {
                         return;
                     }
 
-                    // Reference the observations for this position
+                    /* Reference the observations for this position */
                     auto &observations = positionsInHistory.resendsWithObservationData[resendIndex].resendArrivalObservations();
 
-                    // There must not have been any observations already
+                    /* There must not have been any observations already */
                     if (!observations.empty()) return;
 
-                    // Make the observation
+                    /* Make the observation */
                     observations.addArrival(
                             (int)std::distance(positionsInHistory.resendItsBeforeArrival[resendIndex], optimalPositionIt),
                             positionsInHistory.facingPatch);
@@ -443,26 +443,26 @@ namespace WorkerMiningOptimization
 #if OPTIMALPOSITIONS_DEBUG
                     if (resendIndex == 1)
                     {
-                        CherryVis::log(worker->id) << "Added provisional observation of " << **positionsInHistory.resendItsBeforeArrival[0]
+                        Telemetry::log(wrk->ident) << "Added provisional observation of " << **positionsInHistory.resendItsBeforeArrival[0]
                                                    << " : " << **positionsInHistory.resendItsBeforeArrival[1];
                     }
                     else
                     {
-                        CherryVis::log(worker->id) << "Added provisional observation of " << **positionsInHistory.resendItsBeforeArrival[0];
+                        Telemetry::log(wrk->ident) << "Added provisional observation of " << **positionsInHistory.resendItsBeforeArrival[0];
                     }
 #endif
                 };
-                if (workerStatus.plannedResendPosition) provisionalObservation(0);
-                if (workerStatus.plannedSecondResendPosition) provisionalObservation(1);
-                if (workerStatus.switchedPatches || positionsInHistory.resendItsBeforeArrival.size() > 2) return;
+                if (wrkStatus.plannedResendPosition) provisionalObservation(0);
+                if (wrkStatus.plannedSecondResendPosition) provisionalObservation(1);
+                if (wrkStatus.switchedPatches || positionsInHistory.resendItsBeforeArrival.size() > 2) return;
             }
 
-            // If we sent no command, record the path for exploration
+            /* If we sent no command, record the path for exploration */
             if (positionsInHistory.resendItsBeforeArrival.empty())
             {
-                // Update the metadata for the positions in the path
+                /* Update the metadata for the positions in the path */
                 auto optimalPositionDataIt =
-                        positionsInHistory.positionHistory.begin() + std::distance(workerStatus.positionHistory.begin(), optimalPositionIt);
+                        positionsInHistory.positionHistory.begin() + std::distance(wrkStatus.positionHistory.begin(), optimalPositionIt);
                 for (auto positionIt = positionsInHistory.positionHistory.begin();
                      positionIt != positionsInHistory.positionHistory.end();
                      positionIt++)
@@ -470,19 +470,19 @@ namespace WorkerMiningOptimization
                     auto delta = (int)std::distance(optimalPositionDataIt, positionIt);
 
 #if OPTIMALPOSITIONS_DEBUG
-                    if (positionIt->pos->deltaToBenchmarkAndOccurrenceRate.empty())
+                    if (positionIt->pt->deltaToBenchmarkAndOccurrenceRate.empty())
                     {
 #if OPTIMALPOSITIONS_DEBUG_VERBOSE
-                        CherryVis::log(worker->id) << "Added metadata for " << *positionIt << " at delta " << delta;
+                        Telemetry::log(wrk->ident) << "Added metadata for " << *positionIt << " at delta " << delta;
 #endif
                     }
-                    else if (!positionIt->pos->deltaToBenchmarkAndOccurrenceRate.contains((int8_t)delta))
+                    else if (!positionIt->pt->deltaToBenchmarkAndOccurrenceRate.contains((int8_t)delta))
                     {
-                        CherryVis::log(worker->id) << "New delta of " << delta << " came up for " << positionIt->pos->pos;
+                        Telemetry::log(wrk->ident) << "New delta of " << delta << " came up for " << positionIt->pt->pt;
                     }
 #endif
 
-                    positionIt->pos->addDeltaToBenchmark(delta);
+                    positionIt->pt->addDeltaToBenchmark(delta);
                 }
                 return;
             }
@@ -496,139 +496,126 @@ namespace WorkerMiningOptimization
 #if OPTIMALPOSITIONS_DEBUG_VERBOSE
             if (positionsInHistory.resendItsBeforeArrival.size() > 1)
             {
-                CherryVis::log(worker->id) << "Added observation of " << positionsInHistory.resendsWithObservationData[0]
+                Telemetry::log(wrk->ident) << "Added observation of " << positionsInHistory.resendsWithObservationData[0]
                                            << " : " << positionsInHistory.resendsWithObservationData[1];
             }
             else
             {
-                CherryVis::log(worker->id) << "Added observation of " << positionsInHistory.resendsWithObservationData[0];
+                Telemetry::log(wrk->ident) << "Added observation of " << positionsInHistory.resendsWithObservationData[0];
             }
 #endif
 
             if (exploring)
             {
-                exploredPatches.insert(workerStatus.resource->tile);
+                exploredPatches.insert(wrkStatus.resource->tilePos);
             }
 #else
-            // Track the observation
+            /* Track the observation */
             positionsInHistory.resendsWithObservationData.rbegin()->resendArrivalObservations().addArrival(
                     (int)std::distance(lastResendPositionIt, optimalPositionIt), positionsInHistory.facingPatch);
 #endif
 
-//            // Consider exploration of second resend positions
-//            // This is not needed if:
-//            // - There was a second resend
-//            // - The information for this path is incomplete
-//            // - This position is not inside our optimization horizon
-//            // - The path did not start at the depot
-//            if (secondResendData) return;
-//            if (resentPositionData.deltaToBenchmarkAndOccurrences.empty()) return;
-//
-//            int probableDeltaToBenchmark = resentPositionData.probableDeltaToBenchmark();
-//            if (probableDeltaToBenchmark < -GATHER_EXPLORE_BEFORE) return;
-//            if (probableDeltaToBenchmark > GATHER_EXPLORE_AFTER) return;
-//
-//            if (!workerStatus.pathStartsAtDepot) return;
-//
-//            // Check if the path after the resend is the same as the path without a resend
-//            // If so, we don't bother tracking second resends on this, as they will be the same as the normal path
-//            auto pathsMatch = [&]()
-//            {
-//                if (resentPositionData.resendChangesPath == ResendChangesPath::Yes) return false;
-//
-//                auto noResendPath = resentPositionData.followingPositionsIfStable(optimalGatherPositions);
-//                if (noResendPath.empty()) return false; // No resend path is unstable
-//
-//                size_t noResendPathIdx = 0;
-//                for (auto positionIt = positionsInHistory.resendPositionIts[0] + 1; positionIt != positionsInHistory.arrivalPositionIt; positionIt++)
-//                {
-//                    if (noResendPath[noResendPathIdx]->pos != **positionIt)
-//                    {
-//                        return false;
-//                    }
-//
-//                    noResendPathIdx++;
-//                    if (noResendPathIdx >= noResendPath.size()) break;
-//                }
-//                return true;
-//            };
-//
-//            if (pathsMatch())
-//            {
-//                resentPositionData.resendChangesPath = ResendChangesPath::No;
-//                return;
-//            }
-//
-//            // If this is the first detection of a changed path, add the existing next positions as a second resend position
-//            if (resentPositionData.resendChangesPath != ResendChangesPath::Yes)
-//            {
-//                resentPositionData.resendChangesPath = ResendChangesPath::Yes;
-//
-//                for (const auto &[nextPosition, _] : resentPositionData.nextPositionAndOccurrences)
-//                {
-//                    auto secondResendObservationsIt = resentPositionData.secondResendObservations.find(nextPosition);
-//                    if (secondResendObservationsIt == resentPositionData.secondResendObservations.end())
-//                    {
-//                        resentPositionData.secondResendObservations.emplace(
-//                                nextPosition,
-//                                SecondResendGatherPositionObservations{1});
-//
-//#if OPTIMALPOSITIONS_DEBUG_VERBOSE
-//                        CherryVis::log(worker->id) << "Added metadata for " << resentPositionData
-//                                                   << " : " << nextPosition
-//                                                   << " after discovering unstable path after resends";
-//#endif
-//                    }
-//                }
-//            }
-//
-//            // Queue up second resend positions to explore
-//            auto limit = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames();
-//            for (auto positionIt = positionsInHistory.resendPositionIts[0] + 1; std::distance(positionIt, limit) > 0; positionIt++)
-//            {
-//                auto secondResendObservationsIt = resentPositionData.secondResendObservations.find(**positionIt);
-//                if (secondResendObservationsIt != resentPositionData.secondResendObservations.end()) continue;
-//
-//                resentPositionData.secondResendObservations.emplace(
-//                        **positionIt,
-//                        SecondResendGatherPositionObservations{
-//                                (uint8_t)std::distance(positionsInHistory.resendPositionIts[0], positionIt)});
-//
-//#if OPTIMALPOSITIONS_DEBUG_VERBOSE
-//                CherryVis::log(worker->id) << "Added metadata for " << resentPositionData
-//                                           << " : " << **positionIt
-//                                           << ", delta " << std::distance(positionsInHistory.resendPositionIts[0], positionIt);
-//#endif
-//            }
+/* // Consider exploration of second resend positions */
+/* // This is not needed if: */
+/* // - There was a second resend */
+/* // - The information for this path is incomplete */
+/* // - This position is not inside our optimization horizon */
+/* // - The path did not start at the depot */
+/* if (secondResendData) return; */
+/* if (resentPositionData.deltaToBenchmarkAndOccurrences.empty()) return; */
+/* int probableDeltaToBenchmark = resentPositionData.probableDeltaToBenchmark(); */
+/* if (probableDeltaToBenchmark < -GATHER_EXPLORE_BEFORE) return; */
+/* if (probableDeltaToBenchmark > GATHER_EXPLORE_AFTER) return; */
+/* if (!workerStatus.pathStartsAtDepot) return; */
+/* // Check if the path after the resend is the same as the path without a resend */
+/* // If so, we don't bother tracking second resends on this, as they will be the same as the normal path */
+/* auto pathsMatch = [&]() */
+/* { */
+/* if (resentPositionData.resendChangesPath == ResendChangesPath::Yes) return false; */
+/* auto noResendPath = resentPositionData.followingPositionsIfStable(optimalGatherPositions); */
+/* if (noResendPath.empty()) return false; // No resend path is unstable */
+/* size_t noResendPathIdx = 0; */
+/* for (auto positionIt = positionsInHistory.resendPositionIts[0] + 1; positionIt != positionsInHistory.arrivalPositionIt; positionIt++) */
+/* { */
+/* if (noResendPath[noResendPathIdx]->pos != **positionIt) */
+/* { */
+/* return false; */
+/* } */
+/* noResendPathIdx++; */
+/* if (noResendPathIdx >= noResendPath.size()) break; */
+/* } */
+/* return true; */
+/* }; */
+/* if (pathsMatch()) */
+/* { */
+/* resentPositionData.resendChangesPath = ResendChangesPath::No; */
+/* return; */
+/* } */
+/* // If this is the first detection of a changed path, add the existing next positions as a second resend position */
+/* if (resentPositionData.resendChangesPath != ResendChangesPath::Yes) */
+/* { */
+/* resentPositionData.resendChangesPath = ResendChangesPath::Yes; */
+/* for (const auto &[nextPosition, _] : resentPositionData.nextPositionAndOccurrences) */
+/* { */
+/* auto secondResendObservationsIt = resentPositionData.secondResendObservations.find(nextPosition); */
+/* if (secondResendObservationsIt == resentPositionData.secondResendObservations.end()) */
+/* { */
+/* resentPositionData.secondResendObservations.emplace( */
+/* nextPosition, */
+/* SecondResendGatherPositionObservations{1}); */
+/* #if OPTIMALPOSITIONS_DEBUG_VERBOSE */
+/* CherryVis::log(worker->id) << "Added metadata for " << resentPositionData */
+/* << " : " << nextPosition */
+/* << " after discovering unstable path after resends"; */
+/* #endif */
+/* } */
+/* } */
+/* } */
+/* // Queue up second resend positions to explore */
+/* auto limit = positionsInHistory.arrivalPositionIt - BWAPI::Broodwar->getLatencyFrames(); */
+/* for (auto positionIt = positionsInHistory.resendPositionIts[0] + 1; std::distance(positionIt, limit) > 0; positionIt++) */
+/* { */
+/* auto secondResendObservationsIt = resentPositionData.secondResendObservations.find(**positionIt); */
+/* if (secondResendObservationsIt != resentPositionData.secondResendObservations.end()) continue; */
+/* resentPositionData.secondResendObservations.emplace( */
+/* **positionIt, */
+/* SecondResendGatherPositionObservations{ */
+/* (uint8_t)std::distance(positionsInHistory.resendPositionIts[0], positionIt)}); */
+/* #if OPTIMALPOSITIONS_DEBUG_VERBOSE */
+/* CherryVis::log(worker->id) << "Added metadata for " << resentPositionData */
+/* << " : " << **positionIt */
+/* << ", delta " << std::distance(positionsInHistory.resendPositionIts[0], positionIt); */
+/* #endif */
+/* } */
         }
 
-        void updateTenDistancePosition(WorkerGatherStatus &workerStatus, PositionsInHistory &positionsInHistory, bool switchedPatch)
+        void updateTenDistancePosition(WorkerGatherStatus &wrkStatus, PositionsInHistory &positionsInHistory, bool switchedPatch)
         {
-            // Update 10-distance position
-            // For simplicity we track all of them we encounter even though there is some overlap with the "main" path data
-            if (positionsInHistory.tenDistancePositionIt != workerStatus.positionHistory.end() &&
+            /* Update 10-distance position */
+            /* For simplicity we track all of them we encounter even though there is some overlap with the "main" path data */
+            if (positionsInHistory.tenDistancePositionIt != wrkStatus.positionHistory.end() &&
                 (positionsInHistory.resendItsBeforeArrival.empty() ||
                  std::distance(positionsInHistory.tenDistancePositionIt, positionsInHistory.resendItsBeforeArrival[0]) > 0))
             {
 #if TAKEOVER_DEBUG
-                auto result = tenDistancePositionsFor(workerStatus.resource).insert(**positionsInHistory.tenDistancePositionIt);
-                if (result.second)
+                auto outcome = tenDistancePositionsFor(wrkStatus.resource).insert(**positionsInHistory.tenDistancePositionIt);
+                if (outcome.second)
                 {
-                    CherryVis::log(workerStatus.worker->id) << "Added new 10-distance position " << **positionsInHistory.tenDistancePositionIt;
+                    Telemetry::log(wrkStatus.wrk->ident) << "Added new 10-distance position " << **positionsInHistory.tenDistancePositionIt;
                 }
 #else
-                tenDistancePositionsFor(workerStatus.resource).insert(**positionsInHistory.tenDistancePositionIt);
+                tenDistancePositionsFor(wrkStatus.resource).insert(**positionsInHistory.tenDistancePositionIt);
 #endif
             }
         }
     }
 
-    void flushGatherObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses)
+    void flushGatherObservations(std::map<OwnedWorker, WorkerGatherStatus> &workerGatherStatuses)
     {
-        if (currentFrame == 0) miningWorkers.clear();
+        if (frameNow == 0) miningWorkers.clear();
 
 #if PATCHLOCKING_DEBUG
-        if (currentFrame == 0)
+        if (frameNow == 0)
         {
             actualOtherPatchesGatheredHistory.clear();
             predictedOtherPatchesGatheredHistory.clear();
@@ -638,24 +625,24 @@ namespace WorkerMiningOptimization
             patchLockingSuccessfulPatchLocks = 0;
         }
 
-        // Update the actual resources being mined data
+        /* Update the actual resources being mined data */
 
-        // Start by making a set of all the resources that are being mined
+        /* Start by making a set of all the resources that are being mined */
         std::set<Resource> resourcesBeingMined;
-        for (const auto &worker : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
+        for (const auto &wrk : UnitMgr::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Probe))
         {
-            if (!worker->exists()) continue;
-            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::MiningMinerals) continue;
-            if (!worker->bwapiUnit->getOrderTarget()) continue;
-            auto resource = Units::resourceAt(worker->bwapiUnit->getOrderTarget()->getTilePosition());
+            if (!wrk->exists()) continue;
+            if (wrk->rawUnit->getOrder() != BWAPI::Orders::MiningMinerals) continue;
+            if (!wrk->rawUnit->getOrderTarget()) continue;
+            auto resource = UnitMgr::resourceAt(wrk->rawUnit->getOrderTarget()->getTilePosition());
             if (resource) resourcesBeingMined.insert(resource);
         }
 
-        // Now go through all of the mineral patches and find those where all other patches are being mined
+        /* Now go through all of the mineral patches and find those where all other patches are being mined */
         std::set<Resource> resourcesWithAllOtherBeingMined;
-        for (const auto &base : Map::allBases())
+        for (const auto &baseLoc : Map::allBases())
         {
-            for (const auto &resource : base->mineralPatches())
+            for (const auto &resource : baseLoc->mineralPatches())
             {
                 bool allMined = true;
                 for (const auto &otherResource : resource->resourcesInSwitchPatchRange)
@@ -671,7 +658,7 @@ namespace WorkerMiningOptimization
                 {
                     resourcesWithAllOtherBeingMined.insert(resource);
 #if PATCHLOCKING_DEBUG_VERBOSE
-                    CherryVis::log(resource->id) << "Patch lock possible on this frame";
+                    Telemetry::log(resource->ident) << "Patch lock possible on this frame";
 #endif
                 }
             }
@@ -679,18 +666,18 @@ namespace WorkerMiningOptimization
         actualOtherPatchesGatheredHistory.push_front(std::move(resourcesWithAllOtherBeingMined));
         if (actualOtherPatchesGatheredHistory.size() > 20) actualOtherPatchesGatheredHistory.pop_back();
 
-        // Do the same with the predicted forecast values
+        /* Do the same with the predicted forecast values */
         std::set<Resource> resourcesWithAllOtherPredictedToBeMined;
-        for (const auto &base : Map::allBases())
+        for (const auto &baseLoc : Map::allBases())
         {
-            for (const auto &resource : base->mineralPatches())
+            for (const auto &resource : baseLoc->mineralPatches())
             {
                 auto &forecast = resource->getAllOtherPatchesGatheredProbabilityForecast();
                 if (forecast[BWAPI::Broodwar->getLatencyFrames() + 10] >= PATCH_LOCK_THRESHOLD)
                 {
                     resourcesWithAllOtherPredictedToBeMined.insert(resource);
 #if PATCHLOCKING_DEBUG_VERBOSE
-                    CherryVis::log(resource->id) << "Patch lock predicted possible in 13 frames";
+                    Telemetry::log(resource->ident) << "Patch lock predicted possible in 13 frames";
 #endif
                 }
             }
@@ -701,10 +688,10 @@ namespace WorkerMiningOptimization
             predictedOtherPatchesGatheredHistory.pop_back();
         }
 
-        // Output debug data every 1000 frames
-        if (currentFrame > 0 && currentFrame % 1000 == 0 && patchLockingPotentialPatchLocks > 0 && patchLockingTotalCollections > 0)
+        /* Output debug data every 1000 frames */
+        if (frameNow > 0 && frameNow % 1000 == 0 && patchLockingPotentialPatchLocks > 0 && patchLockingTotalCollections > 0)
         {
-            Log::Get() << std::fixed << std::setprecision(1)
+            AppLog::Get() << std::fixed << std::setprecision(1)
                        << "Patch locking effectiveness: " << (100.0 * patchLockingSuccessfulPatchLocks) / (double)(patchLockingPotentialPatchLocks)
                        << "% successful patch locks, "
                        << (100.0 * patchLockingPredictedPatchLocksAtCommandFrame) / (double)(patchLockingTotalCollections)
@@ -714,123 +701,123 @@ namespace WorkerMiningOptimization
         }
 #endif
 #if OPTIMALPOSITIONS_DEBUG
-        if (currentFrame == 0)
+        if (frameNow == 0)
         {
             exploredPatches.clear();
             collisions = 0;
             noncollisions = 0;
         }
-        else if (currentFrame % 1000 == 0 && WorkerMiningOptimization::isExploring())
+        else if (frameNow % 1000 == 0 && WorkerMiningOptimization::isExploring())
         {
-            Log::Get() << "Explored " << exploredPatches.size() << " patch(es)";
+            AppLog::Get() << "Explored " << exploredPatches.size() << " patch(es)";
             if ((collisions + noncollisions) > 0)
             {
-                Log::Get() << std::fixed << std::setprecision(1)
+                AppLog::Get() << std::fixed << std::setprecision(1)
                            << "Gather collision rate: " << (100.0 * collisions) / (double)(collisions + noncollisions)
                            << "% over " << (collisions + noncollisions) << " collections";
             }
         }
 #endif
 #if LOGGING_ENABLED
-        if (currentFrame == 0)
+        if (frameNow == 0)
         {
             hadPathData = 0;
             didNotHavePathData = 0;
         }
-        else if (currentFrame % 1000 == 0)
+        else if (frameNow % 1000 == 0)
         {
             auto total = hadPathData + didNotHavePathData;
             if (total > 0)
             {
-                Log::Get() << std::fixed << std::setprecision(1)
+                AppLog::Get() << std::fixed << std::setprecision(1)
                            << "Gathers with path data: " << (100.0 * hadPathData) / (double)total
                            << "% over " << total << " collections";
             }
         }
 #endif
 
-        // Update collision state for workers that are finished mining
-        for (auto it = miningWorkers.begin(); it != miningWorkers.end();)
+        /* Update collision state for workers that are finished mining */
+        for (auto iterRef = miningWorkers.begin(); iterRef != miningWorkers.end();)
         {
-            auto &worker = it->worker;
-            if (!worker->exists())
+            auto &wrk = iterRef->wrk;
+            if (!wrk->exists())
             {
-                it = miningWorkers.erase(it);
+                iterRef = miningWorkers.erase(iterRef);
                 continue;
             }
 
-            // Wait until the worker started carrying a resource 8 frames ago
-            if (!worker->carryingResource || worker->lastCarryingResourceChange != (currentFrame - 8))
+            /* Wait until the worker started carrying a resource 8 frames ago */
+            if (!wrk->carryingResource || wrk->lastCarryingResourceChange != (frameNow - 8))
             {
-                it++;
+                iterRef++;
                 continue;
             }
 
-            // Skip the worker if it has been ordered to do something else in the meantime
-            if (worker->bwapiUnit->getOrder() != BWAPI::Orders::ReturnMinerals)
+            /* Skip the worker if it has been ordered to do something else in the meantime */
+            if (wrk->rawUnit->getOrder() != BWAPI::Orders::ReturnMinerals)
             {
 #if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(worker->id) << "Not tracking collision and speed observation, as the worker has apparently been re-ordered";
+                Telemetry::log(wrk->ident) << "Not tracking collision and speed observation, as the worker has apparently been re-ordered";
 #endif
-                it = miningWorkers.erase(it);
+                iterRef = miningWorkers.erase(iterRef);
                 continue;
             }
 
-            handlePossiblePatchCollision(*it);
+            handlePossiblePatchCollision(*iterRef);
 
-            // Don't need to track this any more
-            it = miningWorkers.erase(it);
+            /* Don't need to track this any more */
+            iterRef = miningWorkers.erase(iterRef);
         }
 
-        // Flush the worker statuses for workers that have started mining
-        for (auto it = workerGatherStatuses.begin(); it != workerGatherStatuses.end();)
+        /* Flush the worker statuses for workers that have started mining */
+        for (auto iterRef = workerGatherStatuses.begin(); iterRef != workerGatherStatuses.end();)
         {
-            auto &worker = it->first;
+            auto &wrk = iterRef->first;
 
-            // Clean up if the worker is dead or has started mining
-            if (!worker->exists() || worker->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+            /* Clean up if the worker is dead or has started mining */
+            if (!wrk->exists() || wrk->rawUnit->getOrder() == BWAPI::Orders::MiningMinerals)
             {
-                it = workerGatherStatuses.erase(it);
+                iterRef = workerGatherStatuses.erase(iterRef);
                 continue;
             }
 
-            // Wait to process the worker until it is on its first WaitForMinerals frame
-            if (worker->lastTransitionedToWaitForMineralsOrder != currentFrame)
+            /* Wait to process the worker until it is on its first WaitForMinerals frame */
+            if (wrk->lastTransitionedToWaitForMineralsOrder != frameNow)
             {
-                it++;
+                iterRef++;
                 continue;
             }
 
-            // Skip workers whose paths did not start at the depot
-            if (!it->second.pathStartsAtDepot)
+            /* Skip workers whose paths did not start at the depot */
+            if (!iterRef->second.pathStartsAtDepot)
             {
 #if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(worker->id) << "Path did not start at depot, so not using it for path optimization";
+                Telemetry::log(wrk->ident) << "Path did not start at depot, so not using it for path optimization";
 #endif
-                it++;
+                iterRef++;
                 continue;
             }
 
-            // Add the final position to the history
-            it->second.appendCurrentPosition();
+            /* Add the final position to the history */
+            iterRef->second.appendCurrentPosition();
 
-            // We skip processing this worker if it hasn't tracked its positions history correctly
+            /* We skip processing this worker if it hasn't tracked its positions history correctly */
             PositionsInHistory positionsInHistory;
-            if (!extractPositionsInHistory(positionsInHistory, it->second, WorkerMiningOptimization::isExploring())
-                || positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
+            if (!extractPositionsInHistory(positionsInHistory, iterRef->second, WorkerMiningOptimization::isExploring())
+                || positionsInHistory.arrivalPositionIt == iterRef->second.positionHistory.end())
             {
 #if OPTIMALPOSITIONS_DEBUG
-                if (positionsInHistory.arrivalPositionIt == it->second.positionHistory.end())
+                if (positionsInHistory.arrivalPositionIt == iterRef->second.positionHistory.end())
                 {
-                    CherryVis::log(worker->id) << "Not tracking path optimization data as arrival position could not be determined";
+                    Telemetry::log(wrk->ident) << "Not tracking path optimization data as arrival position could not be determined";
                 }
 #endif
-                it++;
+                iterRef++;
                 continue;
             }
 
 #if LOGGING_ENABLED
-            if (it->second.hasPathData)
+            if (iterRef->second.hasPathData)
             {
                 hadPathData++;
             }
@@ -840,13 +827,13 @@ namespace WorkerMiningOptimization
             }
 
 #if VALIDATE_ARRIVAL_FRAMES
-            if (!it->second.switchedPatches && !it->second.expectedArrivalFrameAndOccurrenceRate.empty() && !isExploring())
+            if (!iterRef->second.switchedPatches && !iterRef->second.expectedArrivalFrameAndOccurrenceRate.empty() && !isExploring())
             {
-                int arrivalFrame = currentFrame - (int)std::distance(positionsInHistory.arrivalPositionIt, it->second.positionHistory.end()) + 1;
+                int arrivalFrame = frameNow - (int)std::distance(positionsInHistory.arrivalPositionIt, iterRef->second.positionHistory.end()) + 1;
                 bool found = false;
-                for (const auto &[frame, _] : it->second.expectedArrivalFrameAndOccurrenceRate)
+                for (const auto &[tick, _] : iterRef->second.expectedArrivalFrameAndOccurrenceRate)
                 {
-                    if (frame == arrivalFrame)
+                    if (tick == arrivalFrame)
                     {
                         found = true;
                         break;
@@ -854,9 +841,9 @@ namespace WorkerMiningOptimization
                 }
                 if (!found)
                 {
-                    Log::Get() << "WARNING: Actual arrival frame " << arrivalFrame
-                               << " not found in expected arrival frame(s) " << it->second.expectedArrivalFramesDebug()
-                               << "; worker id " << it->second.worker->id << " @ " << it->second.worker->getTilePosition();
+                    AppLog::Get() << "WARNING: Actual arrival frame " << arrivalFrame
+                               << " not found in expected arrival frame(s) " << iterRef->second.expectedArrivalFramesDebug()
+                               << "; worker id " << iterRef->second.wrk->ident << " @ " << iterRef->second.wrk->getTilePosition();
                 }
             }
 #endif
@@ -864,36 +851,36 @@ namespace WorkerMiningOptimization
 
             if (WorkerMiningOptimization::isExploring())
             {
-                updateApproachOptimization(it->second, positionsInHistory);
+                updateApproachOptimization(iterRef->second, positionsInHistory);
 
-                // Tracking of 10-distance positions for paths that don't start at the depot
-                if (!it->second.switchedPatches)
+                /* Tracking of 10-distance positions for paths that don't start at the depot */
+                if (!iterRef->second.switchedPatches)
                 {
-                    updateTenDistancePosition(it->second, positionsInHistory, false);
+                    updateTenDistancePosition(iterRef->second, positionsInHistory, false);
                 }
             }
 
-            // We don't need to do any more if the worker switched patches
-            if (it->second.switchedPatches)
+            /* We don't need to do any more if the worker switched patches */
+            if (iterRef->second.switchedPatches)
             {
-                it++;
+                iterRef++;
                 continue;
             }
 
 #if PATCHLOCKING_DEBUG
-            // Mark this collection's patch locking status
-            // We don't count early frames since those give free locking in our test infrastructure
-            if (!isExploring() && currentFrame > 300)
+            /* Mark this collection's patch locking status */
+            /* We don't count early frames since those give free locking in our test infrastructure */
+            if (!isExploring() && frameNow > 300)
             {
                 patchLockingTotalCollections++;
 
-                // We patch locked if:
-                // - we can see the other worker is still mining
-                // - we started transitioning to mining before the takeover frame (in this case, the other could have still been mining, so
-                //   though we technically didn't patch lock, we have still saved some frames)
-                auto otherWorkerMining = Workers::getOtherWorkerMining(it->second.resource, worker);
-                if ((otherWorkerMining && otherWorkerMining->bwapiUnit->getOrder() == BWAPI::Orders::MiningMinerals)
-                    || currentFrame < it->second.takeoverFrame)
+                /* We patch locked if: */
+                /* - we can see the other worker is still mining */
+                /* - we started transitioning to mining before the takeover frame (in this case, the other could have still been mining, so */
+                /* though we technically didn't patch lock, we have still saved some frames) */
+                auto otherWorkerMining = WorkerMgr::getOtherWorkerMining(iterRef->second.resource, wrk);
+                if ((otherWorkerMining && otherWorkerMining->rawUnit->getOrder() == BWAPI::Orders::MiningMinerals)
+                    || frameNow < iterRef->second.takeoverFrame)
                 {
                     patchLockingSuccessfulPatchLocks++;
                     patchLockingPredictedPatchLocksAtCommandFrame++;
@@ -901,17 +888,17 @@ namespace WorkerMiningOptimization
                 }
                 else
                 {
-                    // There wasn't a patch lock, so let's determine if one could have been done
-                    int arrivalFrame = currentFrame - (int)std::distance(positionsInHistory.arrivalPositionIt, it->second.positionHistory.end()) + 1;
+                    /* There wasn't a patch lock, so let's determine if one could have been done */
+                    int arrivalFrame = frameNow - (int)std::distance(positionsInHistory.arrivalPositionIt, iterRef->second.positionHistory.end()) + 1;
                     bool patchLockPossible = false;
-                    for (int frame = arrivalFrame;
-                        frame < std::min(it->second.takeoverFrame, currentFrame);
-                        frame++)
+                    for (int tick = arrivalFrame;
+                        tick < std::min(iterRef->second.takeoverFrame, frameNow);
+                        tick++)
                     {
-                        // Check the actuals
-                        int idx = currentFrame - frame;
-                        if (idx < 19 && actualOtherPatchesGatheredHistory[idx].contains(it->second.resource) &&
-                            actualOtherPatchesGatheredHistory[idx + 1].contains(it->second.resource))
+                        /* Check the actuals */
+                        int idx = frameNow - tick;
+                        if (idx < 19 && actualOtherPatchesGatheredHistory[idx].contains(iterRef->second.resource) &&
+                            actualOtherPatchesGatheredHistory[idx + 1].contains(iterRef->second.resource))
                         {
                             if (!patchLockPossible)
                             {
@@ -919,12 +906,12 @@ namespace WorkerMiningOptimization
                                 patchLockPossible = true;
                             }
 
-                            if (predictedOtherPatchesGatheredHistory[idx + BWAPI::Broodwar->getLatencyFrames() + 11].contains(it->second.resource))
+                            if (predictedOtherPatchesGatheredHistory[idx + BWAPI::Broodwar->getLatencyFrames() + 11].contains(iterRef->second.resource))
                             {
                                 patchLockingPredictedPatchLocksAtCommandFrame++;
 #if PATCHLOCKING_DEBUG_VERBOSE
-                                Log::Get() << "WARNING: Worker could have patch locked on frame " << frame
-                                           << "; worker id " << worker->id << " @ " << worker->getTilePosition();
+                                AppLog::Get() << "WARNING: Worker could have patch locked on frame " << tick
+                                           << "; worker id " << wrk->ident << " @ " << wrk->getTilePosition();
 #endif
                                 break;
                             }
@@ -934,34 +921,34 @@ namespace WorkerMiningOptimization
             }
 #endif
 
-            // Move required fields into the MiningWorker struct that we use to track patch collisions
-            // As the underlying vectors may change in the meantime, we convert pointers to positions
+            /* Move required fields into the MiningWorker struct that we use to track patch collisions */
+            /* As the underlying vectors may change in the meantime, we convert pointers to positions */
             auto convertToPositions = [](const std::vector<GatherPositionObservationPtr> &source)
             {
-                std::vector<PositionAndVelocity> result;
-                result.reserve(source.size());
+                std::vector<PositionAndVelocity> outcome;
+                outcome.reserve(source.size());
                 for (const auto &sourcePos : source)
                 {
-                    result.emplace_back(sourcePos.position());
+                    outcome.emplace_back(sourcePos.position());
                 }
-                return result;
+                return outcome;
             };
             miningWorkers.emplace_back(MiningWorker{
-                    it->second.worker,
-                    it->second.resource,
+                    iterRef->second.wrk,
+                    iterRef->second.resource,
                     convertToPositions(positionsInHistory.positionHistory),
                     convertToPositions(positionsInHistory.resendsWithObservationData),
                     positionsInHistory.resendItsBeforeArrival.size()});
 
-            it++;
+            iterRef++;
         }
     }
 
-    void handleGatherPatchSwitch(WorkerGatherStatus &workerStatus)
+    void handleGatherPatchSwitch(WorkerGatherStatus &wrkStatus)
     {
         PositionsInHistory positionsInHistory;
-        if (!extractPositionsInHistory(positionsInHistory, workerStatus, WorkerMiningOptimization::isExploring())) return;
+        if (!extractPositionsInHistory(positionsInHistory, wrkStatus, WorkerMiningOptimization::isExploring())) return;
 
-        updateTenDistancePosition(workerStatus, positionsInHistory, true);
+        updateTenDistancePosition(wrkStatus, positionsInHistory, true);
     }
 }

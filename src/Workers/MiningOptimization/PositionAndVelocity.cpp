@@ -4,24 +4,24 @@ bool PositionAndVelocity::isStableArrivalPosition(
         const std::vector<std::shared_ptr<const PositionAndVelocity>> &positions,
         std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator positionIt)
 {
-    // Guard against invalid input
+    /* Guard against invalid input */
     if (positionIt == positions.end()) return false;
 
-    // If mining or delivery started on the next frame, this is by definition an arrival position
+    /* If mining or delivery started on the next frame, this is by definition an arrival position */
     if ((positionIt + 1) == positions.end()) return true;
 
-    // We now examine the headings to determine whether this is a stable arrival position
-    // There are two general patterns we see for stable arrivals:
-    // - Worker turns towards the target on arrival, then waits and performs its action at the same heading
-    // - Worker keeps its movement heading on arrival, then turns towards the target when it performs its action
-    // For unstable arrivals, the worker changes headings multiple times, then turns towards the target when it performs its action
-    // We can therefore determine when the arrival is stable by checking whether the heading changes more than once
+    /* We now examine the headings to determine whether this is a stable arrival position */
+    /* There are two general patterns we see for stable arrivals: */
+    /* - Worker turns towards the target on arrival, then waits and performs its action at the same heading */
+    /* - Worker keeps its movement heading on arrival, then turns towards the target when it performs its action */
+    /* For unstable arrivals, the worker changes headings multiple times, then turns towards the target when it performs its action */
+    /* We can therefore determine when the arrival is stable by checking whether the heading changes more than once */
     auto lastHeading = (*positionIt)->heading;
     int headingChanges = 0;
-    for (auto it = (positionIt + 1); it != positions.end(); it++)
+    for (auto iterRef = (positionIt + 1); iterRef != positions.end(); iterRef++)
     {
-        if ((*it)->heading != lastHeading) headingChanges++;
-        lastHeading = (*it)->heading;
+        if ((*iterRef)->heading != lastHeading) headingChanges++;
+        lastHeading = (*iterRef)->heading;
     }
     return headingChanges <= 1;
 }
@@ -29,27 +29,27 @@ bool PositionAndVelocity::isStableArrivalPosition(
 bool PositionAndVelocity::tryParse(const std::string &str, PositionAndVelocity &out)
 {
     std::stringstream stream(str);
-    std::string item;
+    std::string goalEntry;
 
     int i = 0;
-    for (; i < 5 && std::getline(stream, item, ' '); i++)
+    for (; i < 5 && std::getline(stream, goalEntry, ' '); i++)
     {
         switch (i)
         {
             case 0:
-                out.x = (uint16_t)std::stoul(item.substr(3));
+                out.x = (uint16_t)std::stoul(goalEntry.substr(3));
                 break;
             case 1:
-                out.y = (uint16_t)std::stoul(item.substr(2));
+                out.y = (uint16_t)std::stoul(goalEntry.substr(2));
                 break;
             case 2:
-                out.dx = (int8_t)std::stoi(item.substr(3));
+                out.dx = (int8_t)std::stoi(goalEntry.substr(3));
                 break;
             case 3:
-                out.dy = (int8_t)std::stoi(item.substr(3));
+                out.dy = (int8_t)std::stoi(goalEntry.substr(3));
                 break;
             case 4:
-                out.heading = (uint8_t)std::stoul(item.substr(2));
+                out.heading = (uint8_t)std::stoul(goalEntry.substr(2));
                 break;
         }
     }
@@ -59,7 +59,7 @@ bool PositionAndVelocity::tryParse(const std::string &str, PositionAndVelocity &
 
 std::ostream &operator<<(std::ostream &os, const PositionAndVelocity &positionAndVelocity)
 {
-    // Back up flags so we don't permanently change the stream's formatting
+    /* Back up flags so we don't permanently change the stream's formatting */
     auto flags = os.flags();
 
     os << "(x=" << positionAndVelocity.x

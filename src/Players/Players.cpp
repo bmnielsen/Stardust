@@ -3,7 +3,7 @@
 #include "UpgradeTracker.h"
 #include "OpponentEconomicModel.h"
 
-namespace Players
+namespace PlayerInfo
 {
     namespace
     {
@@ -12,14 +12,14 @@ namespace Players
 
         std::shared_ptr<UpgradeTracker> &getUpgradeTracker(BWAPI::Player player)
         {
-            auto it = playerToUpgradeTracker.find(player);
-            if (it != playerToUpgradeTracker.end())
+            auto iterRef = playerToUpgradeTracker.find(player);
+            if (iterRef != playerToUpgradeTracker.end())
             {
-                return it->second;
+                return iterRef->second;
             }
 
-            auto result = playerToUpgradeTracker.try_emplace(player, std::make_shared<UpgradeTracker>(player));
-            return result.first->second;
+            auto outcome = playerToUpgradeTracker.try_emplace(player, std::make_shared<UpgradeTracker>(player));
+            return outcome.first->second;
         }
     }
 
@@ -39,11 +39,11 @@ namespace Players
 
     Grid &grid(BWAPI::Player player)
     {
-        auto it = playerToGrid.find(player);
-        if (it != playerToGrid.end()) return it->second;
+        auto iterRef = playerToGrid.find(player);
+        if (iterRef != playerToGrid.end()) return iterRef->second;
 
-        auto result = playerToGrid.try_emplace(player, getUpgradeTracker(player), player);
-        return result.first->second;
+        auto outcome = playerToGrid.try_emplace(player, getUpgradeTracker(player), player);
+        return outcome.first->second;
     }
 
     int weaponDamage(BWAPI::Player player, BWAPI::WeaponType wpn)
@@ -58,7 +58,7 @@ namespace Players
 
     int unitGroundCooldown(BWAPI::Player player, BWAPI::UnitType type)
     {
-        // Handle weird units that don't have proper cooldowns
+        /* Handle weird units that don't have proper cooldowns */
         if (type == BWAPI::UnitTypes::Protoss_Scarab || type == BWAPI::UnitTypes::Protoss_Reaver)
         {
             return 60;
@@ -68,7 +68,7 @@ namespace Players
             return 38;
         }
 
-        // Assume marines are in bunkers
+        /* Assume marines are in bunkers */
         if (type == BWAPI::UnitTypes::Terran_Bunker)
         {
             return getUpgradeTracker(player)->unitGroundCooldown(BWAPI::UnitTypes::Terran_Marine);
@@ -79,13 +79,13 @@ namespace Players
 
     int unitAirCooldown(BWAPI::Player player, BWAPI::UnitType type)
     {
-        // Handle weird units that don't have proper cooldowns
+        /* Handle weird units that don't have proper cooldowns */
         if (type == BWAPI::UnitTypes::Protoss_Interceptor || type == BWAPI::UnitTypes::Protoss_Carrier)
         {
             return 38;
         }
 
-        // Assume marines are in bunkers
+        /* Assume marines are in bunkers */
         if (type == BWAPI::UnitTypes::Terran_Bunker)
         {
             return getUpgradeTracker(player)->unitAirCooldown(BWAPI::UnitTypes::Terran_Marine);
@@ -163,7 +163,7 @@ namespace Players
 #if LOGGING_ENABLED
         if (player == BWAPI::Broodwar->enemy() && !getUpgradeTracker(player)->hasResearched(type))
         {
-            Log::Get() << "Enemy has researched " << type;
+            AppLog::Get() << "Enemy has researched " << type;
         }
 #endif
         getUpgradeTracker(player)->setHasResearched(type);

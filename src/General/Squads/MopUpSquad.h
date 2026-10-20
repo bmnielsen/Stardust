@@ -2,7 +2,7 @@
 
 #include "Squad.h"
 
-class MopUpSquad : public Squad
+class MopUpSquad : public UnitSquad
 {
 public:
     MopUpSquad();
@@ -10,5 +10,5 @@ public:
     virtual ~MopUpSquad() = default;
 
 private:
-    void execute(UnitCluster &cluster) override;
+    void execute(UnitCluster &clump) override;
 };

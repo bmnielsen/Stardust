@@ -8,29 +8,29 @@ namespace
 {
     Base *getTargetBase(Base *current)
     {
-        // Only switch bases when the current target is dead
+        /* Only switch bases when the current target is dead */
         if (current && current->owner == BWAPI::Broodwar->enemy()) return current;
 
-        // By default target the newest expansion beyond the enemy main/natural
+        /* By default target the newest expansion beyond the enemy main/natural */
         Base *best = nullptr;
         int oldest = INT_MIN;
-        for (auto &base : Map::getEnemyBases())
+        for (auto &baseLoc : Map::getEnemyBases())
         {
-            if (base == Map::getEnemyStartingMain() || base == Map::getEnemyStartingNatural()) continue;
-            if (base->ownedSince > oldest)
+            if (baseLoc == Map::getEnemyStartingMain() || baseLoc == Map::getEnemyStartingNatural()) continue;
+            if (baseLoc->ownedSince > oldest)
             {
-                best = base;
-                oldest = base->ownedSince;
+                best = baseLoc;
+                oldest = baseLoc->ownedSince;
             }
         }
 
-        // Otherwise take the main, then the natural
-        auto maybeSetBase = [&best](Base *base)
+        /* Otherwise take the main, then the natural */
+        auto maybeSetBase = [&best](Base *baseLoc)
         {
             if (best) return;
-            if (!base) return;
-            if (base->owner != BWAPI::Broodwar->enemy()) return;
-            best = base;
+            if (!baseLoc) return;
+            if (baseLoc->owner != BWAPI::Broodwar->enemy()) return;
+            best = baseLoc;
         };
         maybeSetBase(Map::getEnemyStartingMain());
         maybeSetBase(Map::getEnemyStartingNatural());
@@ -41,7 +41,7 @@ namespace
 
 void CarrierHarass::update()
 {
-    // Set the target base
+    /* Set the target base */
     auto newTargetBase = attacking ? getTargetBase(targetBase) : Map::getMyMain();
     if (attacking && newTargetBase == nullptr)
     {
@@ -50,22 +50,22 @@ void CarrierHarass::update()
     }
     if (newTargetBase != targetBase)
     {
-        // Remove the current squad
+        /* Remove the current squad */
         if (squad)
         {
             status.removedUnits = squad->getUnits();
-            General::removeSquad(squad);
+            Marshal::removeSquad(squad);
             squad = nullptr;
         }
 
-        // Add the new squad
+        /* Add the new squad */
         if (newTargetBase)
         {
             squad = std::make_shared<AttackBaseSquad>(newTargetBase, "Carriers");
-            General::addSquad(squad);
-            for (auto &unit : status.removedUnits)
+            Marshal::addSquad(squad);
+            for (auto &gameUnit : status.removedUnits)
             {
-                squad->addUnit(unit);
+                squad->addUnit(gameUnit);
             }
             status.removedUnits.clear();
         }
@@ -73,10 +73,10 @@ void CarrierHarass::update()
         targetBase = newTargetBase;
     }
 
-    // When we don't have a target base, the play stays but doesn't do anything
+    /* When we don't have a target base, the play stays but doesn't do anything */
     if (!targetBase) return;
 
-    // Update detection - release observers when no longer needed, request observers when needed
+    /* Update detection - release observers when no longer needed, request observers when needed */
     bool needDetection = squad->needsDetection();
     auto &detectors = squad->getDetectors();
     if (!needDetection && !detectors.empty())
@@ -87,7 +87,7 @@ void CarrierHarass::update()
     {
         status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Observer, squad->getTargetPosition());
 
-        // Release the squad units until we get the detector
+        /* Release the squad units until we get the detector */
         status.removedUnits = squad->getUnits();
         return;
     }
@@ -99,33 +99,33 @@ void CarrierHarass::update()
     }
 
     int totalInterceptors = 0;
-    for (auto &unit : squad->getUnits())
+    for (auto &gameUnit : squad->getUnits())
     {
-        if (unit->type != BWAPI::UnitTypes::Protoss_Carrier) continue;
-        totalInterceptors += unit->bwapiUnit->getInterceptorCount();
+        if (gameUnit->type != BWAPI::UnitTypes::Protoss_Carrier) continue;
+        totalInterceptors += gameUnit->rawUnit->getInterceptorCount();
     }
 
-    // Switch to attacking when we have enough carriers and interceptors
+    /* Switch to attacking when we have enough carriers and interceptors */
     if (!attacking && (carrierCount == 4 || (carrierCount == 3 && BWAPI::Broodwar->self()->supplyUsed() > 388))
         && (totalInterceptors / carrierCount) >= 6)
     {
         attacking = true;
     }
 
-    // Switch to not attacking if we don't have enough carriers or interceptors
+    /* Switch to not attacking if we don't have enough carriers or interceptors */
     if (attacking && (carrierCount < 2 || (totalInterceptors / carrierCount) < 2))
     {
         attacking = false;
     }
 }
 
-void CarrierHarass::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+void CarrierHarass::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals)
 {
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
 
-        prioritizedProductionGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
+        prioProdGoals[PRIORITY_SPECIALTEAMS].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                        label,
                                                                        unitRequirement.type,
                                                                        unitRequirement.count,
@@ -133,9 +133,9 @@ void CarrierHarass::addPrioritizedProductionGoals(std::map<int, std::vector<Prod
     }
 
     int weaponLevel = BWAPI::Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Protoss_Air_Weapons);
-    if (weaponLevel < 3 && !Units::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Air_Weapons))
+    if (weaponLevel < 3 && !UnitMgr::isBeingUpgradedOrResearched(BWAPI::UpgradeTypes::Protoss_Air_Weapons))
     {
-        prioritizedProductionGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
+        prioProdGoals[PRIORITY_NORMAL].emplace_back(std::in_place_type<UpgradeProductionGoal>,
                                                                  label,
                                                                  BWAPI::UpgradeTypes::Protoss_Air_Weapons,
                                                                  weaponLevel + 1,

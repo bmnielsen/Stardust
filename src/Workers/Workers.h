@@ -4,11 +4,11 @@
 #include "Base.h"
 #include "MyWorker.h"
 
-namespace Workers
+namespace WorkerMgr
 {
     void initialize();
 
-    void onUnitDestroy(const Unit &unit);
+    void onUnitDestroy(const Unit &gameUnit);
 
     void onMineralPatchDestroyed(const Resource &mineralPatch);
 
@@ -16,28 +16,28 @@ namespace Workers
 
     void issueOrders();
 
-    // Whether the given worker unit can currently be reassigned to non-gathering duties
-    bool isAvailableForReassignment(const MyWorker &unit, bool allowCarryMinerals, bool allowMining);
+    /* Whether the given worker unit can currently be reassigned to non-gathering duties */
+    bool isAvailableForReassignment(const OwnedWorker &gameUnit, bool allowCarryMinerals, bool allowMining);
 
-    MyWorker getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime = nullptr);
+    OwnedWorker getClosestReassignableWorker(BWAPI::Position position, bool allowCarryMinerals, int *bestTravelTime = nullptr);
 
-    size_t getBaseWorkerCount(Base *base);
+    size_t getBaseWorkerCount(Base *baseLoc);
 
-    std::vector<MyWorker> getBaseWorkers(Base *base);
+    std::vector<OwnedWorker> getBaseWorkers(Base *baseLoc);
 
-    int baseMineralWorkerCount(Base *base);
+    int baseMineralWorkerCount(Base *baseLoc);
 
-    void reserveBaseWorkers(std::vector<MyWorker> &workers, Base *base);
+    void reserveBaseWorkers(std::vector<OwnedWorker> &workers, Base *baseLoc);
 
-    void reserveWorker(const MyWorker &unit);
+    void reserveWorker(const OwnedWorker &gameUnit);
 
-    void releaseWorker(const MyWorker &unit);
+    void releaseWorker(const OwnedWorker &gameUnit);
 
-    // How many mineral patches are currently available for assignment
-    int availableMineralAssignments(Base *base = nullptr, int workersPerPatch = 2);
+    /* How many mineral patches are currently available for assignment */
+    int availableMineralAssignments(Base *baseLoc = nullptr, int workersPerPatch = 2);
 
-    // How many gas slots are currently available for assignment
-    int availableGasAssignments(Base *base = nullptr);
+    /* How many gas slots are currently available for assignment */
+    int availableGasAssignments(Base *baseLoc = nullptr);
 
     void setDesiredGasWorkerDelta(int gasWorkerDelta);
 
@@ -51,13 +51,13 @@ namespace Workers
 
     int idleWorkerCount();
 
-    std::map<Resource, std::set<MyWorker>> &mineralsAndAssignedWorkers();
+    std::map<Resource, std::set<OwnedWorker>> &mineralsAndAssignedWorkers();
 
-    // Gets all workers assigned to the resource. Does not check if any have died since their status was last updated.
-    std::set<MyWorker> getWorkersAssignedTo(const Resource &resource);
+    /* Gets all workers assigned to the resource. Does not check if any have died since their status was last updated. */
+    std::set<OwnedWorker> getWorkersAssignedTo(const Resource &resource);
 
-    // Given a patch and a worker, returns the other worker assigned to it, if it exists.
-    MyWorker getOtherWorkerMining(const Resource &resource, const MyWorker &worker);
+    /* Given a patch and a worker, returns the other worker assigned to it, if it exists. */
+    OwnedWorker getOtherWorkerMining(const Resource &resource, const OwnedWorker &wrk);
 
-    void setWorkerMineralPatch(const MyWorker &worker, const Resource &resource, Base *base);
+    void setWorkerMineralPatch(const OwnedWorker &wrk, const Resource &resource, Base *baseLoc);
 }

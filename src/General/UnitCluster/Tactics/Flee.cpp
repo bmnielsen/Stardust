@@ -7,20 +7,20 @@
 
 void UnitCluster::flee(std::set<Unit> &enemyUnits)
 {
-    // Form an arc if none of our units are in danger
-    // Currently disabled as we can't really do this safely
+    /* Form an arc if none of our units are in danger */
+    /* Currently disabled as we can't really do this safely */
     move(Map::getMyMain()->getPosition());
     return;
 
-    auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+    auto &grid = PlayerInfo::grid(BWAPI::Broodwar->enemy());
     bool canFormArc = true;
-    for (auto &unit : units)
+    for (auto &gameUnit : units)
     {
-        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+        if (gameUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
-        if ((unit->isFlying
-             ? grid.airThreat(unit->lastPosition)
-             : grid.groundThreat(unit->lastPosition)) > 0)
+        if ((gameUnit->isFlying
+             ? grid.airThreat(gameUnit->prevPos)
+             : grid.groundThreat(gameUnit->prevPos)) > 0)
         {
             canFormArc = false;
             break;
@@ -32,17 +32,17 @@ void UnitCluster::flee(std::set<Unit> &enemyUnits)
         return;
     }
 
-    // Get the nearest enemy combat unit to our vanguard
+    /* Get the nearest enemy combat unit to our vanguard */
     Unit nearestEnemy = nullptr;
     int nearestEnemyDist = INT_MAX;
-    for (auto &unit : enemyUnits)
+    for (auto &gameUnit : enemyUnits)
     {
-        if (!unit->canAttack(vanguard)) continue;
-        int dist = vanguard->lastPosition.getApproxDistance(unit->lastPosition);
-        if (dist < nearestEnemyDist)
+        if (!gameUnit->canAttack(vanguard)) continue;
+        int span = vanguard->prevPos.getApproxDistance(gameUnit->prevPos);
+        if (span < nearestEnemyDist)
         {
-            nearestEnemyDist = dist;
-            nearestEnemy = unit;
+            nearestEnemyDist = span;
+            nearestEnemy = gameUnit;
         }
     }
     if (!nearestEnemy)
@@ -51,16 +51,16 @@ void UnitCluster::flee(std::set<Unit> &enemyUnits)
         return;
     }
 
-    auto pivot = vanguard->lastPosition + Geo::ScaleVector(nearestEnemy->lastPosition - vanguard->lastPosition,
-                                                           vanguard->lastPosition.getApproxDistance(nearestEnemy->lastPosition) + 64);
+    auto pivot = vanguard->prevPos + Geom::ScaleVector(nearestEnemy->prevPos - vanguard->prevPos,
+                                                           vanguard->prevPos.getApproxDistance(nearestEnemy->prevPos) + 64);
 
-    // Determine the desired distance to the pivot
-    // If our units are on average within one tile of where we want them, increase the distance by one tile
-    // Otherwise wait until they have formed up around the vanguard
+    /* Determine the desired distance to the pivot */
+    /* If our units are on average within one tile of where we want them, increase the distance by one tile */
+    /* Otherwise wait until they have formed up around the vanguard */
 
-    auto effectiveDist = [&pivot](const MyUnit &unit)
+    auto effectiveDist = [&pivot](const OwnedUnit &gameUnit)
     {
-        return unit->lastPosition.getApproxDistance(pivot) + (UnitUtil::IsRangedUnit(unit->type) ? 0 : 32);
+        return gameUnit->prevPos.getApproxDistance(pivot) + (UnitHelper::IsRangedUnit(gameUnit->type) ? 0 : 32);
     };
 
     int desiredDistance = effectiveDist(vanguard);
@@ -68,15 +68,15 @@ void UnitCluster::flee(std::set<Unit> &enemyUnits)
     int accumulator = 0;
     int count = 0;
     int countWithinLimit = 0;
-    for (auto &unit : units)
+    for (auto &gameUnit : units)
     {
-        if (unit->isFlying) continue;
-        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+        if (gameUnit->isFlying) continue;
+        if (gameUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
-        int dist = effectiveDist(unit);
-        if (dist <= (desiredDistance + 24)) countWithinLimit++;
+        int span = effectiveDist(gameUnit);
+        if (span <= (desiredDistance + 24)) countWithinLimit++;
         if (countWithinLimit >= 8) break;
-        accumulator += dist;
+        accumulator += span;
         count++;
     }
 

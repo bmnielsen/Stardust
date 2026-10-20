@@ -1,6 +1,6 @@
 # Worker mining optimization
 
-This file describes some of the considerations put into optimizing worker mining in Stardust.
+This file describes some of the considerations put into optimizing worker mining in ShushanKing.
 
 ## Background information
 
@@ -167,7 +167,7 @@ This can cause some confusion when viewing a replay in CherryVis and comparing i
 
 This makes it very easy to make off-by-one frame timing errors when working on things like mining timings.
 
-Stardust already keeps its own frame timer in an attempt to not get too confused by pauses, so to hopefully simplify things, it is initialized to run one tick behind BWAPI's frame timer. So when looking at a frame in CherryVis, the frame labels from the bot will match the frame with the engine data the bot's behaviour was based on. Frame numbers in the CherryVis data files are likewise decremented. This breaks down if there is pausing, but as this doesn't happen in games with CherryVis instrumentation, this isn't an issue.
+ShushanKing already keeps its own frame timer in an attempt to not get too confused by pauses, so to hopefully simplify things, it is initialized to run one tick behind BWAPI's frame timer. So when looking at a frame in CherryVis, the frame labels from the bot will match the frame with the engine data the bot's behaviour was based on. Frame numbers in the CherryVis data files are likewise decremented. This breaks down if there is pausing, but as this doesn't happen in games with CherryVis instrumentation, this isn't an issue.
 
 ## A note of caution about order process timer timing
 

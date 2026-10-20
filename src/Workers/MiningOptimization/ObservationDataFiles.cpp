@@ -13,12 +13,12 @@
 #include "WorkerMiningOptimization.h"
 #include "FileTools.h"
 
-// Provides the best speed for the use case where we are running explorations (continually saving and reloading)
-// Lower levels are not much faster to compress and slower to decompress (because of increased time to read the larger files)
-// Higher levels do not compress the files sufficiently better to make up for the increased compression time
+/* Provides the best speed for the use case where we are running explorations (continually saving and reloading) */
+/* Lower levels are not much faster to compress and slower to decompress (because of increased time to read the larger files) */
+/* Higher levels do not compress the files sufficiently better to make up for the increased compression time */
 #define DEFAULT_COMPRESSION 4
 
-#define EXPORT_PATH "/Users/bmnielsen/BW/mining-data/dist/"
+#define EXPORT_PATH "bwapi-data/write/mining-export/"
 
 namespace WorkerMiningOptimization::ObservationDataFiles
 {
@@ -152,7 +152,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
                 secondResendGatherPositionObservationsSerializer = [&](S &s, SecondResendGatherPositionObservations &value)
                 {
-                    s.object(value.pos);
+                    s.object(value.pt);
                     if constexpr (full)
                     {
                         s.value4b(value.occurrences);
@@ -166,7 +166,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
                 gatherPositionObservationsSerializer = [&](S &s, GatherPositionObservations &value)
                 {
-                    s.object(value.pos);
+                    s.object(value.pt);
                     if constexpr (full)
                     {
                         s.value4b(value.occurrences);
@@ -229,7 +229,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
                 secondResendGatherPositionObservationsSerializer = [&](S &s, SecondResendGatherPositionObservations &value)
                 {
-                    s.object(value.pos);
+                    s.object(value.pt);
                     if constexpr (full)
                     {
                         s.value4b(value.occurrences);
@@ -243,7 +243,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
                 gatherPositionObservationsSerializer = [&](S &s, GatherPositionObservations &value)
                 {
-                    s.object(value.pos);
+                    s.object(value.pt);
                     if constexpr (full)
                     {
                         s.value4b(value.occurrences);
@@ -280,7 +280,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                             s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S &s, PositionAndVelocity &key, GatherPositionObservations &v)
                             {
                                 s.object(v, gatherPositionObservationsSerializer);
-                                key = v.pos;
+                                key = v.pt;
                             });
                         });
             }
@@ -365,7 +365,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
                 returnPositionObservationsSerializer = [&](S &s, ReturnPositionObservations &value)
                 {
-                    s.object(value.pos);
+                    s.object(value.pt);
                     if constexpr (full)
                     {
                         s.value4b(value.occurrences);
@@ -420,7 +420,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
                 returnPositionObservationsSerializer = [&](S &s, ReturnPositionObservations &value)
                 {
-                    s.object(value.pos);
+                    s.object(value.pt);
                     if constexpr (full)
                     {
                         s.value4b(value.occurrences);
@@ -441,7 +441,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                             s.ext(value, bitsery::ext::StdMap{INT_MAX}, [&](S &s, PositionAndVelocity &key, ReturnPositionObservations &v)
                             {
                                 s.object(v, returnPositionObservationsSerializer);
-                                key = v.pos;
+                                key = v.pt;
                             });
                         });
             }
@@ -500,7 +500,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
                         {
                             s.object(key);
                             s.object(value, resourceObservationsSerializer);
-                            value.tile = key;
+                            value.tilePos = key;
                         });
             }
         };
@@ -512,14 +512,14 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
             if (filename.empty())
             {
-                Log::Get() << "No saved data available for " << label;
+                AppLog::Get() << "No saved data available for " << label;
                 return;
             }
 
             zstd::ifstream file(filename);
             if (!file.good())
             {
-                Log::Get() << "Could not open saved data file for " << label;
+                AppLog::Get() << "Could not open saved data file for " << label;
                 return;
             }
 
@@ -527,7 +527,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             serializer.serialize(ser, data);
             file.close();
 
-            Log::Get() << "Read " << label << " data from " << filename;
+            AppLog::Get() << "Read " << label << " data from " << filename;
         }
 
         template <typename S, typename M>
@@ -536,7 +536,7 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             zstd::ofstream file(filename, std::ofstream::trunc, maxCompression ? ZSTD_maxCLevel() : DEFAULT_COMPRESSION);
             if (file.fail())
             {
-                Log::Get() << "Could not open data file for " << label << " for writing";
+                AppLog::Get() << "Could not open data file for " << label << " for writing";
                 return;
             }
 
@@ -545,13 +545,13 @@ namespace WorkerMiningOptimization::ObservationDataFiles
             ser.adapter().flush();
             file.close();
 
-            Log::Get() << "Wrote " << label << " data to " << filename;
+            AppLog::Get() << "Wrote " << label << " data to " << filename;
         }
 
         void copyDataFile(const std::string &source, const std::string &target)
         {
             std::filesystem::copy(source, target, std::filesystem::copy_options::overwrite_existing);
-            Log::Get() << "Copied " << source << " to " << target;
+            AppLog::Get() << "Copied " << source << " to " << target;
         }
     }
 
@@ -601,13 +601,13 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
     std::unique_ptr<GatherPositionObservations> deserializeGatherPositionObservations(const std::vector<uint8_t> &buffer)
     {
-        auto result = std::make_unique<GatherPositionObservations>();
+        auto outcome = std::make_unique<GatherPositionObservations>();
 
         auto serializer = OptimalGatherPositionsSerializer<false>{};
         bitsery::Deserializer<bitsery::InputBufferAdapter<std::vector<uint8_t>>> ser{buffer.begin(), buffer.size()};
-        serializer.serialize(ser, *result);
+        serializer.serialize(ser, *outcome);
 
-        return result;
+        return outcome;
     }
 
     void read10DistanceObservations(std::map<TilePosition, std::unordered_set<PositionAndVelocity>> &data)
@@ -641,13 +641,13 @@ namespace WorkerMiningOptimization::ObservationDataFiles
 
     std::unique_ptr<ReturnPositionObservations> deserializeReturnPositionObservations(const std::vector<uint8_t> &buffer)
     {
-        auto result = std::make_unique<ReturnPositionObservations>();
+        auto outcome = std::make_unique<ReturnPositionObservations>();
 
         auto serializer = OptimalReturnPositionsSerializer<false>{};
         bitsery::Deserializer<bitsery::InputBufferAdapter<std::vector<uint8_t>>> ser{buffer.begin(), buffer.size()};
-        serializer.serialize(ser, *result);
+        serializer.serialize(ser, *outcome);
 
-        return result;
+        return outcome;
     }
 
     void readResourceObservations(bool requireFull,
@@ -688,9 +688,9 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         for (auto &[patchTile, posToObservations] : data)
         {
             auto &processedPosToObservations = processedData[patchTile];
-            for (auto &[pos, observations] : posToObservations)
+            for (auto &[pt, observations] : posToObservations)
             {
-                bitsery::Serializer<bitsery::OutputBufferAdapter<std::vector<uint8_t>>> ser{processedPosToObservations[pos]};
+                bitsery::Serializer<bitsery::OutputBufferAdapter<std::vector<uint8_t>>> ser{processedPosToObservations[pt]};
                 serializer.serialize(ser, observations);
             }
         }
@@ -734,9 +734,9 @@ namespace WorkerMiningOptimization::ObservationDataFiles
         for (auto &[patchTile, posToObservations] : data)
         {
             auto &processedPosToObservations = processedData[patchTile];
-            for (auto &[pos, observations] : posToObservations)
+            for (auto &[pt, observations] : posToObservations)
             {
-                bitsery::Serializer<bitsery::OutputBufferAdapter<std::vector<uint8_t>>> ser{processedPosToObservations[pos]};
+                bitsery::Serializer<bitsery::OutputBufferAdapter<std::vector<uint8_t>>> ser{processedPosToObservations[pt]};
                 serializer.serialize(ser, observations);
             }
         }

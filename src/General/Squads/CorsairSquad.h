@@ -3,11 +3,11 @@
 #include "Squad.h"
 #include "Map.h"
 
-class CorsairSquad : public Squad
+class CorsairSquad : public UnitSquad
 {
 public:
     explicit CorsairSquad()
-            : Squad("Corsairs")
+            : UnitSquad("Corsairs")
     {
         auto enemyMain = Map::getEnemyMain();
         targetPosition = (enemyMain ? enemyMain : Map::getMyMain())->getPosition();
@@ -18,7 +18,7 @@ public:
 private:
     void execute() override;
 
-    void clusterAttack(UnitCluster &cluster, std::set<Unit> &targets);
+    void clusterAttack(UnitCluster &clump, std::set<Unit> &targets);
 
-    void clusterDefend(UnitCluster &cluster, Base *base, std::set<Unit> &targets);
+    void clusterDefend(UnitCluster &clump, Base *baseLoc, std::set<Unit> &targets);
 };

@@ -2,6 +2,8 @@
 
 #include "Common.h"
 
+#include <optional>
+
 namespace Opponent
 {
     void initialize();
@@ -32,6 +34,26 @@ namespace Opponent
 
     double winLossRatio(double defaultValue, int maxCount = INT_MAX);
 
-    // Picks the next opening from the given set of openings using UCB1 based on win rate of the given openings
-    std::string selectOpeningUCB1(const std::vector<std::string> &openings, double decayFactor = 0.05);
+    /* P3 scoring-layer seam: per-game records the opening scorer consumes, */
+    /* newest first. myOpening = first myStrategy label; onThisMap/enemyAggressive */
+    /* derived exactly as the legacy scorer's helpers. Games lacking a won-bool or */
+    /* an opening label are skipped; enemyAggressive is nullopt when the record */
+    /* lacks the data (the legacy UCB1 phase skips those games; the sticky/R1/R2 */
+    /* phase does not). */
+    struct OpeningGameRecord
+    {
+        std::string myOpening;
+        bool won;
+        bool onThisMap;
+        std::optional<bool> enemyAggressive;
+        /* P0-2/P0-3 (2026-09-18 report): every non-Unknown enemy label the */
+        /* game recorded; consumed by the label-conditioned opening prior. */
+        std::vector<std::string> enemyLabels;
+    };
+    std::vector<OpeningGameRecord> openingHistory();
+
+    /* Distinct enemy strategy labels (fingerprints) observed in the most recent n */
+    /* games, excluding "Unknown". Reuses the recorded enemyStrategy stream - no new */
+    /* profile field. Feeds the L2 cross-game fingerprint blacklist (v1.6 B11). */
+    std::set<std::string> recentEnemyStrategies(int n);
 }

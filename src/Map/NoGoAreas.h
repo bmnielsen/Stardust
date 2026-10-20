@@ -7,14 +7,14 @@
 
 namespace NoGoAreas
 {
-    // Indicates the type of no go area
+    /* Indicates the type of no go area */
     enum class Type
     {
         GroundNavigational = 0,   // Used because we don't want our units to block something on the ground, like a building location
         Danger = 1,               // Used to indicate danger at this area, like an impending nuke strike
     };
 
-    // Filter for the above types when querying a no go area
+    /* Filter for the above types when querying a no go area */
     enum class TypeFilter
     {
         Any,
@@ -28,32 +28,32 @@ namespace NoGoAreas
 
     void writeInstrumentation();
 
-    bool isNoGo(BWAPI::TilePosition pos, TypeFilter typeFilter = TypeFilter::Any);
+    bool isNoGo(BWAPI::TilePosition pt, TypeFilter typeFilter = TypeFilter::Any);
 
     bool isNoGo(int x, int y, TypeFilter typeFilter = TypeFilter::Any);
 
-    // Adds a box-shaped no-go area that must be manually removed by calling removeBox
-    void addBox(Type type, BWAPI::TilePosition topLeft, BWAPI::TilePosition size);
+    /* Adds a box-shaped no-go area that must be manually removed by calling removeBox */
+    void addBox(Type type, BWAPI::TilePosition cornerTL, BWAPI::TilePosition size);
 
-    // Removes a box-shaped no-go area
-    void removeBox(Type type, BWAPI::TilePosition topLeft, BWAPI::TilePosition size);
+    /* Removes a box-shaped no-go area */
+    void removeBox(Type type, BWAPI::TilePosition cornerTL, BWAPI::TilePosition size);
 
-    // Adds a circular no-go area from the given point with the given radius, that expires after the given number of frames
+    /* Adds a circular no-go area from the given point with the given radius, that expires after the given number of frames */
     void addCircle(Type type, BWAPI::Position origin, unsigned short radius, int expireFrames);
 
-    // Adds a circular no-go area from the given point with the given radius, that expires when the given bullet no longer exists
+    /* Adds a circular no-go area from the given point with the given radius, that expires when the given bullet no longer exists */
     void addCircle(Type type, BWAPI::Position origin, unsigned short radius, BWAPI::Bullet bullet);
 
-    // Adds a circular no-go area from the given point with the given radius, that expires when the given unit no longer exists
-    void addCircle(Type type, BWAPI::Position origin, unsigned short radius, const Unit &unit);
+    /* Adds a circular no-go area from the given point with the given radius, that expires when the given unit no longer exists */
+    void addCircle(Type type, BWAPI::Position origin, unsigned short radius, const Unit &gameUnit);
 
-    // Adds a box from the origin to the target with the given width. that expires after the given number of frames
+    /* Adds a box from the origin to the target with the given width. that expires after the given number of frames */
     void addDirectedBox(Type type, BWAPI::Position origin, BWAPI::Position target, unsigned short width, int expireFrames);
 
-    // Adds a box from the origin to the target with the given width. that expires after the given bullet no longer exists
+    /* Adds a box from the origin to the target with the given width. that expires after the given bullet no longer exists */
     void addDirectedBox(Type type, BWAPI::Position origin, BWAPI::Position target, unsigned short width, BWAPI::Bullet bullet);
 
-    void onUnitCreate(const Unit &unit);
+    void onUnitCreate(const Unit &gameUnit);
 
     void onBulletCreate(BWAPI::Bullet bullet);
 }

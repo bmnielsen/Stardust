@@ -7,7 +7,7 @@
 class UnitCluster
 {
 public:
-    // Remember to update name vectors in UnitCluster.cpp when changing these
+    /* Remember to update name vectors in UnitCluster.cpp when changing these */
     enum class Activity
     {
         Moving, Attacking, Regrouping //, Exploding, Flanking, PerformingRunBy
@@ -17,9 +17,9 @@ public:
         None, ContainStaticDefense, ContainChoke, StandGround, Flee
     };
 
-    BWAPI::Position center;
-    MyUnit vanguard;
-    std::set<MyUnit> units;
+    BWAPI::Position midpoint;
+    OwnedUnit vanguard;
+    std::set<OwnedUnit> units;
 
     int vanguardDistToTarget;
     int vanguardDistToMain;
@@ -39,15 +39,15 @@ public:
 
     bool isVanguardCluster;
 
-    explicit UnitCluster(const MyUnit &unit);
+    explicit UnitCluster(const OwnedUnit &gameUnit);
 
     virtual ~UnitCluster() = default;
 
     void absorbCluster(const std::shared_ptr<UnitCluster> &other, BWAPI::Position targetPosition);
 
-    void addUnit(const MyUnit &unit);
+    void addUnit(const OwnedUnit &gameUnit);
 
-    std::set<MyUnit>::iterator removeUnit(std::set<MyUnit>::iterator unitIt, BWAPI::Position targetPosition);
+    std::set<OwnedUnit>::iterator removeUnit(std::set<OwnedUnit>::iterator unitIt, BWAPI::Position targetPosition);
 
     [[nodiscard]] bool hasUnitType(BWAPI::UnitType type) const;
 
@@ -63,36 +63,36 @@ public:
 
     virtual void move(BWAPI::Position targetPosition);
 
-    virtual void regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+    virtual void regroup(std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                          std::set<Unit> &enemyUnits,
-                         std::set<MyUnit> &detectors,
+                         std::set<OwnedUnit> &detectors,
                          const CombatSimResult &simResult,
                          BWAPI::Position targetPosition,
                          bool hasValidTarget);
 
-    std::vector<std::pair<MyUnit, Unit>>
+    std::vector<std::pair<OwnedUnit, Unit>>
     selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition, bool staticPosition = false);
 
-    virtual void attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition);
+    virtual void attack(std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition);
 
     void containStatic(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
     void holdChoke(Choke *choke,
                    BWAPI::Position defendEnd,
-                   std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets);
+                   std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets);
 
     void standGround(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition);
 
     void flee(std::set<Unit> &enemyUnits);
 
-    bool moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &ballUnits) const;
+    bool moveAsBall(BWAPI::Position targetPosition, std::set<OwnedUnit> &ballUnits) const;
 
     bool formArc(BWAPI::Position pivot, int desiredDistance);
 
     CombatSimResult runCombatSim(BWAPI::Position targetPosition,
-                                 std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                                 std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                                  std::set<Unit> &targets,
-                                 std::set<MyUnit> &detectors,
+                                 std::set<OwnedUnit> &detectors,
                                  bool attacking = true,
                                  Choke *choke = nullptr);
 
@@ -102,8 +102,8 @@ public:
 
     void addInstrumentation(nlohmann::json &clusterArray) const;
 
-    // This returns the number of consecutive frames the sim has agreed on its current value.
-    // It also returns the total number of attack and regroup frames within the window.
+    /* This returns the number of consecutive frames the sim has agreed on its current value. */
+    /* It also returns the total number of attack and regroup frames within the window. */
     static int consecutiveSimResults(std::deque<std::pair<CombatSimResult, bool>> &simResults,
                                      int *attack,
                                      int *regroup,

@@ -8,7 +8,7 @@ namespace NavigationGridGlobals
     void initialize();
 }
 
-class NavigationGrid
+class NavGrid
 {
 public:
     struct GridNode
@@ -18,7 +18,7 @@ public:
         unsigned short cost;
         GridNode *nextNode;
         unsigned char prevNodes;
-        BWAPI::TilePosition tile;
+        BWAPI::TilePosition tilePos;
 
         GridNode(unsigned short x, unsigned short y)
             : x(x)
@@ -26,7 +26,7 @@ public:
             , cost(USHRT_MAX)
             , nextNode(nullptr)
             , prevNodes(0)
-            , tile(BWAPI::TilePosition(x, y)) {}
+            , tilePos(BWAPI::TilePosition(x, y)) {}
 
         friend std::ostream &operator<<(std::ostream &os, const GridNode &node)
         {
@@ -35,7 +35,7 @@ public:
             return os;
         }
 
-        [[nodiscard]] BWAPI::Position center() const
+        [[nodiscard]] BWAPI::Position midpoint() const
         {
             return {(x << 5U) + 16, (y << 5U) + 16};
         }
@@ -53,27 +53,27 @@ public:
 
     BWAPI::TilePosition goal;
 
-    explicit NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize = BWAPI::TilePositions::Invalid);
+    explicit NavGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize = BWAPI::TilePositions::Invalid);
 
-    GridNode &operator[](BWAPI::Position pos);
+    GridNode &operator[](BWAPI::Position pt);
 
-    const GridNode &operator[](BWAPI::Position pos) const;
+    const GridNode &operator[](BWAPI::Position pt) const;
 
-    GridNode &operator[](BWAPI::WalkPosition pos);
+    GridNode &operator[](BWAPI::WalkPosition pt);
 
-    const GridNode &operator[](BWAPI::WalkPosition pos) const;
+    const GridNode &operator[](BWAPI::WalkPosition pt) const;
 
-    GridNode &operator[](BWAPI::TilePosition pos);
+    GridNode &operator[](BWAPI::TilePosition pt);
 
-    const GridNode &operator[](BWAPI::TilePosition pos) const;
+    const GridNode &operator[](BWAPI::TilePosition pt) const;
 
     void update();
 
-    void addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size);
+    void addBlockingObject(BWAPI::TilePosition tilePos, BWAPI::TilePosition size);
 
     void addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
 
-    void removeBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size);
+    void removeBlockingObject(BWAPI::TilePosition tilePos, BWAPI::TilePosition size);
 
     void removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles);
 

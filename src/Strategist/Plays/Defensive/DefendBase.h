@@ -3,19 +3,19 @@
 #include "Play.h"
 #include "Squads/DefendBaseSquad.h"
 
-class DefendBase : public Play
+class DefendBase : public PlayItem
 {
 public:
-    Base *base;
+    Base *baseLoc;
     int enemyValue;
 
-    explicit DefendBase(Base *base, int enemyValue);
+    explicit DefendBase(Base *baseLoc, int enemyValue);
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    std::shared_ptr<UnitSquad> getSquad() override { return squad; }
 
     void update() override;
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals) override;
 
     static int enemyAirThreatCannons(Base *baseToDefend);
 
@@ -25,8 +25,8 @@ protected:
     BWAPI::TilePosition pylonLocation;
     std::deque<BWAPI::TilePosition> cannonLocations;
 
-    MyUnit pylon;
-    std::vector<MyUnit> cannons;
+    OwnedUnit pylon;
+    std::vector<OwnedUnit> cannons;
 
     int desiredCannons();
 };

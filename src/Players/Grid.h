@@ -31,14 +31,14 @@ public:
             data.assign(maxX * maxY, 0);
         }
 
-        long operator[](BWAPI::Position pos) const
+        long operator[](BWAPI::Position pt) const
         {
-            return data[(pos.x >> 3U) * maxY + (pos.y >> 3U)];
+            return data[(pt.x >> 3U) * maxY + (pt.y >> 3U)];
         }
 
-        long operator[](BWAPI::WalkPosition pos) const
+        long operator[](BWAPI::WalkPosition pt) const
         {
-            return data[pos.x * maxY + pos.y];
+            return data[pt.x * maxY + pt.y];
         }
 
         long at(int walkX, int walkY) const

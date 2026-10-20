@@ -3,7 +3,7 @@
 #include "Squad.h"
 #include "ForgeGatewayWall.h"
 
-class DefendWallSquad : public Squad
+class DefendWallSquad : public UnitSquad
 {
 public:
     DefendWallSquad();
@@ -13,5 +13,5 @@ public:
 private:
     ForgeGatewayWall wall;
 
-    void execute(UnitCluster &cluster) override;
+    void execute(UnitCluster &clump) override;
 };

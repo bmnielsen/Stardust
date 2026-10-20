@@ -3,18 +3,18 @@
 #include "Play.h"
 #include "Squads/AttackBaseSquad.h"
 
-class AttackIslandExpansion : public Play
+class AttackIslandExpansion : public PlayItem
 {
 public:
-    Base *base;
+    Base *baseLoc;
 
-    explicit AttackIslandExpansion(Base *base);
+    explicit AttackIslandExpansion(Base *baseLoc);
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    std::shared_ptr<UnitSquad> getSquad() override { return squad; }
 
     void update() override;
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals) override;
 
 protected:
     std::shared_ptr<AttackBaseSquad> squad;

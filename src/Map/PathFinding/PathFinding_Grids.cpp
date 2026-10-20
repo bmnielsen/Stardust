@@ -6,15 +6,15 @@
 #define OUTPUT_GRID_TIMING false
 #endif
 
-namespace PathFinding
+namespace Pathfinder
 {
     namespace
     {
-        std::map<BWAPI::TilePosition, std::pair<NavigationGrid, NavigationGrid>> goalToNavigationGrid;
+        std::map<BWAPI::TilePosition, std::pair<NavGrid, NavGrid>> goalToNavigationGrid;
 
         void createNavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize = BWAPI::TilePositions::Invalid)
         {
-            goalToNavigationGrid.emplace(goal, std::make_pair(NavigationGrid(goal, goalSize), NavigationGrid(goal, goalSize)));
+            goalToNavigationGrid.emplace(goal, std::make_pair(NavGrid(goal, goalSize), NavGrid(goal, goalSize)));
         }
     }
 
@@ -27,19 +27,19 @@ namespace PathFinding
     {
         NavigationGridGlobals::initialize();
 
-        for (auto base : Map::allBases())
+        for (auto baseLoc : Map::allBases())
         {
-            createNavigationGrid(BWAPI::TilePosition(base->getPosition()), BWAPI::UnitTypes::Protoss_Nexus.tileSize());
+            createNavigationGrid(BWAPI::TilePosition(baseLoc->getPosition()), BWAPI::UnitTypes::Protoss_Nexus.tileSize());
         }
         for (auto choke : Map::allChokes())
         {
             if (choke != Map::getMyMainChoke() && !choke->isNarrowChoke) continue;
 
-            createNavigationGrid(BWAPI::TilePosition(choke->center));
+            createNavigationGrid(BWAPI::TilePosition(choke->midpoint));
         }
     }
 
-    NavigationGrid *getNavigationGrid(BWAPI::TilePosition goal, bool ignoreEnemyBuildings)
+    NavGrid *getNavigationGrid(BWAPI::TilePosition goal, bool ignoreEnemyBuildings)
     {
         auto gridIt = goalToNavigationGrid.find(goal);
         if (gridIt == goalToNavigationGrid.end()) return nullptr;
@@ -49,12 +49,12 @@ namespace PathFinding
         return &grid;
     }
 
-    NavigationGrid *getNavigationGrid(BWAPI::Position goal, bool ignoreEnemyBuildings)
+    NavGrid *getNavigationGrid(BWAPI::Position goal, bool ignoreEnemyBuildings)
     {
         return getNavigationGrid(BWAPI::TilePosition(goal), ignoreEnemyBuildings);
     }
 
-    void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding)
+    void addBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tilePos, bool isEnemyBuilding)
     {
 #if OUTPUT_GRID_TIMING
         auto start = std::chrono::high_resolution_clock::now();
@@ -62,16 +62,16 @@ namespace PathFinding
 
         for (auto &goalAndNavigationGrid : goalToNavigationGrid)
         {
-            goalAndNavigationGrid.second.first.addBlockingObject(tile, type.tileSize());
+            goalAndNavigationGrid.second.first.addBlockingObject(tilePos, type.tileSize());
             if (!isEnemyBuilding)
             {
-                goalAndNavigationGrid.second.second.addBlockingObject(tile, type.tileSize());
+                goalAndNavigationGrid.second.second.addBlockingObject(tilePos, type.tileSize());
             }
         }
 
 #if OUTPUT_GRID_TIMING
         auto now = std::chrono::high_resolution_clock::now();
-        Log::Get() << "addBlockingObject(" << type << ", " << tile << ", enemyBuilding=" << isEnemyBuilding << "): "
+        AppLog::Get() << "addBlockingObject(" << type << ", " << tilePos << ", enemyBuilding=" << isEnemyBuilding << "): "
             << std::chrono::duration_cast<std::chrono::microseconds>(now - start).count() << "us";
 #endif
     }
@@ -90,11 +90,11 @@ namespace PathFinding
 
 #if OUTPUT_GRID_TIMING
         auto now = std::chrono::high_resolution_clock::now();
-        Log::Get() << "addBlockingTiles: " << std::chrono::duration_cast<std::chrono::microseconds>(now - start).count() << "us";
+        AppLog::Get() << "addBlockingTiles: " << std::chrono::duration_cast<std::chrono::microseconds>(now - start).count() << "us";
 #endif
     }
 
-    void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tile, bool isEnemyBuilding)
+    void removeBlockingObject(BWAPI::UnitType type, BWAPI::TilePosition tilePos, bool isEnemyBuilding)
     {
 #if OUTPUT_GRID_TIMING
         auto start = std::chrono::high_resolution_clock::now();
@@ -102,16 +102,16 @@ namespace PathFinding
 
         for (auto &goalAndNavigationGrid : goalToNavigationGrid)
         {
-            goalAndNavigationGrid.second.first.removeBlockingObject(tile, type.tileSize());
+            goalAndNavigationGrid.second.first.removeBlockingObject(tilePos, type.tileSize());
             if (!isEnemyBuilding)
             {
-                goalAndNavigationGrid.second.second.removeBlockingObject(tile, type.tileSize());
+                goalAndNavigationGrid.second.second.removeBlockingObject(tilePos, type.tileSize());
             }
         }
 
 #if OUTPUT_GRID_TIMING
         auto now = std::chrono::high_resolution_clock::now();
-        Log::Get() << "removeBlockingObject(" << type << ", " << tile << ", enemyBuilding=" << isEnemyBuilding << "): "
+        AppLog::Get() << "removeBlockingObject(" << type << ", " << tilePos << ", enemyBuilding=" << isEnemyBuilding << "): "
                    << std::chrono::duration_cast<std::chrono::microseconds>(now - start).count() << "us";
 #endif
     }
@@ -130,13 +130,13 @@ namespace PathFinding
 
 #if OUTPUT_GRID_TIMING
         auto now = std::chrono::high_resolution_clock::now();
-        Log::Get() << "removeBlockingTiles: " << std::chrono::duration_cast<std::chrono::microseconds>(now - start).count() << "us";
+        AppLog::Get() << "removeBlockingTiles: " << std::chrono::duration_cast<std::chrono::microseconds>(now - start).count() << "us";
 #endif
     }
 
     bool checkGridPath(BWAPI::TilePosition start,
                        BWAPI::TilePosition end,
-                       const std::function<bool(const NavigationGrid::GridNode &gridNode)> &predicate)
+                       const std::function<bool(const NavGrid::GridNode &gridNode)> &predicate)
     {
         auto grid = getNavigationGrid(end);
         if (!grid) return true;

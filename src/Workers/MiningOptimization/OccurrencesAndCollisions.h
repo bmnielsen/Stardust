@@ -17,14 +17,14 @@ namespace WorkerMiningOptimization
     }
 
     template<class T>
-    [[nodiscard]] std::pair<T*, bool> findNextPositionCheckingOccurrences(const PositionAndVelocity &pos, std::vector<T> &nextPositions)
+    [[nodiscard]] std::pair<T*, bool> findNextPositionCheckingOccurrences(const PositionAndVelocity &pt, std::vector<T> &nextPositions)
     {
         uint32_t total = 0;
         T* match = nullptr;
         for (auto &nextPosition : nextPositions)
         {
             total += nextPosition.occurrences;
-            if (nextPosition.pos == pos) match = &nextPosition;
+            if (nextPosition.pt == pt) match = &nextPosition;
         }
         return std::make_pair(match, total == UINT32_MAX);
     }
@@ -37,12 +37,12 @@ namespace WorkerMiningOptimization
         {
             total += occurrences;
         }
-        std::unordered_map<T, uint8_t> result;
+        std::unordered_map<T, uint8_t> outcome;
         for (const auto &[key, occurrences] : occurrenceMap)
         {
-            result[key] = (uint8_t)(std::round(255.0 * ((double)occurrences/(double)(total))));
+            outcome[key] = (uint8_t)(std::round(255.0 * ((double)occurrences/(double)(total))));
         }
-        return result;
+        return outcome;
     }
 
     template<class T>

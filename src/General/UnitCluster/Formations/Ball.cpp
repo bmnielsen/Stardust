@@ -24,7 +24,7 @@ namespace
 {
     const double pi = 3.14159265358979323846;
 
-    // TODO: These parameters need to be tuned
+    /* TODO: These parameters need to be tuned */
     const double goalWeight = 128.0;
     const int collisionWeight = 64;
     const double cohesionWeight = 64.0;
@@ -32,16 +32,16 @@ namespace
     const double defaultSeparationWeight = 96.0;
 }
 
-bool UnitCluster::moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &ballUnits) const
+bool UnitCluster::moveAsBall(BWAPI::Position targetPosition, std::set<OwnedUnit> &ballUnits) const
 {
-    // We require a grid
-    auto grid = PathFinding::getNavigationGrid(targetPosition);
+    /* We require a grid */
+    auto grid = Pathfinder::getNavigationGrid(targetPosition);
     if (!grid) return false;
 
-    // Scaling factor for cohesion boid is based on the size of the squad
+    /* Scaling factor for cohesion boid is based on the size of the squad */
     double cohesionFactor = cohesionWeight / sqrt(area / pi);
 
-    // Separation depends on whether the enemy has AOE attackers
+    /* Separation depends on whether the enemy has AOE attackers */
     double separationDetectionLimitFactor = defaultSeparationDetectionLimitFactor;
     double separationWeight = defaultSeparationWeight;
     if (enemyAoeRadius > 0)
@@ -50,44 +50,44 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &b
         separationWeight = 160;
     }
 
-    for (const auto &unit : ballUnits)
+    for (const auto &gameUnit : ballUnits)
     {
-        // Get the waypoint to move towards
-        // We attempt to move towards the third node ahead of us
-        auto waypoint = PathFinding::NextGridOrChokeWaypoint(unit->lastPosition, targetPosition, grid, 3, true);
+        /* Get the waypoint to move towards */
+        /* We attempt to move towards the third node ahead of us */
+        auto waypoint = Pathfinder::NextGridOrChokeWaypoint(gameUnit->prevPos, targetPosition, grid, 3, true);
 
-        // If a valid waypoint couldn't be found, defer to normal unit move
+        /* If a valid waypoint couldn't be found, defer to normal unit move */
         if (!waypoint.isValid())
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unit->id) << "Move to target: Moving to " << BWAPI::WalkPosition(targetPosition);
+            Telemetry::log(gameUnit->ident) << "Move to target: Moving to " << BWAPI::WalkPosition(targetPosition);
 #endif
-            unit->moveTo(targetPosition);
+            gameUnit->moveTo(targetPosition);
             continue;
         }
 
-        // We have a grid node, so compute our boids
+        /* We have a grid node, so compute our boids */
 
-        // Goal
+        /* Goal */
 
-        // Initialize with the offset to the node
-        int goalX = waypoint.x - unit->lastPosition.x;
-        int goalY = waypoint.y - unit->lastPosition.y;
+        /* Initialize with the offset to the node */
+        int goalX = waypoint.x - gameUnit->prevPos.x;
+        int goalY = waypoint.y - gameUnit->prevPos.y;
 
-        // Then scale to the desired weight
+        /* Then scale to the desired weight */
         if (goalX != 0 || goalY != 0)
         {
-            double goalScale = goalWeight / (double) Geo::ApproximateDistance(goalX, 0, goalY, 0);
+            double goalScale = goalWeight / (double) Geom::ApproximateDistance(goalX, 0, goalY, 0);
             goalX = (int) ((double) goalX * goalScale);
             goalY = (int) ((double) goalY * goalScale);
         }
 
-        // Collision
+        /* Collision */
         int collisionX = 0;
         int collisionY = 0;
 
         auto collisionVector = Map::collisionVector(waypoint.x >> 5, waypoint.y >> 5);
-        collisionVector = Geo::ScaleVector(collisionVector, collisionWeight);
+        collisionVector = Geom::ScaleVector(collisionVector, collisionWeight);
         if (collisionVector != BWAPI::Positions::Invalid)
         {
             auto collisionTarget = waypoint + collisionVector;
@@ -98,78 +98,78 @@ bool UnitCluster::moveAsBall(BWAPI::Position targetPosition, std::set<MyUnit> &b
             }
         }
 
-        // Cohesion
+        /* Cohesion */
 
         int cohesionX = 0;
         int cohesionY = 0;
 
-        // We ignore the cohesion boid if this unit is separated from the vanguard unit by a narrow choke
-        if (unit == vanguard || !PathFinding::SeparatingNarrowChoke(unit->lastPosition,
-                                                                    vanguard->lastPosition,
-                                                                    unit->type,
-                                                                    PathFinding::PathFindingOptions::UseNeighbouringBWEMArea))
+        /* We ignore the cohesion boid if this unit is separated from the vanguard unit by a narrow choke */
+        if (gameUnit == vanguard || !Pathfinder::SeparatingNarrowChoke(gameUnit->prevPos,
+                                                                    vanguard->prevPos,
+                                                                    gameUnit->type,
+                                                                    Pathfinder::PathFindingOptions::UseNeighbouringBWEMArea))
         {
-            cohesionX = (int) ((double) (center.x - unit->lastPosition.x) * cohesionFactor);
-            cohesionY = (int) ((double) (center.y - unit->lastPosition.y) * cohesionFactor);
+            cohesionX = (int) ((double) (midpoint.x - gameUnit->prevPos.x) * cohesionFactor);
+            cohesionY = (int) ((double) (midpoint.y - gameUnit->prevPos.y) * cohesionFactor);
         }
 
-        // Separation
+        /* Separation */
         int separationX = 0;
         int separationY = 0;
         for (const auto &other : ballUnits)
         {
-            if (other == unit) continue;
+            if (other == gameUnit) continue;
             if (other->isFlying) continue;
             if (other->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
-            Boids::AddSeparation(unit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
+            Boids::AddSeparation(gameUnit.get(), other, separationDetectionLimitFactor, separationWeight, separationX, separationY);
         }
 
-        auto pos = Boids::ComputePosition(unit.get(),
+        auto pt = Boids::ComputePosition(gameUnit.get(),
                                           {goalX, collisionX, separationX, cohesionX},
                                           {goalY, collisionY, separationY, cohesionY},
                                           80,
                                           48);
 
-        // Default to the goal node if the unit can't move in the direction it wants to
-        if (pos == BWAPI::Positions::Invalid)
+        /* Default to the goal node if the unit can't move in the direction it wants to */
+        if (pt == BWAPI::Positions::Invalid)
         {
-            pos = waypoint;
+            pt = waypoint;
         }
 
 #if DEBUG_UNIT_BOIDS
         std::ostringstream nodes;
-        auto &node = (*grid)[unit->getTilePosition()];
+        auto &node = (*grid)[gameUnit->getTilePosition()];
         if (node.nextNode)
         {
-            nodes << "; nodes=[" << BWAPI::WalkPosition(node.nextNode->center());
+            nodes << "; nodes=[" << BWAPI::WalkPosition(node.nextNode->midpoint());
             if (node.nextNode->nextNode)
             {
-                nodes << "," << BWAPI::WalkPosition(node.nextNode->nextNode->center());
+                nodes << "," << BWAPI::WalkPosition(node.nextNode->nextNode->midpoint());
                 if (node.nextNode->nextNode->nextNode)
                 {
-                    nodes << "," << BWAPI::WalkPosition(node.nextNode->nextNode->nextNode->center());
+                    nodes << "," << BWAPI::WalkPosition(node.nextNode->nextNode->nextNode->midpoint());
                 }
             }
             nodes << "]";
         }
 
-        CherryVis::log(unit->id) << "Movement boids towards " << BWAPI::WalkPosition(targetPosition)
+        Telemetry::log(gameUnit->ident) << "Movement boids towards " << BWAPI::WalkPosition(targetPosition)
                                  << "; waypoint=" << BWAPI::WalkPosition(waypoint)
                                  << nodes.str()
-                                 << "; cluster=" << BWAPI::WalkPosition(center)
-                                 << ": goal=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(goalX, goalY))
-                                 << "; collision=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(collisionX, collisionY))
-                                 << "; cohesion=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(cohesionX, cohesionY))
-                                 << "; separation=" << BWAPI::WalkPosition(unit->lastPosition + BWAPI::Position(separationX, separationY))
+                                 << "; cluster=" << BWAPI::WalkPosition(midpoint)
+                                 << ": goal=" << BWAPI::WalkPosition(gameUnit->prevPos + BWAPI::Position(goalX, goalY))
+                                 << "; collision=" << BWAPI::WalkPosition(gameUnit->prevPos + BWAPI::Position(collisionX, collisionY))
+                                 << "; cohesion=" << BWAPI::WalkPosition(gameUnit->prevPos + BWAPI::Position(cohesionX, cohesionY))
+                                 << "; separation=" << BWAPI::WalkPosition(gameUnit->prevPos + BWAPI::Position(separationX, separationY))
                                  << "; total=" << BWAPI::WalkPosition(
-                unit->lastPosition + BWAPI::Position(goalX + cohesionX + separationX, goalY + cohesionY + separationY))
-                                 << "; target=" << BWAPI::WalkPosition(pos);
+                gameUnit->prevPos + BWAPI::Position(goalX + cohesionX + separationX, goalY + cohesionY + separationY))
+                                 << "; target=" << BWAPI::WalkPosition(pt);
 #elif DEBUG_UNIT_ORDERS
-        CherryVis::log(unit->id) << "Move boids: Moving to " << BWAPI::WalkPosition(pos);
+        Telemetry::log(gameUnit->ident) << "Move boids: Moving to " << BWAPI::WalkPosition(pt);
 #endif
 
-        unit->moveTo(pos, true);
+        gameUnit->moveTo(pt, true);
     }
 
     return true;

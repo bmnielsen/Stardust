@@ -2,7 +2,7 @@
 
 #include <BWAPI.h>
 
-extern int currentFrame;
+extern int frameNow;
 
 #if LOGGING_ENABLED
 
@@ -11,7 +11,7 @@ extern int currentFrame;
 #endif
 #endif
 
-namespace Log
+namespace AppLog
 {
     class LogWrapper
     {
@@ -65,6 +65,6 @@ namespace Log
 
     LogWrapper Csv(const std::string &name);
 
-    // Returns a list of the paths of all the log files we have written in this game
+    /* Returns a list of the paths of all the log files we have written in this game */
     std::vector<std::string> &LogFiles();
 }

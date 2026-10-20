@@ -29,27 +29,27 @@
 
 namespace
 {
-    void clearDead(std::set<MyWorker> &workers)
+    void clearDead(std::set<OwnedWorker> &workers)
     {
-        for (auto it = workers.begin(); it != workers.end();)
+        for (auto iterRef = workers.begin(); iterRef != workers.end();)
         {
-            if ((*it)->exists())
+            if ((*iterRef)->exists())
             {
-                it++;
+                iterRef++;
             }
             else
             {
-                it = workers.erase(it);
+                iterRef = workers.erase(iterRef);
             }
         }
     }
 
-    void releaseAll(std::set<MyWorker> &workers)
+    void releaseAll(std::set<OwnedWorker> &workers)
     {
-        for (auto &worker : workers)
+        for (auto &wrk : workers)
         {
-            CherryVis::log(worker->id) << "Releasing from non-mining duties (AntiCannonRush no longer needs it)";
-            Workers::releaseWorker(worker);
+            Telemetry::log(wrk->ident) << "Releasing from non-mining duties (AntiCannonRush no longer needs it)";
+            WorkerMgr::releaseWorker(wrk);
         }
 
         workers.clear();
@@ -57,13 +57,13 @@ namespace
 }
 
 AntiCannonRush::AntiCannonRush()
-        : Play("AntiCannonRush")
+        : PlayItem("AntiCannonRush")
         , safeEnemyStrategyDetermined(false)
         , scout(nullptr)
         , builtPylon(false)
         , builtCannon(false)
 {
-    // Compute the scout tiles
+    /* Compute the scout tiles */
     auto areas = Map::getMyMainAreas();
     auto referenceHeight = BWAPI::Broodwar->getGroundHeight(Map::getMyMain()->getTilePosition());
     for (int y = 0; y < BWAPI::Broodwar->mapHeight() - 1; y++)
@@ -89,117 +89,117 @@ AntiCannonRush::AntiCannonRush()
 
 void AntiCannonRush::update()
 {
-    // Clear scout if it has died
+    /* Clear scout if it has died */
     if (scout && !scout->exists())
     {
         scout = nullptr;
     }
 
-    // Clear worker attackers that have died
+    /* Clear worker attackers that have died */
     clearDead(workerAttackers);
 
-    // Clear enemy cannons if they are dead
-    for (auto it = cannonsAndAttackers.begin(); it != cannonsAndAttackers.end();)
+    /* Clear enemy cannons if they are dead */
+    for (auto iterRef = cannonsAndAttackers.begin(); iterRef != cannonsAndAttackers.end();)
     {
-        // Clear cannon attackers that have died
-        clearDead(it->second);
+        /* Clear cannon attackers that have died */
+        clearDead(iterRef->second);
 
-        if (it->first->exists())
+        if (iterRef->first->exists())
         {
-            it++;
+            iterRef++;
         }
         else
         {
-            releaseAll(it->second);
-            it = cannonsAndAttackers.erase(it);
+            releaseAll(iterRef->second);
+            iterRef = cannonsAndAttackers.erase(iterRef);
         }
     }
 
-    // Collect all enemy units in our main areas
+    /* Collect all enemy units in our main areas */
     auto &areas = Map::getMyMainAreas();
     std::set<Unit> workers;
     std::set<Unit> pylons;
-    for (const auto &unit : Units::allEnemy())
+    for (const auto &gameUnit : UnitMgr::allEnemy())
     {
-        if (!unit->lastPositionValid) continue;
-        if (!unit->type.isWorker() &&
-            unit->type != BWAPI::UnitTypes::Protoss_Pylon &&
-            unit->type != BWAPI::UnitTypes::Protoss_Photon_Cannon)
+        if (!gameUnit->lastPositionValid) continue;
+        if (!gameUnit->type.isWorker() &&
+            gameUnit->type != BWAPI::UnitTypes::Protoss_Pylon &&
+            gameUnit->type != BWAPI::UnitTypes::Protoss_Photon_Cannon)
         {
             continue;
         }
 
-        if (!areas.contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)))) continue;
+        if (!areas.contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(gameUnit->prevPos)))) continue;
 
-        if (unit->type.isWorker())
+        if (gameUnit->type.isWorker())
         {
-            workers.insert(unit);
+            workers.insert(gameUnit);
         }
-        else if (unit->type == BWAPI::UnitTypes::Protoss_Pylon)
+        else if (gameUnit->type == BWAPI::UnitTypes::Protoss_Pylon)
         {
-            pylons.insert(unit);
+            pylons.insert(gameUnit);
 
             if (!builtPylon)
             {
-                Log::Get() << "Found enemy pylon in our base";
+                AppLog::Get() << "Found enemy pylon in our base";
                 builtPylon = true;
 
-                int startFrame = (unit->completed ? currentFrame : unit->estimatedCompletionFrame)
-                        - UnitUtil::BuildTime(unit->type);
+                int startFrame = (gameUnit->completed ? frameNow : gameUnit->estimatedCompletionFrame)
+                        - UnitHelper::BuildTime(gameUnit->type);
                 Opponent::setGameValue("pylonInOurMain", startFrame);
             }
         }
-        else if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+        else if (gameUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
         {
-            if (!cannonsAndAttackers.contains(unit))
+            if (!cannonsAndAttackers.contains(gameUnit))
             {
-                cannonsAndAttackers[unit] = {};
+                cannonsAndAttackers[gameUnit] = {};
                 builtCannon = true;
-                Log::Get() << "Found enemy cannon in our base";
+                AppLog::Get() << "Found enemy cannon in our base";
 
-                // Built cannon implies built pylon, even if we haven't seen it
+                /* Built cannon implies built pylon, even if we haven't seen it */
                 if (!builtPylon)
                 {
                     builtPylon = true;
-                    int startFrame = (unit->completed ? currentFrame : unit->estimatedCompletionFrame)
-                                     - UnitUtil::BuildTime(unit->type)
-                                     - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+                    int startFrame = (gameUnit->completed ? frameNow : gameUnit->estimatedCompletionFrame)
+                                     - UnitHelper::BuildTime(gameUnit->type)
+                                     - UnitHelper::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
                     Opponent::setGameValue("pylonInOurMain", startFrame);
                 }
             }
         }
     }
 
-    // Disband when we are fairly certain the cannon rush is not happening or is over
-    if (((currentFrame >= 4000 || safeEnemyStrategyDetermined) && !builtPylon) ||
-        (currentFrame >= 7000 && pylons.empty() && cannonsAndAttackers.empty()))
+    /* Disband when we are fairly certain the cannon rush is not happening or is over */
+    if (((frameNow >= 4000 || safeEnemyStrategyDetermined) && !builtPylon) ||
+        (frameNow >= 7000 && pylons.empty() && cannonsAndAttackers.empty()))
     {
         status.complete = true;
         return;
     }
 
-    // Use our previous game results to determine when the play should go "active", i.e. reserve a worker
-    // We start our scouting 500 frames before we've previously seen a pylon start
-    // An exception is if we have never lost to this opponent, in which case we play it safe
+    /* Use our previous game results to determine when the play should go "active", i.e. reserve a worker */
+    /* We start our scouting 500 frames before we've previously seen a pylon start */
+    /* An exception is if we have never lost to this opponent, in which case we play it safe */
     if (Opponent::winLossRatio(0.0, 200) < 0.99)
     {
         int worstCasePylonFrame =
                 Opponent::minValueInPreviousGames("pylonInOurMain", INT_MAX, 15);
-        if (!builtPylon && worstCasePylonFrame > (currentFrame + 500))
+        if (!builtPylon && worstCasePylonFrame > (frameNow + 500))
         {
             return;
         }
     }
 
-    // Gather units that should attack
-    std::vector<std::pair<MyUnit, Unit>> unitsAndTargets;
+    /* Gather units that should attack */
+    std::vector<std::pair<OwnedUnit, Unit>> unitsAndTargets;
 
-    // Attack the enemy worker if needed
+    /* Attack the enemy worker if needed */
     if (workers.size() == 1)
     {
-        auto &worker = *workers.begin();
+        auto &wrk = *workers.begin();
 
-        // Take the scout if available
+        /* Take the scout if available */
         if (scout)
         {
             workerAttackers.insert(scout);
@@ -208,16 +208,16 @@ void AntiCannonRush::update()
 
         while (workerAttackers.size() < ((!pylons.empty() || !cannonsAndAttackers.empty()) ? 2 : 1))
         {
-            auto unit = Workers::getClosestReassignableWorker(worker->lastPosition, true);
-            if (!unit) break;
+            auto gameUnit = WorkerMgr::getClosestReassignableWorker(wrk->prevPos, true);
+            if (!gameUnit) break;
 
-            Workers::reserveWorker(unit);
-            workerAttackers.insert(unit);
+            WorkerMgr::reserveWorker(gameUnit);
+            workerAttackers.insert(gameUnit);
         }
 
         for (auto &workerAttacker : workerAttackers)
         {
-            unitsAndTargets.emplace_back(workerAttacker, worker);
+            unitsAndTargets.emplace_back(workerAttacker, wrk);
         }
     }
     else
@@ -225,23 +225,23 @@ void AntiCannonRush::update()
         releaseAll(workerAttackers);
     }
 
-    // Reserve attackers for enemy cannons
-    auto completionCutoff = currentFrame + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon) - 100;
+    /* Reserve attackers for enemy cannons */
+    auto completionCutoff = frameNow + UnitHelper::BuildTime(BWAPI::UnitTypes::Protoss_Photon_Cannon) - 100;
     for (auto &cannonAndAttackers : cannonsAndAttackers)
     {
         auto &cannon = cannonAndAttackers.first;
 
-        // Reserve attackers if we have just seen it start to build
+        /* Reserve attackers if we have just seen it start to build */
         if (cannonAndAttackers.second.size() < 4 &&
             cannon->estimatedCompletionFrame > completionCutoff)
         {
             while (cannonAndAttackers.second.size() < 4)
             {
-                auto unit = Workers::getClosestReassignableWorker(cannon->lastPosition, true);
-                if (!unit) break;
+                auto gameUnit = WorkerMgr::getClosestReassignableWorker(cannon->prevPos, true);
+                if (!gameUnit) break;
 
-                Workers::reserveWorker(unit);
-                cannonAndAttackers.second.insert(unit);
+                WorkerMgr::reserveWorker(gameUnit);
+                cannonAndAttackers.second.insert(gameUnit);
             }
         }
 
@@ -251,54 +251,54 @@ void AntiCannonRush::update()
         }
     }
 
-    // Issue attack orders
+    /* Issue attack orders */
     if (!unitsAndTargets.empty())
     {
         for (auto &unitAndTarget : unitsAndTargets)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "Attacking " << *unitAndTarget.second;
+            Telemetry::log(unitAndTarget.first->ident) << "Attacking " << *unitAndTarget.second;
 #endif
             unitAndTarget.first->attackUnit(unitAndTarget.second, unitsAndTargets);
         }
         return;
     }
 
-    // Get the next tile to scout
-    auto tile = getNextScoutTile();
+    /* Get the next tile to scout */
+    auto tilePos = getNextScoutTile();
 
-    // If there is none, we are done for now
-    if (tile == BWAPI::TilePositions::Invalid)
+    /* If there is none, we are done for now */
+    if (tilePos == BWAPI::TilePositions::Invalid)
     {
         if (scout)
         {
-            CherryVis::log(scout->id) << "Releasing from non-mining duties (AntiCannonRush no tiles to scout)";
-            Workers::releaseWorker(scout);
+            Telemetry::log(scout->ident) << "Releasing from non-mining duties (AntiCannonRush no tiles to scout)";
+            WorkerMgr::releaseWorker(scout);
         }
         return;
     }
 
-    // Ensure we have a worker scout
+    /* Ensure we have a worker scout */
     if (!scout)
     {
-        scout = Workers::getClosestReassignableWorker(BWAPI::Position(tile) + BWAPI::Position(16, 16), false);
+        scout = WorkerMgr::getClosestReassignableWorker(BWAPI::Position(tilePos) + BWAPI::Position(16, 16), false);
         if (!scout) return;
 
-        Workers::reserveWorker(scout);
+        WorkerMgr::reserveWorker(scout);
     }
 
 #if DEBUG_UNIT_ORDERS
-    CherryVis::log(scout->id) << "Move to next AntiCannonRush tile @ " << (BWAPI::WalkPosition(tile) + BWAPI::WalkPosition(2, 2));
+    Telemetry::log(scout->ident) << "Move to next AntiCannonRush tile @ " << (BWAPI::WalkPosition(tilePos) + BWAPI::WalkPosition(2, 2));
 #endif
-    scout->moveTo(BWAPI::Position(tile) + BWAPI::Position(16, 16));
+    scout->moveTo(BWAPI::Position(tilePos) + BWAPI::Position(16, 16));
 }
 
-void AntiCannonRush::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+void AntiCannonRush::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals)
 {
-    // If the enemy has cannons, build zealots at emergency priority
+    /* If the enemy has cannons, build zealots at emergency priority */
     if (!cannonsAndAttackers.empty())
     {
-        prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
+        prioProdGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                     label,
                                                                     BWAPI::UnitTypes::Protoss_Zealot,
                                                                     -1,
@@ -306,13 +306,13 @@ void AntiCannonRush::addPrioritizedProductionGoals(std::map<int, std::vector<Pro
     }
 }
 
-void AntiCannonRush::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                             const std::function<void(const MyUnit)> &movableUnitCallback)
+void AntiCannonRush::disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                             const std::function<void(const OwnedUnit)> &movableUnitCallback)
 {
     if (scout && scout->exists())
     {
-        CherryVis::log(scout->id) << "Releasing from non-mining duties (AntiCannonRush disband)";
-        Workers::releaseWorker(scout);
+        Telemetry::log(scout->ident) << "Releasing from non-mining duties (AntiCannonRush disband)";
+        WorkerMgr::releaseWorker(scout);
     }
 
     releaseAll(workerAttackers);
@@ -330,18 +330,18 @@ BWAPI::TilePosition AntiCannonRush::getNextScoutTile()
     int bestFrame = INT_MAX;
     int bestDist = INT_MAX;
     auto bestTile = BWAPI::TilePositions::Invalid;
-    for (const auto &tile : tilesToScout)
+    for (const auto &tilePos : tilesToScout)
     {
-        int lastSeen = Map::lastSeen(tile);
+        int lastSeen = Map::lastSeen(tilePos);
         if (lastSeen > bestFrame) continue;
 
-        int dist = mainCenter.getApproxDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
-        if (scout) dist += scout->lastPosition.getApproxDistance(BWAPI::Position(tile) + BWAPI::Position(16, 16));
-        if (lastSeen < bestFrame || dist < bestDist)
+        int span = mainCenter.getApproxDistance(BWAPI::Position(tilePos) + BWAPI::Position(16, 16));
+        if (scout) span += scout->prevPos.getApproxDistance(BWAPI::Position(tilePos) + BWAPI::Position(16, 16));
+        if (lastSeen < bestFrame || span < bestDist)
         {
-            bestTile = tile;
+            bestTile = tilePos;
             bestFrame = lastSeen;
-            bestDist = dist;
+            bestDist = span;
         }
     }
 

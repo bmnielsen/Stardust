@@ -7,7 +7,7 @@
 #include "Squads/AttackBaseSquad.h"
 #include "Base.h"
 
-namespace General
+namespace Marshal
 {
     void initialize();
 
@@ -15,9 +15,9 @@ namespace General
 
     void issueOrders();
 
-    void addSquad(const std::shared_ptr<Squad> &squad);
+    void addSquad(const std::shared_ptr<UnitSquad> &squad);
 
-    void removeSquad(const std::shared_ptr<Squad> &squad);
+    void removeSquad(const std::shared_ptr<UnitSquad> &squad);
 
     AttackBaseSquad *getAttackBaseSquad(Base *targetBase);
 
@@ -28,12 +28,12 @@ namespace CombatSim
 {
     void initialize();
 
-    int unitValue(const FAP::FAPUnit<> &unit);
+    int unitValue(const FAP::FAPUnit<> &gameUnit);
 
-    int unitValue(const Unit &unit);
+    int unitValue(const Unit &gameUnit);
 
     int unitValue(BWAPI::UnitType type);
 
-    // Used from tests for sim evaluation
+    /* Used from tests for sim evaluation */
     void setMaxIterations(int iterations);
 }

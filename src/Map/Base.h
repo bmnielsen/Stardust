@@ -14,7 +14,7 @@ public:
     Base (const Base&) = delete;
     Base &operator=(const Base&) = delete;
 
-    //enum class Owner { None, Me, Enemy, Ally };
+    /* enum class Owner { None, Me, Enemy, Ally }; */
 
     BWAPI::Player owner;                                // Who owns the base
     Unit resourceDepot;                                 // The resource depot for the base, may be null
@@ -31,16 +31,16 @@ public:
     int minerals;   // Current total count of minerals remaining
     int gas;        // Current total count of gas remaining
 
-    // Probability of all minerals in this base being gathered from for the next GATHER_FORECAST_FRAMES frames, where index 0 is the next frame
+    /* Probability of all minerals in this base being gathered from for the next GATHER_FORECAST_FRAMES frames, where index 0 is the next frame */
     std::array<double, GATHER_FORECAST_FRAMES> allMineralsBeingGatheredForecast;
 
-    Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase);
+    Base(BWAPI::TilePosition tilePos, const BWEM::Base *bwemBase);
 
-    Base(BWAPI::TilePosition tile, const BWEM::Area *bwemArea, std::vector<Resource> mineralPatches, std::vector<Resource> geysers);
+    Base(BWAPI::TilePosition tilePos, const BWEM::Area *bwemArea, std::vector<Resource> mineralPatches, std::vector<Resource> geysers);
 
-    [[nodiscard]] const BWAPI::TilePosition &getTilePosition() const { return tile; }
+    [[nodiscard]] const BWAPI::TilePosition &getTilePosition() const { return tilePos; }
 
-    [[nodiscard]] BWAPI::Position getPosition() const { return center; }
+    [[nodiscard]] BWAPI::Position getPosition() const { return midpoint; }
 
     [[nodiscard]] const BWEM::Area *getArea() const { return bwemArea; }
 
@@ -54,7 +54,7 @@ public:
 
     [[nodiscard]] bool isStartingBase() const;
 
-    [[nodiscard]] bool isInMineralLine(BWAPI::TilePosition pos) const;
+    [[nodiscard]] bool isInMineralLine(BWAPI::TilePosition pt) const;
 
     [[nodiscard]] bool hasGeyserOrRefineryAt(BWAPI::TilePosition geyserTopLeft) const;
 
@@ -64,8 +64,8 @@ public:
 
 private:
 
-    BWAPI::TilePosition tile;
-    BWAPI::Position center;
+    BWAPI::TilePosition tilePos;
+    BWAPI::Position midpoint;
     const BWEM::Area *bwemArea;
 
     std::vector<Resource> _mineralPatches;

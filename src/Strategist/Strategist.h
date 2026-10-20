@@ -6,7 +6,7 @@
 #include "Play.h"
 #include "StrategyEngine.h"
 
-namespace Strategist
+namespace Director
 {
     enum class WorkerScoutStatus
     {
@@ -32,8 +32,8 @@ namespace Strategist
 
     bool areWeContained();
 
-    // A measure between 0 and 1 of how much pressure we feel ourselves to be under,
-    // where 0 is no pressure and 1 is full pressure
+    /* A measure between 0 and 1 of how much pressure we feel ourselves to be under, */
+    /* where 0 is no pressure and 1 is full pressure */
     double pressure();
 
     WorkerScoutStatus getWorkerScoutStatus();
@@ -44,7 +44,7 @@ namespace Strategist
 
     bool hasWorkerScoutCompletedInitialBaseScan();
 
-    void setOpening(std::vector<std::shared_ptr<Play>> openingPlays);
+    void setOpening(std::vector<std::shared_ptr<PlayItem>> openingPlays);
 
     void setStrategyEngine(std::unique_ptr<StrategyEngine> strategyEngine, const std::string &opening = "");
 

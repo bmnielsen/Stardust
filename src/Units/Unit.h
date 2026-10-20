@@ -32,7 +32,7 @@ struct UpcomingAttack
             : attacker(std::move(attacker))
             , bullet(nullptr)
             , bulletId(-1)
-            , expiryFrame(currentFrame + frames)
+            , expiryFrame(frameNow + frames)
             , damage(damage)
             , unknownAttacker(false)
     {
@@ -46,7 +46,7 @@ public:
     UnitImpl (const UnitImpl&) = delete;
     UnitImpl &operator=(const UnitImpl&) = delete;
 
-    BWAPI::Unit bwapiUnit;              // Reference to the unit
+    BWAPI::Unit rawUnit;              // Reference to the unit
     BWAPI::Player player;               // Player owning the unit
     int tilePositionX;                  // X coordinate of the tile position
     int tilePositionY;                  // Y coordinate of the tile position
@@ -60,22 +60,22 @@ public:
     int lastSeenAttacking;              // Frame when the unit was last seen making an attack
 
     BWAPI::UnitType type;               // Type of the unit
-    int id;                             // Unit ID
+    int ident;                             // Unit ID
 
-    BWAPI::Position lastPosition;       // Position of the unit when last seen
+    BWAPI::Position prevPos;       // Position of the unit when last seen
     bool lastPositionValid;             // Whether this position is still valid, i.e. we haven't seen the position empty later
     bool lastPositionVisible;           // Whether the last position was visible on the previous frame
     double lastAngle;                   // Angle of the unit when last seen
     bool beingManufacturedOrCarried;    // Whether the unit is currently being manufactured or carried
     int frameLastMoved;                 // Last frame on which the unit changed position
 
-    // For units in the fog, the offset to our vanguard unit they had when they disappeared
+    /* For units in the fog, the offset to our vanguard unit they had when they disappeared */
     int offsetToVanguardUnit;
 
     BWAPI::Position simPosition;        // The position to use for this unit in combat simulation / targeting / etc.
     bool simPositionValid;              // Whether the simulation position is valid
 
-    // Predicted positions for the next latency + 2 frames, assuming the unit continues moving in its current direction
+    /* Predicted positions for the next latency + 2 frames, assuming the unit continues moving in its current direction */
     mutable std::vector<BWAPI::Position> predictedPositions;
     mutable bool predictedPositionsUpdated;
 
@@ -112,13 +112,13 @@ public:
     int orderProcessTimer;              // The expected current value of the unit's order process timer, or -1 if we don't know
     Unit lastTarget;                    // The last target of this unit
 
-    explicit UnitImpl(BWAPI::Unit unit);
+    explicit UnitImpl(BWAPI::Unit gameUnit);
 
     virtual ~UnitImpl() = default;
 
     void created();
 
-    virtual void update(BWAPI::Unit unit);
+    virtual void update(BWAPI::Unit gameUnit);
 
     void updateUnitInFog();
 
@@ -130,7 +130,7 @@ public:
 
     [[nodiscard]] BWAPI::TilePosition getTilePosition() const;
 
-    [[nodiscard]] bool exists() const { return bwapiUnit != nullptr; };
+    [[nodiscard]] bool exists() const { return rawUnit != nullptr; };
 
     [[nodiscard]] int BWHeading() const;
 
@@ -140,9 +140,9 @@ public:
 
     [[nodiscard]] virtual bool isBeingManufacturedOrCarried() const { return false; };
 
-    [[nodiscard]] bool isBeingHealed() const { return currentFrame < (lastHealFrame + 24); };
+    [[nodiscard]] bool isBeingHealed() const { return frameNow < (lastHealFrame + 24); };
 
-    [[nodiscard]] bool isBeingAttacked() const { return !upcomingAttacks.empty() || currentFrame < (lastAttackedFrame + 48); };
+    [[nodiscard]] bool isBeingAttacked() const { return !upcomingAttacks.empty() || frameNow < (lastAttackedFrame + 48); };
 
     [[nodiscard]] bool isAttackable() const;
 
@@ -205,11 +205,11 @@ public:
     [[nodiscard]] BWAPI::Position intercept(const Unit &target) const;
 
 private:
-    void updateGrid(BWAPI::Unit unit);
+    void updateGrid(BWAPI::Unit gameUnit);
 
     void updatePredictedPositions() const;
 
     bool updateSimPosition();
 };
 
-std::ostream &operator<<(std::ostream &os, const UnitImpl &unit);
+std::ostream &operator<<(std::ostream &os, const UnitImpl &gameUnit);

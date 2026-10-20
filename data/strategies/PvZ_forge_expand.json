@@ -1,0 +1,10 @@
+{
+  "name": "PvZ_forge_expand",
+  "matchup": "PvZ",
+  "legacy_opening": "FFEDragoons",
+  "record_label": "FFEDragoons",
+  "legality": {
+    "requires_wall": true
+  },
+  "note": "S4 seed: no tier0_vs -> inert until evidence per the Tier-0 admission rule. FFEDragoons is the incumbent strong PvZ line (sentinel/batch series repeatedly 6-0)."
+}

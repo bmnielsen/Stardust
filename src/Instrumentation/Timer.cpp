@@ -44,7 +44,7 @@ namespace Timer
     void checkpoint(const std::string &label)
     {
 #if DEBUG_LOG_EACH_CHECKPOINT
-        Log::Debug() << label;
+        AppLog::Debug() << label;
 #endif
         auto now = std::chrono::high_resolution_clock::now();
         checkpoints.emplace_back(label, std::chrono::duration_cast<std::chrono::microseconds>(now - lastCheckpoint).count());
@@ -78,10 +78,10 @@ namespace Timer
                 msg << checkpoint.first << ": " << checkpoint.second << "us";
             }
 
-            Log::Debug() << msg.str();
+            AppLog::Debug() << msg.str();
 
             if (forceOutput || overall > LOG_CUTOFF)
-                Log::Get() << msg.str();
+                AppLog::Get() << msg.str();
         }
     }
 }

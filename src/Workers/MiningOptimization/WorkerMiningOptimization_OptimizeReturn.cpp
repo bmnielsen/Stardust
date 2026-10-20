@@ -1,5 +1,5 @@
-// Worker mining optimization is split into multiple files
-// This file contains the logic that optimizes the return of minerals
+/* Worker mining optimization is split into multiple files */
+/* This file contains the logic that optimizes the return of minerals */
 
 #include "WorkerMiningOptimization.h"
 #include "PathTraversalLoopGuard.h"
@@ -40,24 +40,24 @@ namespace WorkerMiningOptimization
             if (first.expectedPath.empty() && second.expectedPath.empty()) return first.expectedDelay < second.expectedDelay;
             if (first.expectedPath.empty()) return true;
             if (second.expectedPath.empty()) return false;
-            return (*first.expectedPath.begin())->pos < (*second.expectedPath.begin())->pos;
+            return (*first.expectedPath.begin())->pt < (*second.expectedPath.begin())->pt;
         }
 
         PositionEvaluation evaluatePosition(int commandFrame, ReturnPositionObservations &positionMetadata) // NOLINT(*-no-recursion)
         {
-            // If no resend from this position can take effect before reaching the depot, bail out now
+            /* If no resend from this position can take effect before reaching the depot, bail out now */
             if (positionMetadata.noResendArrivalObservations.largestArrivalDelay() <= BWAPI::Broodwar->getLatencyFrames())
             {
                 return {};
             }
 
-            // Jump out of the recursion when we've exceeded the exploration horizon
+            /* Jump out of the recursion when we've exceeded the exploration horizon */
             if (positionMetadata.afterExplorationHorizon())
             {
                 return {};
             }
 
-            // Start by getting the data for all of the next positions
+            /* Start by getting the data for all of the next positions */
             PositionEvaluation nextPositionsEvaluation;
             if (positionMetadata.nextPositions.size() == 1)
             {
@@ -65,7 +65,7 @@ namespace WorkerMiningOptimization
             }
             else if (positionMetadata.nextPositions.size() > 1)
             {
-                // Evaluate all of the next positions, finding the most likely position and the weight of the explored position occurrence rates
+                /* Evaluate all of the next positions, finding the most likely position and the weight of the explored position occurrence rates */
                 std::vector<PositionEvaluation> nextPositionEvaluations;
                 nextPositionEvaluations.reserve(positionMetadata.nextPositions.size());
                 int mostCommon = -1;
@@ -91,7 +91,7 @@ namespace WorkerMiningOptimization
                     nextPositionEvaluations.emplace_back(std::move(nextPositionEvaluation));
                 }
 
-                // Now tally up the scores, adjusting them to the resend frame of the most common occurrence
+                /* Now tally up the scores, adjusting them to the resend frame of the most common occurrence */
                 double delayAccumulator = 0.0;
                 for (int i = 0; i < positionMetadata.nextPositions.size(); i++)
                 {
@@ -109,7 +109,7 @@ namespace WorkerMiningOptimization
             }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), &positionMetadata);
 
-            // Explore positions within our exploration horizon that haven't been tried yet
+            /* Explore positions within our exploration horizon that haven't been tried yet */
             if (WorkerMiningOptimization::isExploring() && positionMetadata.suitableForExploration())
             {
                 double deltaToBenchmark =
@@ -121,7 +121,7 @@ namespace WorkerMiningOptimization
             }
             if (nextPositionsEvaluation.positionToTry) return nextPositionsEvaluation;
 
-            // We haven't explored this position and aren't interested in exploring it, so return the next position data
+            /* We haven't explored this position and aren't interested in exploring it, so return the next position data */
             if (positionMetadata.resendArrivalObservations.empty())
             {
                 return nextPositionsEvaluation;
@@ -136,25 +136,25 @@ namespace WorkerMiningOptimization
             return nextPositionsEvaluation;
         }
 
-        void planResend(WorkerReturnStatus &workerStatus,
+        void planResend(WorkerReturnStatus &wrkStatus,
                         const std::shared_ptr<PositionAndVelocity> &currentPosition)
         {
-            // Require a path node
-            if (!workerStatus.currentNode) return;
+            /* Require a path node */
+            if (!wrkStatus.currentNode) return;
 
-            // Don't plan anything until we have left the patch
-            if (!workerStatus.hasLeftPatch) return;
+            /* Don't plan anything until we have left the patch */
+            if (!wrkStatus.hasLeftPatch) return;
 
-            auto &positionMetadata = *workerStatus.currentNode;
+            auto &positionMetadata = *wrkStatus.currentNode;
 
-            // Wait to start planning until we reach a position that is usable
+            /* Wait to start planning until we reach a position that is usable */
             if (!positionMetadata.usableForPathPlanning()) return;
 
-            // We are now sure that we will plan something, though we may choose not to perform a resend
-            workerStatus.resendPlanned = true;
-            workerStatus.hasPathData = true;
+            /* We are now sure that we will plan something, though we may choose not to perform a resend */
+            wrkStatus.resendPlanned = true;
+            wrkStatus.hasPathData = true;
 
-            // Check if we need to "explore" the no resend case
+            /* Check if we need to "explore" the no resend case */
             if (positionMetadata.noResendArrivalObservations.empty()) return;
             if (WorkerMiningOptimization::isExploring() && positionMetadata.noResendArrivalObservations.shouldExploreDeliverySpeeds()) return;
 
@@ -165,20 +165,20 @@ namespace WorkerMiningOptimization
                 return evaluation.explored;
             };
 
-            auto evaluation = evaluatePosition(currentFrame, positionMetadata);
+            auto evaluation = evaluatePosition(frameNow, positionMetadata);
             if (shouldResend(evaluation))
             {
-                workerStatus.plannedResendPosition = evaluation.resendPosition;
-                workerStatus.expectedPath = std::move(evaluation.expectedPath);
-                workerStatus.plannedResendIsForExploration = evaluation.positionToTry;
-                workerStatus.expectedDelayAfterResend = evaluation.expectedDelay;
+                wrkStatus.plannedResendPosition = evaluation.resendPosition;
+                wrkStatus.expectedPath = std::move(evaluation.expectedPath);
+                wrkStatus.plannedResendIsForExploration = evaluation.positionToTry;
+                wrkStatus.expectedDelayAfterResend = evaluation.expectedDelay;
 
 #if OPTIMALRETURN_DEBUG
                 std::ostringstream out;
                 out << std::fixed << std::setprecision(1) << "Planned return command: ";
-                if (workerStatus.plannedResendPosition)
+                if (wrkStatus.plannedResendPosition)
                 {
-                    out << *workerStatus.plannedResendPosition;
+                    out << *wrkStatus.plannedResendPosition;
                 }
                 else
                 {
@@ -191,121 +191,121 @@ namespace WorkerMiningOptimization
                 else
                 {
                     out << " expected delay " << evaluation.expectedDelay;
-                    if (workerStatus.plannedResendPosition)
+                    if (wrkStatus.plannedResendPosition)
                     {
-                        out << "\n" << workerStatus.plannedResendPosition->resendArrivalObservations;
+                        out << "\n" << wrkStatus.plannedResendPosition->resendArrivalObservations;
                     }
                 }
 
-                CherryVis::log(workerStatus.worker->id) << out.str();
+                Telemetry::log(wrkStatus.wrk->ident) << out.str();
 #endif
             }
         }
 
-        void validatePlannedReturnPath(WorkerReturnStatus &workerStatus, const std::shared_ptr<PositionAndVelocity> &currentPosition)
+        void validatePlannedReturnPath(WorkerReturnStatus &wrkStatus, const std::shared_ptr<PositionAndVelocity> &currentPosition)
         {
-            if (workerStatus.expectedPath.empty()) return; // have no further resends planned
-            if (workerStatus.expectedPath.front()->pos == *currentPosition) return; // path matches expectations
+            if (wrkStatus.expectedPath.empty()) return; // have no further resends planned
+            if (wrkStatus.expectedPath.front()->pt == *currentPosition) return; // path matches expectations
 
-            // We have reached an unexpected position, so reset so we can potentially replan
-            workerStatus.resendPlanned = false;
-            workerStatus.expectedPath.clear();
-            workerStatus.plannedResendPosition = nullptr;
-            workerStatus.plannedResendIsForExploration = false;
-            workerStatus.expectedDelayAfterResend = 100.0;
+            /* We have reached an unexpected position, so reset so we can potentially replan */
+            wrkStatus.resendPlanned = false;
+            wrkStatus.expectedPath.clear();
+            wrkStatus.plannedResendPosition = nullptr;
+            wrkStatus.plannedResendIsForExploration = false;
+            wrkStatus.expectedDelayAfterResend = 100.0;
         }
 
-        bool shouldPerformScheduledResendHere(WorkerReturnStatus &workerStatus,
+        bool shouldPerformScheduledResendHere(WorkerReturnStatus &wrkStatus,
                                               const std::shared_ptr<PositionAndVelocity> &currentPosition)
         {
-            if (workerStatus.resentPosition) return false;
-            if (!workerStatus.plannedResendPosition) return false;
-            if (workerStatus.plannedResendPosition->pos != *currentPosition) return false;
+            if (wrkStatus.resentPosition) return false;
+            if (!wrkStatus.plannedResendPosition) return false;
+            if (wrkStatus.plannedResendPosition->pt != *currentPosition) return false;
 
-            if (workerStatus.plannedResendIsForExploration) return true;
+            if (wrkStatus.plannedResendIsForExploration) return true;
 
-            // Check if not resending is more efficient
-            auto &worker = workerStatus.worker;
-            auto noResendExpectedDelay = workerStatus.plannedResendPosition->noResendArrivalObservations.expectedNoResendDeliveryDelay(worker);
-            if (workerStatus.expectedDelayAfterResend < (noResendExpectedDelay - EPSILON))
+            /* Check if not resending is more efficient */
+            auto &wrk = wrkStatus.wrk;
+            auto noResendExpectedDelay = wrkStatus.plannedResendPosition->noResendArrivalObservations.expectedNoResendDeliveryDelay(wrk);
+            if (wrkStatus.expectedDelayAfterResend < (noResendExpectedDelay - EPSILON))
             {
                 return true;
             }
 
 #if OPTIMALRETURN_DEBUG
-            CherryVis::log(worker->id) << "Not resending for " << *workerStatus.plannedResendPosition
+            Telemetry::log(wrk->ident) << "Not resending for " << *wrkStatus.plannedResendPosition
                                        << std::fixed << std::setprecision(1)
                                        << ": no resend delay " << noResendExpectedDelay
-                                       << " vs. resend delay " << workerStatus.expectedDelayAfterResend;
+                                       << " vs. resend delay " << wrkStatus.expectedDelayAfterResend;
 #endif
-            workerStatus.plannedResendPosition = nullptr;
+            wrkStatus.plannedResendPosition = nullptr;
 
             return false;
         }
     }
 
-    void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
+    void optimizeReturnOfResource(const OwnedWorker &wrk, const OwnedUnit &depot, const Resource &resource)
     {
         if (!resource) return;
 
-        auto &workerStatus = returnStatusFor(worker, depot, resource);
+        auto &wrkStatus = returnStatusFor(wrk, depot, resource);
 
-        // Track the worker's visited positions
-        auto currentPosition = workerStatus.appendCurrentPosition();
+        /* Track the worker's visited positions */
+        auto currentPosition = wrkStatus.appendCurrentPosition();
 
 #if !ENABLE_RETURN_OPTIMIZATION
         return;
 #endif
 
-        // Advance the current node if we have one
-        if (workerStatus.currentNode)
+        /* Advance the current node if we have one */
+        if (wrkStatus.currentNode)
         {
-            // Reset the current node if we have issued a resend
-            if (workerStatus.resentPosition != nullptr && workerStatus.currentNode->pos == *workerStatus.resentPosition)
+            /* Reset the current node if we have issued a resend */
+            if (wrkStatus.resentPosition != nullptr && wrkStatus.currentNode->pt == *wrkStatus.resentPosition)
             {
-                workerStatus.currentNode = nullptr;
+                wrkStatus.currentNode = nullptr;
             }
             else
             {
-                workerStatus.currentNode = workerStatus.currentNode->nextPositionIfExists(*currentPosition);
+                wrkStatus.currentNode = wrkStatus.currentNode->nextPositionIfExists(*currentPosition);
             }
         }
 
-        // If we don't have a current node, check if this position is a root node
-        if (!workerStatus.currentNode && !workerStatus.resendPlanned)
+        /* If we don't have a current node, check if this position is a root node */
+        if (!wrkStatus.currentNode && !wrkStatus.resendPlanned)
         {
-            auto rootNode = findReturnPositionObservations(resource, *currentPosition, false, &workerStatus.rootNode);
+            auto rootNode = findReturnPositionObservations(resource, *currentPosition, false, &wrkStatus.rootNode);
             if (rootNode)
             {
-                workerStatus.currentNode = rootNode;
+                wrkStatus.currentNode = rootNode;
             }
         }
 
-        if (workerStatus.resendPlanned)
+        if (wrkStatus.resendPlanned)
         {
-            validatePlannedReturnPath(workerStatus, currentPosition);
+            validatePlannedReturnPath(wrkStatus, currentPosition);
         }
 
-        if (!workerStatus.resendPlanned)
+        if (!wrkStatus.resendPlanned)
         {
-            planResend(workerStatus, currentPosition);
+            planResend(wrkStatus, currentPosition);
         }
 
-        if (workerStatus.resendPlanned)
+        if (wrkStatus.resendPlanned)
         {
-            if (shouldPerformScheduledResendHere(workerStatus, currentPosition))
+            if (shouldPerformScheduledResendHere(wrkStatus, currentPosition))
             {
 #if OPTIMALRETURN_DEBUG
-                CherryVis::log(worker->id) << "Resending for " << *workerStatus.plannedResendPosition
-                                           << (workerStatus.plannedResendIsForExploration ? " (exploring)" : "");
+                Telemetry::log(wrk->ident) << "Resending for " << *wrkStatus.plannedResendPosition
+                                           << (wrkStatus.plannedResendIsForExploration ? " (exploring)" : "");
 #endif
-                workerStatus.sendReturnCommand(currentPosition);
+                wrkStatus.sendReturnCommand(currentPosition);
             }
 
-            // Remove this position from the expected path
-            if (!workerStatus.expectedPath.empty())
+            /* Remove this position from the expected path */
+            if (!wrkStatus.expectedPath.empty())
             {
-                workerStatus.expectedPath.pop_front();
+                wrkStatus.expectedPath.pop_front();
             }
         }
     }

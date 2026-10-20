@@ -7,12 +7,12 @@
 
 #include "DebugFlag_UnitOrders.h"
 
-void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition)
+void UnitCluster::attack(std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets, BWAPI::Position targetPosition)
 {
-    // If this map has chokes that may need to be cleared, check if this cluster needs to do so to reach its target
+    /* If this map has chokes that may need to be cleared, check if this cluster needs to do so to reach its target */
     if (Map::mapSpecificOverride()->hasAttackClearableChokes())
     {
-        // We don't bother if any enemy unit is already in range of a unit in the cluster
+        /* We don't bother if any enemy unit is already in range of a unit in the cluster */
         bool anyUnitInRange = false;
         for (const auto &unitAndTarget : unitsAndTargets)
         {
@@ -29,15 +29,15 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         }
     }
 
-    // Form an arc if none of our units are in danger or in range yet
-    auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+    /* Form an arc if none of our units are in danger or in range yet */
+    auto &grid = PlayerInfo::grid(BWAPI::Broodwar->enemy());
     Unit vanguardTarget = nullptr;
     bool canFormArc = true;
     for (auto &unitAndTarget : unitsAndTargets)
     {
         if ((unitAndTarget.first->isFlying
-             ? grid.airThreat(unitAndTarget.first->lastPosition)
-             : grid.groundThreat(unitAndTarget.first->lastPosition)) > 0 ||
+             ? grid.airThreat(unitAndTarget.first->prevPos)
+             : grid.groundThreat(unitAndTarget.first->prevPos)) > 0 ||
             (unitAndTarget.second && unitAndTarget.first->isInOurWeaponRange(unitAndTarget.second)))
         {
             canFormArc = false;
@@ -48,14 +48,14 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
     }
     canFormArc = canFormArc && vanguardTarget && vanguardTarget->canAttack(vanguard);
 
-    // If it is a ground unit, check that our vanguard unit has a clear path to its target
+    /* If it is a ground unit, check that our vanguard unit has a clear path to its target */
     if (canFormArc && !vanguard->isFlying)
     {
         std::vector<BWAPI::TilePosition> tiles;
-        Geo::FindTilesBetween(vanguard->getTilePosition(), vanguardTarget->getTilePosition(), tiles);
-        for (auto tile : tiles)
+        Geom::FindTilesBetween(vanguard->getTilePosition(), vanguardTarget->getTilePosition(), tiles);
+        for (auto tilePos : tiles)
         {
-            if (!Map::isWalkable(tile))
+            if (!Map::isWalkable(tilePos))
             {
                 canFormArc = false;
                 break;
@@ -65,16 +65,16 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
 
     if (canFormArc)
     {
-        auto pivot = vanguard->lastPosition + Geo::ScaleVector(vanguardTarget->simPosition - vanguard->lastPosition,
-                                                               vanguard->lastPosition.getApproxDistance(vanguardTarget->simPosition) + 64);
+        auto pivot = vanguard->prevPos + Geom::ScaleVector(vanguardTarget->simPosition - vanguard->prevPos,
+                                                               vanguard->prevPos.getApproxDistance(vanguardTarget->simPosition) + 64);
 
-        // Determine the desired distance to the pivot
-        // If our units are on average within one tile of where we want them, shorten the distance by one tile
-        // Otherwise wait until they have formed up around the vanguard
+        /* Determine the desired distance to the pivot */
+        /* If our units are on average within one tile of where we want them, shorten the distance by one tile */
+        /* Otherwise wait until they have formed up around the vanguard */
 
-        auto effectiveDist = [&pivot](const MyUnit &unit)
+        auto effectiveDist = [&pivot](const OwnedUnit &gameUnit)
         {
-            return unit->lastPosition.getApproxDistance(pivot) + (UnitUtil::IsRangedUnit(unit->type) ? 0 : 32);
+            return gameUnit->prevPos.getApproxDistance(pivot) + (UnitHelper::IsRangedUnit(gameUnit->type) ? 0 : 32);
         };
 
         int desiredDistance = effectiveDist(vanguard);
@@ -87,10 +87,10 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
             if (unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
             if (unitAndTarget.first->isFlying) continue;
 
-            int dist = effectiveDist(unitAndTarget.first);
-            if (dist <= (desiredDistance + 24)) countWithinLimit++;
+            int span = effectiveDist(unitAndTarget.first);
+            if (span <= (desiredDistance + 24)) countWithinLimit++;
             if (countWithinLimit >= 8) break;
-            accumulator += dist;
+            accumulator += span;
             count++;
         }
 
@@ -99,22 +99,22 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         if (formArc(pivot, desiredDistance)) return;
     }
 
-    // Micro each unit
+    /* Micro each unit */
     for (auto &unitAndTarget : unitsAndTargets)
     {
         auto &myUnit = unitAndTarget.first;
 
-        // If the unit is stuck, unstick it
+        /* If the unit is stuck, unstick it */
         if (myUnit->unstick()) continue;
 
-        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
+        /* If the unit is not ready (i.e. is already in the middle of an attack), don't touch it */
         if (!myUnit->isReady()) continue;
 
-        // Attack target
+        /* Attack target */
         if (unitAndTarget.second)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
+            Telemetry::log(unitAndTarget.first->ident) << "Target: " << unitAndTarget.second->type << " @ "
                                                     << BWAPI::WalkPosition(unitAndTarget.second->simPosition);
 #endif
             myUnit->attackUnit(unitAndTarget.second, unitsAndTargets, true, enemyAoeRadius);
@@ -122,13 +122,13 @@ void UnitCluster::attack(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, 
         else if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "No target";
+            Telemetry::log(unitAndTarget.first->ident) << "No target";
 #endif
         }
         else
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
+            Telemetry::log(unitAndTarget.first->ident) << "No target: move to " << BWAPI::WalkPosition(targetPosition);
 #endif
             myUnit->moveTo(targetPosition);
         }

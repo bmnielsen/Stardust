@@ -23,7 +23,7 @@ namespace
             {
                 for (int y = -type.dimensionUp() - range; y <= type.dimensionDown() + range; y++)
                 {
-                    if (Geo::EdgeToPointDistance(type, BWAPI::Positions::Origin, BWAPI::Position(x, y)) <= range)
+                    if (Geom::EdgeToPointDistance(type, BWAPI::Positions::Origin, BWAPI::Position(x, y)) <= range)
                         positions.insert(BWAPI::WalkPosition(x >> 3U, y >> 3U));
                 }
             }
@@ -36,10 +36,10 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
 {
     int startX = position.x >> 3U;
     int startY = position.y >> 3U;
-    for (auto &pos : getPositionsInRange(type, range))
+    for (auto &pt : getPositionsInRange(type, range))
     {
-        int x = startX + pos.x;
-        int y = startY + pos.y;
+        int x = startX + pt.x;
+        int y = startY + pt.y;
         if (x >= 0 && x < maxX && y >= 0 && y < maxY)
         {
             data[x * maxY + y] += delta;
@@ -47,14 +47,14 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
 #if LOG_NEGATIVE_VALUES
             if (data[x * maxY + y] < 0)
             {
-                Log::Get() << "Negative grid value @ " << BWAPI::Position(x, y) << "\n"
+                AppLog::Get() << "Negative grid value @ " << BWAPI::Position(x, y) << "\n"
                            << "start=" << BWAPI::WalkPosition(position)
                            << ";type=" << type
                            << ";range=" << range
                            << ";delta=" << delta
                            << ";value=" << data[x * maxY + y];
 
-                Log::Debug() << "Negative grid value @ " << BWAPI::Position(x, y) << "\n"
+                AppLog::Debug() << "Negative grid value @ " << BWAPI::Position(x, y) << "\n"
                              << "start=" << BWAPI::WalkPosition(position)
                              << ";type=" << type
                              << ";range=" << range
@@ -69,14 +69,14 @@ void Grid::GridData::add(BWAPI::UnitType type, int range, BWAPI::Position positi
         }
     }
 
-    frameLastUpdated = currentFrame;
+    frameLastUpdated = frameNow;
 }
 
 void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &data)
 {
     if (data.frameLastDumped >= data.frameLastUpdated) return;
 
-    // Transpose the vector
+    /* Transpose the vector */
     std::vector<long> heatmapData(data.maxX * data.maxY);
     for (int x = 0; x < data.maxX; x++)
     {
@@ -86,9 +86,9 @@ void Grid::dumpHeatmapIfChanged(const std::string &heatmapName, const GridData &
         }
     }
 
-    CherryVis::addHeatmap(heatmapName, heatmapData, data.maxX, data.maxY);
+    Telemetry::addHeatmap(heatmapName, heatmapData, data.maxX, data.maxY);
 
-    data.frameLastDumped = currentFrame;
+    data.frameLastDumped = frameNow;
 }
 
 void Grid::unitCreated(BWAPI::UnitType type, BWAPI::Position position, bool completed, bool burrowed, bool immobile)
@@ -119,7 +119,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
                 upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits()
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
 
-        if (UnitUtil::IsStationaryAttacker(type))
+        if (UnitHelper::IsStationaryAttacker(type))
         {
             _staticGroundThreat.add(
                     type,
@@ -129,7 +129,7 @@ void Grid::unitCompleted(BWAPI::UnitType type, BWAPI::Position position, bool bu
                     * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
         }
 
-        // For sieged tanks, subtract the area close to the tank
+        /* For sieged tanks, subtract the area close to the tank */
         if (weaponUnitType.groundWeapon().minRange() > 0)
         {
             _groundThreat.add(
@@ -195,8 +195,8 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
         _stasisRange.add(type, STASIS_RANGE, position, -1);
     }
 
-    // If the unit was a building that was destroyed or cancelled before being completed, we only
-    // need to update the collision grid
+    /* If the unit was a building that was destroyed or cancelled before being completed, we only */
+    /* need to update the collision grid */
     if (!completed) return;
 
     auto weaponUnitType = type;
@@ -207,8 +207,8 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
     if (weaponUnitType.groundWeapon() != BWAPI::WeaponTypes::None && !immobile &&
         ((burrowed && type == BWAPI::UnitTypes::Zerg_Lurker) || (!burrowed && type != BWAPI::UnitTypes::Zerg_Lurker)))
     {
-        // For sieged tanks, add the area close to the tank before removing the entire area
-        // We need to do it in this order to avoid triggering the negative values check
+        /* For sieged tanks, add the area close to the tank before removing the entire area */
+        /* We need to do it in this order to avoid triggering the negative values check */
         if (weaponUnitType.groundWeapon().minRange() > 0)
         {
             _groundThreat.add(
@@ -231,7 +231,7 @@ void Grid::unitDestroyed(BWAPI::UnitType type, BWAPI::Position position, bool co
                 -upgradeTracker->weaponDamage(weaponUnitType.groundWeapon()) * weaponUnitType.maxGroundHits()
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
 
-        if (UnitUtil::IsStationaryAttacker(type))
+        if (UnitHelper::IsStationaryAttacker(type))
         {
             _staticGroundThreat.add(
                     type,
@@ -280,7 +280,7 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
                 position,
                 (newDamage - formerDamage) * weaponUnitType.maxGroundHits() * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
 
-        if (UnitUtil::IsStationaryAttacker(type))
+        if (UnitHelper::IsStationaryAttacker(type))
         {
             _staticGroundThreat.add(
                     type,
@@ -302,8 +302,8 @@ void Grid::unitWeaponDamageUpgraded(BWAPI::UnitType type, BWAPI::Position positi
 
 void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position position, BWAPI::WeaponType weapon, int formerRange, int newRange)
 {
-    // We don't need to worry about minimum range here, since tanks do not have range upgrades
-    // Also don't need to worry about carriers and reavers
+    /* We don't need to worry about minimum range here, since tanks do not have range upgrades */
+    /* Also don't need to worry about carriers and reavers */
 
     if (weapon.targetsGround())
     {
@@ -321,7 +321,7 @@ void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position positio
                 upgradeTracker->weaponDamage(weapon) * type.maxGroundHits()
                 * (type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 1));
 
-        if (UnitUtil::IsStationaryAttacker(type))
+        if (UnitHelper::IsStationaryAttacker(type))
         {
             _staticGroundThreat.add(
                     type,
@@ -359,7 +359,7 @@ void Grid::unitWeaponRangeUpgraded(BWAPI::UnitType type, BWAPI::Position positio
 
 void Grid::unitSightRangeUpgraded(BWAPI::UnitType type, BWAPI::Position position, int formerRange, int newRange)
 {
-    // Only mobile detectors are handled here
+    /* Only mobile detectors are handled here */
     if (!type.isDetector() || type.isBuilding()) return;
 
     _detection.add(type, formerRange + rangeBuffer, position, -1);

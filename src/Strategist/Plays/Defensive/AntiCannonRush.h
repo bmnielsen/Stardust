@@ -3,30 +3,30 @@
 #include "Play.h"
 #include "MyWorker.h"
 
-class AntiCannonRush : public Play
+class AntiCannonRush : public PlayItem
 {
 public:
-    // Whether the enemy's current strategy is considered "safe" from a cannon rush perspective
+    /* Whether the enemy's current strategy is considered "safe" from a cannon rush perspective */
     bool safeEnemyStrategyDetermined;
 
     AntiCannonRush();
 
     void update() override;
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals) override;
 
-    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
+    void disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                 const std::function<void(const OwnedUnit)> &movableUnitCallback) override;
 
 protected:
-    MyWorker scout;
+    OwnedWorker scout;
     std::vector<BWAPI::TilePosition> tilesToScout;
 
     bool builtPylon;
     bool builtCannon;
 
-    std::set<MyWorker> workerAttackers;
-    std::map<Unit, std::set<MyWorker>> cannonsAndAttackers;
+    std::set<OwnedWorker> workerAttackers;
+    std::map<Unit, std::set<OwnedWorker>> cannonsAndAttackers;
 
     BWAPI::TilePosition getNextScoutTile();
 };

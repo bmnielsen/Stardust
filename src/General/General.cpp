@@ -12,17 +12,17 @@
 #include <nlohmann/json.hpp>
 #endif
 
-namespace General
+namespace Marshal
 {
     namespace
     {
-        std::unordered_set<std::shared_ptr<Squad>> squads;
+        std::unordered_set<std::shared_ptr<UnitSquad>> squads;
 
         std::unordered_map<Base *, std::shared_ptr<AttackBaseSquad>> baseToAttackSquad;
-        std::unordered_map<Base *, std::shared_ptr<Squad>> baseToDefendSquad;
-        std::unordered_map<MyUnit, std::shared_ptr<Squad>> cannonToSquad;
+        std::unordered_map<Base *, std::shared_ptr<UnitSquad>> baseToDefendSquad;
+        std::unordered_map<OwnedUnit, std::shared_ptr<UnitSquad>> cannonToSquad;
 
-        std::shared_ptr<Squad> defendWallSquad;
+        std::shared_ptr<UnitSquad> defendWallSquad;
     }
 
     void initialize()
@@ -36,23 +36,23 @@ namespace General
 
     void updateClusters()
     {
-        // Add completed and powered cannons to an appropriate squad
-        // We currently only use cannons defensively, so we don't need to ever add them to attack squads
-        for (auto &cannon : Units::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
+        /* Add completed and powered cannons to an appropriate squad */
+        /* We currently only use cannons defensively, so we don't need to ever add them to attack squads */
+        for (auto &cannon : UnitMgr::allMineCompletedOfType(BWAPI::UnitTypes::Protoss_Photon_Cannon))
         {
-            // Clean up dead or unpowered cannons
-            if (!cannon->exists() || !cannon->bwapiUnit->isPowered())
+            /* Clean up dead or unpowered cannons */
+            if (!cannon->exists() || !cannon->rawUnit->isPowered())
             {
-                auto it = cannonToSquad.find(cannon);
-                if (it != cannonToSquad.end())
+                auto iterRef = cannonToSquad.find(cannon);
+                if (iterRef != cannonToSquad.end())
                 {
-                    it->second->removeUnit(cannon);
-                    cannonToSquad.erase(it);
+                    iterRef->second->removeUnit(cannon);
+                    cannonToSquad.erase(iterRef);
                 }
                 continue;
             }
 
-            // Check if the cannon should belong to a defend wall squad
+            /* Check if the cannon should belong to a defend wall squad */
             if (defendWallSquad)
             {
                 bool foundCannon = false;
@@ -80,28 +80,28 @@ namespace General
                 if (foundCannon) continue;
             }
 
-            // Determine the base the cannon belongs to
-            Base *base = nullptr;
-            if (Map::getMyMainAreas().contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(cannon->lastPosition))))
+            /* Determine the base the cannon belongs to */
+            Base *baseLoc = nullptr;
+            if (Map::getMyMainAreas().contains(BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(cannon->prevPos))))
             {
-                base = Map::getMyMain();
+                baseLoc = Map::getMyMain();
             }
             else
             {
                 int closest = INT_MAX;
                 for (auto myBase : Map::getMyBases())
                 {
-                    int dist = cannon->lastPosition.getApproxDistance(myBase->getPosition());
-                    if (dist < 320 && dist < closest)
+                    int span = cannon->prevPos.getApproxDistance(myBase->getPosition());
+                    if (span < 320 && span < closest)
                     {
-                        closest = dist;
-                        base = myBase;
+                        closest = span;
+                        baseLoc = myBase;
                     }
                 }
             }
 
-            // Update the assignment
-            auto baseSquad = baseToDefendSquad.find(base);
+            /* Update the assignment */
+            auto baseSquad = baseToDefendSquad.find(baseLoc);
             auto currentSquad = cannonToSquad.find(cannon);
             if (currentSquad != cannonToSquad.end() && (baseSquad == baseToDefendSquad.end() || baseSquad->second != currentSquad->second))
             {
@@ -130,17 +130,17 @@ namespace General
         }
     }
 
-    void addSquad(const std::shared_ptr<Squad> &squad)
+    void addSquad(const std::shared_ptr<UnitSquad> &squad)
     {
         squads.insert(squad);
 
         if (auto match = std::dynamic_pointer_cast<AttackBaseSquad>(squad))
         {
-            baseToAttackSquad[match->base] = match;
+            baseToAttackSquad[match->baseLoc] = match;
         }
         if (auto match = std::dynamic_pointer_cast<DefendBaseSquad>(squad))
         {
-            baseToDefendSquad[match->base] = squad;
+            baseToDefendSquad[match->baseLoc] = squad;
         }
         if (auto match = std::dynamic_pointer_cast<EarlyGameDefendMainBaseSquad>(squad))
         {
@@ -152,22 +152,22 @@ namespace General
         }
     }
 
-    void removeSquad(const std::shared_ptr<Squad> &squad)
+    void removeSquad(const std::shared_ptr<UnitSquad> &squad)
     {
         squad->disband();
         squads.erase(squad);
 
         auto cleanupMap = [&squad](auto map)
         {
-            for (auto it = map.begin(); it != map.end(); )
+            for (auto iterRef = map.begin(); iterRef != map.end(); )
             {
-                if (it->second == squad)
+                if (iterRef->second == squad)
                 {
-                    it = map.erase(it);
+                    iterRef = map.erase(iterRef);
                 }
                 else
                 {
-                    it++;
+                    iterRef++;
                 }
             }
         };
@@ -181,10 +181,10 @@ namespace General
     AttackBaseSquad *getAttackBaseSquad(Base *targetBase)
     {
         if (!targetBase) return nullptr;
-        auto it = baseToAttackSquad.find(targetBase);
-        if (it != baseToAttackSquad.end())
+        auto iterRef = baseToAttackSquad.find(targetBase);
+        if (iterRef != baseToAttackSquad.end())
         {
-            return it->second.get();
+            return iterRef->second.get();
         }
 
         return nullptr;
@@ -198,20 +198,20 @@ namespace General
         std::set<std::string> squadLabels;
         for (auto &squad : squads)
         {
-            // Ignore squads with no units
+            /* Ignore squads with no units */
             if (squad->combatUnitCount() == 0) continue;
 
-            // Check if we have multiple squads with the same label
-            auto result = squadLabels.insert(squad->label);
-            if (!result.second)
+            /* Check if we have multiple squads with the same label */
+            auto outcome = squadLabels.insert(squad->label);
+            if (!outcome.second)
             {
-                Log::Get() << "Instrumentation Error: Duplicate squad label " << squad->label;
+                AppLog::Get() << "Instrumentation Error: Duplicate squad label " << squad->label;
             }
 
             squad->addInstrumentation(squadArray);
         }
 
-        CherryVis::writeFrameData("squads", squadArray, 250);
+        Telemetry::writeFrameData("squads", squadArray, 250);
 #endif
     }
 }

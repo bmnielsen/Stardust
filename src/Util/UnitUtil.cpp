@@ -2,13 +2,13 @@
 
 #include <array>
 
-namespace UnitUtil
+namespace UnitHelper
 {
     namespace
     {
         const int WARP_IN_FRAMES = 71;
 
-        // Weapon angles indexed by weapon ID
+        /* Weapon angles indexed by weapon ID */
         const std::array<int, 134> weaponAngles = {
                 16, 16, 16, 16, 64, 64, 128, 16, 32, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16,
                 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 128, 128, 128, 128, 16, 16, 16, 16, 16, 16, 16, 16, 16,
@@ -16,8 +16,8 @@ namespace UnitUtil
                 32, 32, 32, 16, 16, 16, 32, 16, 16, 16, 16, 16, 0, 16, 16, 16, 16, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16
         };
 
-        // Halt distances indexed by unit ID
-        // Some are adjusted slightly based on observed behaviour
+        /* Halt distances indexed by unit ID */
+        /* Some are adjusted slightly based on observed behaviour */
         const std::array<int, 234> haltDistances = {
                 0, 0, 57, 0, 0, 0, 0, 48, 85, 20,
                 0, 147, 30, 0, 4309, 0, 0, 0, 0, 57,
@@ -73,7 +73,7 @@ namespace UnitUtil
 
     int BuildTime(BWAPI::UnitType type)
     {
-        // TODO: Technically zerg and terran also have an animation that needs to play after finished construction
+        /* TODO: Technically zerg and terran also have an animation that needs to play after finished construction */
         if (type.getRace() == BWAPI::Races::Protoss && type.isBuilding())
         {
             return type.buildTime() + WARP_IN_FRAMES;
@@ -84,7 +84,7 @@ namespace UnitUtil
 
     BWAPI::WeaponType GetGroundWeapon(BWAPI::UnitType attacker)
     {
-        // Assume bunkers have marines in them
+        /* Assume bunkers have marines in them */
         if (attacker == BWAPI::UnitTypes::Terran_Bunker)
         {
             return GetGroundWeapon(BWAPI::UnitTypes::Terran_Marine);
@@ -105,7 +105,7 @@ namespace UnitUtil
 
     BWAPI::WeaponType GetAirWeapon(BWAPI::UnitType attacker)
     {
-        // Assume bunkers have marines in them
+        /* Assume bunkers have marines in them */
         if (attacker == BWAPI::UnitTypes::Terran_Bunker)
         {
             return GetAirWeapon(BWAPI::UnitTypes::Terran_Marine);
@@ -172,13 +172,13 @@ namespace UnitUtil
 
     std::pair<BWAPI::UnitType, int> MorphsFrom(BWAPI::UnitType type)
     {
-        // Anything built by a drone is a morph
+        /* Anything built by a drone is a morph */
         if (type.whatBuilds().first == BWAPI::UnitTypes::Zerg_Drone) return type.whatBuilds();
 
-        // A building "built" by another building is a morph, unless it is an add-on
+        /* A building "built" by another building is a morph, unless it is an add-on */
         if (type.isBuilding() && !type.isAddon() && type.whatBuilds().first.isBuilding()) return type.whatBuilds();
 
-        // A unit "built" by another unit is a morph unless it is an interceptor or scarab
+        /* A unit "built" by another unit is a morph unless it is an interceptor or scarab */
         if (!type.isBuilding() && !type.whatBuilds().first.isBuilding() &&
             type != BWAPI::UnitTypes::Protoss_Interceptor && type != BWAPI::UnitTypes::Protoss_Scarab)
         {
@@ -194,7 +194,7 @@ namespace UnitUtil
 
         int minerals = type.mineralPrice();
 
-        // BWAPI lists some units as having mineral cost 1 instead of 0, e.g. Larva
+        /* BWAPI lists some units as having mineral cost 1 instead of 0, e.g. Larva */
         if (minerals == 1) minerals = 0;
 
         if (type.isTwoUnitsInOneEgg()) minerals /= 2;
@@ -211,7 +211,7 @@ namespace UnitUtil
 
         int gas = type.gasPrice();
 
-        // BWAPI lists some units as having gas cost 1 instead of 0, e.g. Larva
+        /* BWAPI lists some units as having gas cost 1 instead of 0, e.g. Larva */
         if (gas == 1) gas = 0;
 
         if (type.isTwoUnitsInOneEgg()) gas /= 2;
@@ -242,7 +242,7 @@ namespace UnitUtil
 
     int Acceleration(BWAPI::UnitType type, double currentTopSpeed)
     {
-        // Acceleration is doubled when speed is upgraded
+        /* Acceleration is doubled when speed is upgraded */
         if (currentTopSpeed > type.topSpeed())
         {
             return type.acceleration() << 1;

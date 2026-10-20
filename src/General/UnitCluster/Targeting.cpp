@@ -15,7 +15,7 @@ namespace
 {
     int targetPriority(Unit target)
     {
-        // This is similar to the target prioritization in Locutus that originally came from Steamhammer/UAlbertaBot
+        /* This is similar to the target prioritization in Locutus that originally came from Steamhammer/UAlbertaBot */
 
         const BWAPI::UnitType targetType = target->type;
         auto notCloseToTargetPosition = [&target]()
@@ -27,7 +27,7 @@ namespace
             targetType == BWAPI::UnitTypes::Protoss_High_Templar ||
             targetType == BWAPI::UnitTypes::Protoss_Reaver ||
             (targetType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine && !target->burrowed) ||
-            (targetType == BWAPI::UnitTypes::Protoss_Observer && Units::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0))
+            (targetType == BWAPI::UnitTypes::Protoss_Observer && UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Dark_Templar) > 0))
         {
             return 15;
         }
@@ -49,7 +49,7 @@ namespace
             return 13;
         }
 
-        // Proxies
+        /* Proxies */
         if (target->type.isBuilding() && !target->isFlying && notCloseToTargetPosition())
         {
             if (target->canAttackGround() || target->canAttackAir())
@@ -66,41 +66,41 @@ namespace
 
         if (targetType.isWorker())
         {
-            if ((target->bwapiUnit->isConstructing() || target->bwapiUnit->isRepairing()) && notCloseToTargetPosition())
+            if ((target->rawUnit->isConstructing() || target->rawUnit->isRepairing()) && notCloseToTargetPosition())
             {
                 return 15;
             }
 
-            // Blocking a narrow choke makes you critical.
+            /* Blocking a narrow choke makes you critical. */
             if (Map::isInNarrowChoke(target->getTilePosition()))
             {
                 return 14;
             }
 
-            // Repairing
-            if (target->bwapiUnit->isRepairing() && target->bwapiUnit->getOrderTarget())
+            /* Repairing */
+            if (target->rawUnit->isRepairing() && target->rawUnit->getOrderTarget())
             {
-                // Something that can shoot
-                if (target->bwapiUnit->getOrderTarget()->getType().groundWeapon() != BWAPI::WeaponTypes::None)
+                /* Something that can shoot */
+                if (target->rawUnit->getOrderTarget()->getType().groundWeapon() != BWAPI::WeaponTypes::None)
                 {
                     return 14;
                 }
 
-                // A bunker: only target the workers if we can't outrange the bunker
-                if (target->bwapiUnit->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker &&
-                    Players::weaponRange(target->player, BWAPI::UnitTypes::Terran_Marine.groundWeapon()) > 128)
+                /* A bunker: only target the workers if we can't outrange the bunker */
+                if (target->rawUnit->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker &&
+                    PlayerInfo::weaponRange(target->player, BWAPI::UnitTypes::Terran_Marine.groundWeapon()) > 128)
                 {
                     return 13;
                 }
             }
 
-            // Workers that have attacked in the last four seconds
-            if ((currentFrame - target->lastSeenAttacking) < 96)
+            /* Workers that have attacked in the last four seconds */
+            if ((frameNow - target->lastSeenAttacking) < 96)
             {
                 return 11;
             }
 
-            if (target->bwapiUnit->isConstructing())
+            if (target->rawUnit->isConstructing())
             {
                 return 10;
             }
@@ -136,7 +136,7 @@ namespace
             return 1;
         }
 
-        if (!target->completed || (targetType.requiresPsi() && !target->bwapiUnit->isPowered()))
+        if (!target->completed || (targetType.requiresPsi() && !target->rawUnit->isPowered()))
         {
             return 2;
         }
@@ -154,16 +154,16 @@ namespace
         return 1;
     }
 
-    bool isInOurMainOrNatural(const Unit &unit)
+    bool isInOurMainOrNatural(const Unit &gameUnit)
     {
-        if (!unit->lastPositionValid) return false;
+        if (!gameUnit->lastPositionValid) return false;
 
-        auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition));
+        auto area = BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(gameUnit->prevPos));
         auto mainAndNaturalAreas = Map::getMyMainAreas();
-        auto natural = Map::getMyNatural();
-        if (natural)
+        auto natBase = Map::getMyNatural();
+        if (natBase)
         {
-            mainAndNaturalAreas.insert(natural->getArea());
+            mainAndNaturalAreas.insert(natBase->getArea());
         }
 
         return mainAndNaturalAreas.contains(area);
@@ -171,30 +171,30 @@ namespace
 
     struct Target
     {
-        Unit unit;
+        Unit gameUnit;
         int priority;               // Base priority computed by targetPriority above
         int healthIncludingShields; // Estimated health reduced by incoming bullets and earlier attackers
         int attackerCount;          // How many attackers have this target in their closeTargets vector
         bool cliffedTank;
         bool inMyMainOrNatural;
 
-        explicit Target(const Unit &unit, const MyUnit &vanguard)
-                : unit(unit)
-                , priority(targetPriority(unit))
-                , healthIncludingShields(unit->health + unit->shields)
+        explicit Target(const Unit &gameUnit, const OwnedUnit &vanguard)
+                : gameUnit(gameUnit)
+                , priority(targetPriority(gameUnit))
+                , healthIncludingShields(gameUnit->health + gameUnit->shields)
                 , attackerCount(0)
-                , cliffedTank(unit->isCliffedTank(vanguard))
-                , inMyMainOrNatural(isInOurMainOrNatural(unit)) {}
+                , cliffedTank(gameUnit->isCliffedTank(vanguard))
+                , inMyMainOrNatural(isInOurMainOrNatural(gameUnit)) {}
 
-        void dealDamage(const MyUnit &attacker)
+        void dealDamage(const OwnedUnit &attacker)
         {
-            if (unit->isBeingHealed()) return;
+            if (gameUnit->isBeingHealed()) return;
 
-            int damage = Players::attackDamage(attacker->player, attacker->type, unit->player, unit->type);
+            int damage = PlayerInfo::attackDamage(attacker->player, attacker->type, gameUnit->player, gameUnit->type);
 
-            // For low-ground to high-ground attacks, simulate half damage
-            if (!attacker->isFlying && UnitUtil::IsRangedUnit(attacker->type) &&
-                BWAPI::Broodwar->getGroundHeight(attacker->getTilePosition()) < BWAPI::Broodwar->getGroundHeight(unit->getTilePosition()))
+            /* For low-ground to high-ground attacks, simulate half damage */
+            if (!attacker->isFlying && UnitHelper::IsRangedUnit(attacker->type) &&
+                BWAPI::Broodwar->getGroundHeight(attacker->getTilePosition()) < BWAPI::Broodwar->getGroundHeight(gameUnit->getTilePosition()))
             {
                 damage /= 2;
             }
@@ -205,17 +205,17 @@ namespace
 
     struct Attacker
     {
-        MyUnit unit;
+        OwnedUnit gameUnit;
         std::vector<Target *> targets;      // All of the targets available to this attacker
         int framesToAttack;                 // The number of frames before this attacker can attack something
         std::vector<Target *> closeTargets; // All targets that can be attacked at framesToAttack
 
-        explicit Attacker(MyUnit unit) : unit(std::move(unit)), framesToAttack(INT_MAX) {}
+        explicit Attacker(OwnedUnit gameUnit) : gameUnit(std::move(gameUnit)), framesToAttack(INT_MAX) {}
     };
 
-    bool isTargetReachableEnemyBase(BWAPI::Position targetPosition, const MyUnit &vanguard)
+    bool isTargetReachableEnemyBase(BWAPI::Position targetPosition, const OwnedUnit &vanguard)
     {
-        // First check if the target is an enemy base
+        /* First check if the target is an enemy base */
         auto targetBase = Map::baseNear(targetPosition);
         if (!targetBase) return false;
         if (targetBase->owner != BWAPI::Broodwar->enemy()) return false;
@@ -223,57 +223,57 @@ namespace
 
         if (!vanguard) return true;
 
-        auto grid = PathFinding::getNavigationGrid(targetBase->getPosition());
+        auto grid = Pathfinder::getNavigationGrid(targetBase->getPosition());
         if (!grid) return true;
 
-        auto &node = (*grid)[vanguard->lastPosition];
+        auto &node = (*grid)[vanguard->prevPos];
         return node.nextNode != nullptr;
     }
 }
 
-std::vector<std::pair<MyUnit, Unit>>
+std::vector<std::pair<OwnedUnit, Unit>>
 UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPosition, bool staticPosition)
 {
-    // Perform a scan to remove target units that are at much different distances from our target position than the vanguard unit
-    // This indicates we have picked up enemy units that are in a different region separated from us by a cliff
+    /* Perform a scan to remove target units that are at much different distances from our target position than the vanguard unit */
+    /* This indicates we have picked up enemy units that are in a different region separated from us by a cliff */
     if (!vanguard->isFlying)
     {
-        for (auto it = targetUnits.begin(); it != targetUnits.end();)
+        for (auto iterRef = targetUnits.begin(); iterRef != targetUnits.end();)
         {
-            auto &unit = *it;
-            if (!unit->isFlying)
+            auto &gameUnit = *iterRef;
+            if (!gameUnit->isFlying)
             {
-                unit->distToTargetPosition = PathFinding::GetGroundDistance(
-                        unit->simPosition,
+                gameUnit->distToTargetPosition = Pathfinder::GetGroundDistance(
+                        gameUnit->simPosition,
                         targetPosition,
-                        unit->type,
-                        PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+                        gameUnit->type,
+                        Pathfinder::PathFindingOptions::UseNeighbouringBWEMArea);
 
-                if (unit->distToTargetPosition != -1 && abs(unit->distToTargetPosition - vanguardDistToTarget) > 700
-                    && !vanguard->isInEnemyWeaponRange(unit))
+                if (gameUnit->distToTargetPosition != -1 && abs(gameUnit->distToTargetPosition - vanguardDistToTarget) > 700
+                    && !vanguard->isInEnemyWeaponRange(gameUnit))
                 {
-                    it = targetUnits.erase(it);
+                    iterRef = targetUnits.erase(iterRef);
                     continue;
                 }
             }
 
-            it++;
+            iterRef++;
         }
     }
 
-    std::vector<std::pair<MyUnit, Unit>> result;
+    std::vector<std::pair<OwnedUnit, Unit>> outcome;
 
-    // For our targeting we want to know if we are attacking a reachable enemy base
-    // Criteria:
-    // - Not in static position mode
-    // - Target is near a base
-    // - The base is owned by the enemy
-    // - The base has a resource depot or hasn't been scouted yet
-    // - The base has a navigation grid path from our main choke (i.e. hasn't been walled-off)
+    /* For our targeting we want to know if we are attacking a reachable enemy base */
+    /* Criteria: */
+    /* - Not in static position mode */
+    /* - Target is near a base */
+    /* - The base is owned by the enemy */
+    /* - The base has a resource depot or hasn't been scouted yet */
+    /* - The base has a navigation grid path from our main choke (i.e. hasn't been walled-off) */
     bool targetIsReachableEnemyBase = !staticPosition && isTargetReachableEnemyBase(targetPosition, vanguard);
 
-    // Create the target objects
-    // This also updates the enemy AOE radius
+    /* Create the target objects */
+    /* This also updates the enemy AOE radius */
     std::vector<Target> targets;
     targets.reserve(targetUnits.size());
     enemyAoeRadius = 0;
@@ -289,196 +289,196 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
 #if DEBUG_TARGETING
     std::ostringstream dbg;
-    dbg << "Targeting for cluster " << BWAPI::TilePosition(center) << " - targetIsReachableEnemyBase=" << targetIsReachableEnemyBase;
+    dbg << "Targeting for cluster " << BWAPI::TilePosition(midpoint) << " - targetIsReachableEnemyBase=" << targetIsReachableEnemyBase;
 #endif
 
-    auto getCurrentTarget = [&targets](const MyUnit &unit) -> Target *
+    auto getCurrentTarget = [&targets](const OwnedUnit &gameUnit) -> Target *
     {
-        if (unit->bwapiUnit->getLastCommand().type != BWAPI::UnitCommandTypes::Attack_Unit) return nullptr;
+        if (gameUnit->rawUnit->getLastCommand().type != BWAPI::UnitCommandTypes::Attack_Unit) return nullptr;
 
-        auto targetUnit = Units::get(unit->bwapiUnit->getLastCommand().getTarget());
+        auto targetUnit = UnitMgr::get(gameUnit->rawUnit->getLastCommand().getTarget());
         if (!targetUnit) return nullptr;
 
         for (auto &target : targets)
         {
-            if (target.unit == targetUnit) return &target;
+            if (target.gameUnit == targetUnit) return &target;
         }
 
         return nullptr;
     };
 
-    // Perform a pre-scan to get valid targets and the frame at which we can attack them for each unit
+    /* Perform a pre-scan to get valid targets and the frame at which we can attack them for each unit */
     std::vector<Attacker> attackers;
     attackers.reserve(units.size());
-    for (const auto &unit : units)
+    for (const auto &gameUnit : units)
     {
 #if DEBUG_TARGETING
-        dbg << "\n" << *unit << " target filtering:";
+        dbg << "\n" << *gameUnit << " target filtering:";
 #endif
 
-        // If the unit isn't ready, lock it to its current target and skip targeting completely
-        if (!unit->isReady())
+        /* If the unit isn't ready, lock it to its current target and skip targeting completely */
+        if (!gameUnit->isReady())
         {
-            auto target = getCurrentTarget(unit);
+            auto target = getCurrentTarget(gameUnit);
 
-            // If the unit isn't on its cooldown yet, simulate the attack on the target for use in later targeting
-            // If the unit is on its cooldown, there will be an upcomingAttack already registered on the target
-            // This ensures consistency between our targeting and combat sim (avoiding double-counting of damage)
-            if (target && (unit->cooldownUntil - currentFrame) <= (BWAPI::Broodwar->getLatencyFrames() + 2))
+            /* If the unit isn't on its cooldown yet, simulate the attack on the target for use in later targeting */
+            /* If the unit is on its cooldown, there will be an upcomingAttack already registered on the target */
+            /* This ensures consistency between our targeting and combat sim (avoiding double-counting of damage) */
+            if (target && (gameUnit->cooldownUntil - frameNow) <= (BWAPI::Broodwar->getLatencyFrames() + 2))
             {
-                target->dealDamage(unit);
+                target->dealDamage(gameUnit);
             }
 
 #if DEBUG_TARGETING
             dbg << "\n Not ready, locking to current target";
-            if (target) dbg << " " << target->unit;
+            if (target) dbg << " " << target->gameUnit;
 #endif
 
 #if DRAW_TARGETING
             if (target)
             {
-                CherryVis::drawLine(unit->lastPosition.x,
-                                    unit->lastPosition.y,
-                                    target->unit->simPosition.x,
-                                    target->unit->simPosition.y,
-                                    CherryVis::DrawColor::White,
-                                    unit->id);
+                Telemetry::drawLine(gameUnit->prevPos.x,
+                                    gameUnit->prevPos.y,
+                                    target->gameUnit->simPosition.x,
+                                    target->gameUnit->simPosition.y,
+                                    Telemetry::DrawColor::White,
+                                    gameUnit->ident);
             }
 #endif
 
-            result.emplace_back(unit, target ? target->unit : nullptr);
+            outcome.emplace_back(gameUnit, target ? target->gameUnit : nullptr);
             continue;
         }
 
-        bool isRanged = UnitUtil::IsRangedUnit(unit->type);
-        bool isAntiAir = unit->type == BWAPI::UnitTypes::Protoss_Corsair;
-        int distanceToTargetPosition = unit->getDistance(targetPosition);
+        bool isRanged = UnitHelper::IsRangedUnit(gameUnit->type);
+        bool isAntiAir = gameUnit->type == BWAPI::UnitTypes::Protoss_Corsair;
+        int distanceToTargetPosition = gameUnit->getDistance(targetPosition);
 
-        // Start by doing a pass to gather the types of targets we have and filter those we don't want to consider
+        /* Start by doing a pass to gather the types of targets we have and filter those we don't want to consider */
         bool hasNonBuilding = false;
         std::vector<std::pair<Target *, int>> filteredTargets;
         for (auto &target : targets)
         {
-            if (target.unit->type == BWAPI::UnitTypes::Zerg_Larva ||
-                target.unit->type == BWAPI::UnitTypes::Zerg_Egg ||
-                target.unit->undetected ||
-                target.unit->health <= 0 ||
-                !unit->canAttack(target.unit))
+            if (target.gameUnit->type == BWAPI::UnitTypes::Zerg_Larva ||
+                target.gameUnit->type == BWAPI::UnitTypes::Zerg_Egg ||
+                target.gameUnit->undetected ||
+                target.gameUnit->health <= 0 ||
+                !gameUnit->canAttack(target.gameUnit))
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " because of type / detection / health / can't attack";
+                dbg << "\n Skipping " << *target.gameUnit << " because of type / detection / health / can't attack";
 #endif
                 continue;
             }
 
-            // Ranged cannot hit targets under dark swarm
-            if ((isRanged || unit->type.isWorker())
-                && unit->type != BWAPI::UnitTypes::Protoss_Reaver
-                && target.unit->bwapiUnit->isUnderDarkSwarm())
+            /* Ranged cannot hit targets under dark swarm */
+            if ((isRanged || gameUnit->type.isWorker())
+                && gameUnit->type != BWAPI::UnitTypes::Protoss_Reaver
+                && target.gameUnit->rawUnit->isUnderDarkSwarm())
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as under dark swarm";
+                dbg << "\n Skipping " << *target.gameUnit << " as under dark swarm";
 #endif
                 continue;
             }
 
-            // Melee cannot hit targets under disruption web and don't want to attack targets under storm
-            if (!isRanged && (target.unit->bwapiUnit->isUnderDisruptionWeb() || target.unit->bwapiUnit->isUnderStorm()))
+            /* Melee cannot hit targets under disruption web and don't want to attack targets under storm */
+            if (!isRanged && (target.gameUnit->rawUnit->isUnderDisruptionWeb() || target.gameUnit->rawUnit->isUnderStorm()))
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as under disruption web";
+                dbg << "\n Skipping " << *target.gameUnit << " as under disruption web";
 #endif
                 continue;
             }
 
-            // Cannons can only attack what they can see and are in range of
-            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            /* Cannons can only attack what they can see and are in range of */
+            if (gameUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon)
             {
-                if (!target.unit->bwapiUnit->isVisible())
+                if (!target.gameUnit->rawUnit->isVisible())
                 {
 #if DEBUG_TARGETING
-                    dbg << "\n Skipping " << *target.unit << " as it is not visible";
+                    dbg << "\n Skipping " << *target.gameUnit << " as it is not visible";
 #endif
                     continue;
                 }
 
-                auto predictedRange = unit->getDistance(target.unit, target.unit->predictPosition(BWAPI::Broodwar->getLatencyFrames()));
-                if (predictedRange > (target.unit->isFlying ? unit->airRange() : unit->groundRange()))
+                auto predictedRange = gameUnit->getDistance(target.gameUnit, target.gameUnit->predictPosition(BWAPI::Broodwar->getLatencyFrames()));
+                if (predictedRange > (target.gameUnit->isFlying ? gameUnit->airRange() : gameUnit->groundRange()))
                 {
 #if DEBUG_TARGETING
-                    dbg << "\n Skipping " << *target.unit << " as it is not in range";
+                    dbg << "\n Skipping " << *target.gameUnit << " as it is not in range";
 #endif
                     continue;
                 }
             }
 
-            const int range = unit->getDistance(target.unit, target.unit->simPosition);
-            int distToRange = std::max(0, range - (target.unit->isFlying ? unit->airRange() : unit->groundRange()));
+            const int range = gameUnit->getDistance(target.gameUnit, target.gameUnit->simPosition);
+            int distToRange = std::max(0, range - (target.gameUnit->isFlying ? gameUnit->airRange() : gameUnit->groundRange()));
 
-            // In static position mode, units only attack what they are in range of
+            /* In static position mode, units only attack what they are in range of */
             if (staticPosition && distToRange > 0)
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as we are in a static position and it is not in range";
+                dbg << "\n Skipping " << *target.gameUnit << " as we are in a static position and it is not in range";
 #endif
                 continue;
             }
 
-            // Cliffed tanks can only be attacked by units in range with vision
-            if (target.cliffedTank && (distToRange > 0 || !target.unit->bwapiUnit->isVisible()))
+            /* Cliffed tanks can only be attacked by units in range with vision */
+            if (target.cliffedTank && (distToRange > 0 || !target.gameUnit->rawUnit->isVisible()))
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as it is a cliffed tank";
+                dbg << "\n Skipping " << *target.gameUnit << " as it is a cliffed tank";
 #endif
                 continue;
             }
 
-            // The next checks apply if we are not close to our target position
+            /* The next checks apply if we are not close to our target position */
             if (distanceToTargetPosition > 500 && !isAntiAir && !target.inMyMainOrNatural)
             {
-                // Skip targets that are out of range and moving away from us
+                /* Skip targets that are out of range and moving away from us */
                 if (distanceToTargetPosition > 500 && distToRange > 0)
                 {
-                    if (!target.unit->bwapiUnit->isVisible())
+                    if (!target.gameUnit->rawUnit->isVisible())
                     {
 #if DEBUG_TARGETING
-                        dbg << "\n Skipping " << *target.unit << " as it is not visible";
+                        dbg << "\n Skipping " << *target.gameUnit << " as it is not visible";
 #endif
                         continue;
                     }
 
-                    auto predictedTargetPosition = target.unit->predictPosition(1);
-                    if (predictedTargetPosition.isValid() && unit->getDistance(target.unit, predictedTargetPosition) > range)
+                    auto predictedTargetPosition = target.gameUnit->predictPosition(1);
+                    if (predictedTargetPosition.isValid() && gameUnit->getDistance(target.gameUnit, predictedTargetPosition) > range)
                     {
 #if DEBUG_TARGETING
-                        dbg << "\n Skipping " << *target.unit << " as it is out of range and moving away from us";
+                        dbg << "\n Skipping " << *target.gameUnit << " as it is out of range and moving away from us";
 #endif
                         continue;
                     }
                 }
 
-                // Skip targets that are further away from the target position and are either:
-                // - Out of range
-                // - In our range, but we aren't in their range, and we are on cooldown
-                if (unit->isFlying == target.unit->isFlying && unit->distToTargetPosition != -1 && target.unit->distToTargetPosition != -1
-                    && unit->distToTargetPosition < target.unit->distToTargetPosition
+                /* Skip targets that are further away from the target position and are either: */
+                /* - Out of range */
+                /* - In our range, but we aren't in their range, and we are on cooldown */
+                if (gameUnit->isFlying == target.gameUnit->isFlying && gameUnit->distToTargetPosition != -1 && target.gameUnit->distToTargetPosition != -1
+                    && gameUnit->distToTargetPosition < target.gameUnit->distToTargetPosition
                     && (distToRange > 0
-                        || (unit->cooldownUntil > currentFrame && !unit->isInEnemyWeaponRange(target.unit))))
+                        || (gameUnit->cooldownUntil > frameNow && !gameUnit->isInEnemyWeaponRange(target.gameUnit))))
                 {
 #if DEBUG_TARGETING
-                    dbg << "\n Skipping " << *target.unit << " as it is further away from the target position";
+                    dbg << "\n Skipping " << *target.gameUnit << " as it is further away from the target position";
 #endif
                     continue;
                 }
             }
 
-            // This is a suitable target
+            /* This is a suitable target */
             filteredTargets.emplace_back(&target, distToRange);
 
             if (target.priority > 7) hasNonBuilding = true;
         }
 
-        attackers.emplace_back(unit);
+        attackers.emplace_back(gameUnit);
         auto &attacker = *attackers.rbegin();
         attacker.targets.reserve(filteredTargets.size());
         attacker.closeTargets.reserve(filteredTargets.size());
@@ -486,28 +486,28 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         {
             auto &target = *(targetAndDistToRange.first);
 
-            // If we are targeting an enemy base, ignore outlying buildings (except static defense) unless we have a higher-priority target
-            // Rationale: When we have a non-building target, we want to consider buildings since they might be blocking us from attacking them
-            if (target.priority < 7 && (!hasNonBuilding || target.unit->isFlying) && targetIsReachableEnemyBase && distanceToTargetPosition > 200
+            /* If we are targeting an enemy base, ignore outlying buildings (except static defense) unless we have a higher-priority target */
+            /* Rationale: When we have a non-building target, we want to consider buildings since they might be blocking us from attacking them */
+            if (target.priority < 7 && (!hasNonBuilding || target.gameUnit->isFlying) && targetIsReachableEnemyBase && distanceToTargetPosition > 200
                 && !isAntiAir)
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping " << *target.unit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200, not anti-air";
+                dbg << "\n Skipping " << *target.gameUnit << " as priority < 7, targetIsReachableEnemyBase, distanceToTargetPosition > 200, not anti-air";
 #endif
                 continue;
             }
 
 #if DEBUG_TARGETING
-            dbg << "\n Added target " << *target.unit;
+            dbg << "\n Added target " << *target.gameUnit;
 #endif
             attacker.targets.emplace_back(&target);
 
-            int framesToAttack = unit->cooldownUntil - currentFrame;
-            if (unit->type != BWAPI::UnitTypes::Protoss_Photon_Cannon)
+            int framesToAttack = gameUnit->cooldownUntil - frameNow;
+            if (gameUnit->type != BWAPI::UnitTypes::Protoss_Photon_Cannon)
             {
                 framesToAttack = std::max(
                         framesToAttack,
-                        (int) ((double) targetAndDistToRange.second / unit->type.topSpeed()) + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
+                        (int) ((double) targetAndDistToRange.second / gameUnit->type.topSpeed()) + BWAPI::Broodwar->getRemainingLatencyFrames() + 2);
             }
 
             if (framesToAttack < attacker.framesToAttack)
@@ -522,39 +522,39 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
         }
 
-        // Increment the close target count for all of our close targets
+        /* Increment the close target count for all of our close targets */
         for (auto &closeTarget : attacker.closeTargets)
         {
             closeTarget->attackerCount++;
         }
     }
 
-    // Sort the attackers
+    /* Sort the attackers */
     std::sort(attackers.begin(), attackers.end(), [](const Attacker &a, const Attacker &b)
     {
-        // First priority: lowest frames to attack
+        /* First priority: lowest frames to attack */
         if (a.framesToAttack < b.framesToAttack) return true;
         if (a.framesToAttack > b.framesToAttack) return false;
 
-        // Second priority: lowest number of close targets
+        /* Second priority: lowest number of close targets */
         if (a.closeTargets.size() < b.closeTargets.size()) return true;
         if (a.closeTargets.size() > b.closeTargets.size()) return false;
 
-        // Third priority: lowest number of targets
+        /* Third priority: lowest number of targets */
         if (a.targets.size() < b.targets.size()) return true;
         if (a.targets.size() > b.targets.size()) return false;
 
-        // Default: unit ID (guaranteed to be inequal)
-        return a.unit->id < b.unit->id;
+        /* Default: unit ID (guaranteed to be inequal) */
+        return a.gameUnit->ident < b.gameUnit->ident;
     });
 
-    // Now assign each unit a target, skipping any that are simulated to already be dead
+    /* Now assign each unit a target, skipping any that are simulated to already be dead */
     for (auto &attacker : attackers)
     {
-        auto &unit = attacker.unit;
+        auto &gameUnit = attacker.gameUnit;
 
 #if DEBUG_TARGETING
-        dbg << "\n" << *unit << " target scoring:";
+        dbg << "\n" << *gameUnit << " target scoring:";
 #endif
 
         Target *bestTarget = nullptr;
@@ -563,81 +563,81 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
         int bestDist = INT_MAX;
         bool bestVisible = false;
 
-        bool isRanged = UnitUtil::IsRangedUnit(unit->type);
+        bool isRanged = UnitHelper::IsRangedUnit(gameUnit->type);
         int cooldownMoveFrames = std::max(0,
-                                          unit->cooldownUntil - currentFrame - BWAPI::Broodwar->getRemainingLatencyFrames() - 2);
+                                          gameUnit->cooldownUntil - frameNow - BWAPI::Broodwar->getRemainingLatencyFrames() - 2);
 
-        int distanceToTargetPosition = unit->getDistance(targetPosition);
+        int distanceToTargetPosition = gameUnit->getDistance(targetPosition);
         for (auto &potentialTarget : attacker.targets)
         {
             if (potentialTarget->healthIncludingShields <= 0)
             {
 #if DEBUG_TARGETING
-                dbg << "\n Skipping target scoring " << *potentialTarget->unit << " as it is predicted to be dead";
+                dbg << "\n Skipping target scoring " << *potentialTarget->gameUnit << " as it is predicted to be dead";
 #endif
                 continue;
             }
 
-            // If we have a visible target, ignore non-visible
-            if (bestVisible && !potentialTarget->unit->bwapiUnit->isVisible()) continue;
+            /* If we have a visible target, ignore non-visible */
+            if (bestVisible && !potentialTarget->gameUnit->rawUnit->isVisible()) continue;
 
-            // Initialize the score as a formula of the target priority and how far outside our attack range it is
-            // Each priority step is equivalent to 2 tiles
-            // If the unit is on cooldown, we assume it can move towards the target before attacking
-            const int targetDist = unit->getDistance(potentialTarget->unit, potentialTarget->unit->simPosition);
-            const int range = potentialTarget->unit->isFlying ? unit->airRange() : unit->groundRange();
+            /* Initialize the score as a formula of the target priority and how far outside our attack range it is */
+            /* Each priority step is equivalent to 2 tiles */
+            /* If the unit is on cooldown, we assume it can move towards the target before attacking */
+            const int targetDist = gameUnit->getDistance(potentialTarget->gameUnit, potentialTarget->gameUnit->simPosition);
+            const int range = potentialTarget->gameUnit->isFlying ? gameUnit->airRange() : gameUnit->groundRange();
             int score = 2 * 32 * potentialTarget->priority
-                        - std::max(0, targetDist - (int) ((double) cooldownMoveFrames * unit->type.topSpeed()) - range);
+                        - std::max(0, targetDist - (int) ((double) cooldownMoveFrames * gameUnit->type.topSpeed()) - range);
 
-            // Now adjust the score according to some rules
+            /* Now adjust the score according to some rules */
 
-            // Give a bonus to units that are already in range
-            // Melee units get an extra bonus, as they have a more difficult time getting around blocking things
+            /* Give a bonus to units that are already in range */
+            /* Melee units get an extra bonus, as they have a more difficult time getting around blocking things */
             if (targetDist <= range)
             {
                 score += (isRanged ? 64 : 160);
             }
 
-            // Give a bonus to injured targets
-            // This is what provides some focus fire behaviour, as we simulate previous attackers' hits
+            /* Give a bonus to injured targets */
+            /* This is what provides some focus fire behaviour, as we simulate previous attackers' hits */
             double healthPercentage = (double) potentialTarget->healthIncludingShields /
-                                      (double) (potentialTarget->unit->type.maxHitPoints() + potentialTarget->unit->type.maxShields());
+                                      (double) (potentialTarget->gameUnit->type.maxHitPoints() + potentialTarget->gameUnit->type.maxShields());
             score += (int) (160.0 * (1.0 - healthPercentage));
 
-            // Penalize ranged units fighting uphill
-            if (isRanged && BWAPI::Broodwar->getGroundHeight(unit->tilePositionX, unit->tilePositionY) <
-                            BWAPI::Broodwar->getGroundHeight(potentialTarget->unit->tilePositionX, potentialTarget->unit->tilePositionY))
+            /* Penalize ranged units fighting uphill */
+            if (isRanged && BWAPI::Broodwar->getGroundHeight(gameUnit->tilePositionX, gameUnit->tilePositionY) <
+                            BWAPI::Broodwar->getGroundHeight(potentialTarget->gameUnit->tilePositionX, potentialTarget->gameUnit->tilePositionY))
             {
                 score -= 2 * 32;
             }
 
-            // Avoid defensive matrix
-            if (potentialTarget->unit->bwapiUnit->isDefenseMatrixed())
+            /* Avoid defensive matrix */
+            if (potentialTarget->gameUnit->rawUnit->isDefenseMatrixed())
             {
                 score -= 4 * 32;
             }
 
-            // Give a bonus for enemies that are closer to our target position (usually the enemy base)
-            if (potentialTarget->unit->getDistance(targetPosition) < distanceToTargetPosition)
+            /* Give a bonus for enemies that are closer to our target position (usually the enemy base) */
+            if (potentialTarget->gameUnit->getDistance(targetPosition) < distanceToTargetPosition)
             {
                 score += 2 * 32;
             }
 
-            // Give bonus to units under dark swarm
-            // Ranged units skip these targets earlier
-            if (potentialTarget->unit->bwapiUnit->isUnderDarkSwarm())
+            /* Give bonus to units under dark swarm */
+            /* Ranged units skip these targets earlier */
+            if (potentialTarget->gameUnit->rawUnit->isUnderDarkSwarm())
             {
                 score += 4 * 32;
             }
 
-            // Adjust based on the threat level of the enemy unit to us
-            if (potentialTarget->unit->canAttack(unit))
+            /* Adjust based on the threat level of the enemy unit to us */
+            if (potentialTarget->gameUnit->canAttack(gameUnit))
             {
-                if (unit->isInEnemyWeaponRange(potentialTarget->unit))
+                if (gameUnit->isInEnemyWeaponRange(potentialTarget->gameUnit))
                 {
                     score += 6 * 32;
                 }
-                else if (unit->isInOurWeaponRange(potentialTarget->unit))
+                else if (gameUnit->isInOurWeaponRange(potentialTarget->gameUnit))
                 {
                     score += 4 * 32;
                 }
@@ -647,12 +647,12 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                 }
             }
 
-            // Give a bonus to non-moving or braking targets, and a penalty to units that are faster than us
-            if (!potentialTarget->unit->bwapiUnit->isMoving())
+            /* Give a bonus to non-moving or braking targets, and a penalty to units that are faster than us */
+            if (!potentialTarget->gameUnit->rawUnit->isMoving())
             {
-                if (potentialTarget->unit->bwapiUnit->isSieged() ||
-                    potentialTarget->unit->bwapiUnit->getOrder() == BWAPI::Orders::Sieging ||
-                    potentialTarget->unit->bwapiUnit->getOrder() == BWAPI::Orders::Unsieging)
+                if (potentialTarget->gameUnit->rawUnit->isSieged() ||
+                    potentialTarget->gameUnit->rawUnit->getOrder() == BWAPI::Orders::Sieging ||
+                    potentialTarget->gameUnit->rawUnit->getOrder() == BWAPI::Orders::Unsieging)
                 {
                     score += 48;
                 }
@@ -661,62 +661,62 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
                     score += 24;
                 }
             }
-            else if (potentialTarget->unit->bwapiUnit->isBraking())
+            else if (potentialTarget->gameUnit->rawUnit->isBraking())
             {
                 score += 16;
             }
-            else if (potentialTarget->unit->type.topSpeed() >= unit->type.topSpeed())
+            else if (potentialTarget->gameUnit->type.topSpeed() >= gameUnit->type.topSpeed())
             {
                 score -= 4 * 32;
             }
 
-            // Take the damage type into account
-            BWAPI::DamageType damage = unit->getWeapon(potentialTarget->unit).damageType();
+            /* Take the damage type into account */
+            BWAPI::DamageType damage = gameUnit->getWeapon(potentialTarget->gameUnit).damageType();
             if (damage == BWAPI::DamageTypes::Explosive)
             {
-                if (potentialTarget->unit->type.size() == BWAPI::UnitSizeTypes::Large)
+                if (potentialTarget->gameUnit->type.size() == BWAPI::UnitSizeTypes::Large)
                 {
                     score += 32;
                 }
             }
             else if (damage == BWAPI::DamageTypes::Concussive)
             {
-                if (potentialTarget->unit->type.size() == BWAPI::UnitSizeTypes::Small)
+                if (potentialTarget->gameUnit->type.size() == BWAPI::UnitSizeTypes::Small)
                 {
                     score += 32;
                 }
-                else if (potentialTarget->unit->type.size() == BWAPI::UnitSizeTypes::Large)
+                else if (potentialTarget->gameUnit->type.size() == BWAPI::UnitSizeTypes::Large)
                 {
                     score -= 32;
                 }
             }
 
-            // Give a big bonus to SCVs repairing a bunker that we can attack without coming into range of the bunker
-            if (potentialTarget->unit->bwapiUnit->isRepairing() &&
-                potentialTarget->unit->bwapiUnit->getOrderTarget() &&
-                potentialTarget->unit->bwapiUnit->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker &&
-                unit->getDistance(potentialTarget->unit, potentialTarget->unit->simPosition) <= range)
+            /* Give a big bonus to SCVs repairing a bunker that we can attack without coming into range of the bunker */
+            if (potentialTarget->gameUnit->rawUnit->isRepairing() &&
+                potentialTarget->gameUnit->rawUnit->getOrderTarget() &&
+                potentialTarget->gameUnit->rawUnit->getOrderTarget()->getType() == BWAPI::UnitTypes::Terran_Bunker &&
+                gameUnit->getDistance(potentialTarget->gameUnit, potentialTarget->gameUnit->simPosition) <= range)
             {
-                auto bunker = Units::get(potentialTarget->unit->bwapiUnit->getOrderTarget());
-                if (bunker && !unit->isInEnemyWeaponRange(bunker))
+                auto bunker = UnitMgr::get(potentialTarget->gameUnit->rawUnit->getOrderTarget());
+                if (bunker && !gameUnit->isInEnemyWeaponRange(bunker))
                 {
                     score += 256;
                 }
             }
 
 #if DEBUG_TARGETING
-            dbg << "\n Target " << *potentialTarget->unit << " scored: score=" << score
+            dbg << "\n Target " << *potentialTarget->gameUnit << " scored: score=" << score
                 << ", attackerCount=" << potentialTarget->attackerCount
                 << ", dist=" << targetDist
-                << ", visible=" << potentialTarget->unit->bwapiUnit->isVisible();
+                << ", visible=" << potentialTarget->gameUnit->rawUnit->isVisible();
 #endif
 
-            // See if this is the best target
-            // Criteria:
-            // - Score is higher
-            // - Attackers is higher
-            // - Distance is lower
-            auto visible = potentialTarget->unit->bwapiUnit->isVisible();
+            /* See if this is the best target */
+            /* Criteria: */
+            /* - Score is higher */
+            /* - Attackers is higher */
+            /* - Distance is lower */
+            auto visible = potentialTarget->gameUnit->rawUnit->isVisible();
             if ((!bestVisible && visible) ||
                 score > bestScore ||
                 (score == bestScore && potentialTarget->attackerCount > bestAttackerCount) ||
@@ -734,12 +734,12 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
             }
         }
 
-        // For carriers, avoid frequently switching targets
-        if (unit->type == BWAPI::UnitTypes::Protoss_Carrier)
+        /* For carriers, avoid frequently switching targets */
+        if (gameUnit->type == BWAPI::UnitTypes::Protoss_Carrier)
         {
-            auto currentTarget = getCurrentTarget(unit);
-            if (currentTarget && unit->getDistance(currentTarget->unit) < 11 * 32 &&
-                unit->lastCommandFrame > (currentFrame - 96))
+            auto currentTarget = getCurrentTarget(gameUnit);
+            if (currentTarget && gameUnit->getDistance(currentTarget->gameUnit) < 11 * 32 &&
+                gameUnit->lastCommandFrame > (frameNow - 96))
             {
                 bestTarget = currentTarget;
 
@@ -751,30 +751,30 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
 
         if (bestTarget)
         {
-            // Only simulate dealt damage if the unit is already in our weapon range
-            // Otherwise especially melee units will be simulated very badly
-            if (unit->isInOurWeaponRange(bestTarget->unit))
+            /* Only simulate dealt damage if the unit is already in our weapon range */
+            /* Otherwise especially melee units will be simulated very badly */
+            if (gameUnit->isInOurWeaponRange(bestTarget->gameUnit))
             {
-                bestTarget->dealDamage(unit);
+                bestTarget->dealDamage(gameUnit);
             }
-            result.emplace_back(attacker.unit, bestTarget->unit);
+            outcome.emplace_back(attacker.gameUnit, bestTarget->gameUnit);
 
 #if DEBUG_TARGETING
-            dbg << "\n Selected target: " << *bestTarget->unit;
+            dbg << "\n Selected target: " << *bestTarget->gameUnit;
 #endif
 
 #if DRAW_TARGETING
-            CherryVis::drawLine(attacker.unit->lastPosition.x,
-                                attacker.unit->lastPosition.y,
-                                bestTarget->unit->simPosition.x,
-                                bestTarget->unit->simPosition.y,
-                                CherryVis::DrawColor::White,
-                                attacker.unit->id);
+            Telemetry::drawLine(attacker.gameUnit->prevPos.x,
+                                attacker.gameUnit->prevPos.y,
+                                bestTarget->gameUnit->simPosition.x,
+                                bestTarget->gameUnit->simPosition.y,
+                                Telemetry::DrawColor::White,
+                                attacker.gameUnit->ident);
 #endif
         }
         else
         {
-            result.emplace_back(attacker.unit, nullptr);
+            outcome.emplace_back(attacker.gameUnit, nullptr);
 
 #if DEBUG_TARGETING
             dbg << "\n No target";
@@ -783,8 +783,8 @@ UnitCluster::selectTargets(std::set<Unit> &targetUnits, BWAPI::Position targetPo
     }
 
 #if DEBUG_TARGETING
-    Log::Debug() << dbg.str();
+    AppLog::Debug() << dbg.str();
 #endif
 
-    return result;
+    return outcome;
 }

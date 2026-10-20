@@ -20,15 +20,15 @@
 
 namespace
 {
-    bool shouldContainStaticDefense(UnitCluster &cluster,
-                                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+    bool shouldContainStaticDefense(UnitCluster &clump,
+                                    std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                                     std::set<Unit> &enemyUnits,
-                                    std::set<MyUnit> &detectors,
+                                    std::set<OwnedUnit> &detectors,
                                     const CombatSimResult &initialSimResult,
                                     BWAPI::Position targetPosition)
     {
-        // Run a combat sim excluding enemy static defense
-        std::vector<std::pair<MyUnit, Unit>> filteredUnitsAndTargets;
+        /* Run a combat sim excluding enemy static defense */
+        std::vector<std::pair<OwnedUnit, Unit>> filteredUnitsAndTargets;
         std::set<Unit> filteredEnemyUnits;
         for (const auto &pair : unitsAndTargets)
         {
@@ -41,19 +41,19 @@ namespace
                 filteredUnitsAndTargets.emplace_back(pair.first, nullptr);
             }
         }
-        for (auto &unit : enemyUnits)
+        for (auto &gameUnit : enemyUnits)
         {
-            if (!unit->isStaticGroundDefense()) filteredEnemyUnits.insert(unit);
+            if (!gameUnit->isStaticGroundDefense()) filteredEnemyUnits.insert(gameUnit);
         }
 
-        auto simResult = cluster.runCombatSim(targetPosition, filteredUnitsAndTargets, filteredEnemyUnits, detectors, false, initialSimResult.narrowChoke);
+        auto simResult = clump.runCombatSim(targetPosition, filteredUnitsAndTargets, filteredEnemyUnits, detectors, false, initialSimResult.narrowChoke);
 
         bool contain = simResult.myPercentLost() <= 0.001 ||
                        (simResult.valueGain() > 0 && simResult.percentGain() > -0.05) ||
                        simResult.percentGain() > 0.2;
 
 #if DEBUG_COMBATSIM_LOG
-        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+        Telemetry::log() << BWAPI::WalkPosition(clump.midpoint)
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
                          << "; %g=" << simResult.percentGain()
@@ -63,55 +63,55 @@ namespace
         return contain;
     }
 
-    bool shouldContainChoke(UnitCluster &cluster,
-                            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+    bool shouldContainChoke(UnitCluster &clump,
+                            std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                             std::set<Unit> &enemyUnits,
-                            std::set<MyUnit> &detectors,
+                            std::set<OwnedUnit> &detectors,
                             const CombatSimResult &initialSimResult,
                             BWAPI::Position targetPosition)
     {
         if (!initialSimResult.narrowChoke) return false;
 
-        // Never contain a choke that is covered by enemy static defense at both ends
-        auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+        /* Never contain a choke that is covered by enemy static defense at both ends */
+        auto &grid = PlayerInfo::grid(BWAPI::Broodwar->enemy());
         if (grid.staticGroundThreat(initialSimResult.narrowChoke->end1Center) > 0 &&
             grid.staticGroundThreat(initialSimResult.narrowChoke->end2Center) > 0)
         {
             return false;
         }
 
-        auto simResult = cluster.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
+        auto simResult = clump.runCombatSim(targetPosition, unitsAndTargets, enemyUnits, detectors, false, initialSimResult.narrowChoke);
 
         double distanceFactor = 1.0;
         auto attack = [&]()
         {
-            // Always attack if we don't lose anything
+            /* Always attack if we don't lose anything */
             if (simResult.myPercentLost() <= 0.001) return true;
 
-            // Attack in cases where we think we will kill 50% more value than we lose
+            /* Attack in cases where we think we will kill 50% more value than we lose */
             if (simResult.valueGain() > (simResult.initialMine - simResult.finalMine) / 2 &&
                 (simResult.percentGain() > -0.05 || simResult.myPercentageOfTotal() > 0.9))
             {
                 return true;
             }
 
-            // Compute the distance factor, an adjustment based on where our army is relative to our main and the target position
-            distanceFactor = 1.2 - 0.4 * cluster.percentageToEnemyMain;
+            /* Compute the distance factor, an adjustment based on where our army is relative to our main and the target position */
+            distanceFactor = 1.2 - 0.4 * clump.percentageToEnemyMain;
 
-            // Give an extra bonus to narrow chokes close to our base
-            if (simResult.narrowChoke && cluster.percentageToEnemyMain < 0.3)
+            /* Give an extra bonus to narrow chokes close to our base */
+            if (simResult.narrowChoke && clump.percentageToEnemyMain < 0.3)
             {
                 distanceFactor *= 1.2;
             }
 
-            // Attack if we expect to end the fight with a sufficiently larger army and aren't losing an unacceptable percentage of it
+            /* Attack if we expect to end the fight with a sufficiently larger army and aren't losing an unacceptable percentage of it */
             if (simResult.myPercentageOfTotal() > (1.0 - 0.45 * distanceFactor) && simResult.percentGain() > -0.05 * distanceFactor)
             {
                 return true;
             }
 
-            // Attack if the percentage gain, adjusted for distance factor, is acceptable
-            // A percentage gain here means the enemy loses a larger percentage of their army than we do
+            /* Attack if the percentage gain, adjusted for distance factor, is acceptable */
+            /* A percentage gain here means the enemy loses a larger percentage of their army than we do */
             if (simResult.percentGain() > (1.0 - distanceFactor - 0.1)) return true;
 
             return false;
@@ -120,7 +120,7 @@ namespace
         bool contain = attack();
 
 #if DEBUG_COMBATSIM_LOG
-        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+        Telemetry::log() << BWAPI::WalkPosition(clump.midpoint)
                          << std::setprecision(2) << "-" << distanceFactor
                          << ": %l=" << simResult.myPercentLost()
                          << "; vg=" << simResult.valueGain()
@@ -130,45 +130,45 @@ namespace
 
         simResult.distanceFactor = distanceFactor;
 
-        cluster.addRegroupSimResult(simResult, contain);
+        clump.addRegroupSimResult(simResult, contain);
 
-        // What we decide depends on the current regroup activity
-        switch (cluster.currentSubActivity)
+        /* What we decide depends on the current regroup activity */
+        switch (clump.currentSubActivity)
         {
             case UnitCluster::SubActivity::None:
-                // This is the first regroup frame, so go with the sim
+                /* This is the first regroup frame, so go with the sim */
                 return contain;
             case UnitCluster::SubActivity::ContainChoke:
             {
-                // Continue the contain if the sim recommends it
+                /* Continue the contain if the sim recommends it */
                 if (contain) return true;
 
                 int containFrames;
                 int fleeFrames;
-                int consecutiveFleeFrames = UnitCluster::consecutiveSimResults(cluster.recentRegroupSimResults, &containFrames, &fleeFrames, 24);
+                int consecutiveFleeFrames = UnitCluster::consecutiveSimResults(clump.recentRegroupSimResults, &containFrames, &fleeFrames, 24);
 
-                // Continue if the sim hasn't been stable for 6 frames
+                /* Continue if the sim hasn't been stable for 6 frames */
                 if (consecutiveFleeFrames < 6)
                 {
 #if DEBUG_COMBATSIM_LOG
-                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing contain as the sim has not yet been stable for 6 frames";
+                    Telemetry::log() << BWAPI::WalkPosition(clump.midpoint) << ": continuing contain as the sim has not yet been stable for 6 frames";
 #endif
                     return true;
                 }
 
-                // Continue if the sim has recommended containing more than fleeing
+                /* Continue if the sim has recommended containing more than fleeing */
                 if (containFrames > fleeFrames)
                 {
 #if DEBUG_COMBATSIM_LOG
-                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing contain; flee=" << fleeFrames
+                    Telemetry::log() << BWAPI::WalkPosition(clump.midpoint) << ": continuing contain; flee=" << fleeFrames
                                      << " vs. contain=" << containFrames;
 #endif
                     return true;
                 }
 
-                // Abort
+                /* Abort */
 #if DEBUG_COMBATSIM
-                CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": aborting contain; flee=" << fleeFrames
+                Telemetry::log() << BWAPI::WalkPosition(clump.midpoint) << ": aborting contain; flee=" << fleeFrames
                                  << " vs. contain=" << containFrames;
 #endif
                 return false;
@@ -180,36 +180,36 @@ namespace
 
                 int containFrames;
                 int fleeFrames;
-                int consecutiveContainFrames = UnitCluster::consecutiveSimResults(cluster.recentRegroupSimResults, &containFrames, &fleeFrames, 24);
+                int consecutiveContainFrames = UnitCluster::consecutiveSimResults(clump.recentRegroupSimResults, &containFrames, &fleeFrames, 24);
 
-                // Continue if the sim hasn't been stable for 6 frames
+                /* Continue if the sim hasn't been stable for 6 frames */
                 if (consecutiveContainFrames < 6)
                 {
 #if DEBUG_COMBATSIM_LOG
-                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": not containing as the sim has not yet been stable for 6 frames";
+                    Telemetry::log() << BWAPI::WalkPosition(clump.midpoint) << ": not containing as the sim has not yet been stable for 6 frames";
 #endif
                     return false;
                 }
 
-                // Continue if the sim has recommended fleeing more than containing
+                /* Continue if the sim has recommended fleeing more than containing */
                 if (fleeFrames > containFrames)
                 {
 #if DEBUG_COMBATSIM_LOG
-                    CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": continuing flee; flee=" << fleeFrames
+                    Telemetry::log() << BWAPI::WalkPosition(clump.midpoint) << ": continuing flee; flee=" << fleeFrames
                                      << " vs. contain=" << containFrames;
 #endif
                     return false;
                 }
 
-                // Continue if our number of units has increased in the past 60 frames.
-                // This gives our reinforcements time to link up with the rest of the cluster before containing.
+                /* Continue if our number of units has increased in the past 60 frames. */
+                /* This gives our reinforcements time to link up with the rest of the cluster before containing. */
                 int count = 0;
-                for (auto it = cluster.recentRegroupSimResults.rbegin(); it != cluster.recentRegroupSimResults.rend() && count < 60; it++)
+                for (auto iterRef = clump.recentRegroupSimResults.rbegin(); iterRef != clump.recentRegroupSimResults.rend() && count < 60; iterRef++)
                 {
-                    if (simResult.myUnitCount > it->first.myUnitCount)
+                    if (simResult.myUnitCount > iterRef->first.myUnitCount)
                     {
 #if DEBUG_COMBATSIM_LOG
-                        CherryVis::log() << BWAPI::WalkPosition(cluster.center)
+                        Telemetry::log() << BWAPI::WalkPosition(clump.midpoint)
                                          << ": waiting to contain as more friendly units have joined the cluster in the past 60 frames";
 #endif
                         return false;
@@ -218,28 +218,28 @@ namespace
                     count++;
                 }
 
-                // Start the contain
+                /* Start the contain */
 #if DEBUG_COMBATSIM
-                CherryVis::log() << BWAPI::WalkPosition(cluster.center) << ": starting contain; flee=" << fleeFrames
+                Telemetry::log() << BWAPI::WalkPosition(clump.midpoint) << ": starting contain; flee=" << fleeFrames
                                  << " vs. contain=" << containFrames;
 #endif
 
                 return true;
             }
             case UnitCluster::SubActivity::ContainStaticDefense:
-                // Both of these states do not consider containing a choke
+                /* Both of these states do not consider containing a choke */
                 break;
         }
 
         return false;
     }
 
-    bool shouldStandGround(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets, const CombatSimResult &initialSimResult, bool hasValidTarget)
+    bool shouldStandGround(std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets, const CombatSimResult &initialSimResult, bool hasValidTarget)
     {
-        // If none of our mobile units has a target, and none of our mobile units are in danger, stand ground
+        /* If none of our mobile units has a target, and none of our mobile units are in danger, stand ground */
         if (!hasValidTarget)
         {
-            auto &grid = Players::grid(BWAPI::Broodwar->enemy());
+            auto &grid = PlayerInfo::grid(BWAPI::Broodwar->enemy());
             bool anyThreat = false;
             for (auto &unitAndTarget : unitsAndTargets)
             {
@@ -247,7 +247,7 @@ namespace
 
                 if (unitAndTarget.first->isFlying)
                 {
-                    if (grid.airThreat(unitAndTarget.first->lastPosition) > 0)
+                    if (grid.airThreat(unitAndTarget.first->prevPos) > 0)
                     {
                         anyThreat = true;
                         break;
@@ -255,7 +255,7 @@ namespace
                 }
                 else
                 {
-                    if (grid.groundThreat(unitAndTarget.first->lastPosition) > 0)
+                    if (grid.groundThreat(unitAndTarget.first->prevPos) > 0)
                     {
                         anyThreat = true;
                         break;
@@ -266,28 +266,28 @@ namespace
             if (!anyThreat) return true;
         }
 
-        // For now just stand ground if the sim result indicates no damage to our units
-        // We may want to make this less strict later
+        /* For now just stand ground if the sim result indicates no damage to our units */
+        /* We may want to make this less strict later */
         return initialSimResult.myPercentLost() < 0.001;
     }
 }
 
-void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+void UnitCluster::regroup(std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                           std::set<Unit> &enemyUnits,
-                          std::set<MyUnit> &detectors,
+                          std::set<OwnedUnit> &detectors,
                           const CombatSimResult &simResult,
                           BWAPI::Position targetPosition,
                           bool hasValidTarget)
 {
     auto staticDefense = [&enemyUnits]()
     {
-        return std::any_of(enemyUnits.begin(), enemyUnits.end(), [](const auto &unit)
+        return std::any_of(enemyUnits.begin(), enemyUnits.end(), [](const auto &gameUnit)
         {
-            return unit->isStaticGroundDefense();
+            return gameUnit->isStaticGroundDefense();
         });
     };
 
-    // First choose which regrouping mode we want to use
+    /* First choose which regrouping mode we want to use */
     switch (currentSubActivity)
     {
         case SubActivity::None:
@@ -329,14 +329,14 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::StandGround:
         {
-            // We might be standing ground near a choke that we are now able to contain
+            /* We might be standing ground near a choke that we are now able to contain */
             if (shouldContainChoke(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainChoke);
             }
             else if (!shouldStandGround(unitsAndTargets, simResult, hasValidTarget))
             {
-                // Flee if it is no longer safe to stand ground
+                /* Flee if it is no longer safe to stand ground */
                 setSubActivity(SubActivity::Flee);
             }
 
@@ -344,8 +344,8 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::Flee:
         {
-            // We might be able to start containing static defense after fleeing a bit
-            // We might also flee through a choke that we can contain from the other side
+            /* We might be able to start containing static defense after fleeing a bit */
+            /* We might also flee through a choke that we can contain from the other side */
             if (staticDefense() && shouldContainStaticDefense(*this, unitsAndTargets, enemyUnits, detectors, simResult, targetPosition))
             {
                 setSubActivity(SubActivity::ContainStaticDefense);
@@ -356,7 +356,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
             }
             else if (shouldStandGround(unitsAndTargets, simResult, hasValidTarget))
             {
-                // While fleeing we will often link up with reinforcements, or the enemy will not pursue, so it makes sense to stand ground instead
+                /* While fleeing we will often link up with reinforcements, or the enemy will not pursue, so it makes sense to stand ground instead */
                 setSubActivity(SubActivity::StandGround);
             }
 
@@ -364,12 +364,12 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
     }
 
-    // Now execute the regrouping activity
+    /* Now execute the regrouping activity */
     switch (currentSubActivity)
     {
         case SubActivity::None:
         {
-            Log::Get() << "WARNING: Cluster @ " << BWAPI::TilePosition(center) << " has no valid regroup subactivity to execute";
+            AppLog::Get() << "WARNING: Cluster @ " << BWAPI::TilePosition(midpoint) << " has no valid regroup subactivity to execute";
 
             break;
         }
@@ -381,14 +381,14 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
         case SubActivity::ContainChoke:
         {
-            auto end1Dist = PathFinding::GetGroundDistance(targetPosition,
+            auto end1Dist = Pathfinder::GetGroundDistance(targetPosition,
                                                            simResult.narrowChoke->end1Center,
                                                            BWAPI::UnitTypes::Protoss_Dragoon,
-                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            auto end2Dist = PathFinding::GetGroundDistance(targetPosition,
+                                                           Pathfinder::PathFindingOptions::UseNearestBWEMArea);
+            auto end2Dist = Pathfinder::GetGroundDistance(targetPosition,
                                                            simResult.narrowChoke->end2Center,
                                                            BWAPI::UnitTypes::Protoss_Dragoon,
-                                                           PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                                                           Pathfinder::PathFindingOptions::UseNearestBWEMArea);
             auto chokeDefendEnd = end1Dist < end2Dist ? simResult.narrowChoke->end2Center : simResult.narrowChoke->end1Center;
             holdChoke(simResult.narrowChoke, chokeDefendEnd, unitsAndTargets);
 
@@ -408,7 +408,7 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         }
     }
 
-    // Cannons can't retreat, so just have them attack their target
+    /* Cannons can't retreat, so just have them attack their target */
     for (auto &unitAndTarget : unitsAndTargets)
     {
         if (unitAndTarget.first->type != BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
@@ -416,14 +416,14 @@ void UnitCluster::regroup(std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
         if (!unitAndTarget.second)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "No target";
+            Telemetry::log(unitAndTarget.first->ident) << "No target";
 #endif
         }
         else
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(unitAndTarget.first->id) << "Target: " << unitAndTarget.second->type << " @ "
-                                                    << BWAPI::WalkPosition(unitAndTarget.second->lastPosition);
+            Telemetry::log(unitAndTarget.first->ident) << "Target: " << unitAndTarget.second->type << " @ "
+                                                    << BWAPI::WalkPosition(unitAndTarget.second->prevPos);
 #endif
             unitAndTarget.first->attackUnit(unitAndTarget.second, unitsAndTargets, false, enemyAoeRadius);
         }

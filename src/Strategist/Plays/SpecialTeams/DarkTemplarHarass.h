@@ -2,34 +2,34 @@
 
 #include "Play.h"
 
-class DarkTemplarHarass : public Play
+class DarkTemplarHarass : public PlayItem
 {
 public:
-    DarkTemplarHarass() : Play("DarkTemplarHarass") {}
+    DarkTemplarHarass() : PlayItem("DarkTemplarHarass") {}
 
     void update() override;
 
-    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                 const std::function<void(const MyUnit)> &movableUnitCallback) override
+    void disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                 const std::function<void(const OwnedUnit)> &movableUnitCallback) override
     {
-        for (const auto &unit : units)
+        for (const auto &gameUnit : units)
         {
-            movableUnitCallback(unit);
+            movableUnitCallback(gameUnit);
         }
     }
 
-    void addUnit(const MyUnit &unit) override
+    void addUnit(const OwnedUnit &gameUnit) override
     {
-        units.insert(unit);
-        Play::addUnit(unit);
+        units.insert(gameUnit);
+        PlayItem::addUnit(gameUnit);
     }
 
-    void removeUnit(const MyUnit &unit) override
+    void removeUnit(const OwnedUnit &gameUnit) override
     {
-        units.erase(unit);
-        Play::removeUnit(unit);
+        units.erase(gameUnit);
+        PlayItem::removeUnit(gameUnit);
     }
 
 protected:
-    std::set<MyUnit> units;
+    std::set<OwnedUnit> units;
 };

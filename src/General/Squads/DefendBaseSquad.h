@@ -5,20 +5,20 @@
 #include "Unit.h"
 #include "WorkerDefenseSquad.h"
 
-class DefendBaseSquad : public Squad
+class DefendBaseSquad : public UnitSquad
 {
 public:
-    explicit DefendBaseSquad(Base *base)
-            : Squad((std::ostringstream() << "Defend base @ " << base->getTilePosition()).str())
-            , base(base)
-            , workerDefenseSquad(std::make_unique<WorkerDefenseSquad>(base))
+    explicit DefendBaseSquad(Base *baseLoc)
+            : UnitSquad((std::ostringstream() << "Defend base @ " << baseLoc->getTilePosition()).str())
+            , baseLoc(baseLoc)
+            , workerDefenseSquad(std::make_unique<WorkerDefenseSquad>(baseLoc))
     {
-        targetPosition = base->getPosition();
+        targetPosition = baseLoc->getPosition();
     };
 
     virtual ~DefendBaseSquad() = default;
 
-    Base* base;
+    Base* baseLoc;
     std::set<Unit> enemyUnits;
 
     void execute() override;
@@ -28,5 +28,5 @@ public:
 private:
     std::unique_ptr<WorkerDefenseSquad> workerDefenseSquad;
 
-    void execute(UnitCluster &cluster) override;
+    void execute(UnitCluster &clump) override;
 };

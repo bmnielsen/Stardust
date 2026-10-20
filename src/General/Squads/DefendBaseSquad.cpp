@@ -2,51 +2,51 @@
 
 void DefendBaseSquad::execute()
 {
-    for (auto it = enemyUnits.begin(); it != enemyUnits.end();)
+    for (auto iterRef = enemyUnits.begin(); iterRef != enemyUnits.end();)
     {
-        if ((*it)->exists())
+        if ((*iterRef)->exists())
         {
-            it++;
+            iterRef++;
         }
         else
         {
-            it = enemyUnits.erase(it);
+            iterRef = enemyUnits.erase(iterRef);
         }
     }
 
-    Squad::execute();
+    UnitSquad::execute();
 
     if (clusters.empty())
     {
         auto workersAndTargets = workerDefenseSquad->selectTargets(enemyUnits);
-        std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
+        std::vector<std::pair<OwnedUnit, Unit>> emptyUnitsAndTargets;
         workerDefenseSquad->execute(workersAndTargets, emptyUnitsAndTargets);
     }
 }
 
-void DefendBaseSquad::execute(UnitCluster &cluster)
+void DefendBaseSquad::execute(UnitCluster &clump)
 {
     if (enemyUnits.empty())
     {
-        cluster.setActivity(UnitCluster::Activity::Moving);
-        cluster.move(targetPosition);
+        clump.setActivity(UnitCluster::Activity::Moving);
+        clump.move(targetPosition);
         return;
     }
 
     updateDetectionNeeds(enemyUnits);
 
-    // Select targets
-    auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
+    /* Select targets */
+    auto unitsAndTargets = clump.selectTargets(enemyUnits, targetPosition);
 
-    // Run combat sim
-    // auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false);
+    /* Run combat sim */
+    /* auto simResult = cluster.runCombatSim(unitsAndTargets, enemyUnits, detectors, false); */
 
-    // TODO: Interpret result
+    /* TODO: Interpret result */
 
-    cluster.setActivity(UnitCluster::Activity::Attacking);
-    cluster.attack(unitsAndTargets, targetPosition);
+    clump.setActivity(UnitCluster::Activity::Attacking);
+    clump.attack(unitsAndTargets, targetPosition);
 
-    if (cluster.isVanguardCluster)
+    if (clump.isVanguardCluster)
     {
         auto workersAndTargets = workerDefenseSquad->selectTargets(enemyUnits);
         workerDefenseSquad->execute(workersAndTargets, unitsAndTargets);

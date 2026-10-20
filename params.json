@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "strategy_engine": "new",
+  "frame_governor": {
+    "mode": "ladder",
+    "limit_ms": 55,
+    "skip_max": 3,
+    "comment": "A4 (S5): measure=no intervention; ladder=yield a frame after an over-limit frame (up to skip_max consecutive)"
+  },
+  "comment": "B6: version-gated config. strategy_engine: legacy|new - 'new' activates the ShushanKing strategy engine; frame_governor per A4.",
+  "fingerprint_version": 3,
+  "dt_suspect": "off",
+  "d4_transitions": "on",
+  "producer_engine": "new",
+  "producer_capacity": {
+    "gates_per_base": 5,
+    "min_gates": 3,
+    "max_gates": 25,
+    "from_frame": 10000,
+    "bank_divisor": 1.0
+  },
+  "attack_ratio_gate": {
+    "enabled": false,
+    "attack": 1.25,
+    "retreat": 0.8,
+    "comment": "PW/BB audit 2026-09-18: hysteresis strength-ratio gate on engagement decisions. Step1 exclusion test 2026-09-21: disabled pending 10-game controlled batch (suspected win-rate suppressor; batch8 g4 attack orders 3617 vs BB 12597)."
+  },
+  "pvp_lategame": {
+    "enabled": true,
+    "transition_frame": 15000,
+    "ht_target": 4,
+    "reaver_target": 2,
+    "allin_exit_enabled": true,
+    "allin_exit_frame": 17000,
+    "comment": "P1-A/P1-B (2026-09-20 report v2): PvP late-game HT/storm + reaver transition from transition_frame; one-base exit (rotate into MidGame + take natural) from allin_exit_frame. Note 2026-09-21: reaver production moved to ReaverSquad play in pack1; branch reverted with pack1 (batch8 4-10)."
+  },
+  "ffe_nexus_early": false,
+  "dt_scout_proactive": false,
+  "opponent_response": false,
+  "exchange_gate": {"enabled": false, "min_percent_gain": 0.05, "comment": "Direction C (2026-09-25 forensics Q1): refuse fights whose FAP-predicted percentGain is below the threshold; retreat side mirrors at -threshold. Off = identical to previous behavior."},
+  "storm_timing": {"enabled": false, "comment": "Direction storm-timing (2026-09-28): use with pvp_lategame.transition_frame=8000 to cash in the 4.5-minute Archives lead over PW."},
+  "storm_amulet": {"enabled": false, "comment": "Khaydarin Amulet upgrade when Archives is up; PW wins bought it in 88% of games."},
+  "archon_merge": {"enabled": false, "comment": "Merge two spent HTs (energy<25) into an Archon."},
+  "storm_cast": {"enabled": false, "min_enemies": 3, "comment": "Direction storm-casting (2026-09-29): squad HTs leave the front line, hold behind the vanguard and cast Psionic Storm at enemy clumps (min_enemies/value/friendly-fire guards). Off = stock behavior."},
+  "storm_window": {"enabled": false, "min_frame": 13000, "comment": "Direction storm-window (2026-09-30): raise squad aggression while fresh intel shows the enemy has no Templar Archives (cash-in window), lower it once sighted. Stale intel = no modulation. Off = stock behavior."},
+  "fap_ht_value": {"enabled": false, "comment": "Direction fap-ht-value (2026-09-30): count HTs into combat-sim initial value totals (weaponless HTs otherwise read as zero value, so storm armies get attacked as free food). Off = stock behavior."},
+  "army_composition": {"enabled": false, "zealot_ratio": 0.28, "comment": "Direction army-composition O4 (2026-09-30): PvP midgame zealot ratio mix - while the live zealot share is below zealot_ratio, zealots are the unlimited main army line (PvZ-style bang-bang), otherwise dragoons. Measured stock is ~1:8 from leftovers. Off = stock behavior."},
+  "storm_guard": {"enabled": false, "penalty": 0.55, "comment": "50%-plan R1 (2026-10-08 funnel): once the enemy storm line is sighted, squad aggression drops to this penalty and the DT harass line deepens. Funnel: games dragged past 15min with a lead win only 13.6%. Off = stock behavior."},
+  "window_push": {"enabled": false, "army_ratio": 1.15, "min_frame": 13000, "comment": "50%-plan R2 (B lever): one-shot all-in - when our army is at least army_ratio of the visible enemy army between min_frame and min_frame+2400 with two bases, lock the main army on the enemy main, ignore combat sim, freeze workers, spam gateways. One shot per game. Off = stock behavior."},
+  "expand_throttle": {"enabled": false, "min_frame": 15600, "comment": "50%-plan R3 (funnel): block new expansions beyond the natural before min_frame - our third-base lead measured as a negative asset (16.9% WR when ahead vs 47.6% when neither expanded early). Off = stock behavior."},
+  "storm_dodge": {"enabled": false, "comment": "Battle-quality Q1 (2026-10-09 forensics): dragoons escape storm danger circles regardless of attack cooldown, plus splash spread without the battle_micro gate. Battles covered by an enemy storm lost 6/6 armies at 96-100% casualties. Off = stock behavior."},
+  "stutter_step": {"enabled": false, "comment": "Command architecture rewrite (2026-10-10): cooldown-phase deterministic kite-back (retreat+spread vectors, one move per unit per 12 frames) replacing threshold-gated boids. PW wins micro via 10k-50k stutter-step re-issues vs our 0-16. Off = stock behavior."},
+  "battle_micro": {"enabled": false, "comment": "Direction B (2026-09-26 forensics Q4): dragoon kiting separation scales with enemyAoeRadius (Ball-formation formula) and stops skipping in-range friends vs splash. Off = stock behavior."},
+  "comment_directions_20260924": "Direction 1/2 switches, both off = identical to 3d056f10. dt_scout_proactive: keep a worker scout alive through ranged threats in the pre-DT window (enemy core done, no Citadel/Archives/Robo sighted) to force PW's 0.65-0.85 DT-line abandon. opponent_response: exclude an opening when a still-active enemy label has beaten it >=2 times without a loss."
+}

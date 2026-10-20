@@ -9,7 +9,7 @@
 
 #endif
 
-namespace Log
+namespace AppLog
 {
 #if LOGGING_ENABLED
     namespace
@@ -24,10 +24,10 @@ namespace Log
 #endif
         std::vector<std::string> logFiles;
 
-        std::string logFileName(const std::string &base, bool csv = false)
+        std::string logFileName(const std::string &baseLoc, bool csv = false)
         {
             std::ostringstream filename;
-            filename << "bwapi-data/write/" << base;
+            filename << "bwapi-data/write/" << baseLoc;
             auto tt = std::chrono::system_clock::to_time_t(startTime);
             auto tm = std::localtime(&tt);
             filename << "_" << std::put_time(tm, "%Y%m%d_%H%M%S");
@@ -53,10 +53,10 @@ namespace Log
         if (!logFile) return;
         if (csv) return;
 
-        int seconds = currentFrame / 24;
+        int seconds = frameNow / 24;
         int minutes = seconds / 60;
         seconds = seconds % 60;
-        (*os) << currentFrame << "(" << minutes << ":" << (seconds < 10 ? "0" : "") << seconds << "): ";
+        (*os) << frameNow << "(" << minutes << ":" << (seconds < 10 ? "0" : "") << seconds << "): ";
     }
 
     LogWrapper::LogWrapper(const LogWrapper &other)
@@ -126,7 +126,7 @@ namespace Log
         }
         catch (std::exception &ex)
         {
-            // Ignore
+            /* Ignore */
         }
 
         logFiles.clear();
@@ -149,7 +149,7 @@ namespace Log
         if (!log)
         {
             log = new std::ofstream();
-            log->open(logFileName("Stardust_log"), std::ofstream::trunc);
+            log->open(logFileName("ShushanKing_log"), std::ofstream::trunc);
         }
 
         return {log, isOutputtingToConsole};
@@ -163,7 +163,7 @@ namespace Log
         if (!debugLog)
         {
             debugLog = new std::ofstream();
-            debugLog->open(logFileName("Stardust_debug"), std::ofstream::trunc);
+            debugLog->open(logFileName("ShushanKing_debug"), std::ofstream::trunc);
         }
 
         return {debugLog, false};

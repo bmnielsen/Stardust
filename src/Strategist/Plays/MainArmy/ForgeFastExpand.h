@@ -11,16 +11,16 @@ public:
 
     [[nodiscard]] bool isDefensive() const override { return true; }
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    std::shared_ptr<UnitSquad> getSquad() override { return squad; }
 
     void update() override;
 
     void postTransition() override { updateState(); }
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals) override;
 
-    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
+    void disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                 const std::function<void(const OwnedUnit)> &movableUnitCallback) override;
 
 private:
     enum class State

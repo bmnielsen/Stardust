@@ -1,0 +1,25 @@
+{
+  "name": "PvP_forge_expand",
+  "matchup": "PvP",
+  "tier0_vs": [
+    "purplewave"
+  ],
+  "legacy_opening": "ForgeExpandDT",
+  "record_label": "ForgeExpandDT",
+  "legality": {
+    "requires_wall": true
+  },
+  "note": "maps_blacklist REMOVED 2026-09-30 (P1-02): Largo/NWC 黑名单系早期小样本(0-2/0-3)所加,后果=两图被 tier0 拦下落入评分层自由选,实测非 FFE 偏离 0 胜 5 负(b11-20),而 FFE 本地 NWC 3/3、Largo 2/4,官方 341 局 NWC FFE 85%/Largo 56%——两代证据一致支持全图 FFE,黑名单移除。原注保留于 version_archive 历史。tier0 bananabrain RETIRED 2026-09-18: D1 吸纳验证 6 局 1 胜(1/6 < 1/3 地板,证据规则判负)——BB decay-3 学习已适应锻炉线(近期两批连 1-5,选局方式无关);回到学习层自选。MP 未获分图证据。transitions 声明未执行(executor absent), 见 report 7.2",
+  "transitions": [
+    {
+      "if_enemy": "FastExpansion",
+      "then": "add_cannons",
+      "count": 3
+    },
+    {
+      "if_enemy": "TwoGate",
+      "then": "add_cannons",
+      "count": 2
+    }
+  ]
+}

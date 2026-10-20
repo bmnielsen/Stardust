@@ -65,25 +65,25 @@ namespace WorkerMiningOptimization
         return totalDelay;
     }
 
-    double ReturnArrivalObservations::expectedNoResendDeliveryDelay(const MyWorker &worker) const
+    double ReturnArrivalObservations::expectedNoResendDeliveryDelay(const OwnedWorker &wrk) const
     {
         if (arrivalDelayAndOccurrenceRate.empty()) return 100.0;
 
         if (arrivalDelayAndOccurrenceRate.size() == 1)
         {
             return deliveryDelayForArrival(arrivalDelayAndOccurrenceRate.begin()->first,
-                                           currentFrame + arrivalDelayAndOccurrenceRate.begin()->first,
-                                           worker->orderProcessTimer,
-                                           currentFrame);
+                                           frameNow + arrivalDelayAndOccurrenceRate.begin()->first,
+                                           wrk->orderProcessTimer,
+                                           frameNow);
         }
 
         double totalDelay = 0.0;
         for (const auto &[arrivalDelay, rate] : arrivalDelayAndOccurrenceRate)
         {
             totalDelay += deliveryDelayForArrival(arrivalDelay,
-                                                  currentFrame + arrivalDelay,
-                                                  worker->orderProcessTimer,
-                                                  currentFrame) * ((double)rate/255.0);
+                                                  frameNow + arrivalDelay,
+                                                  wrk->orderProcessTimer,
+                                                  frameNow) * ((double)rate/255.0);
         }
 
         return totalDelay;
@@ -94,16 +94,16 @@ namespace WorkerMiningOptimization
                                                               int knownOrderProcessTimer,
                                                               int knownOrderProcessTimerFrame) const
     {
-        // Compute the order process timer at arrival
-        // This takes order process timer resets into account
+        /* Compute the order process timer at arrival */
+        /* This takes order process timer resets into account */
         int orderProcessTimerAtArrival = OrderProcessTimer::unitOrderProcessTimerAtDelta(
                 knownOrderProcessTimerFrame, knownOrderProcessTimer, arrivalFrame - knownOrderProcessTimerFrame - 1);
 
-        // If we don't know what the order process timer will be at arrival, compute an average delay considering the different exit timings
-        // depending on whether the delivery happens at arrival or not
+        /* If we don't know what the order process timer will be at arrival, compute an average delay considering the different exit timings */
+        /* depending on whether the delivery happens at arrival or not */
         if (orderProcessTimerAtArrival == -1)
         {
-            // If the arrival frame is a reset frame, this changes the math slightly as there are only 8 possible reset values
+            /* If the arrival frame is a reset frame, this changes the math slightly as there are only 8 possible reset values */
             double delayAfterArrival;
             if (OrderProcessTimer::isResetFrame(arrivalFrame))
             {
@@ -119,19 +119,19 @@ namespace WorkerMiningOptimization
             return (double)arrivalDelay + delayAfterArrival;
         }
 
-        // Compute the expected delivery frame if no order process timer reset occurs
+        /* Compute the expected delivery frame if no order process timer reset occurs */
         int deliveryFrame = arrivalFrame + orderProcessTimerAtArrival;
 
-        // Handle the case where the order process timer resets between arrival and expected delivery
+        /* Handle the case where the order process timer resets between arrival and expected delivery */
         int nextResetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame);
         if (nextResetFrame <= deliveryFrame)
         {
-            // Average will be 3.5 frames of delay after the reset
+            /* Average will be 3.5 frames of delay after the reset */
             return (double)(arrivalDelay + (nextResetFrame - arrivalFrame)) + 3.5 + deliveryAfterArrivalSpeeds.expectedDeltaToNormal();
         }
 
-        // No order process timer reset affects the timing, so just return the appropriate value depending on whether we deliver on the arrival frame
-        // or not
+        /* No order process timer reset affects the timing, so just return the appropriate value depending on whether we deliver on the arrival frame */
+        /* or not */
         if (deliveryFrame == arrivalFrame)
         {
             return (double)arrivalDelay + deliveryAtArrivalSpeeds.expectedDeltaToNormal();
@@ -141,7 +141,7 @@ namespace WorkerMiningOptimization
 
     bool ReturnPositionObservations::usableForPathPlanning() const
     {
-        // A position is usable if any arrival delays are inside the exploration horizon
+        /* A position is usable if any arrival delays are inside the exploration horizon */
         int referenceFrame = 8 + BWAPI::Broodwar->getLatencyFrames();
         for (const auto &[arrivalDelay, _] : noResendArrivalObservations.arrivalDelayAndOccurrenceRate)
         {
@@ -172,7 +172,7 @@ namespace WorkerMiningOptimization
     {
         if (!resendArrivalObservations.empty() && !resendArrivalObservations.shouldExploreDeliverySpeeds()) return false; // Have already explored
 
-        // Don't explore if any of the observed arrival delays are outside our exploration horizon
+        /* Don't explore if any of the observed arrival delays are outside our exploration horizon */
         int referenceFrame = 8 + BWAPI::Broodwar->getLatencyFrames();
         for (const auto &[arrivalDelay, _] : noResendArrivalObservations.arrivalDelayAndOccurrenceRate)
         {
@@ -189,7 +189,7 @@ namespace WorkerMiningOptimization
     {
         for (auto &candidate : nextPositions)
         {
-            if (candidate.pos == nextPos)
+            if (candidate.pt == nextPos)
             {
                 return &candidate;
             }
@@ -220,7 +220,7 @@ namespace WorkerMiningOptimization
 
     std::ostream &operator<<(std::ostream &os, const ReturnPositionObservations &optimalGatherPositionMetadata)
     {
-        os << optimalGatherPositionMetadata.pos;
+        os << optimalGatherPositionMetadata.pt;
         return os;
     }
 }

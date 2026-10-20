@@ -21,27 +21,27 @@ namespace OpponentEconomicModel
         const double MINERALS_PER_WORKER_FRAME = 0.0465;
         const double GAS_PER_WORKER_FRAME = 0.071;
 
-        // Assume a builder misses one mining run until frame 5500
+        /* Assume a builder misses one mining run until frame 5500 */
         const int BUILDER_LOSS = 8;
         const int BUILDER_LOSS_UNTIL = 5500;
 
-        // We simulate the early income using an assumed normal build
+        /* We simulate the early income using an assumed normal build */
         const int PYLON_STARTED = 1115;
         const int PYLON_FINISHED = 1625;
         const int SCOUT_SENT = 1850;
         const int SCOUT_DIED = 4500;
 
-        // When guessing at gas timings, use this frame as the earliest frame
+        /* When guessing at gas timings, use this frame as the earliest frame */
         const int EARLIEST_GAS = 2500;
 
-        // The number of frames we simulate it takes a worker to transfer from minerals to gas
+        /* The number of frames we simulate it takes a worker to transfer from minerals to gas */
         const int TRANSFER_TO_GAS_FRAMES = 24;
 
 #if OUTPUT_BUILD_ORDER
         std::ostringstream observations;
 #endif
 
-        // Represents an enemy unit in our economic model
+        /* Represents an enemy unit in our economic model */
         struct EcoModelUnit
         {
             struct cmp
@@ -63,30 +63,30 @@ namespace OpponentEconomicModel
                 }
             };
 
-            // These fields are from observations
+            /* These fields are from observations */
             BWAPI::UnitType type;
-            int id;
+            int ident;
             int creationFrame;
             int completionFrame;
             int deathFrame;
             bool creationFrameKnown; // If true, we know exactly when the unit was created
 
-            // These fields are transient and used while simulating production 
+            /* These fields are transient and used while simulating production */
             bool hasProduced;
             int canProduceAt;
             int prerequisitesAvailableFrame;
             int shiftedCreationFrame;
 
-            // These are cached for performance reasons
+            /* These are cached for performance reasons */
             int supplyRequired;
             int mineralPrice;
             int gasPrice;
 
-            EcoModelUnit(BWAPI::UnitType type, int id, int creationFrame, bool creationFrameKnown = false)
+            EcoModelUnit(BWAPI::UnitType type, int ident, int creationFrame, bool creationFrameKnown = false)
                     : type(type)
-                    , id(id)
+                    , ident(ident)
                     , creationFrame(creationFrame)
-                    , completionFrame(creationFrame + UnitUtil::BuildTime(type))
+                    , completionFrame(creationFrame + UnitHelper::BuildTime(type))
                     , deathFrame(MODEL_FRAME_LIMIT + 1)
                     , creationFrameKnown(creationFrameKnown)
                     , hasProduced(false)
@@ -123,59 +123,59 @@ namespace OpponentEconomicModel
 
         typedef std::array<int, MODEL_FRAME_LIMIT> ResourceArray;
 
-        // These are the main arrays representing our observed state
+        /* These are the main arrays representing our observed state */
         ResourceArray _minerals;
         ResourceArray _gas;
         ResourceArray _supplyAvailable;
 
-        // These are alternate resource arrays for the early game when we haven't seen the enemy take gas yet
+        /* These are alternate resource arrays for the early game when we haven't seen the enemy take gas yet */
         bool gasTakenSimulated;
         ResourceArray _mineralsWithTakenGas;
         ResourceArray _gasWithTakenGas;
         ResourceArray _supplyAvailableWithTakenGas;
 
-        // Caches for the expensive lookup methods
+        /* Caches for the expensive lookup methods */
         std::map<std::pair<BWAPI::UnitType, int>, std::pair<int, int>> worstCaseUnitCountCache;
         std::map<BWAPI::UnitType, int> earliestUnitProductionFrameCache;
 
         bool ignoreUnit(BWAPI::UnitType type)
         {
-            // We currently ignore workers and supply providers, just assuming they are built as needed
+            /* We currently ignore workers and supply providers, just assuming they are built as needed */
             return type.isWorker() || type.supplyProvided() > 0;
         }
 
         void simulateIncome(ResourceArray &minerals, ResourceArray &gas, ResourceArray &supplyAvailable, int overrideGasTiming = -1)
         {
-            // Assumptions:
-            // - Workers are built constantly
-            // - Pylon is built at 8 to support worker production
-            // - Scout is sent at 10 supply
-            // - Three workers are moved to gas when an assimilator finishes
-            // - Enemy stops building workers once they have saturated their resources
+            /* Assumptions: */
+            /* - Workers are built constantly */
+            /* - Pylon is built at 8 to support worker production */
+            /* - Scout is sent at 10 supply */
+            /* - Three workers are moved to gas when an assimilator finishes */
+            /* - Enemy stops building workers once they have saturated their resources */
 
-            // This simulation does not take later pylon building into account after the one at 8 supply, so it will initialize
-            // supplyAvailable to negative numbers past a certain point, which will be accounted for later
+            /* This simulation does not take later pylon building into account after the one at 8 supply, so it will initialize */
+            /* supplyAvailable to negative numbers past a certain point, which will be accounted for later */
 
-            // We start mineral collection at frame 25 to account for the initial delay in getting the economy started
+            /* We start mineral collection at frame 25 to account for the initial delay in getting the economy started */
 
-            // At frame 0 we have 4 mineral workers, no gas workers, and are building a worker that started after LF
+            /* At frame 0 we have 4 mineral workers, no gas workers, and are building a worker that started after LF */
             int mineralWorkers = 4;
             int gasWorkers = 0;
             int remainingWorkerBuildTime = 300 + BWAPI::Broodwar->getLatencyFrames();
 
-            // Find the frames where a refinery finished
+            /* Find the frames where a refinery finished */
             std::queue<int> refineryFrames;
             if (overrideGasTiming > 0)
             {
-                refineryFrames.push(overrideGasTiming + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator));
+                refineryFrames.push(overrideGasTiming + UnitHelper::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator));
             }
             else
             {
-                for (const auto &unit : observedUnits)
+                for (const auto &gameUnit : observedUnits)
                 {
-                    if (unit->type.isRefinery())
+                    if (gameUnit->type.isRefinery())
                     {
-                        refineryFrames.push(unit->completionFrame);
+                        refineryFrames.push(gameUnit->completionFrame);
                     }
                 }
             }
@@ -189,7 +189,7 @@ namespace OpponentEconomicModel
             int supplyCounter = 8;
             for (int f = 0; f < MODEL_FRAME_LIMIT; f++)
             {
-                // If a refinery finished at this frame, move workers from minerals to gas
+                /* If a refinery finished at this frame, move workers from minerals to gas */
                 if (f == refineryFrames.front())
                 {
                     mineralWorkers -= 3;
@@ -202,13 +202,13 @@ namespace OpponentEconomicModel
                     moveToGasFrames.pop();
                 }
 
-                // Completed worker goes to minerals
+                /* Completed worker goes to minerals */
                 if (remainingWorkerBuildTime == 0)
                 {
                     mineralWorkers++;
                 }
 
-                // Build a worker
+                /* Build a worker */
                 if (remainingWorkerBuildTime <= 0 && mineralCounter >= 50
                     && (mineralWorkers + gasWorkers + (moveToGasFrames.size() - 1) * 3 + (refineryFrames.size() - 1) * 3) < workerLimit
                     && (f >= PYLON_FINISHED || supplyCounter >= 2))
@@ -219,7 +219,7 @@ namespace OpponentEconomicModel
                 }
                 remainingWorkerBuildTime--;
 
-                // Build a pylon at frame 1115
+                /* Build a pylon at frame 1115 */
                 if (f == PYLON_STARTED)
                 {
                     mineralCounter -= (100 + BUILDER_LOSS);
@@ -229,20 +229,20 @@ namespace OpponentEconomicModel
                     supplyCounter += 16;
                 }
 
-                // Send scout at frame 1850
+                /* Send scout at frame 1850 */
                 if (f == SCOUT_SENT)
                 {
                     mineralWorkers--;
                 }
 
-                // Scout dies at frame 4500
+                /* Scout dies at frame 4500 */
                 if (f == SCOUT_DIED)
                 {
                     supplyCounter += 2;
                 }
 
-                // Set the resources at this frame
-                // Simulate a short delay to get going at the start
+                /* Set the resources at this frame */
+                /* Simulate a short delay to get going at the start */
                 if (f > 25)
                 {
                     mineralCounter += mineralWorkers * MINERALS_PER_WORKER_FRAME;
@@ -266,61 +266,61 @@ namespace OpponentEconomicModel
 
         std::tuple<ResourceArray&, ResourceArray&, ResourceArray&> simulateTakingGasIfNeeded(BWAPI::UnitType type)
         {
-            // Use normal arrays if the type doesn't require gas or we've seen when the enemy took gas
-            auto it = observedUnitsByType.find(BWAPI::UnitTypes::Protoss_Assimilator);
-            if (it != observedUnitsByType.end() || type.gasPrice() < 2)
+            /* Use normal arrays if the type doesn't require gas or we've seen when the enemy took gas */
+            auto iterRef = observedUnitsByType.find(BWAPI::UnitTypes::Protoss_Assimilator);
+            if (iterRef != observedUnitsByType.end() || type.gasPrice() < 2)
             {
                 return std::tie(_minerals, _gas, _supplyAvailable);
             }
 
-            // If we've already simulated gas being taken, return the current data
+            /* If we've already simulated gas being taken, return the current data */
             if (gasTakenSimulated)
             {
                 return std::tie(_mineralsWithTakenGas, _gasWithTakenGas, _supplyAvailableWithTakenGas);
             }
             gasTakenSimulated = true;
 
-            // Use our scouting information to determine when the opponent could have taken their gas at the earliest
+            /* Use our scouting information to determine when the opponent could have taken their gas at the earliest */
             int geyserLastScouted = EARLIEST_GAS;
-            auto base = Map::getEnemyStartingMain();
-            if (base)
+            auto baseLoc = Map::getEnemyStartingMain();
+            if (baseLoc)
             {
-                for (auto &geyserResource : base->geysersOrRefineries())
+                for (auto &geyserResource : baseLoc->geysersOrRefineries())
                 {
-                    geyserLastScouted = std::max(geyserLastScouted, Map::lastSeen(geyserResource->tile));
+                    geyserLastScouted = std::max(geyserLastScouted, Map::lastSeen(geyserResource->tilePos));
                 }
             }
 
-            // Simulate the income with the different gas timing
+            /* Simulate the income with the different gas timing */
             simulateIncome(_mineralsWithTakenGas, _gasWithTakenGas, _supplyAvailableWithTakenGas, geyserLastScouted);
             return std::tie(_mineralsWithTakenGas, _gasWithTakenGas, _supplyAvailableWithTakenGas);
         }
 
-        int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame = 0);
+        int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int tick = 0);
 
-        int addPrerequiste(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame)
+        int addPrerequiste(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int tick)
         {
             if (type == BWAPI::UnitTypes::None) return 0;
 
-            auto it = observedUnitsByType.find(type);
-            if (it != observedUnitsByType.end())
+            auto iterRef = observedUnitsByType.find(type);
+            if (iterRef != observedUnitsByType.end())
             {
-                for (auto &unit : it->second)
+                for (auto &gameUnit : iterRef->second)
                 {
-                    if (frame < 0 || frame < unit->deathFrame)
+                    if (tick < 0 || tick < gameUnit->deathFrame)
                     {
-                        return unit->completionFrame;
+                        return gameUnit->completionFrame;
                     }
                 }
             }
 
-            int startFrame = frame - UnitUtil::BuildTime(type);
+            int startFrame = tick - UnitHelper::BuildTime(type);
             prerequisites.emplace_back(startFrame, type);
 
             return getPrerequisites(prerequisites, type, startFrame);
         }
 
-        int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int frame)
+        int getPrerequisites(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites, BWAPI::UnitType type, int tick)
         {
             if (type == BWAPI::UnitTypes::None) return 0;
 
@@ -330,13 +330,13 @@ namespace OpponentEconomicModel
                 if (!typeAndCount.first.isBuilding()) continue;
                 if (typeAndCount.first.isResourceDepot()) continue;
 
-                earliestFrame = std::max(earliestFrame, addPrerequiste(prerequisites, typeAndCount.first, frame));
+                earliestFrame = std::max(earliestFrame, addPrerequiste(prerequisites, typeAndCount.first, tick));
             }
 
-            // For units, always include what builds them in case it isn't a part of the dependency tree
+            /* For units, always include what builds them in case it isn't a part of the dependency tree */
             if (!type.isBuilding())
             {
-                earliestFrame = std::max(earliestFrame, addPrerequiste(prerequisites, type.whatBuilds().first, frame));
+                earliestFrame = std::max(earliestFrame, addPrerequiste(prerequisites, type.whatBuilds().first, tick));
             }
 
             return earliestFrame;
@@ -344,32 +344,32 @@ namespace OpponentEconomicModel
 
         void removeDuplicates(std::vector<std::pair<int, BWAPI::UnitType>> &prerequisites)
         {
-            // If there are needed buildings, remove duplicates
+            /* If there are needed buildings, remove duplicates */
             if (prerequisites.empty()) return;
 
-            // Start by sorting to get them in the right order
+            /* Start by sorting to get them in the right order */
             std::sort(prerequisites.begin(), prerequisites.end());
 
-            // Now remove duplicates
+            /* Now remove duplicates */
             std::set<BWAPI::UnitType> seenTypes;
-            for (auto it = prerequisites.begin(); it != prerequisites.end(); )
+            for (auto iterRef = prerequisites.begin(); iterRef != prerequisites.end(); )
             {
-                if (seenTypes.contains(it->second))
+                if (seenTypes.contains(iterRef->second))
                 {
-                    it = prerequisites.erase(it);
+                    iterRef = prerequisites.erase(iterRef);
                 }
                 else
                 {
-                    seenTypes.insert(it->second);
-                    it++;
+                    seenTypes.insert(iterRef->second);
+                    iterRef++;
                 }
             }
         }
     }
 
-    bool enabled(int frame)
+    bool enabled(int tick)
     {
-        return isEnabled && frame < MODEL_FRAME_LIMIT;
+        return isEnabled && tick < MODEL_FRAME_LIMIT;
     }
 
     void initialize()
@@ -377,7 +377,7 @@ namespace OpponentEconomicModel
         if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran ||
             BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
         {
-            Log::Get() << "Disabling opponent economic model, as opponent is not Protoss";
+            AppLog::Get() << "Disabling opponent economic model, as opponent is not Protoss";
             isEnabled = false;
             return;
         }
@@ -407,43 +407,43 @@ namespace OpponentEconomicModel
     {
         if (!isEnabled) return;
 
-        if (currentFrame >= (MODEL_FRAME_LIMIT - 5000))
+        if (frameNow >= (MODEL_FRAME_LIMIT - 5000))
         {
-            Log::Get() << "Disabling opponent economic model, reached frame limit";
+            AppLog::Get() << "Disabling opponent economic model, reached frame limit";
             isEnabled = false;
             return;
         }
         if (BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Terran ||
             BWAPI::Broodwar->enemy()->getRace() == BWAPI::Races::Zerg)
         {
-            Log::Get() << "Disabling opponent economic model, as opponent is not Protoss";
+            AppLog::Get() << "Disabling opponent economic model, as opponent is not Protoss";
             isEnabled = false;
             return;
         }
-        auto &enemyNexuses = Units::allEnemyOfType(BWAPI::UnitTypes::Protoss_Nexus);
+        auto &enemyNexuses = UnitMgr::allEnemyOfType(BWAPI::UnitTypes::Protoss_Nexus);
         if (std::count_if(enemyNexuses.begin(), enemyNexuses.end(), [](const Unit &nexus) { return nexus->completed; }) > 1)
         {
-            Log::Get() << "Disabling opponent economic model, as opponent has a completed natural nexus";
+            AppLog::Get() << "Disabling opponent economic model, as opponent has a completed natural nexus";
             isEnabled = false;
             return;
         }
 
-        // Detect upgrades
+        /* Detect upgrades */
         for (auto &[type, currentLevel] : currentUpgradeLevels)
         {
             int level = BWAPI::Broodwar->enemy()->getUpgradeLevel(type);
             if (level > currentLevel)
             {
 #if LOGGING_ENABLED
-                Log::Get() << "Enemy has upgraded " << type << " to " << level;
+                AppLog::Get() << "Enemy has upgraded " << type << " to " << level;
 #endif
                 currentLevel = level;
-                research.emplace_back(type, currentFrame - type.upgradeTime(level));
+                research.emplace_back(type, frameNow - type.upgradeTime(level));
                 changedThisFrame = true;
 
 #if OUTPUT_BUILD_ORDER
                 observations << "\nOpponentEconomicModel::opponentUpgraded(BWAPI::UpgradeTypes::"
-                    << type << ", " << level << ", " << (currentFrame - type.upgradeTime(level)) << ");";
+                    << type << ", " << level << ", " << (frameNow - type.upgradeTime(level)) << ");";
 #endif
             }
         }
@@ -456,28 +456,28 @@ namespace OpponentEconomicModel
 #if OUTPUT_BOARD_VALUES
         auto outputBoardValues = [&]()
         {
-            CherryVis::setBoardValue("modelled-minerals", (std::ostringstream() << minerals[currentFrame]).str());
-            CherryVis::setBoardValue("modelled-gas", (std::ostringstream() << gas[currentFrame]).str());
-            CherryVis::setBoardValue("modelled-supply", (std::ostringstream() << supplyAvailable[currentFrame]).str());
-            CherryVis::setBoardValue("modelled-pylons", (std::ostringstream() << pylonFrames.size()).str());
+            Telemetry::setBoardValue("modelled-minerals", (std::ostringstream() << minerals[frameNow]).str());
+            Telemetry::setBoardValue("modelled-gas", (std::ostringstream() << gas[frameNow]).str());
+            Telemetry::setBoardValue("modelled-supply", (std::ostringstream() << supplyAvailable[frameNow]).str());
+            Telemetry::setBoardValue("modelled-pylons", (std::ostringstream() << pylonFrames.size()).str());
             std::ostringstream unitCounts;
             for (auto &[type, unitSet] : observedUnitsByType)
             {
                 unitCounts << unitSet.size() << " " << type << "\n";
             }
-            CherryVis::setBoardValue("modelled-unitcounts", unitCounts.str());
+            Telemetry::setBoardValue("modelled-unitcounts", unitCounts.str());
             std::ostringstream cvisImplied;
-            for (auto &unit : impliedUnits)
+            for (auto &gameUnit : impliedUnits)
             {
-                cvisImplied << unit->type << "@" << unit->creationFrame << "\n";
+                cvisImplied << gameUnit->type << "@" << gameUnit->creationFrame << "\n";
             }
-            CherryVis::setBoardValue("modelled-implied", cvisImplied.str());
+            Telemetry::setBoardValue("modelled-implied", cvisImplied.str());
             std::ostringstream cvisProducerCounts;
             for (auto &[type, producers] : producersByType)
             {
                 cvisProducerCounts << producers.size() << " " << type << "\n";
             }
-            CherryVis::setBoardValue("modelled-producers", cvisProducerCounts.str());
+            Telemetry::setBoardValue("modelled-producers", cvisProducerCounts.str());
         };
 #endif
 
@@ -493,30 +493,30 @@ namespace OpponentEconomicModel
         worstCaseUnitCountCache.clear();
         earliestUnitProductionFrameCache.clear();
 
-        // Compute units we haven't seen that are prerequisites to what we have seen
+        /* Compute units we haven't seen that are prerequisites to what we have seen */
         impliedUnits.clear();
         std::vector<std::pair<int, BWAPI::UnitType>> prerequisites;
         for (auto &[type, frameFirstCreated] : firstOfTypeCreated)
         {
             getPrerequisites(prerequisites, type, frameFirstCreated);
         }
-        for (const auto &[upgradeOrTechType, frame] : research)
+        for (const auto &[upgradeOrTechType, tick] : research)
         {
-            addPrerequiste(prerequisites, upgradeOrTechType.whatsRequired(), frame);
-            addPrerequiste(prerequisites, upgradeOrTechType.whatUpgradesOrResearches(), frame);
+            addPrerequiste(prerequisites, upgradeOrTechType.whatsRequired(), tick);
+            addPrerequiste(prerequisites, upgradeOrTechType.whatUpgradesOrResearches(), tick);
         }
         removeDuplicates(prerequisites);
-        for (auto &[frame, type] : prerequisites)
+        for (auto &[tick, type] : prerequisites)
         {
-            if (frame < 0)
+            if (tick < 0)
             {
-                Log::Get() << "ERROR: Prerequisite " << type << " would need to have been built at frame " << frame
+                AppLog::Get() << "ERROR: Prerequisite " << type << " would need to have been built at frame " << tick
                            << "; assuming this is a test and disabling econ model";
                 isEnabled = false;
                 return;
             }
 
-            auto impliedUnit = std::make_shared<EcoModelUnit>(type, 0, frame);
+            auto impliedUnit = std::make_shared<EcoModelUnit>(type, 0, tick);
             impliedUnits.insert(impliedUnit);
         }
 
@@ -524,26 +524,26 @@ namespace OpponentEconomicModel
         allUnits.insert(observedUnits.begin(), observedUnits.end());
         allUnits.insert(impliedUnits.begin(), impliedUnits.end());
 
-        // If we haven't seen an assimilator, check if we know when the enemy must have gotten it at the latest
+        /* If we haven't seen an assimilator, check if we know when the enemy must have gotten it at the latest */
         int overrideGasTiming = -1;
         if (!observedUnitsByType.contains(BWAPI::UnitTypes::Protoss_Assimilator))
         {
             std::vector<std::pair<int, int>> gasFrames;
-            for (const auto &unit : allUnits)
+            for (const auto &gameUnit : allUnits)
             {
-                if (unit->gasPrice > 5) gasFrames.emplace_back(unit->creationFrame, unit->gasPrice);
+                if (gameUnit->gasPrice > 5) gasFrames.emplace_back(gameUnit->creationFrame, gameUnit->gasPrice);
             }
-            for (const auto &[upgradeOrTechType, frame] : research)
+            for (const auto &[upgradeOrTechType, tick] : research)
             {
-                if (upgradeOrTechType.gasPrice() > 5) gasFrames.emplace_back(frame, upgradeOrTechType.gasPrice());
+                if (upgradeOrTechType.gasPrice() > 5) gasFrames.emplace_back(tick, upgradeOrTechType.gasPrice());
             }
             std::sort(gasFrames.begin(), gasFrames.end());
 
             int cumulativeGasNeeded = 0;
-            for (const auto &[frame, gasSpent] : gasFrames)
+            for (const auto &[tick, gasSpent] : gasFrames)
             {
                 cumulativeGasNeeded += gasSpent;
-                int f = frame - (int)((double)cumulativeGasNeeded / (GAS_PER_WORKER_FRAME * 3));
+                int f = tick - (int)((double)cumulativeGasNeeded / (GAS_PER_WORKER_FRAME * 3));
                 if (overrideGasTiming == -1 || f < overrideGasTiming)
                 {
                     overrideGasTiming = f;
@@ -552,7 +552,7 @@ namespace OpponentEconomicModel
 
             if (overrideGasTiming != -1)
             {
-                overrideGasTiming -= UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator) - TRANSFER_TO_GAS_FRAMES;
+                overrideGasTiming -= UnitHelper::BuildTime(BWAPI::UnitTypes::Protoss_Assimilator) - TRANSFER_TO_GAS_FRAMES;
 
                 auto producer = std::make_shared<EcoModelUnit>(BWAPI::UnitTypes::Protoss_Assimilator, 0, overrideGasTiming);
                 impliedUnits.insert(producer);
@@ -562,139 +562,139 @@ namespace OpponentEconomicModel
 
         simulateIncome(minerals, gas, supplyAvailable, overrideGasTiming);
 
-        // Simulate resource spend for all units
-        auto spend = [&](const std::shared_ptr<EcoModelUnit> &unit)
+        /* Simulate resource spend for all units */
+        auto spend = [&](const std::shared_ptr<EcoModelUnit> &gameUnit)
         {
             spendResource(
                     minerals,
-                    (unit->mineralPrice + ((unit->type.isBuilding() && unit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0)),
-                    unit->creationFrame);
-            spendResource(gas, unit->gasPrice, unit->creationFrame);
-            spendResource(supplyAvailable, unit->supplyRequired, unit->creationFrame);
-            if (unit->deathFrame < MODEL_FRAME_LIMIT)
+                    (gameUnit->mineralPrice + ((gameUnit->type.isBuilding() && gameUnit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0)),
+                    gameUnit->creationFrame);
+            spendResource(gas, gameUnit->gasPrice, gameUnit->creationFrame);
+            spendResource(supplyAvailable, gameUnit->supplyRequired, gameUnit->creationFrame);
+            if (gameUnit->deathFrame < MODEL_FRAME_LIMIT)
             {
-                spendResource(supplyAvailable, -unit->supplyRequired, unit->deathFrame);
+                spendResource(supplyAvailable, -gameUnit->supplyRequired, gameUnit->deathFrame);
 
-                // Refund cancelled buildings
-                if (unit->type.isBuilding() && unit->completionFrame > unit->deathFrame)
+                /* Refund cancelled buildings */
+                if (gameUnit->type.isBuilding() && gameUnit->completionFrame > gameUnit->deathFrame)
                 {
-                    spendResource(minerals, (unit->mineralPrice * -3) / 4, unit->deathFrame);
-                    spendResource(gas, (unit->gasPrice * -3) / 4, unit->deathFrame);
+                    spendResource(minerals, (gameUnit->mineralPrice * -3) / 4, gameUnit->deathFrame);
+                    spendResource(gas, (gameUnit->gasPrice * -3) / 4, gameUnit->deathFrame);
                 }
             }
         };
-        for (const auto &unit : allUnits)
+        for (const auto &gameUnit : allUnits)
         {
-            spend(unit);
+            spend(gameUnit);
         }
 
-        // Simulate resource spend for upgrades
-        // Only considers level 1, which is probably fine given the constraints of the model
+        /* Simulate resource spend for upgrades */
+        /* Only considers level 1, which is probably fine given the constraints of the model */
         for (const auto &researchItem : research)
         {
             spendResource(minerals, researchItem.first.mineralPrice(), researchItem.second);
             spendResource(gas, researchItem.first.gasPrice(), researchItem.second);
         }
 
-        // Insert supply wherever needed
-        // Keep track of the frames, as we will potentially manipulate this later when simulating production
+        /* Insert supply wherever needed */
+        /* Keep track of the frames, as we will potentially manipulate this later when simulating production */
         pylonFrames = {PYLON_STARTED};
         for (int f = PYLON_FINISHED; f < MODEL_FRAME_LIMIT; f++)
         {
             if (supplyAvailable[f] < 0)
             {
-                int startFrame = f - UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+                int startFrame = f - UnitHelper::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
                 spendResource(minerals, 100 + ((startFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0), startFrame);
                 spendResource(supplyAvailable, -16, f);
                 pylonFrames.push_back(startFrame);
             }
         }
 
-        // Now simulate production
+        /* Now simulate production */
 
-        // Do an initial scan to initialize the data structures we will use for the search
-        // Since the prerequisite availability frame is the same for all units of the same type, keep a cache of what we have computed
-        // Prefill with gateway and zealot since they are given by our assumed early opening
+        /* Do an initial scan to initialize the data structures we will use for the search */
+        /* Since the prerequisite availability frame is the same for all units of the same type, keep a cache of what we have computed */
+        /* Prefill with gateway and zealot since they are given by our assumed early opening */
         std::map<BWAPI::UnitType, int> prerequisitesAvailableByType = {
                 {BWAPI::UnitTypes::Protoss_Gateway, PYLON_FINISHED},
-                {BWAPI::UnitTypes::Protoss_Zealot, PYLON_FINISHED + UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Gateway)}
+                {BWAPI::UnitTypes::Protoss_Zealot, PYLON_FINISHED + UnitHelper::BuildTime(BWAPI::UnitTypes::Protoss_Gateway)}
         };
         producersByType.clear();
         std::map<BWAPI::UnitType, EcoModelUnitSet> unitsByProducerType;
 
-        for (const auto &unit : allUnits)
+        for (const auto &gameUnit : allUnits)
         {
-            // Determine when this unit type can be started
-            if (!prerequisitesAvailableByType.contains(unit->type))
+            /* Determine when this unit type can be started */
+            if (!prerequisitesAvailableByType.contains(gameUnit->type))
             {
-                if (unit->creationFrameKnown)
+                if (gameUnit->creationFrameKnown)
                 {
-                    prerequisitesAvailableByType[unit->type] = unit->creationFrame;
+                    prerequisitesAvailableByType[gameUnit->type] = gameUnit->creationFrame;
                 }
                 else
                 {
                     int prerequisitesDone = 0;
-                    for (auto &[type, count] : unit->type.requiredUnits())
+                    for (auto &[type, count] : gameUnit->type.requiredUnits())
                     {
                         if (!type.isBuilding()) continue;
 
-                        prerequisitesDone = std::max(prerequisitesDone, prerequisitesAvailableByType[type] + UnitUtil::BuildTime(type));
+                        prerequisitesDone = std::max(prerequisitesDone, prerequisitesAvailableByType[type] + UnitHelper::BuildTime(type));
                     }
 
-                    // Check when we actually had the resources
+                    /* Check when we actually had the resources */
                     int f;
-                    for (f = unit->creationFrame - 1; f >= prerequisitesDone; f--)
+                    for (f = gameUnit->creationFrame - 1; f >= prerequisitesDone; f--)
                     {
-                        if (minerals[f] < unit->mineralPrice) break;
-                        if (gas[f] < unit->gasPrice) break;
+                        if (minerals[f] < gameUnit->mineralPrice) break;
+                        if (gas[f] < gameUnit->gasPrice) break;
                     }
                     f++;
 
-                    prerequisitesAvailableByType[unit->type] = f;
+                    prerequisitesAvailableByType[gameUnit->type] = f;
                 }
             }
 
-            // No longer need to consider tech buildings
-            if (unit->type.isBuilding() && !unit->type.canProduce()) continue;
+            /* No longer need to consider tech buildings */
+            if (gameUnit->type.isBuilding() && !gameUnit->type.canProduce()) continue;
 
-            // Add to an appropriate set
-            unit->prerequisitesAvailableFrame = prerequisitesAvailableByType[unit->type];
-            if (unit->type.canProduce())
+            /* Add to an appropriate set */
+            gameUnit->prerequisitesAvailableFrame = prerequisitesAvailableByType[gameUnit->type];
+            if (gameUnit->type.canProduce())
             {
-                producersByType[unit->type].push_back(unit);
+                producersByType[gameUnit->type].push_back(gameUnit);
             }
             else
             {
-                unitsByProducerType[unit->type.whatBuilds().first].insert(unit);
+                unitsByProducerType[gameUnit->type.whatBuilds().first].insert(gameUnit);
             }
         }
 
-        // Now search for a solution for each producer type giving the fewest number of producers
-        // This is a tricky problem because we usually don't know the exact creation frames of what we have observed
-        // For now we are assuming that units were created in the order that we observed them
-        // This might cause issues though, as we might see a zealot after a dragoon that was produced before the core was finished
-        // Another option could be to track "holes" in producer production that we can fill with later units
+        /* Now search for a solution for each producer type giving the fewest number of producers */
+        /* This is a tricky problem because we usually don't know the exact creation frames of what we have observed */
+        /* For now we are assuming that units were created in the order that we observed them */
+        /* This might cause issues though, as we might see a zealot after a dragoon that was produced before the core was finished */
+        /* Another option could be to track "holes" in producer production that we can fill with later units */
 
         for (auto &[producerType, units] : unitsByProducerType)
         {
-            // Back up our state so we can roll back whenever we need to add a new implied producer
+            /* Back up our state so we can roll back whenever we need to add a new implied producer */
             auto mineralBackup = minerals;
             auto gasBackup = gas;
             auto supplyBackup = supplyAvailable;
             auto pylonFramesBackup = pylonFrames;
 
-            int producerBuildTime = UnitUtil::BuildTime(producerType);
+            int producerBuildTime = UnitHelper::BuildTime(producerType);
 
             while (true)
             {
                 auto &producers = producersByType[producerType];
 
-                // Guard against an endless loop
+                /* Guard against an endless loop */
                 if (producers.size() > 30)
                 {
-                    Log::Get() << "ERROR: Endless loop in opponent economic model; disabling economic model";
+                    AppLog::Get() << "ERROR: Endless loop in opponent economic model; disabling economic model";
 #if OUTPUT_BUILD_ORDER
-                    Log::Get() << "Observations:" << observations.str();
+                    AppLog::Get() << "Observations:" << observations.str();
 #endif
                     isEnabled = false;
                     return;
@@ -709,60 +709,60 @@ namespace OpponentEconomicModel
                 std::sort(producers.begin(), producers.end(), EcoModelUnit::cmp());
                 if (producers.empty()) break; // Shouldn't happen, since each unit needs its prerequisites
 
-                for (auto &unit : units)
+                for (auto &gameUnit : units)
                 {
-                    // Reset shifted creation frame as it might have been changed in a previous iteration
-                    unit->shiftedCreationFrame = unit->creationFrame;
+                    /* Reset shifted creation frame as it might have been changed in a previous iteration */
+                    gameUnit->shiftedCreationFrame = gameUnit->creationFrame;
 
                     auto shiftEarlier = [&](int toFrame)
                     {
-                        if (toFrame >= unit->shiftedCreationFrame) return;
+                        if (toFrame >= gameUnit->shiftedCreationFrame) return;
 
-                        spendResource(minerals, unit->mineralPrice, toFrame, unit->shiftedCreationFrame);
-                        spendResource(gas, unit->gasPrice, toFrame, unit->shiftedCreationFrame);
-                        spendResource(supplyAvailable, unit->supplyRequired, toFrame, unit->shiftedCreationFrame);
+                        spendResource(minerals, gameUnit->mineralPrice, toFrame, gameUnit->shiftedCreationFrame);
+                        spendResource(gas, gameUnit->gasPrice, toFrame, gameUnit->shiftedCreationFrame);
+                        spendResource(supplyAvailable, gameUnit->supplyRequired, toFrame, gameUnit->shiftedCreationFrame);
 
-                        unit->shiftedCreationFrame = toFrame;
+                        gameUnit->shiftedCreationFrame = toFrame;
                     };
 
-                    // Shift earlier until hitting missing resources or supply
+                    /* Shift earlier until hitting missing resources or supply */
                     int firstSupplyBlockFrame = 0;
                     int lastSupplyBlockFrame = 0;
                     {
                         int f;
-                        for (f = unit->creationFrame - 1; f >= unit->prerequisitesAvailableFrame; f--)
+                        for (f = gameUnit->creationFrame - 1; f >= gameUnit->prerequisitesAvailableFrame; f--)
                         {
-                            if (minerals[f] < unit->mineralPrice) break;
-                            if (gas[f] < unit->gasPrice) break;
-                            if (supplyAvailable[f] < unit->supplyRequired)
+                            if (minerals[f] < gameUnit->mineralPrice) break;
+                            if (gas[f] < gameUnit->gasPrice) break;
+                            if (supplyAvailable[f] < gameUnit->supplyRequired)
                             {
                                 if (firstSupplyBlockFrame == 0) firstSupplyBlockFrame = f;
                                 lastSupplyBlockFrame = f;
                             }
                         }
 
-                        // Shift as far as we could
+                        /* Shift as far as we could */
                         shiftEarlier(std::max(f + 1, firstSupplyBlockFrame + 1));
                     }
 
-                    // Try to resolve a supply block
+                    /* Try to resolve a supply block */
                     if (firstSupplyBlockFrame != 0)
                     {
-                        int pylonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+                        int pylonBuildTime = UnitHelper::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
 
-                        // Find the earliest pylon that finishes on or after the unit's creation frame
+                        /* Find the earliest pylon that finishes on or after the unit's creation frame */
                         int pylonIndex;
                         for (pylonIndex = 0; pylonIndex < pylonFrames.size(); pylonIndex++)
                         {
-                            if ((pylonFrames[pylonIndex] + pylonBuildTime) >= unit->shiftedCreationFrame)
+                            if ((pylonFrames[pylonIndex] + pylonBuildTime) >= gameUnit->shiftedCreationFrame)
                             {
                                 break;
                             }
                         }
                         if (pylonIndex < pylonFrames.size())
                         {
-                            // Pull both the unit and the pylon back as far as possible
-                            int earliestPylonFrame = std::max(unit->prerequisitesAvailableFrame, lastSupplyBlockFrame) - pylonBuildTime;
+                            /* Pull both the unit and the pylon back as far as possible */
+                            int earliestPylonFrame = std::max(gameUnit->prerequisitesAvailableFrame, lastSupplyBlockFrame) - pylonBuildTime;
                             int pylonCost = 100;
                             if (earliestPylonFrame < BUILDER_LOSS_UNTIL) pylonCost += BUILDER_LOSS;
 
@@ -770,20 +770,20 @@ namespace OpponentEconomicModel
                             int nowGas = 0;
                             int offsetMinerals = pylonCost;
                             int f;
-                            for (f = pylonFrames[pylonIndex] + pylonBuildTime; f >= unit->prerequisitesAvailableFrame; f--)
+                            for (f = pylonFrames[pylonIndex] + pylonBuildTime; f >= gameUnit->prerequisitesAvailableFrame; f--)
                             {
-                                // When we cross the creation frame (or start there), begin considering the unit itself
-                                if (f == unit->shiftedCreationFrame)
+                                /* When we cross the creation frame (or start there), begin considering the unit itself */
+                                if (f == gameUnit->shiftedCreationFrame)
                                 {
-                                    nowMinerals = unit->mineralPrice + pylonCost;
-                                    nowGas = unit->gasPrice;
+                                    nowMinerals = gameUnit->mineralPrice + pylonCost;
+                                    nowGas = gameUnit->gasPrice;
                                 }
 
                                 if (minerals[f] < nowMinerals) break;
                                 if (minerals[f] < nowGas) break;
                                 if (minerals[f - pylonBuildTime] < offsetMinerals) break;
 
-                                // When we reach the beginning of the supply block, we no longer need to pull the pylon
+                                /* When we reach the beginning of the supply block, we no longer need to pull the pylon */
                                 if (f == lastSupplyBlockFrame)
                                 {
                                     offsetMinerals = 0;
@@ -795,8 +795,8 @@ namespace OpponentEconomicModel
                             }
                             f++;
 
-                            // Shift the pylon
-                            if (f < unit->shiftedCreationFrame)
+                            /* Shift the pylon */
+                            if (f < gameUnit->shiftedCreationFrame)
                             {
                                 int newStartFrame = std::max(f - pylonBuildTime, earliestPylonFrame);
                                 spendResource(minerals, pylonCost, newStartFrame, pylonFrames[pylonIndex]);
@@ -809,8 +809,8 @@ namespace OpponentEconomicModel
                         }
                         else
                         {
-                            // There wasn't a pylon to shift, so try creating one instead
-                            int earliestPylonFrame = unit->prerequisitesAvailableFrame - pylonBuildTime;
+                            /* There wasn't a pylon to shift, so try creating one instead */
+                            int earliestPylonFrame = gameUnit->prerequisitesAvailableFrame - pylonBuildTime;
                             int mineralCost = 100;
                             if (earliestPylonFrame < BUILDER_LOSS_UNTIL) mineralCost += BUILDER_LOSS;
                             int gasCost = 0;
@@ -820,19 +820,19 @@ namespace OpponentEconomicModel
                                 if (minerals[f] < mineralCost) break;
                                 if (minerals[f] < gasCost) break;
 
-                                if (f == unit->prerequisitesAvailableFrame)
+                                if (f == gameUnit->prerequisitesAvailableFrame)
                                 {
-                                    mineralCost -= unit->mineralPrice;
-                                    gasCost -= unit->gasPrice;
+                                    mineralCost -= gameUnit->mineralPrice;
+                                    gasCost -= gameUnit->gasPrice;
                                 }
-                                if (f == unit->shiftedCreationFrame)
+                                if (f == gameUnit->shiftedCreationFrame)
                                 {
-                                    mineralCost += unit->mineralPrice;
-                                    gasCost += unit->gasPrice;
+                                    mineralCost += gameUnit->mineralPrice;
+                                    gasCost += gameUnit->gasPrice;
                                 }
                             }
                             f++;
-                            if (f < (unit->shiftedCreationFrame - pylonBuildTime))
+                            if (f < (gameUnit->shiftedCreationFrame - pylonBuildTime))
                             {
                                 pylonFrames.push_back(f);
                                 std::sort(pylonFrames.begin(), pylonFrames.end());
@@ -844,22 +844,22 @@ namespace OpponentEconomicModel
                         }
                     }
 
-                    // Find the earliest producer that can produce this unit
-                    // For producers that haven't simulated producing anything yet, check if they can be moved earlier than one that has
+                    /* Find the earliest producer that can produce this unit */
+                    /* For producers that haven't simulated producing anything yet, check if they can be moved earlier than one that has */
                     std::shared_ptr<EcoModelUnit> earliestProducer = nullptr;
                     int earliestProducerFrame = MODEL_FRAME_LIMIT + 1;
                     bool attemptedProducerShift = false;
                     for (auto &producer : producers)
                     {
-                        // If this producer can be moved earlier, try it
-                        // Only do this for the first one though, as others are redundant
+                        /* If this producer can be moved earlier, try it */
+                        /* Only do this for the first one though, as others are redundant */
                         if (!producer->hasProduced && !producer->creationFrameKnown)
                         {
                             if (attemptedProducerShift) continue;
                             attemptedProducerShift = true;
 
-                            // Find an earlier frame with enough resources
-                            int earliestFrame = std::max(unit->shiftedCreationFrame - producerBuildTime, producer->prerequisitesAvailableFrame);
+                            /* Find an earlier frame with enough resources */
+                            int earliestFrame = std::max(gameUnit->shiftedCreationFrame - producerBuildTime, producer->prerequisitesAvailableFrame);
                             int mineralPrice = producer->type.mineralPrice() + ((earliestFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
                             int gasPrice = producer->type.gasPrice();
                             int f;
@@ -871,7 +871,7 @@ namespace OpponentEconomicModel
                             producer->canProduceAt = f + 1 + producerBuildTime;
                         }
 
-                        if (producer->canProduceAt > unit->creationFrame) continue;
+                        if (producer->canProduceAt > gameUnit->creationFrame) continue;
                         if (producer->canProduceAt > earliestProducerFrame) continue;
 
                         earliestProducerFrame = producer->canProduceAt;
@@ -879,7 +879,7 @@ namespace OpponentEconomicModel
                     }
                     if (earliestProducer)
                     {
-                        // Shift the producer earlier if needed
+                        /* Shift the producer earlier if needed */
                         if (!earliestProducer->hasProduced && !earliestProducer->creationFrameKnown
                             && earliestProducer->canProduceAt < earliestProducer->completionFrame)
                         {
@@ -896,49 +896,49 @@ namespace OpponentEconomicModel
                                           earliestProducer->creationFrame);
                         }
 
-                        int productionFrame = std::max(earliestProducer->canProduceAt, unit->shiftedCreationFrame);
+                        int productionFrame = std::max(earliestProducer->canProduceAt, gameUnit->shiftedCreationFrame);
 
-                        // Shift the unit later if the producer isn't available early enough
-                        if (productionFrame > unit->shiftedCreationFrame)
+                        /* Shift the unit later if the producer isn't available early enough */
+                        if (productionFrame > gameUnit->shiftedCreationFrame)
                         {
-                            spendResource(minerals, -unit->mineralPrice, unit->shiftedCreationFrame, productionFrame);
-                            spendResource(gas, -unit->gasPrice, unit->shiftedCreationFrame, productionFrame);
-                            spendResource(supplyAvailable, -unit->supplyRequired, unit->shiftedCreationFrame, productionFrame);
-                            unit->shiftedCreationFrame = productionFrame;
+                            spendResource(minerals, -gameUnit->mineralPrice, gameUnit->shiftedCreationFrame, productionFrame);
+                            spendResource(gas, -gameUnit->gasPrice, gameUnit->shiftedCreationFrame, productionFrame);
+                            spendResource(supplyAvailable, -gameUnit->supplyRequired, gameUnit->shiftedCreationFrame, productionFrame);
+                            gameUnit->shiftedCreationFrame = productionFrame;
                         }
 
-                        earliestProducer->canProduceAt = productionFrame + UnitUtil::BuildTime(unit->type);
+                        earliestProducer->canProduceAt = productionFrame + UnitHelper::BuildTime(gameUnit->type);
                         earliestProducer->hasProduced = true;
 
                         continue;
                     }
 
-                    // We have no producer for this unit
-                    // Add a new one as early as possible
+                    /* We have no producer for this unit */
+                    /* Add a new one as early as possible */
 
-                    // Start by restoring our backed-up state
+                    /* Start by restoring our backed-up state */
                     minerals = mineralBackup;
                     gas = gasBackup;
                     supplyAvailable = supplyBackup;
                     pylonFrames = pylonFramesBackup;
 
-                    // Now find the first frame
-                    int mineralPrice = producerType.mineralPrice() + ((unit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
+                    /* Now find the first frame */
+                    int mineralPrice = producerType.mineralPrice() + ((gameUnit->creationFrame < BUILDER_LOSS_UNTIL) ? BUILDER_LOSS : 0);
                     int gasPrice = producerType.gasPrice();
                     int f;
-                    for (f = unit->creationFrame; f >= prerequisitesAvailableByType[producerType]; f--)
+                    for (f = gameUnit->creationFrame; f >= prerequisitesAvailableByType[producerType]; f--)
                     {
                         if (minerals[f] < mineralPrice) break;
                         if (gas[f] < gasPrice) break;
                         if (f == BUILDER_LOSS_UNTIL) mineralPrice += BUILDER_LOSS;
                     }
                     f++;
-                    if (f > (unit->creationFrame - producerBuildTime))
+                    if (f > (gameUnit->creationFrame - producerBuildTime))
                     {
-                        // The simulation couldn't figure it out, which can mean that we've guessed wrong about creation frames (because of a proxy,
-                        // for example), or the build is just really weird
-                        // Let's just bail out now to avoid overestimating the enemy's production facilities
-                        Log::Get() << "WARNING: Couldn't resolve producers of observed units; aborting economic simulation";
+                        /* The simulation couldn't figure it out, which can mean that we've guessed wrong about creation frames (because of a proxy, */
+                        /* for example), or the build is just really weird */
+                        /* Let's just bail out now to avoid overestimating the enemy's production facilities */
+                        AppLog::Get() << "WARNING: Couldn't resolve producers of observed units; aborting economic simulation";
                         break;
                     }
 
@@ -950,7 +950,7 @@ namespace OpponentEconomicModel
                     goto nextIteration;
                 }
 
-                // All units were handled, or we found a situation we couldn't resolve, so break the loop
+                /* All units were handled, or we found a situation we couldn't resolve, so break the loop */
                 break;
 
                 nextIteration:;
@@ -973,9 +973,9 @@ namespace OpponentEconomicModel
         std::ostringstream buildOrder;
         auto pylon = 0;
         auto researchIndex = 0;
-        for (auto &unit : unitsByShiftedCreation)
+        for (auto &gameUnit : unitsByShiftedCreation)
         {
-            if (pylon < pylonFrames.size() && pylonFrames[pylon] < unit->shiftedCreationFrame)
+            if (pylon < pylonFrames.size() && pylonFrames[pylon] < gameUnit->shiftedCreationFrame)
             {
                 buildOrder << "\n" << pylonFrames[pylon]
                            << " (" << minerals[pylonFrames[pylon]]
@@ -984,7 +984,7 @@ namespace OpponentEconomicModel
                            << "): " << BWAPI::UnitTypes::Protoss_Pylon;
                 pylon++;
             }
-            if (researchIndex < research.size() && research[researchIndex].second < unit->shiftedCreationFrame)
+            if (researchIndex < research.size() && research[researchIndex].second < gameUnit->shiftedCreationFrame)
             {
                 buildOrder << "\n" << research[researchIndex].second
                            << " (" << minerals[research[researchIndex].second]
@@ -994,29 +994,29 @@ namespace OpponentEconomicModel
                 researchIndex++;
             }
 
-            buildOrder << "\n" << unit->shiftedCreationFrame
-                       << " (" << minerals[unit->shiftedCreationFrame]
-                       << "," << gas[unit->shiftedCreationFrame]
-                       << "," << supplyAvailable[unit->shiftedCreationFrame]
-                       << "): " << unit->type
-                       << " (" << unit->creationFrame << ")";
+            buildOrder << "\n" << gameUnit->shiftedCreationFrame
+                       << " (" << minerals[gameUnit->shiftedCreationFrame]
+                       << "," << gas[gameUnit->shiftedCreationFrame]
+                       << "," << supplyAvailable[gameUnit->shiftedCreationFrame]
+                       << "): " << gameUnit->type
+                       << " (" << gameUnit->creationFrame << ")";
         }
 
-        Log::Debug() << "\n\nObservations:" << observations.str()
+        AppLog::Debug() << "\n\nObservations:" << observations.str()
                      << "\n\nBuild order:" << buildOrder.str()
                      << "\n";
 #endif
     }
 
-    void opponentUnitCreated(BWAPI::UnitType type, int id, int estimatedCreationFrame, bool creationFrameKnown)
+    void opponentUnitCreated(BWAPI::UnitType type, int ident, int estimatedCreationFrame, bool creationFrameKnown)
     {
         if (!isEnabled) return;
         if (ignoreUnit(type)) return;
 
         changedThisFrame = true;
 
-        auto observedUnit = std::make_shared<EcoModelUnit>(type, id, estimatedCreationFrame, creationFrameKnown);
-        observedUnitsById[id] = observedUnit;
+        auto observedUnit = std::make_shared<EcoModelUnit>(type, ident, estimatedCreationFrame, creationFrameKnown);
+        observedUnitsById[ident] = observedUnit;
         observedUnits.insert(observedUnit);
         observedUnitsByType[type].insert(observedUnit);
         if (!firstOfTypeCreated.contains(type))
@@ -1030,37 +1030,37 @@ namespace OpponentEconomicModel
 
 #if OUTPUT_BUILD_ORDER
         observations << "\nOpponentEconomicModel::opponentUnitCreated(BWAPI::UnitTypes::"
-                     << type << ", " << id << ", " << estimatedCreationFrame << ", " << (creationFrameKnown ? "true" : "false") << ");";
+                     << type << ", " << ident << ", " << estimatedCreationFrame << ", " << (creationFrameKnown ? "true" : "false") << ");";
 #endif
     }
 
-    void opponentUnitDestroyed(BWAPI::UnitType type, int id, int frameDestroyed)
+    void opponentUnitDestroyed(BWAPI::UnitType type, int ident, int frameDestroyed)
     {
         if (!isEnabled) return;
         if (ignoreUnit(type)) return;
 
         changedThisFrame = true;
 
-        int frame = frameDestroyed;
-        if (frame == -1) frame = currentFrame;
+        int tick = frameDestroyed;
+        if (tick == -1) tick = frameNow;
 
 #if OUTPUT_BUILD_ORDER
         observations << "\nOpponentEconomicModel::opponentUnitDestroyed(BWAPI::UnitTypes::"
-                     << type << ", " << id << ", " << frame << ");";
+                     << type << ", " << ident << ", " << tick << ");";
 #endif
 
-        auto it = observedUnitsById.find(id);
-        if (it != observedUnitsById.end())
+        auto iterRef = observedUnitsById.find(ident);
+        if (iterRef != observedUnitsById.end())
         {
-            it->second->deathFrame = frame;
+            iterRef->second->deathFrame = tick;
             return;
         }
 
-        // We don't expect to see a unit die that hasn't already been observed, but handle it gracefully
-        Log::Get() << "Non-observed unit died: " << type << "#" << id;
-        auto observedUnit = std::make_shared<EcoModelUnit>(type, id, frame - UnitUtil::BuildTime(type));
-        observedUnit->deathFrame = frame;
-        observedUnitsById[id] = observedUnit;
+        /* We don't expect to see a unit die that hasn't already been observed, but handle it gracefully */
+        AppLog::Get() << "Non-observed unit died: " << type << "#" << ident;
+        auto observedUnit = std::make_shared<EcoModelUnit>(type, ident, tick - UnitHelper::BuildTime(type));
+        observedUnit->deathFrame = tick;
+        observedUnitsById[ident] = observedUnit;
         observedUnits.insert(observedUnit);
     }
 
@@ -1076,7 +1076,7 @@ namespace OpponentEconomicModel
 #endif
 
         int startFrame = frameStarted;
-        if (startFrame == -1) startFrame = currentFrame - type.researchTime();
+        if (startFrame == -1) startFrame = frameNow - type.researchTime();
         research.emplace_back(type, startFrame);
     }
 
@@ -1090,47 +1090,47 @@ namespace OpponentEconomicModel
         research.emplace_back(type, frameStarted);
     }
 
-    std::pair<int, int> worstCaseUnitCount(BWAPI::UnitType type, int frame)
+    std::pair<int, int> worstCaseUnitCount(BWAPI::UnitType type, int tick)
     {
         if (!isEnabled)
         {
-            Log::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
+            AppLog::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
             return std::make_pair(0, 0);
         }
 
-        auto cacheIt = worstCaseUnitCountCache.find(std::make_pair(type, frame));
+        auto cacheIt = worstCaseUnitCountCache.find(std::make_pair(type, tick));
         if (cacheIt != worstCaseUnitCountCache.end())
         {
             return cacheIt->second;
         }
 
-        if (frame == -1) frame = currentFrame;
+        if (tick == -1) tick = frameNow;
 
-        // Our simulation has already pulled all observed units as early as possible and simulated producers we know must have been there
-        // So this just needs to first fill in additional production from the producers, then simulate if the enemy could have built
-        // more producers
+        /* Our simulation has already pulled all observed units as early as possible and simulated producers we know must have been there */
+        /* So this just needs to first fill in additional production from the producers, then simulate if the enemy could have built */
+        /* more producers */
 
-        // Start by counting how many of the unit type are alive at the given frame
+        /* Start by counting how many of the unit type are alive at the given frame */
         int currentCount = 0;
-        for (auto &unit : observedUnits)
+        for (auto &gameUnit : observedUnits)
         {
-            if (unit->type != type) continue;
-            if (unit->shiftedCreationFrame > frame) continue;
-            if (unit->deathFrame > frame) currentCount++;
+            if (gameUnit->type != type) continue;
+            if (gameUnit->shiftedCreationFrame > tick) continue;
+            if (gameUnit->deathFrame > tick) currentCount++;
         }
 
         auto createResult = [&](int additionalUnitCount)
         {
-            auto result = std::make_pair(currentCount, currentCount + additionalUnitCount);
-            worstCaseUnitCountCache[std::make_pair(type, frame)] = result;
-            return result;
+            auto outcome = std::make_pair(currentCount, currentCount + additionalUnitCount);
+            worstCaseUnitCountCache[std::make_pair(type, tick)] = outcome;
+            return outcome;
         };
 
-        // Use our other method to figure out when the first additional unit of this type could be produced
-        // This takes prerequisites into account
-        // Jump out now if no further units can be produced before the given frame
+        /* Use our other method to figure out when the first additional unit of this type could be produced */
+        /* This takes prerequisites into account */
+        /* Jump out now if no further units can be produced before the given frame */
         int earliestFrame = earliestUnitProductionFrame(type);
-        if (earliestFrame > frame)
+        if (earliestFrame > tick)
         {
             return createResult(0);
         }
@@ -1138,18 +1138,18 @@ namespace OpponentEconomicModel
         int additionalUnitCount = 0;
 
         BWAPI::UnitType producerType = type.whatBuilds().first;
-        int buildTime = UnitUtil::BuildTime(type);
-        int producerBuildTime = UnitUtil::BuildTime(producerType);
+        int buildTime = UnitHelper::BuildTime(type);
+        int producerBuildTime = UnitHelper::BuildTime(producerType);
 
-        // Take a copy of the resource arrays, since we might be changing them
+        /* Take a copy of the resource arrays, since we might be changing them */
         auto pylonFrames = _pylonFrames;
         auto resources = simulateTakingGasIfNeeded(type);
         ResourceArray minerals = std::get<0>(resources);
         ResourceArray gas = std::get<1>(resources);
         ResourceArray supplyAvailable = std::get<2>(resources);
 
-        // Computes when the unit can next be produced at
-        // Shifts pylons earlier if needed
+        /* Computes when the unit can next be produced at */
+        /* Shifts pylons earlier if needed */
         int supplyRequired = type.supplyRequired();
         int mineralPrice = type.mineralPrice();
         int gasPrice = type.gasPrice();
@@ -1178,10 +1178,10 @@ namespace OpponentEconomicModel
                 return resourcesAvailableFrame;
             }
 
-            // Try to resolve a supply block
-            int pylonBuildTime = UnitUtil::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
+            /* Try to resolve a supply block */
+            int pylonBuildTime = UnitHelper::BuildTime(BWAPI::UnitTypes::Protoss_Pylon);
 
-            // Find the earliest pylon that finishes after the supply block frame
+            /* Find the earliest pylon that finishes after the supply block frame */
             int pylonIndex;
             for (pylonIndex = 0; pylonIndex < pylonFrames.size(); pylonIndex++)
             {
@@ -1192,7 +1192,7 @@ namespace OpponentEconomicModel
             }
             if (pylonIndex < pylonFrames.size())
             {
-                // Pull the pylon back as far as possible, but ensuring we also have resources for the unit
+                /* Pull the pylon back as far as possible, but ensuring we also have resources for the unit */
                 int earliestPylonFrame = std::max(resourcesAvailableFrame, lastSupplyBlockFrame) - pylonBuildTime;
                 int pylonCost = 100;
                 if (earliestPylonFrame < BUILDER_LOSS_UNTIL) pylonCost += BUILDER_LOSS;
@@ -1203,7 +1203,7 @@ namespace OpponentEconomicModel
                 int f;
                 for (f = pylonFrames[pylonIndex] + pylonBuildTime; f >= resourcesAvailableFrame; f--)
                 {
-                    // When we cross the supply block frame (or start there), begin considering the unit itself
+                    /* When we cross the supply block frame (or start there), begin considering the unit itself */
                     if (f == firstSupplyBlockFrame)
                     {
                         nowMinerals = mineralPrice + pylonCost;
@@ -1214,7 +1214,7 @@ namespace OpponentEconomicModel
                     if (minerals[f] < nowGas) break;
                     if (minerals[f - pylonBuildTime] < offsetMinerals) break;
 
-                    // When we reach the beginning of the supply block, we no longer need to pull the pylon
+                    /* When we reach the beginning of the supply block, we no longer need to pull the pylon */
                     if (f == lastSupplyBlockFrame)
                     {
                         offsetMinerals = 0;
@@ -1226,7 +1226,7 @@ namespace OpponentEconomicModel
                 }
                 f++;
 
-                // Shift the pylon
+                /* Shift the pylon */
                 if (f < firstSupplyBlockFrame)
                 {
                     int newStartFrame = std::max(f - pylonBuildTime, earliestPylonFrame);
@@ -1239,7 +1239,7 @@ namespace OpponentEconomicModel
                 return f;
             }
 
-            // There wasn't a pylon to shift, so try creating one instead
+            /* There wasn't a pylon to shift, so try creating one instead */
             int earliestPylonFrame = resourcesAvailableFrame - pylonBuildTime;
             int mineralCost = 100 + mineralPrice;
             if (earliestPylonFrame < BUILDER_LOSS_UNTIL) mineralCost += BUILDER_LOSS;
@@ -1267,32 +1267,32 @@ namespace OpponentEconomicModel
             return f + pylonBuildTime;
         };
 
-        // Frames a producer can produce at
+        /* Frames a producer can produce at */
         std::priority_queue<int, std::vector<int>, std::greater<>> producerFrames;
-        auto it = producersByType.find(producerType);
-        if (it != producersByType.end())
+        auto iterRef = producersByType.find(producerType);
+        if (iterRef != producersByType.end())
         {
-            for (const auto &producer : it->second)
+            for (const auto &producer : iterRef->second)
             {
-                if (producer->canProduceAt > frame) continue;
+                if (producer->canProduceAt > tick) continue;
                 producerFrames.push(producer->canProduceAt);
             }
         }
 
         while (true)
         {
-            // Guard against an endless loop
+            /* Guard against an endless loop */
             if (additionalUnitCount > 100)
             {
-                Log::Get() << "ERROR: Endless loop in worstCaseUnitCount; disabling economic model";
+                AppLog::Get() << "ERROR: Endless loop in worstCaseUnitCount; disabling economic model";
                 isEnabled = false;
                 return std::make_pair(currentCount, currentCount);
             }
 
             earliestFrame = canProduceUnitAt();
-            if (earliestFrame > frame) break;
+            if (earliestFrame > tick) break;
 
-            // Try to get an existing producer that can produce it
+            /* Try to get an existing producer that can produce it */
             if (!producerFrames.empty())
             {
                 int productionFrame = std::max(earliestFrame, producerFrames.top());
@@ -1305,11 +1305,11 @@ namespace OpponentEconomicModel
                 additionalUnitCount++;
 
                 productionFrame += buildTime;
-                if (productionFrame < frame) producerFrames.push(productionFrame);
+                if (productionFrame < tick) producerFrames.push(productionFrame);
                 continue;
             }
 
-            // Try to create a new producer that can produce it
+            /* Try to create a new producer that can produce it */
             int mineralCost = mineralPrice + producerType.mineralPrice();
             int gasCost = gasPrice + producerType.gasPrice();
             int f;
@@ -1332,7 +1332,7 @@ namespace OpponentEconomicModel
             f++;
 
             int productionFrame = f + producerBuildTime;
-            if (productionFrame > frame) break;
+            if (productionFrame > tick) break;
 
             spendResource(minerals, producerType.mineralPrice(), f);
             spendResource(gas, producerType.gasPrice(), f);
@@ -1344,7 +1344,7 @@ namespace OpponentEconomicModel
             additionalUnitCount++;
 
             productionFrame += buildTime;
-            if (productionFrame < frame) producerFrames.push(productionFrame);
+            if (productionFrame < tick) producerFrames.push(productionFrame);
         }
 
         return createResult(additionalUnitCount);
@@ -1354,38 +1354,38 @@ namespace OpponentEconomicModel
     {
         if (!isEnabled)
         {
-            Log::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
+            AppLog::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
             return 0;
         }
 
-        auto it = producersByType.find(producerType);
-        if (it == producersByType.end()) return 0;
-        return (int)it->second.size();
+        auto iterRef = producersByType.find(producerType);
+        if (iterRef == producersByType.end()) return 0;
+        return (int)iterRef->second.size();
     }
 
     bool hasBuilt(BWAPI::UnitType type)
     {
         if (!isEnabled)
         {
-            Log::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
+            AppLog::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
             return false;
         }
 
-        auto it = observedUnitsByType.find(type);
-        if (it != observedUnitsByType.end()) return true;
+        auto iterRef = observedUnitsByType.find(type);
+        if (iterRef != observedUnitsByType.end()) return true;
 
         return std::any_of(
                 impliedUnits.begin(),
                 impliedUnits.end(),
-                [&type](auto &unit) { return unit->type == type; });
+                [&type](auto &gameUnit) { return gameUnit->type == type; });
     }
 
-    // The earliest frame the enemy could start building the given unit type
+    /* The earliest frame the enemy could start building the given unit type */
     int earliestUnitProductionFrame(BWAPI::UnitType type)
     {
         if (!isEnabled)
         {
-            Log::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
+            AppLog::Get() << "ERROR: Trying to use opponent economic model when it is not enabled";
             return 0;
         }
 
@@ -1394,28 +1394,28 @@ namespace OpponentEconomicModel
         {
             return cacheIt->second;
         }
-        auto createResult = [&](int frame)
+        auto createResult = [&](int tick)
         {
-            earliestUnitProductionFrameCache[type] = frame;
-            return frame;
+            earliestUnitProductionFrameCache[type] = tick;
+            return tick;
         };
 
         auto &&[minerals, gas, supplyAvailable] = simulateTakingGasIfNeeded(type);
 
-        // Get a list of the buildings we need at relative frame offset from building the given unit type
+        /* Get a list of the buildings we need at relative frame offset from building the given unit type */
         std::vector<std::pair<int, BWAPI::UnitType>> prerequisites;
         int startFrame = getPrerequisites(prerequisites, type);
         removeDuplicates(prerequisites);
 
-        // Now figure out the earliest frames we could produce everything
+        /* Now figure out the earliest frames we could produce everything */
         int mineralPrice = type.mineralPrice();
         int gasPrice = type.gasPrice();
         int f;
 
-        // Simple case: no prerequisites
+        /* Simple case: no prerequisites */
         if (prerequisites.empty())
         {
-            // Find the first frame scanning backwards where we don't have enough of the resource, then advance one
+            /* Find the first frame scanning backwards where we don't have enough of the resource, then advance one */
             for (f = MODEL_FRAME_LIMIT - 1; f >= startFrame; f--)
             {
                 if (minerals[f] < mineralPrice) break;
@@ -1425,7 +1425,7 @@ namespace OpponentEconomicModel
             return createResult(f + 1);
         }
 
-        // Get the total resource cost of the needed buildings
+        /* Get the total resource cost of the needed buildings */
         int totalMineralCost = 0;
         int totalGasCost = 0;
         for (auto &[frameOffset, prerequisiteType] : prerequisites)
@@ -1434,7 +1434,7 @@ namespace OpponentEconomicModel
             totalGasCost += prerequisiteType.gasPrice();
         }
 
-        // Compute the frame stops and how much of the resource we need at each one
+        /* Compute the frame stops and how much of the resource we need at each one */
         std::vector<std::tuple<int, int, int>> frameStopsAndResourcesNeeded;
         frameStopsAndResourcesNeeded.emplace_back(0, totalMineralCost + mineralPrice, totalGasCost + gasPrice);
         for (auto &prerequisite : std::ranges::reverse_view(prerequisites))
@@ -1444,16 +1444,16 @@ namespace OpponentEconomicModel
             totalGasCost -= prerequisite.second.gasPrice();
         }
 
-        // Find the frame where we can meet resource requirements at all frame stops
+        /* Find the frame where we can meet resource requirements at all frame stops */
         for (f = MODEL_FRAME_LIMIT - 1; f >= startFrame; f--)
         {
             for (auto & [frameOffset, mineralCost, gasCost] : frameStopsAndResourcesNeeded)
             {
-                int frame = f - frameOffset;
-                if (frame >= MODEL_FRAME_LIMIT) continue;
-                if (frame < 0
-                    || minerals[frame] < mineralCost
-                    || gas[frame] < gasCost)
+                int tick = f - frameOffset;
+                if (tick >= MODEL_FRAME_LIMIT) continue;
+                if (tick < 0
+                    || minerals[tick] < mineralCost
+                    || gas[tick] < gasCost)
                 {
                     return createResult(f + 1);
                 }

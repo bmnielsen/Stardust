@@ -7,7 +7,7 @@
 
 class Base;
 
-namespace Builder
+namespace Constructor
 {
     void initialize();
 
@@ -15,32 +15,32 @@ namespace Builder
 
     void issueOrders();
 
-    void build(BWAPI::UnitType type, BWAPI::TilePosition tile, const MyWorker &builder, int startFrame = 0);
+    void build(BWAPI::UnitType type, BWAPI::TilePosition tilePos, const OwnedWorker &builder, int startFrame = 0);
 
-    void cancel(BWAPI::TilePosition tile);
+    void cancel(BWAPI::TilePosition tilePos);
 
-    MyWorker getBuilderUnit(BWAPI::TilePosition tile, BWAPI::UnitType type, int *expectedArrivalFrame = nullptr);
+    OwnedWorker getBuilderUnit(BWAPI::TilePosition tilePos, BWAPI::UnitType type, int *expectedArrivalFrame = nullptr);
 
     std::vector<std::shared_ptr<Building>> &allPendingBuildings();
 
     std::vector<Building *> pendingBuildingsOfType(BWAPI::UnitType type);
 
-    void cancelBase(Base *base);
+    void cancelBase(Base *baseLoc);
 
-    bool isPendingHere(BWAPI::TilePosition tile);
+    bool isPendingHere(BWAPI::TilePosition tilePos);
 
-    Building *pendingHere(BWAPI::TilePosition tile);
+    Building *pendingHere(BWAPI::TilePosition tilePos);
 
-    bool hasPendingBuilding(const MyWorker &builder);
+    bool hasPendingBuilding(const OwnedWorker &builder);
 
-    void addReservedBuilder(const MyWorker &builder);
+    void addReservedBuilder(const OwnedWorker &builder);
 
-    void releaseReservedBuilder(const MyWorker &builder);
+    void releaseReservedBuilder(const OwnedWorker &builder);
 
-    bool isInEnemyStaticThreatRange(BWAPI::TilePosition tile, BWAPI::UnitType type);
+    bool isInEnemyStaticThreatRange(BWAPI::TilePosition tilePos, BWAPI::UnitType type);
 
-    // If there is a building at this tile, gets the frames until it is completed.
-    // If there is already a completed building, returns 0.
-    // If there is no building pending or completed, returns the given default value.
-    int framesUntilCompleted(BWAPI::TilePosition tile, int defaultValue);
+    /* If there is a building at this tile, gets the frames until it is completed. */
+    /* If there is already a completed building, returns 0. */
+    /* If there is no building pending or completed, returns the given default value. */
+    int framesUntilCompleted(BWAPI::TilePosition tilePos, int defaultValue);
 }

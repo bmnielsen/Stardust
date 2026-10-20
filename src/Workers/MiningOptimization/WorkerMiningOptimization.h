@@ -16,15 +16,15 @@
 #define ENABLE_PATH_BASED_TAKEOVER true
 #define WRITE_DATA_FILES true
 
-// In our data files we track the full paths between depot and patch, but we only explore positions within the bounds defined here
+/* In our data files we track the full paths between depot and patch, but we only explore positions within the bounds defined here */
 #define GATHER_EXPLORE_BEFORE 12
 #define GATHER_EXPLORE_AFTER 5
 
-// Return bounds are relative to the position LF+8 frames before arrival in the normal path, which is often the optimal position to resend from
+/* Return bounds are relative to the position LF+8 frames before arrival in the normal path, which is often the optimal position to resend from */
 #define RETURN_EXPLORE_BEFORE 15
 #define RETURN_EXPLORE_AFTER 5
 
-// Threshold for other patch gather probability used when optimizing patch locking
+/* Threshold for other patch gather probability used when optimizing patch locking */
 #define PATCH_LOCK_THRESHOLD 0.8
 
 namespace WorkerMiningOptimization
@@ -35,50 +35,50 @@ namespace WorkerMiningOptimization
 
     void write();
 
-    // Optimizes the start of mining
-    void optimizeStartOfMining(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
+    /* Optimizes the start of mining */
+    void optimizeStartOfMining(const OwnedWorker &wrk, const OwnedUnit &depot, const Resource &resource);
 
-    void planGatherResendsSingle(WorkerGatherStatus &workerStatus);
+    void planGatherResendsSingle(WorkerGatherStatus &wrkStatus);
 
-    void validatePlannedGatherPathSingle(WorkerGatherStatus &workerStatus,
+    void validatePlannedGatherPathSingle(WorkerGatherStatus &wrkStatus,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
-    void planGatherResendsDouble(WorkerGatherStatus &workerStatus, GatherPositionObservations &positionMetadata);
+    void planGatherResendsDouble(WorkerGatherStatus &wrkStatus, GatherPositionObservations &positionMetadata);
 
-    bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
+    bool validatePlannedGatherPathDouble(WorkerGatherStatus &wrkStatus,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition);
 
-    // Checks for patch lock assuming the worker will have arrived at the patch when the resend takes effect
-    std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus, int resendFrame);
+    /* Checks for patch lock assuming the worker will have arrived at the patch when the resend takes effect */
+    std::optional<int> checkForPatchLock(const WorkerGatherStatus &wrkStatus, int resendFrame);
 
-    void flushGatherObservations(std::map<MyWorker, WorkerGatherStatus> &workerGatherStatuses);
+    void flushGatherObservations(std::map<OwnedWorker, WorkerGatherStatus> &workerGatherStatuses);
 
-    void handleGatherPatchSwitch(WorkerGatherStatus &workerStatus);
+    void handleGatherPatchSwitch(WorkerGatherStatus &wrkStatus);
 
-    WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
+    WorkerGatherStatus &gatherStatusFor(const OwnedWorker &wrk, const OwnedUnit &depot, const Resource &resource);
 
-    WorkerGatherStatus *gatherStatusFor(const MyWorker &worker);
+    WorkerGatherStatus *gatherStatusFor(const OwnedWorker &wrk);
 
     GatherPositionObservations *findGatherPositionObservations(const Resource &resource,
-                                                               const PositionAndVelocity &pos,
+                                                               const PositionAndVelocity &pt,
                                                                bool createIfNotFound,
                                                                std::unique_ptr<GatherPositionObservations> *storage = nullptr);
 
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource);
 
-    // Optimizes returning a resource
-    void optimizeReturnOfResource(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
+    /* Optimizes returning a resource */
+    void optimizeReturnOfResource(const OwnedWorker &wrk, const OwnedUnit &depot, const Resource &resource);
 
-    void flushReturnObservations(std::map<MyWorker, WorkerReturnStatus> &workerReturnStatuses);
+    void flushReturnObservations(std::map<OwnedWorker, WorkerReturnStatus> &workerReturnStatuses);
 
-    WorkerReturnStatus &returnStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource);
+    WorkerReturnStatus &returnStatusFor(const OwnedWorker &wrk, const OwnedUnit &depot, const Resource &resource);
 
     ReturnPositionObservations *findReturnPositionObservations(const Resource &resource,
-                                                               const PositionAndVelocity &pos,
+                                                               const PositionAndVelocity &pt,
                                                                bool createIfNotFound,
                                                                std::unique_ptr<ReturnPositionObservations> *storage = nullptr);
 
-    // Gets observations related to a specific resource
+    /* Gets observations related to a specific resource */
     ResourceObservations &resourceObservationsFor(const Resource &resource);
 
     bool isExploring();

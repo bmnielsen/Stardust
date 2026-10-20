@@ -4,7 +4,7 @@
 
 class MyWorkerImpl;
 
-typedef std::shared_ptr<MyWorkerImpl> MyWorker;
+typedef std::shared_ptr<MyWorkerImpl> OwnedWorker;
 
 class MyWorkerImpl : public MyUnitImpl
 {
@@ -15,17 +15,17 @@ public:
     int lastTransitionedToMiningOrder;           // Frame when the unit last switched to the MiningMinerals order
     int lastTransitionedToWaitForMineralsOrder;  // Frame when the unit last switched to the WaitForMinerals order
 
-    // Where the worker spawned, if it spawned normally
-    // If it appeared because of a trigger (e.g. in a test), it will be Positions::Invalid
+    /* Where the worker spawned, if it spawned normally */
+    /* If it appeared because of a trigger (e.g. in a test), it will be Positions::Invalid */
     BWAPI::Position spawnPosition;
 
     int8_t horizontalSpeed8b;    // 8-bit integer representation of the unit's speed on the X axis
     int8_t verticalSpeed8b;      // 8-bit integer representation of the unit's speed on the Y axis
     uint8_t heading8b;           // 8-bit integer representation of the unit's heading
 
-    explicit MyWorkerImpl(BWAPI::Unit unit);
+    explicit MyWorkerImpl(BWAPI::Unit gameUnit);
 
-    void update(BWAPI::Unit unit) override;
+    void update(BWAPI::Unit gameUnit) override;
 
     bool gather(BWAPI::Unit target);
 
@@ -49,7 +49,7 @@ private:
     std::set<int> gatherCommandFrames;
 
     void attackUnit(const Unit &target,
-                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                    std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                     bool clusterAttacking,
                     int enemyAoeRadius) override;
 };

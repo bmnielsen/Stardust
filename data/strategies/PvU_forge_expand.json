@@ -1,0 +1,10 @@
+{
+  "name": "PvU_forge_expand",
+  "matchup": "PvU",
+  "legacy_opening": "ForgeFastExpand",
+  "record_label": "ForgeFastExpand",
+  "legality": {
+    "requires_wall": true
+  },
+  "note": "S4 seed: race-agnostic per the PvU seam design (enemy race unknown at selection; illegal-for-revealed-race choices self-correct when the concrete engine re-initializes). Inert until tier0_vs evidence."
+}

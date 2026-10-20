@@ -3,44 +3,44 @@
 #include "Play.h"
 #include "Squads/AttackBaseSquad.h"
 
-class Elevator : public Play
+class Elevator : public PlayItem
 {
 public:
     explicit Elevator(bool fromOurMain = false, BWAPI::UnitType unitType = BWAPI::UnitTypes::Protoss_Dragoon);
 
     void update() override;
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    std::shared_ptr<UnitSquad> getSquad() override { return squad; }
 
-    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
+    void disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                 const std::function<void(const OwnedUnit)> &movableUnitCallback) override;
 
-    [[nodiscard]] bool canReassignUnit(const MyUnit &unit) const override;
+    [[nodiscard]] bool canReassignUnit(const OwnedUnit &gameUnit) const override;
 
-    void addUnit(const MyUnit &unit) override;
+    void addUnit(const OwnedUnit &gameUnit) override;
 
-    void removeUnit(const MyUnit &unit) override;
+    void removeUnit(const OwnedUnit &gameUnit) override;
 
-    // Gets the pair of positions to use for an elevator into or out of a base
-    // The first position is in the base, the second outside it
-    static std::pair<BWAPI::TilePosition, BWAPI::TilePosition> selectPositions(Base *base);
+    /* Gets the pair of positions to use for an elevator into or out of a base */
+    /* The first position is in the base, the second outside it */
+    static std::pair<BWAPI::TilePosition, BWAPI::TilePosition> selectPositions(Base *baseLoc);
 
 protected:
     bool fromOurMain;
     BWAPI::UnitType unitType;
 
-    // This is set to true when we consider the elevator complete
-    // We don't disband the play until all units are removed from the squad
+    /* This is set to true when we consider the elevator complete */
+    /* We don't disband the play until all units are removed from the squad */
     bool complete;
 
     BWAPI::Position pickupPosition;
     BWAPI::Position dropPosition;
 
-    MyUnit shuttle;
+    OwnedUnit shuttle;
     std::shared_ptr<AttackBaseSquad> squad;
-    std::set<MyUnit> transferQueue;
-    std::set<MyUnit> transferring;
-    std::set<MyUnit> transferred;
+    std::set<OwnedUnit> transferQueue;
+    std::set<OwnedUnit> transferring;
+    std::set<OwnedUnit> transferred;
     int count;
     int countAddedToSquad;
 

@@ -5,10 +5,10 @@
 #include "Players.h"
 #include "PathFinding.h"
 
-std::ostream &operator<<(std::ostream &os, const UnitImpl &unit)
+std::ostream &operator<<(std::ostream &os, const UnitImpl &gameUnit)
 {
-    os << unit.type << ":" << unit.id << "@" << BWAPI::WalkPosition(unit.lastPosition);
-    if (unit.simPosition != unit.lastPosition) os << "->" << BWAPI::WalkPosition(unit.simPosition);
+    os << gameUnit.type << ":" << gameUnit.ident << "@" << BWAPI::WalkPosition(gameUnit.prevPos);
+    if (gameUnit.simPosition != gameUnit.prevPos) os << "->" << BWAPI::WalkPosition(gameUnit.simPosition);
     return os;
 }
 
@@ -22,7 +22,7 @@ int UnitImpl::BWHeading() const
 {
     if (!bwHeadingUpdated)
     {
-        // Do the reverse of what BWAPI does in UnitUpdate to get BW's heading
+        /* Do the reverse of what BWAPI does in UnitUpdate to get BW's heading */
         bwHeading = (int)round((lastAngle * 128.0) / 3.14159265358979323846);
         bwHeading += 64;
         if (bwHeading > 127) bwHeading -= 256;
@@ -36,7 +36,7 @@ int UnitImpl::BWSpeed() const
 {
     if (!bwSpeedUpdated)
     {
-        double speed = sqrt(bwapiUnit->getVelocityX() * bwapiUnit->getVelocityX() + bwapiUnit->getVelocityY() * bwapiUnit->getVelocityY());
+        double speed = sqrt(rawUnit->getVelocityX() * rawUnit->getVelocityX() + rawUnit->getVelocityY() * rawUnit->getVelocityY());
         bwSpeed = (int)(speed * 256.0);
         bwSpeedUpdated = true;
     }
@@ -47,10 +47,10 @@ int UnitImpl::BWSpeed() const
 bool UnitImpl::isTraining() const
 {
     if (!exists() || !completed ) return false;
-    if (bwapiUnit->isTraining()) return true;
+    if (rawUnit->isTraining()) return true;
 
-    if (bwapiUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
-        (currentFrame - lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
+    if (rawUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::Train &&
+        (frameNow - lastCommandFrame - 1) <= BWAPI::Broodwar->getLatencyFrames())
     {
         return true;
     }
@@ -62,7 +62,7 @@ bool UnitImpl::isAttackable() const
 {
     return exists() &&
            !undetected &&
-           !bwapiUnit->isStasised();
+           !rawUnit->isStasised();
 }
 
 bool UnitImpl::isCliffedTank(const Unit &attacker) const
@@ -70,11 +70,11 @@ bool UnitImpl::isCliffedTank(const Unit &attacker) const
     if (!attacker) return false;
     if (type != BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode) return false;
 
-    // For now let's assume the tank is not directly attackable if a narrow choke divides it from the rest of the cluster
-    return nullptr != PathFinding::SeparatingNarrowChoke(lastPosition,
-                                                         attacker->lastPosition,
+    /* For now let's assume the tank is not directly attackable if a narrow choke divides it from the rest of the cluster */
+    return nullptr != Pathfinder::SeparatingNarrowChoke(prevPos,
+                                                         attacker->prevPos,
                                                          attacker->type,
-                                                         PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+                                                         Pathfinder::PathFindingOptions::UseNeighbouringBWEMArea);
 }
 
 bool UnitImpl::canAttack(const Unit &target) const
@@ -89,18 +89,18 @@ bool UnitImpl::canBeAttackedBy(const Unit &attacker) const
 
 bool UnitImpl::canAttackGround() const
 {
-    return !immobile && UnitUtil::CanAttackGround(type);
+    return !immobile && UnitHelper::CanAttackGround(type);
 }
 
 bool UnitImpl::canAttackAir() const
 {
-    return !immobile && UnitUtil::CanAttackAir(type);
+    return !immobile && UnitHelper::CanAttackAir(type);
 }
 
 bool UnitImpl::isStaticGroundDefense() const
 {
-    if (!UnitUtil::IsStationaryAttacker(type)) return false;
-    if (!UnitUtil::CanAttackGround(type)) return false;
+    if (!UnitHelper::IsStationaryAttacker(type)) return false;
+    if (!UnitHelper::CanAttackGround(type)) return false;
     if (type == BWAPI::UnitTypes::Zerg_Lurker && !burrowed) return false;
 
     return true;
@@ -110,15 +110,15 @@ bool UnitImpl::isTransport() const
 {
     return type == BWAPI::UnitTypes::Protoss_Shuttle ||
            type == BWAPI::UnitTypes::Terran_Dropship ||
-           (type == BWAPI::UnitTypes::Zerg_Overlord && Players::upgradeLevel(player, BWAPI::UpgradeTypes::Ventral_Sacs) > 0);
+           (type == BWAPI::UnitTypes::Zerg_Overlord && PlayerInfo::upgradeLevel(player, BWAPI::UpgradeTypes::Ventral_Sacs) > 0);
 }
 
 bool UnitImpl::needsDetection() const
 {
     if (type == BWAPI::UnitTypes::Zerg_Lurker || type == BWAPI::UnitTypes::Zerg_Lurker_Egg) return true;
     if (type.hasPermanentCloak()) return true;
-    if (type.isCloakable() && Players::hasResearched(player, type.cloakingTech())) return true;
-    if (type.isBurrowable() && Players::hasResearched(player, BWAPI::TechTypes::Burrowing)) return true;
+    if (type.isCloakable() && PlayerInfo::hasResearched(player, type.cloakingTech())) return true;
+    if (type.isBurrowable() && PlayerInfo::hasResearched(player, BWAPI::TechTypes::Burrowing)) return true;
 
     return false;
 }
@@ -128,10 +128,10 @@ int UnitImpl::groundRange() const
     if (type == BWAPI::UnitTypes::Protoss_Carrier || type == BWAPI::UnitTypes::Protoss_Reaver) return 256;
     if (type == BWAPI::UnitTypes::Terran_Bunker)
     {
-        return Players::weaponRange(player, BWAPI::UnitTypes::Terran_Marine.groundWeapon()) + 48;
+        return PlayerInfo::weaponRange(player, BWAPI::UnitTypes::Terran_Marine.groundWeapon()) + 48;
     }
 
-    return Players::weaponRange(player, type.groundWeapon());
+    return PlayerInfo::weaponRange(player, type.groundWeapon());
 }
 
 int UnitImpl::airRange() const
@@ -139,10 +139,10 @@ int UnitImpl::airRange() const
     if (type == BWAPI::UnitTypes::Protoss_Carrier) return 256;
     if (type == BWAPI::UnitTypes::Terran_Bunker)
     {
-        return Players::weaponRange(player, BWAPI::UnitTypes::Terran_Marine.airWeapon()) + 48;
+        return PlayerInfo::weaponRange(player, BWAPI::UnitTypes::Terran_Marine.airWeapon()) + 48;
     }
 
-    return Players::weaponRange(player, type.airWeapon());
+    return PlayerInfo::weaponRange(player, type.airWeapon());
 }
 
 int UnitImpl::range(const Unit &target) const
@@ -159,22 +159,22 @@ int UnitImpl::groundDamage() const
         return 0;
     }
 
-    return Players::weaponDamage(player, groundWeapon()) * type.maxGroundHits();
+    return PlayerInfo::weaponDamage(player, groundWeapon()) * type.maxGroundHits();
 }
 
 int UnitImpl::airDamage() const
 {
-    return Players::weaponDamage(player, airWeapon()) * type.maxAirHits();
+    return PlayerInfo::weaponDamage(player, airWeapon()) * type.maxAirHits();
 }
 
 BWAPI::WeaponType UnitImpl::groundWeapon() const
 {
-    return UnitUtil::GetGroundWeapon(type);
+    return UnitHelper::GetGroundWeapon(type);
 }
 
 BWAPI::WeaponType UnitImpl::airWeapon() const
 {
-    return UnitUtil::GetAirWeapon(type);
+    return UnitHelper::GetAirWeapon(type);
 }
 
 BWAPI::WeaponType UnitImpl::getWeapon(const Unit &target) const
@@ -196,12 +196,12 @@ bool UnitImpl::isInEnemyWeaponRange(const Unit &attacker, BWAPI::Position predic
 
 int UnitImpl::getDistance(BWAPI::Position position) const
 {
-    return Geo::EdgeToPointDistance(type, lastPosition, position);
+    return Geom::EdgeToPointDistance(type, prevPos, position);
 }
 
 int UnitImpl::getDistance(const Unit &other, BWAPI::Position predictedOtherPosition) const
 {
-    return Geo::EdgeToEdgeDistance(type, lastPosition, other->type, predictedOtherPosition.isValid() ? predictedOtherPosition : other->lastPosition);
+    return Geom::EdgeToEdgeDistance(type, prevPos, other->type, predictedOtherPosition.isValid() ? predictedOtherPosition : other->prevPos);
 }
 
 BWAPI::Position UnitImpl::predictPosition(int frames) const
@@ -210,25 +210,25 @@ BWAPI::Position UnitImpl::predictPosition(int frames) const
     return predictedPositions[frames-1];
 }
 
-// Computes the intercept point of a unit targeting another one, assuming the interceptor
-// is going at full speed and the target remains on its current trajectory and speed.
-// Returns invalid if the target cannot be intercepted.
-// Uses the formula derived here: http://jaran.de/goodbits/2011/07/17/calculating-an-intercept-course-to-a-target-with-constant-direction-and-velocity-in-a-2-dimensional-plane/
+/* Computes the intercept point of a unit targeting another one, assuming the interceptor */
+/* is going at full speed and the target remains on its current trajectory and speed. */
+/* Returns invalid if the target cannot be intercepted. */
+/* Uses the formula derived here: http://jaran.de/goodbits/2011/07/17/calculating-an-intercept-course-to-a-target-with-constant-direction-and-velocity-in-a-2-dimensional-plane/ */
 BWAPI::Position UnitImpl::intercept(const Unit &target) const
 {
-    if (!target->bwapiUnit || !target->bwapiUnit->exists() || !target->bwapiUnit->isVisible() || target->type.topSpeed() < 0.001)
+    if (!target->rawUnit || !target->rawUnit->exists() || !target->rawUnit->isVisible() || target->type.topSpeed() < 0.001)
     {
-        return target->lastPosition;
+        return target->prevPos;
     }
 
     double speed = type.topSpeed();
 
-    double diffX = (double) target->lastPosition.x - lastPosition.x;
-    double diffY = (double) target->lastPosition.y - lastPosition.y;
+    double diffX = (double) target->prevPos.x - prevPos.x;
+    double diffY = (double) target->prevPos.y - prevPos.y;
 
-    double diffSpeed = target->bwapiUnit->getVelocityX() * target->bwapiUnit->getVelocityX()
-                       + target->bwapiUnit->getVelocityY() * target->bwapiUnit->getVelocityY() - speed * speed;
-    double diffDist = diffX * target->bwapiUnit->getVelocityX() + diffY * target->bwapiUnit->getVelocityY();
+    double diffSpeed = target->rawUnit->getVelocityX() * target->rawUnit->getVelocityX()
+                       + target->rawUnit->getVelocityY() * target->rawUnit->getVelocityY() - speed * speed;
+    double diffDist = diffX * target->rawUnit->getVelocityX() + diffY * target->rawUnit->getVelocityY();
 
     double t;
     if (diffSpeed < 0.0001)
@@ -248,6 +248,6 @@ BWAPI::Position UnitImpl::intercept(const Unit &target) const
     if (t < 0) return BWAPI::Positions::Invalid;
     if (t > 5000) return BWAPI::Positions::Invalid;
 
-    return {target->lastPosition.x + (int) (t * target->bwapiUnit->getVelocityX()),
-            target->lastPosition.y + (int) (t * target->bwapiUnit->getVelocityY())};
+    return {target->prevPos.x + (int) (t * target->rawUnit->getVelocityX()),
+            target->prevPos.y + (int) (t * target->rawUnit->getVelocityY())};
 }

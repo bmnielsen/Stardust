@@ -1,0 +1,23 @@
+{
+  "name": "PvP_1gate_core_range",
+  "matchup": "PvP",
+  "legacy_opening": "OneGateCoreNoZealot",
+  "record_label": "OneGateCoreNoZealot",
+  "opening": [
+    {"supply": 8, "build": "Pylon"},
+    {"supply": 10, "build": "Gateway"},
+    {"supply": 12, "build": "Assimilator"},
+    {"supply": 13, "build": "CyberneticsCore"},
+    {"supply": 15, "build": "Pylon", "count": 2},
+    {"supply": 17, "build": "Dragoon", "count": 1}
+  ],
+  "legality": {
+    "min_rush_tiles": 150,
+    "blacklist_vs": ["ZealotRush", "WorkerRush", "ProxyRush", "TwoGate"]
+  },
+  "note": "S7 activated: executor = existing emergent machinery (oneGateCoreOpening desiredZealots=0 + range@1goon; buildings via Producer prerequisite closure). Opening array documents the intended build. blacklist_vs active when selected through the new engine.",
+  "transitions": [
+    {"if_enemy": "TwoGate", "then": "add_units", "unit": "Zealot", "count": 2},
+    {"if_enemy": "DTRush", "then": "backchain_detection", "deadline_field": "enemyFirstDTFrame"}
+  ]
+}

@@ -5,7 +5,7 @@
 class MyCarrier : public MyUnitImpl
 {
 public:
-    explicit MyCarrier(BWAPI::Unit unit);
+    explicit MyCarrier(BWAPI::Unit gameUnit);
 
-    void update(BWAPI::Unit unit) override;
+    void update(BWAPI::Unit gameUnit) override;
 };

@@ -6,24 +6,24 @@ namespace WorkerMiningOptimization
 {
     std::shared_ptr<PositionAndVelocity> WorkerGatherStatus::appendCurrentPosition()
     {
-        lastProcessedFrame = currentFrame;
+        lastProcessedFrame = frameNow;
 
-        auto currentPosition = std::make_shared<PositionAndVelocity>(worker);
+        auto currentPosition = std::make_shared<PositionAndVelocity>(wrk);
 
-        // For the first position, compute whether the path started at the depot
-        // We exclude gathers from depots that are a long way away though to avoid tracking distance mining paths
+        /* For the first position, compute whether the path started at the depot */
+        /* We exclude gathers from depots that are a long way away though to avoid tracking distance mining paths */
         if (positionHistory.empty())
         {
-            pathStartsAtDepot = ((resource->getDistance(depot) < 256) && ((depot->getDistance(worker) == 0) || pathStartsAtSpawnPosition));
+            pathStartsAtDepot = ((resource->getDistance(depot) < 256) && ((depot->getDistance(wrk) == 0) || pathStartsAtSpawnPosition));
         }
 
-        // If we haven't observed leaving the depot yet, check if this position fulfills this
-        // We consider the worker to have left the depot if it's previous position is at least 2 pixels from its initial position, and it's
-        // current position is different from its previous position
+        /* If we haven't observed leaving the depot yet, check if this position fulfills this */
+        /* We consider the worker to have left the depot if it's previous position is at least 2 pixels from its initial position, and it's */
+        /* current position is different from its previous position */
         if (!hasLeftDepot && !positionHistory.empty())
         {
-            hasLeftDepot = (*positionHistory.begin())->pos().getApproxDistance((*positionHistory.rbegin())->pos()) >= 2
-                           && (*positionHistory.rbegin())->pos() != currentPosition->pos();
+            hasLeftDepot = (*positionHistory.begin())->pt().getApproxDistance((*positionHistory.rbegin())->pt()) >= 2
+                           && (*positionHistory.rbegin())->pt() != currentPosition->pt();
         }
 
         positionHistory.emplace_back(currentPosition);
@@ -32,19 +32,19 @@ namespace WorkerMiningOptimization
 
     bool WorkerGatherStatus::sendGatherCommand(BWAPI::Unit resourceBwapiUnit, const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
-        if (!worker->gather(resourceBwapiUnit))
+        if (!wrk->gather(resourceBwapiUnit))
         {
 #if OPTIMALPOSITIONS_DEBUG
-            Log::Get() << "Failed to send gather command for " << worker->id << " @ " << worker->getTilePosition() << ": "
+            AppLog::Get() << "Failed to send gather command for " << wrk->ident << " @ " << wrk->getTilePosition() << ": "
                        << BWAPI::Broodwar->getLastError();
-            CherryVis::log(worker->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
-            CherryVis::log(resource->id) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+            Telemetry::log(wrk->ident) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
+            Telemetry::log(resource->ident) << "Failed to send gather command; last error " << BWAPI::Broodwar->getLastError();
 #endif
             return false;
         }
 
         resentPositions.push_back(currentPosition);
-        resentFrames.insert(currentFrame);
+        resentFrames.insert(frameNow);
         return true;
     }
 }

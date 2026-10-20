@@ -2,11 +2,11 @@
 
 #include "Play.h"
 
-class ScoutEnemyExpos : public Play
+class ScoutEnemyExpos : public PlayItem
 {
 public:
     ScoutEnemyExpos()
-            : Play("ScoutEnemyExpos")
+            : PlayItem("ScoutEnemyExpos")
             , scout(nullptr)
             , targetBase(nullptr)
             , usingSearchPath(true)
@@ -15,17 +15,17 @@ public:
 
     void update() override;
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals) override;
 
-    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
+    void disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                 const std::function<void(const OwnedUnit)> &movableUnitCallback) override;
 
-    void addUnit(const MyUnit &unit) override;
+    void addUnit(const OwnedUnit &gameUnit) override;
 
-    void removeUnit(const MyUnit &unit) override;
+    void removeUnit(const OwnedUnit &gameUnit) override;
 
 private:
-    MyUnit scout;
+    OwnedUnit scout;
     Base *targetBase;
     bool usingSearchPath;
     bool workerScoutHasDied;

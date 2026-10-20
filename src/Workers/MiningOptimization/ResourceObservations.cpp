@@ -8,7 +8,7 @@ namespace WorkerMiningOptimization
     {
         if (value > (UINT64_MAX - accumulator))
         {
-            Log::Get() << "ERROR: Adding observation would overflow accumulator";
+            AppLog::Get() << "ERROR: Adding observation would overflow accumulator";
             return;
         }
         if (observationCount == UINT32_MAX) return;
@@ -18,7 +18,7 @@ namespace WorkerMiningOptimization
             auto v = ((int)value - (int)average) * ((int)value - (int)average);
             if (v > (UINT64_MAX - varianceAccumulator))
             {
-                Log::Get() << "ERROR: Adding observation would overflow variance accumulator";
+                AppLog::Get() << "ERROR: Adding observation would overflow variance accumulator";
                 return;
             }
             varianceAccumulator += v;
@@ -30,7 +30,7 @@ namespace WorkerMiningOptimization
         auto avg = (uint64_t)std::round((double)accumulator / (double)observationCount);
         if (avg > UINT16_MAX)
         {
-            Log::Get() << "ERROR: Average of " << avg << " would overflow 16-bit unsigned int";
+            AppLog::Get() << "ERROR: Average of " << avg << " would overflow 16-bit unsigned int";
             return;
         }
         average = (uint16_t)avg;
@@ -40,7 +40,7 @@ namespace WorkerMiningOptimization
             auto varianceAvg = (uint64_t)std::round(std::sqrt((double)varianceAccumulator / (double)(observationCount - 10)));
             if (varianceAvg > UINT16_MAX)
             {
-                Log::Get() << "ERROR: Variance of " << varianceAvg << " would overflow 16-bit unsigned int";
+                AppLog::Get() << "ERROR: Variance of " << varianceAvg << " would overflow 16-bit unsigned int";
                 return;
             }
             variance = (uint16_t)varianceAvg;

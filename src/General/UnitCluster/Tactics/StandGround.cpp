@@ -11,51 +11,51 @@
 
 void UnitCluster::standGround(std::set<Unit> &enemyUnits, BWAPI::Position targetPosition)
 {
-    // Get the pivot point
-    // Normally the closest enemy ground unit to the vanguard
+    /* Get the pivot point */
+    /* Normally the closest enemy ground unit to the vanguard */
     auto pivot = BWAPI::Positions::Invalid;
     int closestDist = INT_MAX;
-    for (const auto &unit : enemyUnits)
+    for (const auto &gameUnit : enemyUnits)
     {
-        if (unit->isFlying) continue;
-        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
-        if (!unit->lastPositionValid) continue;
+        if (gameUnit->isFlying) continue;
+        if (gameUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+        if (!gameUnit->lastPositionValid) continue;
 
-        int dist = vanguard->getDistance(unit);
-        if (dist < closestDist)
+        int span = vanguard->getDistance(gameUnit);
+        if (span < closestDist)
         {
-            closestDist = dist;
-            pivot = unit->lastPosition;
+            closestDist = span;
+            pivot = gameUnit->prevPos;
         }
     }
 
-    // If there was no enemy unit to use, pick a spot ahead of the vanguard towards the target position
+    /* If there was no enemy unit to use, pick a spot ahead of the vanguard towards the target position */
     if (pivot == BWAPI::Positions::Invalid)
     {
-        auto waypoint = PathFinding::NextGridOrChokeWaypoint(vanguard->lastPosition,
+        auto waypoint = Pathfinder::NextGridOrChokeWaypoint(vanguard->prevPos,
                 targetPosition,
-                PathFinding::getNavigationGrid(targetPosition),
+                Pathfinder::getNavigationGrid(targetPosition),
                 3,
                 true);
         if (waypoint != BWAPI::Positions::Invalid)
         {
-            pivot = vanguard->lastPosition + Geo::ScaleVector(waypoint - vanguard->lastPosition, 8 * 32);
+            pivot = vanguard->prevPos + Geom::ScaleVector(waypoint - vanguard->prevPos, 8 * 32);
         }
     }
 
-    // Attempt to form the arc
-    if (pivot.isValid() && formArc(pivot, std::min(15 * 32, vanguard->lastPosition.getApproxDistance(pivot)))) return;
+    /* Attempt to form the arc */
+    if (pivot.isValid() && formArc(pivot, std::min(15 * 32, vanguard->prevPos.getApproxDistance(pivot)))) return;
 
-    // We couldn't form an arc here
-    // If the center of the cluster is walkable, move towards it
-    // Otherwise move towards the vanguard with the assumption that the center will become walkable soon
-    // (otherwise this results in forward motion as units move ahead and become the new vanguard)
-    if (Map::isWalkable(BWAPI::TilePosition(center)))
+    /* We couldn't form an arc here */
+    /* If the center of the cluster is walkable, move towards it */
+    /* Otherwise move towards the vanguard with the assumption that the center will become walkable soon */
+    /* (otherwise this results in forward motion as units move ahead and become the new vanguard) */
+    if (Map::isWalkable(BWAPI::TilePosition(midpoint)))
     {
-        move(center);
+        move(midpoint);
     }
     else
     {
-        move(vanguard->lastPosition);
+        move(vanguard->prevPos);
     }
 }

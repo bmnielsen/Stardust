@@ -2,7 +2,7 @@
 
 #include "Common.h"
 
-namespace UnitUtil
+namespace UnitHelper
 {
     bool Powers(BWAPI::TilePosition pylonTile, BWAPI::TilePosition buildingTile, BWAPI::UnitType buildingType);
 
@@ -20,8 +20,8 @@ namespace UnitUtil
 
     bool IsCombatUnit(BWAPI::UnitType type);
 
-    // Whether the type typically remains in the same position as long as it can attack
-    // Beyond static defense buildings, this includes sieged tanks and lurkers
+    /* Whether the type typically remains in the same position as long as it can attack */
+    /* Beyond static defense buildings, this includes sieged tanks and lurkers */
     bool IsStationaryAttacker(BWAPI::UnitType type);
 
     std::pair<BWAPI::UnitType, int> MorphsFrom(BWAPI::UnitType type);
@@ -36,6 +36,6 @@ namespace UnitUtil
 
     int HaltDistance(BWAPI::UnitType type);
 
-    // Acceleration, in BW notation (multiples of 1/256)
+    /* Acceleration, in BW notation (multiples of 1/256) */
     int Acceleration(BWAPI::UnitType type, double currentTopSpeed);
 }

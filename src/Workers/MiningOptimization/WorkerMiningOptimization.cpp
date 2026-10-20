@@ -1,5 +1,5 @@
-// Worker mining optimization is split into multiple files
-// This file contains the data maps and logic to read and write the data files
+/* Worker mining optimization is split into multiple files */
+/* This file contains the data maps and logic to read and write the data files */
 
 #include "WorkerMiningOptimization.h"
 
@@ -16,35 +16,35 @@ namespace WorkerMiningOptimization
 {
     namespace
     {
-        // Whether we are exploring new positions
+        /* Whether we are exploring new positions */
         bool exploring = false;
 
-        // Whether we are updating resource observations
+        /* Whether we are updating resource observations */
         bool updatingResourceObservations = false;
 
-        // The map hash of the currently-loaded data
+        /* The map hash of the currently-loaded data */
         std::string mapHashOfCurrentData;
 
-        // Metadata for positions used for optimizing approach to the patch
+        /* Metadata for positions used for optimizing approach to the patch */
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, GatherPositionObservations>> resourceToFullGatherPositionObservations;
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> resourceToGatherPositionObservations;
 
-        // Metadata for positions LF+1 frames before reaching 10 or less distance from the patch
-        // Workers can try to switch to another patch if their chosen patch is being mined once they reach this distance, so we use these
-        // positions to detect when we need to start resending gather commands to ensure mineral locking
+        /* Metadata for positions LF+1 frames before reaching 10 or less distance from the patch */
+        /* Workers can try to switch to another patch if their chosen patch is being mined once they reach this distance, so we use these */
+        /* positions to detect when we need to start resending gather commands to ensure mineral locking */
         std::map<TilePosition, std::unordered_set<PositionAndVelocity>> resourceTo10DistancePositions;
 
-        // Worker state for those on their way to the patch
-        std::map<MyWorker, WorkerGatherStatus> workerGatherStatuses;
+        /* Worker state for those on their way to the patch */
+        std::map<OwnedWorker, WorkerGatherStatus> workerGatherStatuses;
 
-        // Metadata for positions used for optimizing return of resources
+        /* Metadata for positions used for optimizing return of resources */
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, ReturnPositionObservations>> resourceToFullReturnPositionObservations;
         std::map<TilePosition, std::unordered_map<PositionAndVelocity, std::vector<uint8_t>>> resourceToReturnPositionObservations;
 
-        // Worker state for those returning resources
-        std::map<MyWorker, WorkerReturnStatus> workerReturnStatuses;
+        /* Worker state for those returning resources */
+        std::map<OwnedWorker, WorkerReturnStatus> workerReturnStatuses;
 
-        // Resource observations
+        /* Resource observations */
         std::map<TilePosition, ResourceObservations> resourceToResourceObservations;
     }
 
@@ -72,7 +72,7 @@ namespace WorkerMiningOptimization
         }
         else
         {
-            Log::Get() << "Using already-loaded mining optimization data";
+            AppLog::Get() << "Using already-loaded mining optimization data";
         }
     }
 
@@ -158,7 +158,7 @@ namespace WorkerMiningOptimization
 
             if (total > 0)
             {
-                Log::Get() << std::fixed << std::setprecision(1)
+                AppLog::Get() << std::fixed << std::setprecision(1)
                            << "\nStatistics for " << total << " gather resend positions:"
                            << "\nNever used:         " << neverUsed << " (" << (100.0 * (double)neverUsed / (double)total) << "%)"
                            << "\nUnstable path:      " << unstablePath << " (" << (100.0 * (double)unstablePath / (double)total) << "%)"
@@ -169,22 +169,22 @@ namespace WorkerMiningOptimization
 #endif
     }
 
-    WorkerGatherStatus &gatherStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
+    WorkerGatherStatus &gatherStatusFor(const OwnedWorker &wrk, const OwnedUnit &depot, const Resource &resource)
     {
-        auto workerStatusIt = workerGatherStatuses.find(worker);
+        auto workerStatusIt = workerGatherStatuses.find(wrk);
         if (workerStatusIt == workerGatherStatuses.end())
         {
-            workerStatusIt = workerGatherStatuses.emplace(worker, WorkerGatherStatus{worker, depot, resource}).first;
+            workerStatusIt = workerGatherStatuses.emplace(wrk, WorkerGatherStatus{wrk, depot, resource}).first;
         }
-        else if (workerStatusIt->second.lastProcessedFrame != (currentFrame - 1)
+        else if (workerStatusIt->second.lastProcessedFrame != (frameNow - 1)
                  || workerStatusIt->second.depot != depot
                  || workerStatusIt->second.resource != resource)
         {
 #if INSTRUMENTATION_ENABLED_VERBOSE
-            CherryVis::log(worker->id) << "Resetting gather status"
-                                       << "; lastProcessedFrame=" << workerStatusIt->second.lastProcessedFrame << " vs. currentFrame=" << currentFrame
+            Telemetry::log(wrk->ident) << "Resetting gather status"
+                                       << "; lastProcessedFrame=" << workerStatusIt->second.lastProcessedFrame << " vs. currentFrame=" << frameNow
                                        << "; depot@" << workerStatusIt->second.depot->getTilePosition() << " vs. new@" << depot->getTilePosition()
-                                       << "; resource@" << workerStatusIt->second.resource->tile << " vs. new@" << resource->tile;
+                                       << "; resource@" << workerStatusIt->second.resource->tilePos << " vs. new@" << resource->tilePos;
 #endif
             workerStatusIt->second.reset();
             workerStatusIt->second.depot = depot;
@@ -193,14 +193,14 @@ namespace WorkerMiningOptimization
         return workerStatusIt->second;
     }
 
-    WorkerReturnStatus &returnStatusFor(const MyWorker &worker, const MyUnit &depot, const Resource &resource)
+    WorkerReturnStatus &returnStatusFor(const OwnedWorker &wrk, const OwnedUnit &depot, const Resource &resource)
     {
-        auto workerStatusIt = workerReturnStatuses.find(worker);
+        auto workerStatusIt = workerReturnStatuses.find(wrk);
         if (workerStatusIt == workerReturnStatuses.end())
         {
-            workerStatusIt = workerReturnStatuses.emplace(worker, WorkerReturnStatus{worker, depot, resource}).first;
+            workerStatusIt = workerReturnStatuses.emplace(wrk, WorkerReturnStatus{wrk, depot, resource}).first;
         }
-        else if (workerStatusIt->second.lastProcessedFrame != (currentFrame - 1)
+        else if (workerStatusIt->second.lastProcessedFrame != (frameNow - 1)
                  || workerStatusIt->second.depot != depot
                  || workerStatusIt->second.resource != resource)
         {
@@ -211,14 +211,14 @@ namespace WorkerMiningOptimization
         return workerStatusIt->second;
     }
 
-    WorkerGatherStatus *gatherStatusFor(const MyWorker &worker)
+    WorkerGatherStatus *gatherStatusFor(const OwnedWorker &wrk)
     {
-        if (!worker->exists()) return nullptr;
+        if (!wrk->exists()) return nullptr;
 
-        auto workerStatusIt = workerGatherStatuses.find(worker);
+        auto workerStatusIt = workerGatherStatuses.find(wrk);
         if (workerStatusIt == workerGatherStatuses.end()) return nullptr;
 
-        if (workerStatusIt->second.lastProcessedFrame < (currentFrame - 1)) return nullptr;
+        if (workerStatusIt->second.lastProcessedFrame < (frameNow - 1)) return nullptr;
 
         if (!workerStatusIt->second.depot->exists()) return nullptr;
         if (workerStatusIt->second.resource->destroyed) return nullptr;
@@ -227,74 +227,74 @@ namespace WorkerMiningOptimization
     }
 
     GatherPositionObservations *findGatherPositionObservations(const Resource &resource, 
-                                                               const PositionAndVelocity &pos,
+                                                               const PositionAndVelocity &pt,
                                                                bool createIfNotFound,
                                                                std::unique_ptr<GatherPositionObservations> *storage)
     {
-        // If we have full observations, return a pointer without requiring any additional storage
+        /* If we have full observations, return a pointer without requiring any additional storage */
         if (!resourceToFullGatherPositionObservations.empty() || isExploring())
         {
-            auto &positions = resourceToFullGatherPositionObservations[TilePosition::fromBWAPI(resource->tile)];
-            auto it = positions.find(pos);
-            if (it != positions.end()) return &(it->second);
+            auto &positions = resourceToFullGatherPositionObservations[TilePosition::fromBWAPI(resource->tilePos)];
+            auto iterRef = positions.find(pt);
+            if (iterRef != positions.end()) return &(iterRef->second);
             if (!createIfNotFound) return nullptr;
-            auto result = positions.emplace(pos, pos);
-            return &(result.first->second);
+            auto outcome = positions.emplace(pt, pt);
+            return &(outcome.first->second);
         }
 
-        // Check if we have a data buffer for this position
-        auto &positions = resourceToGatherPositionObservations[TilePosition::fromBWAPI(resource->tile)];
-        auto it = positions.find(pos);
-        if (it == positions.end()) return nullptr;
+        /* Check if we have a data buffer for this position */
+        auto &positions = resourceToGatherPositionObservations[TilePosition::fromBWAPI(resource->tilePos)];
+        auto iterRef = positions.find(pt);
+        if (iterRef == positions.end()) return nullptr;
 
-        // We have a data buffer, so deserialize and store in the unique storage pointer
-        auto result = ObservationDataFiles::deserializeGatherPositionObservations(it->second);
-        *storage = std::move(result);
+        /* We have a data buffer, so deserialize and store in the unique storage pointer */
+        auto outcome = ObservationDataFiles::deserializeGatherPositionObservations(iterRef->second);
+        *storage = std::move(outcome);
         return storage->get();
     }
 
 
     ReturnPositionObservations *findReturnPositionObservations(const Resource &resource,
-                                                               const PositionAndVelocity &pos,
+                                                               const PositionAndVelocity &pt,
                                                                bool createIfNotFound,
                                                                std::unique_ptr<ReturnPositionObservations> *storage)
     {
-        // If we have full observations, return a pointer without requiring any additional storage
+        /* If we have full observations, return a pointer without requiring any additional storage */
         if (!resourceToFullReturnPositionObservations.empty() || isExploring())
         {
-            auto &positions = resourceToFullReturnPositionObservations[TilePosition::fromBWAPI(resource->tile)];
-            auto it = positions.find(pos);
-            if (it != positions.end()) return &(it->second);
+            auto &positions = resourceToFullReturnPositionObservations[TilePosition::fromBWAPI(resource->tilePos)];
+            auto iterRef = positions.find(pt);
+            if (iterRef != positions.end()) return &(iterRef->second);
             if (!createIfNotFound) return nullptr;
-            auto result = positions.emplace(pos, pos);
-            return &(result.first->second);
+            auto outcome = positions.emplace(pt, pt);
+            return &(outcome.first->second);
         }
 
-        // Check if we have a data buffer for this position
-        auto &positions = resourceToReturnPositionObservations[TilePosition::fromBWAPI(resource->tile)];
-        auto it = positions.find(pos);
-        if (it == positions.end()) return nullptr;
+        /* Check if we have a data buffer for this position */
+        auto &positions = resourceToReturnPositionObservations[TilePosition::fromBWAPI(resource->tilePos)];
+        auto iterRef = positions.find(pt);
+        if (iterRef == positions.end()) return nullptr;
 
-        // We have a data buffer, so deserialize and store in the unique storage pointer
-        auto result = ObservationDataFiles::deserializeReturnPositionObservations(it->second);
-        *storage = std::move(result);
+        /* We have a data buffer, so deserialize and store in the unique storage pointer */
+        auto outcome = ObservationDataFiles::deserializeReturnPositionObservations(iterRef->second);
+        *storage = std::move(outcome);
         return storage->get();
     }
 
     std::unordered_set<PositionAndVelocity> &tenDistancePositionsFor(const Resource &resource)
     {
-        return resourceTo10DistancePositions[TilePosition::fromBWAPI(resource->tile)];
+        return resourceTo10DistancePositions[TilePosition::fromBWAPI(resource->tilePos)];
     }
 
     ResourceObservations &resourceObservationsFor(const Resource &resource)
     {
-        auto tile = TilePosition::fromBWAPI(resource->tile);
-        auto it = resourceToResourceObservations.find(tile);
-        if (it == resourceToResourceObservations.end())
+        auto tilePos = TilePosition::fromBWAPI(resource->tilePos);
+        auto iterRef = resourceToResourceObservations.find(tilePos);
+        if (iterRef == resourceToResourceObservations.end())
         {
-            it = resourceToResourceObservations.emplace(tile, tile).first;
+            iterRef = resourceToResourceObservations.emplace(tilePos, tilePos).first;
         }
-        return it->second;
+        return iterRef->second;
     }
 
     bool isExploring()

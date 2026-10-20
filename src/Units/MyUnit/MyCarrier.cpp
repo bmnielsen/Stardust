@@ -1,18 +1,18 @@
 #include "MyCarrier.h"
 
-MyCarrier::MyCarrier(BWAPI::Unit unit) : MyUnitImpl(unit)
+MyCarrier::MyCarrier(BWAPI::Unit gameUnit) : MyUnitImpl(gameUnit)
 {
 }
 
-void MyCarrier::update(BWAPI::Unit unit)
+void MyCarrier::update(BWAPI::Unit gameUnit)
 {
-    if (!unit || !unit->exists()) return;
+    if (!gameUnit || !gameUnit->exists()) return;
 
-    MyUnitImpl::update(unit);
+    MyUnitImpl::update(gameUnit);
 
-    // Build interceptors as needed
-    if (!unit->isTraining() && unit->canTrain(BWAPI::UnitTypes::Protoss_Interceptor))
+    /* Build interceptors as needed */
+    if (!gameUnit->isTraining() && gameUnit->canTrain(BWAPI::UnitTypes::Protoss_Interceptor))
     {
-        unit->train(BWAPI::UnitTypes::Protoss_Interceptor);
+        gameUnit->train(BWAPI::UnitTypes::Protoss_Interceptor);
     }
 }

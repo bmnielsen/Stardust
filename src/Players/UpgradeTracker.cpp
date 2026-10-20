@@ -12,34 +12,34 @@ void UpgradeTracker::update(Grid &grid)
         int current = player->damage(weaponAndDamage.first);
         if (current > weaponAndDamage.second)
         {
-            // Update the grid for all known units with this weapon type
-            auto updateGrid = [&](const Unit &unit)
+            /* Update the grid for all known units with this weapon type */
+            auto updateGrid = [&](const Unit &gameUnit)
             {
-                auto weaponUnitType = unit->type;
-                if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
-                if (unit->type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
+                auto weaponUnitType = gameUnit->type;
+                if (gameUnit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+                if (gameUnit->type == BWAPI::UnitTypes::Protoss_Carrier) weaponUnitType = BWAPI::UnitTypes::Protoss_Interceptor;
 
-                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && !unit->immobile &&
+                if (gameUnit->lastPositionValid && !gameUnit->beingManufacturedOrCarried && !gameUnit->immobile &&
                     (weaponUnitType.groundWeapon() == weaponAndDamage.first ||
                      weaponUnitType.airWeapon() == weaponAndDamage.first))
                 {
-                    grid.unitWeaponDamageUpgraded(unit->type, unit->lastPosition, weaponAndDamage.first, weaponAndDamage.second, current);
+                    grid.unitWeaponDamageUpgraded(gameUnit->type, gameUnit->prevPos, weaponAndDamage.first, weaponAndDamage.second, current);
 
 #if DEBUG_GRID_UPDATES
-                    CherryVis::log(unit->id) << "Grid::weaponDamageUpgraded from " << weaponAndDamage.second << " to " << current;
-                    Log::Debug() << *unit << ": Grid::weaponDamageUpgraded from " << weaponAndDamage.second << " to " << current;
+                    Telemetry::log(gameUnit->ident) << "Grid::weaponDamageUpgraded from " << weaponAndDamage.second << " to " << current;
+                    AppLog::Debug() << *gameUnit << ": Grid::weaponDamageUpgraded from " << weaponAndDamage.second << " to " << current;
 #endif
                 }
             };
             if (player == BWAPI::Broodwar->self())
             {
-                for (auto &unit : Units::allMine())
-                { updateGrid(unit); }
+                for (auto &gameUnit : UnitMgr::allMine())
+                { updateGrid(gameUnit); }
             }
             else
             {
-                for (auto &unit : Units::allEnemy())
-                { updateGrid(unit); }
+                for (auto &gameUnit : UnitMgr::allEnemy())
+                { updateGrid(gameUnit); }
             }
 
             weaponAndDamage.second = current;
@@ -51,33 +51,33 @@ void UpgradeTracker::update(Grid &grid)
         int current = player->weaponMaxRange(weaponAndRange.first);
         if (current > weaponAndRange.second)
         {
-            // Update the grid for all known units with this weapon type
-            auto updateGrid = [&](const Unit &unit)
+            /* Update the grid for all known units with this weapon type */
+            auto updateGrid = [&](const Unit &gameUnit)
             {
-                auto weaponUnitType = unit->type;
-                if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+                auto weaponUnitType = gameUnit->type;
+                if (gameUnit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
 
-                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && !unit->immobile &&
+                if (gameUnit->lastPositionValid && !gameUnit->beingManufacturedOrCarried && !gameUnit->immobile &&
                     (weaponUnitType.groundWeapon() == weaponAndRange.first ||
                      weaponUnitType.airWeapon() == weaponAndRange.first))
                 {
-                    grid.unitWeaponRangeUpgraded(unit->type, unit->lastPosition, weaponAndRange.first, weaponAndRange.second, current);
+                    grid.unitWeaponRangeUpgraded(gameUnit->type, gameUnit->prevPos, weaponAndRange.first, weaponAndRange.second, current);
 
 #if DEBUG_GRID_UPDATES
-                    CherryVis::log(unit->id) << "Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
-                    Log::Debug() << *unit << ": Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
+                    Telemetry::log(gameUnit->ident) << "Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
+                    AppLog::Debug() << *gameUnit << ": Grid::weaponRangeUpgraded from " << weaponAndRange.second << " to " << current;
 #endif
                 }
             };
             if (player == BWAPI::Broodwar->self())
             {
-                for (auto &unit : Units::allMine())
-                { updateGrid(unit); }
+                for (auto &gameUnit : UnitMgr::allMine())
+                { updateGrid(gameUnit); }
             }
             else
             {
-                for (auto &unit : Units::allEnemy())
-                { updateGrid(unit); }
+                for (auto &gameUnit : UnitMgr::allEnemy())
+                { updateGrid(gameUnit); }
             }
 
             weaponAndRange.second = current;
@@ -130,28 +130,28 @@ void UpgradeTracker::update(Grid &grid)
         int current = player->sightRange(unitAndSightRange.first);
         if (current > unitAndSightRange.second)
         {
-            // Update the grid for all known units with this type
-            auto updateGrid = [&](const Unit &unit)
+            /* Update the grid for all known units with this type */
+            auto updateGrid = [&](const Unit &gameUnit)
             {
-                if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && !unit->immobile && unit->type == unitAndSightRange.first)
+                if (gameUnit->lastPositionValid && !gameUnit->beingManufacturedOrCarried && !gameUnit->immobile && gameUnit->type == unitAndSightRange.first)
                 {
-                    grid.unitSightRangeUpgraded(unit->type, unit->lastPosition, unitAndSightRange.second, current);
+                    grid.unitSightRangeUpgraded(gameUnit->type, gameUnit->prevPos, unitAndSightRange.second, current);
 
 #if DEBUG_GRID_UPDATES
-                    CherryVis::log(unit->id) << "Grid::sightRangeUpgraded from " << unitAndSightRange.second << " to " << current;
-                    Log::Debug() << *unit << ": Grid::sightRangeUpgraded from " << unitAndSightRange.second << " to " << current;
+                    Telemetry::log(gameUnit->ident) << "Grid::sightRangeUpgraded from " << unitAndSightRange.second << " to " << current;
+                    AppLog::Debug() << *gameUnit << ": Grid::sightRangeUpgraded from " << unitAndSightRange.second << " to " << current;
 #endif
                 }
             };
             if (player == BWAPI::Broodwar->self())
             {
-                for (auto &unit : Units::allMine())
-                { updateGrid(unit); }
+                for (auto &gameUnit : UnitMgr::allMine())
+                { updateGrid(gameUnit); }
             }
             else
             {
-                for (auto &unit : Units::allEnemy())
-                { updateGrid(unit); }
+                for (auto &gameUnit : UnitMgr::allEnemy())
+                { updateGrid(gameUnit); }
             }
 
             unitAndSightRange.second = current;
@@ -192,7 +192,7 @@ int UpgradeTracker::weaponDamage(BWAPI::WeaponType wpn)
 
 int UpgradeTracker::weaponRange(BWAPI::WeaponType wpn)
 {
-    // For interceptors and scarabs, return the range of the carrier and reaver
+    /* For interceptors and scarabs, return the range of the carrier and reaver */
     if (wpn == BWAPI::WeaponTypes::Pulse_Cannon || wpn == BWAPI::WeaponTypes::Scarab) return 256;
 
     auto weaponRangeIt = _weaponRange.find(wpn);
@@ -332,33 +332,33 @@ void UpgradeTracker::setWeaponRange(BWAPI::WeaponType wpn, int range, Grid &grid
 
     if (range <= current) return;
 
-    // Update the grid for all known units with this weapon type
-    auto updateGrid = [&](const Unit &unit)
+    /* Update the grid for all known units with this weapon type */
+    auto updateGrid = [&](const Unit &gameUnit)
     {
-        auto weaponUnitType = unit->type;
-        if (unit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
+        auto weaponUnitType = gameUnit->type;
+        if (gameUnit->type == BWAPI::UnitTypes::Terran_Bunker) weaponUnitType = BWAPI::UnitTypes::Terran_Marine;
 
-        if (unit->lastPositionValid && !unit->beingManufacturedOrCarried && !unit->immobile &&
+        if (gameUnit->lastPositionValid && !gameUnit->beingManufacturedOrCarried && !gameUnit->immobile &&
             (weaponUnitType.groundWeapon() == wpn ||
              weaponUnitType.airWeapon() == wpn))
         {
-            grid.unitWeaponRangeUpgraded(unit->type, unit->lastPosition, wpn, current, range);
+            grid.unitWeaponRangeUpgraded(gameUnit->type, gameUnit->prevPos, wpn, current, range);
 
 #if DEBUG_GRID_UPDATES
-            CherryVis::log(unit->id) << "Grid::weaponRangeUpgraded from " << current << " to " << range;
-                    Log::Debug() << *unit << ": Grid::weaponRangeUpgraded from " << current << " to " << range;
+            Telemetry::log(gameUnit->ident) << "Grid::weaponRangeUpgraded from " << current << " to " << range;
+                    AppLog::Debug() << *gameUnit << ": Grid::weaponRangeUpgraded from " << current << " to " << range;
 #endif
         }
     };
     if (player == BWAPI::Broodwar->self())
     {
-        for (auto &unit : Units::allMine())
-        { updateGrid(unit); }
+        for (auto &gameUnit : UnitMgr::allMine())
+        { updateGrid(gameUnit); }
     }
     else
     {
-        for (auto &unit : Units::allEnemy())
-        { updateGrid(unit); }
+        for (auto &gameUnit : UnitMgr::allEnemy())
+        { updateGrid(gameUnit); }
     }
 
     _weaponRange[wpn] = range;

@@ -3,28 +3,28 @@
 #include "Map.h"
 #include "Geo.h"
 
-BWAPI::Position Block::center() const
+BWAPI::Position BuildBlock::midpoint() const
 {
-    if (!topLeft.isValid()) return BWAPI::Positions::Invalid;
+    if (!cornerTL.isValid()) return BWAPI::Positions::Invalid;
 
-    return BWAPI::Position(topLeft) + BWAPI::Position(width() * 16, height() * 16);
+    return BWAPI::Position(cornerTL) + BWAPI::Position(width() * 16, height() * 16);
 }
 
-bool Block::tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size, bool permanent)
+bool BuildBlock::tilesReserved(BWAPI::TilePosition tilePos, BWAPI::TilePosition size, bool permanent)
 {
-    if (!Geo::Overlaps(tile, size.x, size.y, topLeft, width(), height())) return false;
+    if (!Geom::Overlaps(tilePos, size.x, size.y, cornerTL, width(), height())) return false;
 
-    auto removeOverlapping = [&tile, &size](std::vector<Location> &locations, int width, int height)
+    auto removeOverlapping = [&tilePos, &size](std::vector<Location> &locations, int width, int height)
     {
-        for (auto it = locations.begin(); it != locations.end();)
+        for (auto iterRef = locations.begin(); iterRef != locations.end();)
         {
-            if (Geo::Overlaps(tile, size.x, size.y, it->tile, width, height))
+            if (Geom::Overlaps(tilePos, size.x, size.y, iterRef->tilePos, width, height))
             {
-                it = locations.erase(it);
+                iterRef = locations.erase(iterRef);
             }
             else
             {
-                it++;
+                iterRef++;
             }
         }
     };
@@ -35,26 +35,26 @@ bool Block::tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size, bo
 
     if (permanent)
     {
-        permanentTileReservations.emplace_back(tile, size);
+        permanentTileReservations.emplace_back(tilePos, size);
     }
 
     return true;
 }
 
-bool Block::tilesUsed(BWAPI::TilePosition tile, BWAPI::TilePosition size)
+bool BuildBlock::tilesUsed(BWAPI::TilePosition tilePos, BWAPI::TilePosition size)
 {
-    return tilesReserved(tile, size);
+    return tilesReserved(tilePos, size);
 }
 
-bool Block::tilesFreed(BWAPI::TilePosition tile, BWAPI::TilePosition size)
+bool BuildBlock::tilesFreed(BWAPI::TilePosition tilePos, BWAPI::TilePosition size)
 {
-    if (!Geo::Overlaps(tile, size.x, size.y, topLeft, width(), height())) return false;
+    if (!Geom::Overlaps(tilePos, size.x, size.y, cornerTL, width(), height())) return false;
 
-    // The freed tiles may free up some of the initial build locations, so place them again
+    /* The freed tiles may free up some of the initial build locations, so place them again */
     placeLocations();
     removeUsed();
 
-    // However, we may have some permanent reservations, so re-apply them
+    /* However, we may have some permanent reservations, so re-apply them */
     for (const auto &permanentTileReservation : permanentTileReservations)
     {
         tilesReserved(permanentTileReservation.first, permanentTileReservation.second);
@@ -63,7 +63,7 @@ bool Block::tilesFreed(BWAPI::TilePosition tile, BWAPI::TilePosition size)
     return true;
 }
 
-bool Block::place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability) const
+bool BuildBlock::place(BWAPI::TilePosition tilePos, std::vector<unsigned int> &tileAvailability) const
 {
     auto checkTile = [&](int tileX, int tileY)
     {
@@ -79,27 +79,27 @@ bool Block::place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvail
         return true;
     };
 
-    if (!checkTile(tile.x, tile.y)) return false;
-    if (!checkTile(tile.x + width() - 1, tile.y)) return false;
-    if (!checkTile(tile.x + width() - 1, tile.y + height() - 1)) return false;
-    if (!checkTile(tile.x, tile.y + height() - 1)) return false;
+    if (!checkTile(tilePos.x, tilePos.y)) return false;
+    if (!checkTile(tilePos.x + width() - 1, tilePos.y)) return false;
+    if (!checkTile(tilePos.x + width() - 1, tilePos.y + height() - 1)) return false;
+    if (!checkTile(tilePos.x, tilePos.y + height() - 1)) return false;
 
-    for (int tileX = tile.x; tileX < tile.x + width(); tileX++)
+    for (int tileX = tilePos.x; tileX < tilePos.x + width(); tileX++)
     {
-        for (int tileY = tile.y; tileY < tile.y + height(); tileY++)
+        for (int tileY = tilePos.y; tileY < tilePos.y + height(); tileY++)
         {
             if (!checkTile(tileX, tileY)) return false;
         }
     }
 
-    // Can be placed here, mark the tiles
-    for (int tileX = tile.x - 1; tileX <= tile.x + width(); tileX++)
+    /* Can be placed here, mark the tiles */
+    for (int tileX = tilePos.x - 1; tileX <= tilePos.x + width(); tileX++)
     {
-        for (int tileY = tile.y - 1; tileY <= tile.y + height(); tileY++)
+        for (int tileY = tilePos.y - 1; tileY <= tilePos.y + height(); tileY++)
         {
             if (tileX < 0 || tileY < 0 || tileX >= BWAPI::Broodwar->mapWidth() || tileY >= BWAPI::Broodwar->mapHeight()) continue;
 
-            if (tileX == tile.x - 1 || tileY == tile.y - 1 || tileX == tile.x + width() || tileY == tile.y + height())
+            if (tileX == tilePos.x - 1 || tileY == tilePos.y - 1 || tileX == tilePos.x + width() || tileY == tilePos.y + height())
             {
                 tileAvailability[tileX + tileY * BWAPI::Broodwar->mapWidth()] |= 8U;
             }
@@ -113,12 +113,12 @@ bool Block::place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvail
     return true;
 }
 
-bool Block::placeStartBlock(BWAPI::TilePosition startPosition,
+bool BuildBlock::placeStartBlock(BWAPI::TilePosition startPosition,
                             std::vector<BWAPI::TilePosition> &usedTiles,
                             std::vector<BWAPI::TilePosition> &borderTiles,
                             std::vector<unsigned int> &tileAvailability) const
 {
-    // Tiles around the start position are not checked for availability
+    /* Tiles around the start position are not checked for availability */
     std::set<BWAPI::TilePosition> ignoreAvailability;
     for (int tileX = startPosition.x - 2; tileX <= startPosition.x + 5; tileX++)
     {
@@ -129,54 +129,54 @@ bool Block::placeStartBlock(BWAPI::TilePosition startPosition,
         }
     }
 
-    auto checkTile = [&](BWAPI::TilePosition tile)
+    auto checkTile = [&](BWAPI::TilePosition tilePos)
     {
-        if (tile.x >= BWAPI::Broodwar->mapWidth()) return false;
-        if (tile.y >= BWAPI::Broodwar->mapHeight()) return false;
-        if (!ignoreAvailability.contains(tile))
+        if (tilePos.x >= BWAPI::Broodwar->mapWidth()) return false;
+        if (tilePos.y >= BWAPI::Broodwar->mapHeight()) return false;
+        if (!ignoreAvailability.contains(tilePos))
         {
-            if (tileAvailability[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] > 0) return false;
+            if (tileAvailability[tilePos.x + tilePos.y * BWAPI::Broodwar->mapWidth()] > 0) return false;
         }
         else
         {
-            if (tileAvailability[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] == 1) return false;
+            if (tileAvailability[tilePos.x + tilePos.y * BWAPI::Broodwar->mapWidth()] == 1) return false;
         }
-        if (tile.x == 0 && !allowLeftEdge()) return false;
-        if (tile.x == (BWAPI::Broodwar->mapWidth() - 1) && !allowRightEdge()) return false;
-        if (tile.y == 0 && !allowTopEdge()) return false;
-        if (tile.x == 0 && tile.y == 0 && !allowCorner()) return false;
-        if (tile.x == (BWAPI::Broodwar->mapWidth() - 1) && tile.y == 0 && !allowCorner()) return false;
+        if (tilePos.x == 0 && !allowLeftEdge()) return false;
+        if (tilePos.x == (BWAPI::Broodwar->mapWidth() - 1) && !allowRightEdge()) return false;
+        if (tilePos.y == 0 && !allowTopEdge()) return false;
+        if (tilePos.x == 0 && tilePos.y == 0 && !allowCorner()) return false;
+        if (tilePos.x == (BWAPI::Broodwar->mapWidth() - 1) && tilePos.y == 0 && !allowCorner()) return false;
 
         return true;
     };
 
-    for (auto tile : usedTiles)
+    for (auto tilePos : usedTiles)
     {
-        if (!checkTile(tile)) return false;
+        if (!checkTile(tilePos)) return false;
     }
 
-    for (auto tile : usedTiles)
+    for (auto tilePos : usedTiles)
     {
-        tileAvailability[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] |= 4U;
+        tileAvailability[tilePos.x + tilePos.y * BWAPI::Broodwar->mapWidth()] |= 4U;
     }
-    for (auto tile : borderTiles)
+    for (auto tilePos : borderTiles)
     {
-        tileAvailability[tile.x + tile.y * BWAPI::Broodwar->mapWidth()] |= 8U;
+        tileAvailability[tilePos.x + tilePos.y * BWAPI::Broodwar->mapWidth()] |= 8U;
     }
 
     return true;
 }
 
-void Block::removeUsed()
+void BuildBlock::removeUsed()
 {
     auto removeUsed = [](std::vector<Location> &locations, int width, int height)
     {
-        for (auto it = locations.begin(); it != locations.end();)
+        for (auto iterRef = locations.begin(); iterRef != locations.end();)
         {
             bool used = false;
-            for (int tileX = it->tile.x; tileX < it->tile.x + width; tileX++)
+            for (int tileX = iterRef->tilePos.x; tileX < iterRef->tilePos.x + width; tileX++)
             {
-                for (int tileY = it->tile.y; tileY < it->tile.y + height; tileY++)
+                for (int tileY = iterRef->tilePos.y; tileY < iterRef->tilePos.y + height; tileY++)
                 {
                     if (!Map::isWalkable(tileX, tileY))
                     {
@@ -189,11 +189,11 @@ void Block::removeUsed()
 
             if (used)
             {
-                it = locations.erase(it);
+                iterRef = locations.erase(iterRef);
             }
             else
             {
-                it++;
+                iterRef++;
             }
         }
     };

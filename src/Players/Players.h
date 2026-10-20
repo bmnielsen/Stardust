@@ -4,7 +4,7 @@
 
 #include "Grid.h"
 
-namespace Players
+namespace PlayerInfo
 {
     void initialize();
 

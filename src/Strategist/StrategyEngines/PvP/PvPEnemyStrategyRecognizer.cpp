@@ -1,10 +1,20 @@
 #include "StrategyEngines/PvP.h"
 
+#include "Config.h"
+
 #include "Units.h"
 #include "Map.h"
 #include "Strategist.h"
 #include "UnitUtil.h"
 #include "OpponentEconomicModel.h"
+#include "Players.h"
+#include "RecognizerShared.h"
+#include "FileTools.h"
+
+#include <fstream>
+
+/* P2 step A (dedup plan): shared observation predicates live in RecognizerShared.h. */
+using namespace RecognizerShared;
 
 std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
         {ProtossStrategy::Unknown,         "Unknown"},
@@ -27,122 +37,157 @@ std::map<PvP::ProtossStrategy, std::string> PvP::ProtossStrategyNames = {
 
 namespace
 {
-    bool countAtLeast(BWAPI::UnitType type, int count)
+    /* Declarative thresholds (S6 v1): defaults are the audited literals, so a */
+    /* missing/partial recognizers.json is always behavior-identical. Values can */
+    /* be tuned per-matchup in data/recognizers.json without recompiling. */
+    struct RecognizerThresholds
     {
-        auto &timings = Units::getEnemyUnitTimings(type);
-        return timings.size() >= count;
-    }
+        int fastExpansionNexusBy = 6000;
+        int workerRushWindow = 6000;
+        int workerRushMinWorkers = 2;
+        int zealotFirstBy = 2700;
+        int zealotSecondBy = 3300;
+        int gatewaySecondBy = 2300;
+        int proxyWindow = 5000;
+        int proxyMainDist = 1500;
+        int proxyNaturalDist = 640;
+        int proxyFirstPylonBy = 1300;
+        int proxyFirstProdBy = 2200;
+        int proxySecondPylonBy = 4000;
+        int zealotAllInEarlyWindow = 6000;
+        int zealotAllInEarlyZealotsBy = 5000;
+        int zealotAllInEarlyZealotCount = 4;
+        int zealotAllInMidWindow = 8000;
+        int zealotAllInMidZealotsBy = 7000;
+        int zealotAllInMidZealotCount = 8;
+        int zealotAllInMidLiveZealots = 4;
+        int zealotAllInLateZealotsBy = 9000;
+        int zealotAllInLateZealotCount = 12;
+        int dragoonAllInWindow = 10000;
+        int dragoonAllInGateCount = 4;
+        int earlyRoboBy = 7500;
+        int dtRushArchivesBy = 10000;
+        int dtRushFirstDtBy = 12000;
+        int turtleCannon2By = 5000;
+        int turtleCannon3By = 6000;
+        int turtleCannon4By = 7000;
+        int turtleCannon5By = 8000;
+        int dtSuspectCoreAgeBy = 2400;
+        int dtSuspectWindow = 24000;
+        int midGameFrom = 14000;
+    };
 
-    bool noneCreated(BWAPI::UnitType type)
+    const RecognizerThresholds &rt()
     {
-        return Units::getEnemyUnitTimings(type).empty();
-    }
-
-    bool createdBeforeFrame(BWAPI::UnitType type, int frame, int count = 1)
-    {
-        auto &timings = Units::getEnemyUnitTimings(type);
-        if (timings.size() < count) return false;
-
-        return timings[count - 1].first < frame;
-    }
-
-    bool createdBeforeUnit(BWAPI::UnitType first, int firstCount, BWAPI::UnitType second, int secondCount)
-    {
-        auto &firstTimings = Units::getEnemyUnitTimings(first);
-        if (firstTimings.size() < firstCount) return false;
-
-        auto &secondTimings = Units::getEnemyUnitTimings(second);
-        return secondTimings.size() < secondCount || firstTimings[firstCount - 1].first <= secondTimings[secondCount - 1].first;
-    }
-
-    bool justDiscovered(BWAPI::UnitType type)
-    {
-        auto &timings = Units::getEnemyUnitTimings(type);
-        return std::any_of(timings.begin(), timings.end(), [](const auto timing) { return timing.second == currentFrame; });
+        /* Populated once on first use; Config::initialize runs earlier in onStart. */
+        static const RecognizerThresholds instance = []
+        {
+            RecognizerThresholds x;
+            const auto &j = Config::recognizers();
+            auto iterRef = j.find("PvP");
+            if (iterRef != j.end() && iterRef->is_object())
+            {
+                auto assign = [&iterRef](const char *key, int &field)
+                {
+                    auto f = iterRef->find(key);
+                    if (f != iterRef->end() && f->is_number_integer()) field = f->get<int>();
+                };
+                assign("fastExpansionNexusBy", x.fastExpansionNexusBy);
+                assign("workerRushWindow", x.workerRushWindow);
+                assign("workerRushMinWorkers", x.workerRushMinWorkers);
+                assign("zealotFirstBy", x.zealotFirstBy);
+                assign("zealotSecondBy", x.zealotSecondBy);
+                assign("gatewaySecondBy", x.gatewaySecondBy);
+                assign("proxyWindow", x.proxyWindow);
+                assign("proxyMainDist", x.proxyMainDist);
+                assign("proxyNaturalDist", x.proxyNaturalDist);
+                assign("proxyFirstPylonBy", x.proxyFirstPylonBy);
+                assign("proxyFirstProdBy", x.proxyFirstProdBy);
+                assign("proxySecondPylonBy", x.proxySecondPylonBy);
+                assign("zealotAllInEarlyWindow", x.zealotAllInEarlyWindow);
+                assign("zealotAllInEarlyZealotsBy", x.zealotAllInEarlyZealotsBy);
+                assign("zealotAllInEarlyZealotCount", x.zealotAllInEarlyZealotCount);
+                assign("zealotAllInMidWindow", x.zealotAllInMidWindow);
+                assign("zealotAllInMidZealotsBy", x.zealotAllInMidZealotsBy);
+                assign("zealotAllInMidZealotCount", x.zealotAllInMidZealotCount);
+                assign("zealotAllInMidLiveZealots", x.zealotAllInMidLiveZealots);
+                assign("zealotAllInLateZealotsBy", x.zealotAllInLateZealotsBy);
+                assign("zealotAllInLateZealotCount", x.zealotAllInLateZealotCount);
+                assign("dragoonAllInWindow", x.dragoonAllInWindow);
+                assign("dragoonAllInGateCount", x.dragoonAllInGateCount);
+                assign("earlyRoboBy", x.earlyRoboBy);
+                assign("dtRushArchivesBy", x.dtRushArchivesBy);
+                assign("dtRushFirstDtBy", x.dtRushFirstDtBy);
+                assign("turtleCannon2By", x.turtleCannon2By);
+                assign("turtleCannon3By", x.turtleCannon3By);
+                assign("turtleCannon4By", x.turtleCannon4By);
+                assign("turtleCannon5By", x.turtleCannon5By);
+                assign("dtSuspectCoreAgeBy", x.dtSuspectCoreAgeBy);
+                assign("dtSuspectWindow", x.dtSuspectWindow);
+                assign("midGameFrom", x.midGameFrom);
+            }
+            return x;
+        }();
+        return instance;
     }
 
     bool isFastExpansion()
     {
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Nexus, 6000, 2);
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Nexus, rt().fastExpansionNexusBy, 2);
     }
 
     bool isWorkerRush()
     {
-        if (currentFrame >= 6000) return false;
-
-        int workers = 0;
-        for (const Unit &unit : Units::allEnemy())
-        {
-            if (!unit->lastPositionValid) continue;
-            if (unit->type.isBuilding()) continue;
-
-            bool isInArea = false;
-            for (const auto &area : Map::getMyMainAreas())
-            {
-                if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
-                {
-                    isInArea = true;
-                    break;
-                }
-            }
-            if (!isInArea) continue;
-
-            // If there is a normal combat unit in our main, it isn't a worker rush
-            if (UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack()) return false;
-
-            if (unit->type.isWorker()) workers++;
-        }
-
-        return workers > 2;
+        return RecognizerShared::isWorkerRush(rt().workerRushWindow, rt().workerRushMinWorkers);
     }
 
     bool isZealotRush()
     {
-        if (currentFrame >= 6000) return false;
+        if (frameNow >= rt().workerRushWindow) return false;
 
-        // We expect a zealot rush if we see an early zealot, early second zealot or early second gateway
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 2700) ||
-               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 3300, 2) ||
-               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Gateway, 2300, 2);
+        /* We expect a zealot rush if we see an early zealot, early second zealot or early second gateway */
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, rt().zealotFirstBy) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, rt().zealotSecondBy, 2) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Gateway, rt().gatewaySecondBy, 2);
     }
 
     bool isProxy()
     {
         if (isFastExpansion()) return false;
-        if (currentFrame >= 5000) return false;
-        if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0) return false;
+        if (frameNow >= rt().proxyWindow) return false;
+        if (UnitMgr::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0) return false;
 
-        // Check if we have directly scouted an enemy building in a proxy location
+        /* Check if we have directly scouted an enemy building in a proxy location */
         auto enemyMain = Map::getEnemyStartingMain();
         auto enemyNatural = Map::getEnemyStartingNatural();
-        for (const auto &enemyUnit : Units::allEnemy())
+        for (const auto &enemyUnit : UnitMgr::allEnemy())
         {
             if (!enemyUnit->type.isBuilding()) continue;
             if (enemyUnit->type.isRefinery()) continue; // Don't count gas steals
             if (enemyUnit->type.isResourceDepot()) continue; // Don't count expansions
 
-            // If the enemy main is unknown, this means the Map didn't consider this building to be part of that base and it indicates a proxy
+            /* If the enemy main is unknown, this means the Map didn't consider this building to be part of that base and it indicates a proxy */
             if (!enemyMain) return true;
 
-            // Otherwise consider this a proxy if the building is not close to the enemy main or natural
-            int dist = PathFinding::GetGroundDistance(
-                    enemyUnit->lastPosition,
+            /* Otherwise consider this a proxy if the building is not close to the enemy main or natural */
+            int span = Pathfinder::GetGroundDistance(
+                    enemyUnit->prevPos,
                     enemyMain->getPosition(),
                     BWAPI::UnitTypes::Protoss_Probe,
-                    PathFinding::PathFindingOptions::UseNearestBWEMArea);
-            if (dist != -1 && dist < 1500)
+                    Pathfinder::PathFindingOptions::UseNearestBWEMArea);
+            if (span != -1 && span < rt().proxyMainDist)
             {
                 continue;
             }
 
             if (enemyNatural)
             {
-                int naturalDist = PathFinding::GetGroundDistance(
-                        enemyUnit->lastPosition,
+                int naturalDist = Pathfinder::GetGroundDistance(
+                        enemyUnit->prevPos,
                         enemyNatural->getPosition(),
                         BWAPI::UnitTypes::Protoss_Probe,
-                        PathFinding::PathFindingOptions::UseNearestBWEMArea);
-                if (naturalDist != -1 && naturalDist < 640)
+                        Pathfinder::PathFindingOptions::UseNearestBWEMArea);
+                if (naturalDist != -1 && naturalDist < rt().proxyNaturalDist)
                 {
                     continue;
                 }
@@ -151,25 +196,25 @@ namespace
             return true;
         }
 
-        // If the enemy main has been scouted, determine if there is a proxy by looking at what they have built
-        if (Strategist::hasWorkerScoutCompletedInitialBaseScan())
+        /* If the enemy main has been scouted, determine if there is a proxy by looking at what they have built */
+        if (Director::hasWorkerScoutCompletedInitialBaseScan())
         {
-            // Expect first pylon by frame 1300
-            if (currentFrame > 1300 && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
+            /* Expect first pylon by frame 1300 */
+            if (frameNow > rt().proxyFirstPylonBy && !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 1)) return true;
 
-            // Expect first gateway or forge by frame 2200
-            // This will sometimes fail if the enemy does a fast expansion we don't see
-            if (currentFrame > 2200
+            /* Expect first gateway or forge by frame 2200 */
+            /* This will sometimes fail if the enemy does a fast expansion we don't see */
+            if (frameNow > rt().proxyFirstProdBy
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 1)
                 && !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1))
             {
                 return true;
             }
 
-            // If the enemy hasn't built a forge, expect a second pylon by frame 4000 if we still have a live scout
-            if (currentFrame > 4000 &&
-                Strategist::hasWorkerScoutCompletedInitialBaseScan() &&
-                !Strategist::isWorkerScoutComplete() &&
+            /* If the enemy hasn't built a forge, expect a second pylon by frame 4000 if we still have a live scout */
+            if (frameNow > rt().proxySecondPylonBy &&
+                Director::hasWorkerScoutCompletedInitialBaseScan() &&
+                !Director::isWorkerScoutComplete() &&
                 !countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) &&
                 !countAtLeast(BWAPI::UnitTypes::Protoss_Pylon, 2))
             {
@@ -184,41 +229,41 @@ namespace
 
     bool isZealotAllIn()
     {
-        // In the early game, we consider the enemy to be doing a zealot all-in if we either see a lot of zealots or see two gateways with
-        // no core or gas
-        if (currentFrame < 6000)
+        /* In the early game, we consider the enemy to be doing a zealot all-in if we either see a lot of zealots or see two gateways with */
+        /* no core or gas */
+        if (frameNow < rt().zealotAllInEarlyWindow)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 5000, 4) ||
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, rt().zealotAllInEarlyZealotsBy, rt().zealotAllInEarlyZealotCount) ||
                    (noneCreated(BWAPI::UnitTypes::Protoss_Assimilator) &&
                     noneCreated(BWAPI::UnitTypes::Protoss_Cybernetics_Core) &&
                     countAtLeast(BWAPI::UnitTypes::Protoss_Gateway, 2));
         }
 
-        // Later on, we consider it to be a zealot all-in purely based on the counts
-        if (currentFrame < 8000)
+        /* Later on, we consider it to be a zealot all-in purely based on the counts */
+        if (frameNow < rt().zealotAllInMidWindow)
         {
-            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 7000, 8) &&
-                   Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > 4;
+            return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, rt().zealotAllInMidZealotsBy, rt().zealotAllInMidZealotCount) &&
+                   UnitMgr::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > rt().zealotAllInMidLiveZealots;
         }
 
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, 9000, 12) &&
-               Units::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > 4;
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Zealot, rt().zealotAllInLateZealotsBy, rt().zealotAllInLateZealotCount) &&
+               UnitMgr::countEnemy(BWAPI::UnitTypes::Protoss_Zealot) > rt().zealotAllInMidLiveZealots;
     }
 
     bool isDragoonAllIn()
     {
-        // It's unlikely our worker scout survives long enough, but detect this if the enemy gets four gates before robo / citadel
-        if (currentFrame < 10000 &&
-            createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Robotics_Facility, 1) &&
-            createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 4, BWAPI::UnitTypes::Protoss_Templar_Archives, 1))
+        /* It's unlikely our worker scout survives long enough, but detect this if the enemy gets four gates before robo / citadel */
+        if (frameNow < rt().dragoonAllInWindow &&
+            createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, rt().dragoonAllInGateCount, BWAPI::UnitTypes::Protoss_Robotics_Facility, 1) &&
+            createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, rt().dragoonAllInGateCount, BWAPI::UnitTypes::Protoss_Templar_Archives, 1))
         {
             return true;
         }
 
-        // Check for four gates and no expansion from economic model
+        /* Check for four gates and no expansion from economic model */
         if (OpponentEconomicModel::enabled() &&
-            !createdBeforeFrame(BWAPI::UnitTypes::Protoss_Nexus, currentFrame, 2) &&
-            OpponentEconomicModel::minimumProducerCount(BWAPI::UnitTypes::Protoss_Gateway) >= 4 &&
+            !createdBeforeFrame(BWAPI::UnitTypes::Protoss_Nexus, frameNow, 2) &&
+            OpponentEconomicModel::minimumProducerCount(BWAPI::UnitTypes::Protoss_Gateway) >= rt().dragoonAllInGateCount &&
             !OpponentEconomicModel::hasBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility) &&
             !OpponentEconomicModel::hasBuilt(BWAPI::UnitTypes::Protoss_Templar_Archives))
         {
@@ -230,27 +275,75 @@ namespace
 
     bool isEarlyRobo()
     {
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Robotics_Facility, 7500);
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Robotics_Facility, rt().earlyRoboBy);
     }
 
     bool isDarkTemplarRush()
     {
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Templar_Archives, 10000) ||
-               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dark_Templar, 12000);
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Templar_Archives, rt().dtRushArchivesBy) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Dark_Templar, rt().dtRushFirstDtBy);
+    }
+
+    /* AIIDE2025 absorb (report P1, 2026-09-17): reverse fingerprint - enemy
+     * built a core long ago yet never finished goon range and has no robotics:
+     * PW FingerprintDTRush.scala:19-21 / BB Strategy.cpp:65-72 analog. Warns
+     * one beat earlier than waiting for Archives to be scouted. */
+    bool isSuspectedDT()
+    {
+        auto &timings = UnitMgr::getEnemyUnitTimings(BWAPI::UnitTypes::Protoss_Cybernetics_Core);
+        if (timings.empty()) return false;
+        int coreBuilt = timings.begin()->first;
+        if (coreBuilt <= 0) return false;
+        if (frameNow < coreBuilt + rt().dtSuspectCoreAgeBy) return false;
+        if (frameNow > rt().dtSuspectWindow) return false;
+        if (PlayerInfo::upgradeLevel(BWAPI::Broodwar->enemy(), BWAPI::UpgradeTypes::Singularity_Charge) > 0) return false;
+        return !UnitMgr::hasEnemyBuilt(BWAPI::UnitTypes::Protoss_Robotics_Facility);
+    }
+
+    /* dt_suspect guard: off = inactive (behavior identical to pre-absorb);
+     * record = log the first activation per game to the write-dir diagnostics
+     * channel and hold behavior; on = the transition fires. */
+    bool dtSuspectGuard()
+    {
+        int mode = Config::dtSuspectMode();
+        if (mode == 0) return false;
+
+        static bool conditionActive = false;
+        if (frameNow < 100) conditionActive = false;
+
+        if (!isSuspectedDT())
+        {
+            conditionActive = false;
+            return false;
+        }
+
+        if (mode == 1)
+        {
+            if (!conditionActive)
+            {
+                conditionActive = true;
+                std::ofstream out(FileTools::getFilePath("shushanking_dt_suspect", "txt", true),
+                                  std::ofstream::app);
+                if (out.is_open()) out << frameNow << ",suspected\n";
+            }
+            return false;
+        }
+
+        return true;
     }
 
     bool isTurtle()
     {
-        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Photon_Cannon, 5000, 2) ||
-               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Photon_Cannon, 6000, 3) ||
-               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Photon_Cannon, 7000, 4) ||
-               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Photon_Cannon, 8000, 5);
+        return createdBeforeFrame(BWAPI::UnitTypes::Protoss_Photon_Cannon, rt().turtleCannon2By, 2) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Photon_Cannon, rt().turtleCannon3By, 3) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Photon_Cannon, rt().turtleCannon4By, 4) ||
+               createdBeforeFrame(BWAPI::UnitTypes::Protoss_Photon_Cannon, rt().turtleCannon5By, 5);
     }
 
     bool isMidGame()
     {
-        // We consider ourselves to be in the mid-game after frame 14000 if the enemy has taken their natural or teched to something beyond goons
-        if (currentFrame < 14000) return false;
+        /* We consider ourselves to be in the mid-game after frame 14000 if the enemy has taken their natural or teched to something beyond goons */
+        if (frameNow < rt().midGameFrom) return false;
 
         return countAtLeast(BWAPI::UnitTypes::Protoss_Nexus, 2) ||
                countAtLeast(BWAPI::UnitTypes::Protoss_Templar_Archives, 1) ||
@@ -272,317 +365,167 @@ namespace
                countAtLeast(BWAPI::UnitTypes::Protoss_Carrier, 1) ||
                countAtLeast(BWAPI::UnitTypes::Protoss_Arbiter, 1);
     }
+
+    /* ===== P2-E: declaration-table recognition (dedup plan) ===== */
+    /* Same predicates, same thresholds, same per-state guard order as the switch */
+    /* path below; the state machine itself becomes data (RecognizerShared */
+    /* transition table). Shadow-verified against the switch path before it */
+    /* becomes authoritative. */
+
+    using PS = PvP::ProtossStrategy;
+    using PTransition = RecognizerShared::STransition<PS>;
+
+    /* The OneZealotCore reconsider guard in the switch path reads the COMMITTED */
+    /* member state (enemyStrategy), not the loop-local chase position; mirror */
+    /* that exactly by latching "the call started from OneZealotCore" per call. */
+    bool g_startedFromOneZealotCore = false;
+
+    const std::vector<PTransition> &protossTransitionTable()
+    {
+        static const std::vector<PTransition> table = [] {
+            std::vector<PTransition> t;
+            auto add = [&t](PS from, bool (*guard)(), PS to, bool chase) { t.push_back(PTransition{from, chase, to, guard}); };
+
+            /* Unknown: rush classification first, then the scouting-driven */
+            /* opening determination (with the economic-model NoZealot split) */
+            add(PS::Unknown, []{ return isWorkerRush(); }, PS::WorkerRush, false);
+            add(PS::Unknown, []{ return isZealotRush(); }, PS::ZealotRush, false);
+            add(PS::Unknown, []{ return isProxy(); }, PS::ProxyRush, false);
+            add(PS::Unknown, []{ return Director::getWorkerScoutStatus() == Director::WorkerScoutStatus::ScoutingBlocked; }, PS::BlockScouting, true);
+            add(PS::Unknown, []{ return isFastExpansion(); }, PS::FastExpansion, false);
+            add(PS::Unknown, []{ return isEarlyRobo(); }, PS::EarlyRobo, false);
+            /* Early forge if we have seen either a forge or a cannon */
+            add(PS::Unknown, []{ return countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) || countAtLeast(BWAPI::UnitTypes::Protoss_Photon_Cannon, 1); }, PS::EarlyForge, true);
+            /* Transition to one- or two-gate on the appropriate scouting information */
+            add(PS::Unknown, []{ return createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 2, BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1) &&
+                                        createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 2, BWAPI::UnitTypes::Protoss_Assimilator, 1); }, PS::TwoGate, true);
+            add(PS::Unknown, []{ return createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2) &&
+                                        OpponentEconomicModel::enabled() &&
+                                        OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0; }, PS::NoZealotCore, true);
+            add(PS::Unknown, []{ return createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2); }, PS::OneZealotCore, true);
+            /* Assume one-zealot if we scout the assimilator first */
+            add(PS::Unknown, []{ return createdBeforeUnit(BWAPI::UnitTypes::Protoss_Assimilator, 1, BWAPI::UnitTypes::Protoss_Gateway, 2); }, PS::OneZealotCore, true);
+            /* Default to something reasonable if our scouting completely fails */
+            add(PS::Unknown, []{ return frameNow > 4000; }, PS::OneZealotCore, true);
+
+            add(PS::WorkerRush, []{ return !isWorkerRush(); }, PS::Unknown, true);
+
+            add(PS::ProxyRush, []{ return isWorkerRush(); }, PS::WorkerRush, false);
+            /* Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their nexus */
+            add(PS::ProxyRush, []{ return frameNow < 5000 && !isProxy(); }, PS::Unknown, true);
+            /* Transition out of the proxy when they take gas, or the scout is dead past frame 5000 */
+            add(PS::ProxyRush, []{ return UnitMgr::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0 ||
+                                        (frameNow >= 5000 && Director::isWorkerScoutComplete()); }, PS::TwoGate, true);
+
+            add(PS::ZealotRush, []{ return isWorkerRush(); }, PS::WorkerRush, false);
+            /* Consider the rush to be over after 6000 frames */
+            add(PS::ZealotRush, []{ return frameNow >= 6000; }, PS::TwoGate, true);
+
+            add(PS::EarlyForge, []{ return isWorkerRush(); }, PS::WorkerRush, false);
+            add(PS::EarlyForge, []{ return isZealotAllIn(); }, PS::ZealotAllIn, false);
+            add(PS::EarlyForge, []{ return isDragoonAllIn(); }, PS::DragoonAllIn, false);
+            add(PS::EarlyForge, []{ return isProxy(); }, PS::ProxyRush, false);
+            add(PS::EarlyForge, []{ return isFastExpansion(); }, PS::FastExpansion, true);
+            add(PS::EarlyForge, []{ return isEarlyRobo(); }, PS::EarlyRobo, true);
+            add(PS::EarlyForge, []{ return isTurtle(); }, PS::Turtle, true);
+            add(PS::EarlyForge, []{ return isMidGame(); }, PS::MidGame, true);
+
+            add(PS::TwoGate, []{ return isWorkerRush(); }, PS::WorkerRush, false);
+            /* We might detect a zealot rush late on large maps or if scouting is denied */
+            add(PS::TwoGate, []{ return isZealotRush(); }, PS::ZealotRush, false);
+            add(PS::TwoGate, dtSuspectGuard, PS::DarkTemplarRush, false);
+            add(PS::TwoGate, []{ return isDarkTemplarRush(); }, PS::DarkTemplarRush, false);
+            add(PS::TwoGate, []{ return isZealotAllIn(); }, PS::ZealotAllIn, false);
+            add(PS::TwoGate, []{ return isDragoonAllIn(); }, PS::DragoonAllIn, false);
+            add(PS::TwoGate, []{ return isEarlyRobo(); }, PS::EarlyRobo, true);
+            add(PS::TwoGate, []{ return isTurtle(); }, PS::Turtle, true);
+            add(PS::TwoGate, []{ return isMidGame(); }, PS::MidGame, true);
+
+            add(PS::NoZealotCore, dtSuspectGuard, PS::DarkTemplarRush, false);
+            add(PS::NoZealotCore, []{ return isDarkTemplarRush(); }, PS::DarkTemplarRush, false);
+            add(PS::NoZealotCore, []{ return isZealotAllIn(); }, PS::ZealotAllIn, false);
+            add(PS::NoZealotCore, []{ return isDragoonAllIn(); }, PS::DragoonAllIn, false);
+            add(PS::NoZealotCore, []{ return isEarlyRobo(); }, PS::EarlyRobo, true);
+            add(PS::NoZealotCore, []{ return isTurtle(); }, PS::Turtle, true);
+            add(PS::NoZealotCore, []{ return isMidGame(); }, PS::MidGame, true);
+
+            add(PS::OneZealotCore, dtSuspectGuard, PS::DarkTemplarRush, false);
+            add(PS::OneZealotCore, []{ return isDarkTemplarRush(); }, PS::DarkTemplarRush, false);
+            add(PS::OneZealotCore, []{ return isZealotAllIn(); }, PS::ZealotAllIn, false);
+            add(PS::OneZealotCore, []{ return isDragoonAllIn(); }, PS::DragoonAllIn, false);
+            add(PS::OneZealotCore, []{ return isEarlyRobo(); }, PS::EarlyRobo, true);
+            add(PS::OneZealotCore, []{ return isTurtle(); }, PS::Turtle, true);
+            add(PS::OneZealotCore, []{ return isMidGame(); }, PS::MidGame, true);
+            /* Reconsider one-zealot if we have just discovered a core or assimilator */
+            /* (only when the committed state is OneZealotCore, as in the switch path) */
+            add(PS::OneZealotCore, []{ return g_startedFromOneZealotCore &&
+                                        (justDiscovered(BWAPI::UnitTypes::Protoss_Cybernetics_Core) || justDiscovered(BWAPI::UnitTypes::Protoss_Assimilator)) &&
+                                        OpponentEconomicModel::enabled() &&
+                                        OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0; }, PS::NoZealotCore, true);
+
+            add(PS::FastExpansion, []{ return isDarkTemplarRush(); }, PS::DarkTemplarRush, false);
+            add(PS::FastExpansion, []{ return isZealotAllIn(); }, PS::ZealotAllIn, false);
+            add(PS::FastExpansion, []{ return isDragoonAllIn(); }, PS::DragoonAllIn, false);
+            add(PS::FastExpansion, []{ return isEarlyRobo(); }, PS::EarlyRobo, true);
+            add(PS::FastExpansion, []{ return isTurtle(); }, PS::Turtle, true);
+            add(PS::FastExpansion, []{ return isMidGame(); }, PS::MidGame, true);
+
+            add(PS::BlockScouting, []{ return isWorkerRush(); }, PS::WorkerRush, false);
+            add(PS::BlockScouting, []{ return isProxy(); }, PS::ProxyRush, false);
+            add(PS::BlockScouting, []{ return isZealotRush(); }, PS::ZealotRush, false);
+            add(PS::BlockScouting, []{ return isDarkTemplarRush(); }, PS::DarkTemplarRush, false);
+            add(PS::BlockScouting, []{ return isZealotAllIn(); }, PS::ZealotAllIn, false);
+            add(PS::BlockScouting, []{ return isDragoonAllIn(); }, PS::DragoonAllIn, false);
+            add(PS::BlockScouting, []{ return isMidGame(); }, PS::MidGame, true);
+
+            add(PS::ZealotAllIn, []{ return isDarkTemplarRush(); }, PS::DarkTemplarRush, false);
+            add(PS::ZealotAllIn, []{ return !isZealotAllIn(); }, PS::TwoGate, true);
+            add(PS::ZealotAllIn, []{ return isMidGame(); }, PS::MidGame, true);
+
+            add(PS::DragoonAllIn, []{ return isDarkTemplarRush(); }, PS::DarkTemplarRush, false);
+            add(PS::DragoonAllIn, []{ return !isDragoonAllIn() && isEarlyRobo(); }, PS::EarlyRobo, true);
+            add(PS::DragoonAllIn, []{ return isMidGame(); }, PS::MidGame, true);
+
+            add(PS::Turtle, []{ return isZealotAllIn(); }, PS::ZealotAllIn, false);
+            add(PS::Turtle, []{ return isDragoonAllIn(); }, PS::DragoonAllIn, false);
+            add(PS::Turtle, []{ return isProxy(); }, PS::ProxyRush, false);
+            add(PS::Turtle, []{ return isDarkTemplarRush(); }, PS::DarkTemplarRush, false);
+            add(PS::Turtle, []{ return isEarlyRobo(); }, PS::EarlyRobo, true);
+            add(PS::Turtle, []{ return isMidGame(); }, PS::MidGame, true);
+
+            add(PS::EarlyRobo, []{ return isZealotAllIn(); }, PS::ZealotAllIn, false);
+            add(PS::EarlyRobo, []{ return isDragoonAllIn(); }, PS::DragoonAllIn, false);
+            add(PS::EarlyRobo, []{ return isDarkTemplarRush(); }, PS::DarkTemplarRush, false);
+            add(PS::EarlyRobo, []{ return isMidGame(); }, PS::MidGame, true);
+
+            add(PS::DarkTemplarRush, []{ return !isDarkTemplarRush(); }, PS::OneZealotCore, true);
+            add(PS::DarkTemplarRush, []{ return isMidGame(); }, PS::MidGame, true);
+
+            /* MidGame is terminal (switch case falls through to return) */
+
+            return t;
+        }();
+        return table;
+    }
+}
+
+PvP::ProtossStrategy PvP::recognizeEnemyStrategyTable(PvP::ProtossStrategy current)
+{
+    /* Latch the committed state for the OneZealotCore reconsider guard (see the */
+    /* table comment): the switch path read the member, not the chase position. */
+    g_startedFromOneZealotCore = (current == ProtossStrategy::OneZealotCore);
+
+    bool exhausted = false;
+    auto outcome = RecognizerShared::runTransitions(current, protossTransitionTable(), exhausted);
+    if (exhausted) AppLog::Get() << "ERROR: Loop in strategy recognizer (table path)";
+    return outcome;
 }
 
 PvP::ProtossStrategy PvP::recognizeEnemyStrategy()
 {
-    auto strategy = enemyStrategy;
-    for (int i = 0; i < 10; i++)
-    {
-        switch (strategy)
-        {
-            case ProtossStrategy::Unknown:
-                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
-                if (isZealotRush()) return ProtossStrategy::ZealotRush;
-                if (isProxy()) return ProtossStrategy::ProxyRush;
-
-                // If the enemy blocks our scouting, set their strategy accordingly
-                if (Strategist::getWorkerScoutStatus() == Strategist::WorkerScoutStatus::ScoutingBlocked)
-                {
-                    strategy = ProtossStrategy::BlockScouting;
-                    continue;
-                }
-
-                if (isFastExpansion()) return ProtossStrategy::FastExpansion;
-                if (isEarlyRobo()) return ProtossStrategy::EarlyRobo;
-
-                // Early forge if we have seen either a forge or a cannon before transitioning to something else
-                if (countAtLeast(BWAPI::UnitTypes::Protoss_Forge, 1) || countAtLeast(BWAPI::UnitTypes::Protoss_Photon_Cannon, 1))
-                {
-                    strategy = ProtossStrategy::EarlyForge;
-                    continue;
-                }
-
-                // Transition to one- or two-gate when we have the appropriate scouting information
-                if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 2, BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1) &&
-                    createdBeforeUnit(BWAPI::UnitTypes::Protoss_Gateway, 2, BWAPI::UnitTypes::Protoss_Assimilator, 1))
-                {
-                    strategy = ProtossStrategy::TwoGate;
-                    continue;
-                }
-
-                // Check economic model if we scout the core first
-                // It might think one-zealot until the assimilator is scouted, but that is corrected later
-                if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Cybernetics_Core, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
-                {
-                    if (OpponentEconomicModel::enabled() &&
-                        OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
-                    {
-                        strategy = ProtossStrategy::NoZealotCore;
-                    }
-                    else
-                    {
-                        strategy = ProtossStrategy::OneZealotCore;
-                    }
-                    continue;
-                }
-
-                // Assume one-zealot if we scout the assimilator first
-                // Will be reconsidered when the core is scouted
-                if (createdBeforeUnit(BWAPI::UnitTypes::Protoss_Assimilator, 1, BWAPI::UnitTypes::Protoss_Gateway, 2))
-                {
-                    strategy = ProtossStrategy::OneZealotCore;
-                    continue;
-                }
-
-                // Default to something reasonable if our scouting completely fails
-                if (currentFrame > 4000)
-                {
-                    strategy = ProtossStrategy::OneZealotCore;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::WorkerRush:
-                if (!isWorkerRush())
-                {
-                    strategy = ProtossStrategy::Unknown;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::ProxyRush:
-                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
-
-                // Handle a misdetected proxy, can happen if the enemy does a fast expand or builds further away from their nexus
-                if (currentFrame < 5000 && !isProxy())
-                {
-                    strategy = ProtossStrategy::Unknown;
-                    continue;
-                }
-
-                // We assume the enemy has transitioned from the proxy when either:
-                // - They have taken gas
-                // - Our scout is dead and we are past frame 5000
-                if (Units::countEnemy(BWAPI::UnitTypes::Protoss_Assimilator) > 0 ||
-                    (currentFrame >= 5000 && Strategist::isWorkerScoutComplete()))
-                {
-                    strategy = ProtossStrategy::TwoGate;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::ZealotRush:
-                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
-
-                // Consider the rush to be over after 6000 frames
-                // From there the TwoGate handler will potentially transition into ZealotAllIn
-                if (currentFrame >= 6000)
-                {
-                    strategy = ProtossStrategy::TwoGate;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::EarlyForge:
-                // The expected transition from here is into turtle or fast expansion, but detect others if the forge was a fake-out
-                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
-                if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
-                if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
-                if (isProxy()) return ProtossStrategy::ProxyRush;
-
-                if (isFastExpansion())
-                {
-                    strategy = ProtossStrategy::FastExpansion;
-                    continue;
-                }
-
-                if (isEarlyRobo())
-                {
-                    strategy = ProtossStrategy::EarlyRobo;
-                    continue;
-                }
-
-                if (isTurtle())
-                {
-                    strategy = ProtossStrategy::Turtle;
-                    continue;
-                }
-
-                if (isMidGame())
-                {
-                    strategy = ProtossStrategy::MidGame;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::TwoGate:
-                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
-
-                // We might detect a zealot rush late on large maps or if scouting is denied
-                if (isZealotRush()) return ProtossStrategy::ZealotRush;
-
-                if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
-                if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
-                if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
-
-                if (isEarlyRobo())
-                {
-                    strategy = ProtossStrategy::EarlyRobo;
-                    continue;
-                }
-
-                if (isTurtle())
-                {
-                    strategy = ProtossStrategy::Turtle;
-                    continue;
-                }
-
-                if (isMidGame())
-                {
-                    strategy = ProtossStrategy::MidGame;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::NoZealotCore:
-            case ProtossStrategy::OneZealotCore:
-            case ProtossStrategy::FastExpansion:
-                if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
-                if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
-                if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
-
-                if (isEarlyRobo())
-                {
-                    strategy = ProtossStrategy::EarlyRobo;
-                    continue;
-                }
-
-                if (isTurtle())
-                {
-                    strategy = ProtossStrategy::Turtle;
-                    continue;
-                }
-
-                if (isMidGame())
-                {
-                    strategy = ProtossStrategy::MidGame;
-                    continue;
-                }
-
-                // Reconsider detected one-zealot core if we have just discovered an enemy core or assimilator
-                if (enemyStrategy == ProtossStrategy::OneZealotCore && (
-                        justDiscovered(BWAPI::UnitTypes::Protoss_Cybernetics_Core) || justDiscovered(BWAPI::UnitTypes::Protoss_Assimilator)))
-                {
-                    if (OpponentEconomicModel::enabled() &&
-                        OpponentEconomicModel::worstCaseUnitCount(BWAPI::UnitTypes::Protoss_Zealot).second == 0)
-                    {
-                        strategy = ProtossStrategy::NoZealotCore;
-                    }
-                }
-
-                break;
-            case ProtossStrategy::BlockScouting:
-                // An enemy that blocks our scouting could be doing anything, but we suspect some kind of rush or all-in
-                if (isWorkerRush()) return ProtossStrategy::WorkerRush;
-                if (isProxy()) return ProtossStrategy::ProxyRush; // If we see a proxy building somewhere
-                if (isZealotRush()) return ProtossStrategy::ZealotRush;
-                if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
-                if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
-                if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
-
-                if (isMidGame())
-                {
-                    strategy = ProtossStrategy::MidGame;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::ZealotAllIn:
-                // Enemy might transition from early zealot pressure into dark templar
-                if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
-
-                if (!isZealotAllIn())
-                {
-                    strategy = ProtossStrategy::TwoGate;
-                    continue;
-                }
-
-                if (isMidGame())
-                {
-                    strategy = ProtossStrategy::MidGame;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::DragoonAllIn:
-                if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
-
-                if (!isDragoonAllIn() && isEarlyRobo())
-                {
-                    strategy = ProtossStrategy::EarlyRobo;
-                    continue;
-                }
-
-                if (isMidGame())
-                {
-                    strategy = ProtossStrategy::MidGame;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::Turtle:
-                if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
-                if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
-                if (isProxy()) return ProtossStrategy::ProxyRush;
-                if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
-
-                if (isEarlyRobo())
-                {
-                    strategy = ProtossStrategy::EarlyRobo;
-                    continue;
-                }
-
-                if (isMidGame())
-                {
-                    strategy = ProtossStrategy::MidGame;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::EarlyRobo:
-                if (isZealotAllIn()) return ProtossStrategy::ZealotAllIn;
-                if (isDragoonAllIn()) return ProtossStrategy::DragoonAllIn;
-                if (isDarkTemplarRush()) return ProtossStrategy::DarkTemplarRush;
-
-                if (isMidGame())
-                {
-                    strategy = ProtossStrategy::MidGame;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::DarkTemplarRush:
-                if (!isDarkTemplarRush())
-                {
-                    strategy = ProtossStrategy::OneZealotCore;
-                    continue;
-                }
-
-                if (isMidGame())
-                {
-                    strategy = ProtossStrategy::MidGame;
-                    continue;
-                }
-
-                break;
-            case ProtossStrategy::MidGame:
-                break;
-        }
-
-        return strategy;
-    }
-
-    Log::Get() << "ERROR: Loop in strategy recognizer, ended on " << ProtossStrategyNames[strategy];
-    return strategy;
+    /* P2-E authority flip (2026-09-16): the declaration-table path above is now */
+    /* the single implementation. The switch-based predecessor was shadow-verified */
+    /* with zero divergence across 7 games (1 trigger proof + 6 identity games: */
+    /* 3 BananaBrain + 3 PurpleWave, the sensitive lines) before this flip. */
+    return recognizeEnemyStrategyTable(enemyStrategy);
 }

@@ -1,12 +1,16 @@
 #include "UnitCluster.h"
 
 #include <fap.h>
+#include "Config.h"
+#include "FileTools.h"
 #include "Players.h"
 #include "PathFinding.h"
 #include "UnitUtil.h"
 #include "General.h"
 
 #include <chrono>
+
+#include <sstream>
 
 #include "DebugFlag_CombatSim.h"
 
@@ -26,32 +30,32 @@
 
 namespace
 {
-    // FAP collision vectors
-    // Allocated here at initialization to avoid re-allocations
+    /* FAP collision vectors */
+    /* Allocated here at initialization to avoid re-allocations */
     std::vector<unsigned char> collisionPlayer1;
     std::vector<unsigned char> collisionPlayer2;
 
-    // Cache of unit scores
+    /* Cache of unit scores */
     int baseScore[BWAPI::UnitTypes::Enum::MAX];
     int scaledScore[BWAPI::UnitTypes::Enum::MAX];
 
-    // Parameters
+    /* Parameters */
     int maxIterations;
 
-    // Whether a unit goes into the sim
-    bool isSimUnit(const Unit &unit)
+    /* Whether a unit goes into the sim */
+    bool isSimUnit(const Unit &gameUnit)
     {
-        if (!unit->completed) return false;
-        if (unit->immobile) return false;
+        if (!gameUnit->completed) return false;
+        if (gameUnit->immobile) return false;
 
-        if (unit->type == BWAPI::UnitTypes::Protoss_Interceptor) return false;
-        if (unit->type == BWAPI::UnitTypes::Terran_Medic) return true;
-        if (unit->type == BWAPI::UnitTypes::Zerg_Overlord) return true;
+        if (gameUnit->type == BWAPI::UnitTypes::Protoss_Interceptor) return false;
+        if (gameUnit->type == BWAPI::UnitTypes::Terran_Medic) return true;
+        if (gameUnit->type == BWAPI::UnitTypes::Zerg_Overlord) return true;
 
-        return unit->groundDamage() > 0 || unit->airDamage() > 0;
+        return gameUnit->groundDamage() > 0 || gameUnit->airDamage() > 0;
     }
 
-    auto inline makeUnit(const Unit &unit,
+    auto inline makeUnit(const Unit &gameUnit,
                          const Unit &vanguard,
                          bool mobileDetection,
                          BWAPI::Position targetPosition = BWAPI::Positions::Invalid,
@@ -59,16 +63,16 @@ namespace
     {
         int collisionValue;
         int collisionValueChoke;
-        if (unit->isFlying)
+        if (gameUnit->isFlying)
         {
             collisionValue = 0;
             collisionValueChoke = 0;
         }
         else
         {
-            // In open terrain, collision values scale based on the unit range
-            // Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more
-            int range = unit->groundRange();
+            /* In open terrain, collision values scale based on the unit range */
+            /* Rationale: melee units have a smaller area to maneuver in, so they interfere with each other more */
+            int range = gameUnit->groundRange();
             if (range > 128)
             {
                 collisionValue = 3;
@@ -82,9 +86,9 @@ namespace
                 collisionValue = 6;
             }
 
-            // In a choke, collision values depend on unit size
-            // We allow no collision between full-size units and a stack of two smaller-size units
-            if (unit->type.width() >= 32 || unit->type.height() >= 32)
+            /* In a choke, collision values depend on unit size */
+            /* We allow no collision between full-size units and a stack of two smaller-size units */
+            if (gameUnit->type.width() >= 32 || gameUnit->type.height() >= 32)
             {
                 collisionValueChoke = 12;
             }
@@ -95,37 +99,37 @@ namespace
         }
 
         return FAP::makeUnit<>()
-                .setUnitType(unit->type)
-                .setPosition(unit->simPosition)
-                .setTargetPosition(targetPosition == BWAPI::Positions::Invalid ? unit->simPosition : targetPosition)
-                .setHealth(unit->lastHealth)
-                .setShields(unit->lastShields)
-                .setFlying(unit->isFlying)
+                .setUnitType(gameUnit->type)
+                .setPosition(gameUnit->simPosition)
+                .setTargetPosition(targetPosition == BWAPI::Positions::Invalid ? gameUnit->simPosition : targetPosition)
+                .setHealth(gameUnit->lastHealth)
+                .setShields(gameUnit->lastShields)
+                .setFlying(gameUnit->isFlying)
 
-                        // For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels
-                .setSpeed((float)Players::unitTopSpeed(unit->player, unit->type))
-                .setArmor(Players::unitArmor(unit->player, unit->type))
-                .setGroundCooldown(Players::unitGroundCooldown(unit->player, unit->type))
-                .setGroundDamage(unit->groundDamage())
-                .setGroundMaxRange(unit->groundRange())
-                .setAirCooldown(Players::unitAirCooldown(unit->player, unit->type))
-                .setAirDamage(unit->airDamage())
-                .setAirMaxRange(unit->airRange())
+                        /* For this next section, we have modified FAP to allow taking the upgraded values instead of the upgrade levels */
+                .setSpeed((float)PlayerInfo::unitTopSpeed(gameUnit->player, gameUnit->type))
+                .setArmor(PlayerInfo::unitArmor(gameUnit->player, gameUnit->type))
+                .setGroundCooldown(PlayerInfo::unitGroundCooldown(gameUnit->player, gameUnit->type))
+                .setGroundDamage(gameUnit->groundDamage())
+                .setGroundMaxRange(gameUnit->groundRange())
+                .setAirCooldown(PlayerInfo::unitAirCooldown(gameUnit->player, gameUnit->type))
+                .setAirDamage(gameUnit->airDamage())
+                .setAirMaxRange(gameUnit->airRange())
 
-                .setElevation(BWAPI::Broodwar->getGroundHeight(unit->simPosition.x >> 5, unit->simPosition.y >> 5))
+                .setElevation(BWAPI::Broodwar->getGroundHeight(gameUnit->simPosition.x >> 5, gameUnit->simPosition.y >> 5))
 
-                // TODO: Figure out if we need to do something with initializing attack cooldown for bunkers
-                .setAttackerCount(unit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
-                .setAttackCooldownRemaining(std::max(0, unit->cooldownUntil - currentFrame))
+                /* TODO: Figure out if we need to do something with initializing attack cooldown for bunkers */
+                .setAttackerCount(gameUnit->type == BWAPI::UnitTypes::Terran_Bunker ? 4 : 8)
+                .setAttackCooldownRemaining(std::max(0, gameUnit->cooldownUntil - frameNow))
 
                 .setSpeedUpgrade(false) // Squares the speed
                 .setRangeUpgrade(false) // Squares the ranges
                 .setShieldUpgrades(0)
 
-                .setStimmed(unit->stimmedUntil > currentFrame)
-                .setUndetected(unit->isCliffedTank(vanguard) || (unit->undetected && !mobileDetection))
+                .setStimmed(gameUnit->stimmedUntil > frameNow)
+                .setUndetected(gameUnit->isCliffedTank(vanguard) || (gameUnit->undetected && !mobileDetection))
 
-                .setID(unit->id)
+                .setID(gameUnit->ident)
                 .setTarget(target)
 
                 .setCollisionValues(collisionValue, collisionValueChoke)
@@ -135,22 +139,22 @@ namespace
 
     int score(std::vector<FAP::FAPUnit<>> *units)
     {
-        int result = 0;
-        for (auto &unit : *units)
+        int outcome = 0;
+        for (auto &gameUnit : *units)
         {
-            result += CombatSim::unitValue(unit);
+            outcome += CombatSim::unitValue(gameUnit);
         }
 
-        return result;
+        return outcome;
     }
 
     template<bool choke>
     CombatSimResult execute(
             BWAPI::Position targetPosition,
-            UnitCluster *cluster,
-            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+            UnitCluster *clump,
+            std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
             std::set<Unit> &targets,
-            std::set<MyUnit> &detectors,
+            std::set<OwnedUnit> &detectors,
             bool attacking,
             Choke *narrowChoke = nullptr)
     {
@@ -172,67 +176,89 @@ namespace
 
         bool allTierOne = true;
 
-        // Add our units with initial target
+        /* Add our units with initial target */
         int myCount = 0;
+        int myHtValue = 0;
         for (auto &unitAndTarget : unitsAndTargets)
         {
             if (!isSimUnit(unitAndTarget.first)) continue;
 
-            auto target = unitAndTarget.second ? unitAndTarget.second->id : 0;
+            /* Direction "fap_ht_value" (2026-09-30): weaponless HTs are skipped */
+            /* by the sim, so storm casters read as zero value. Count their cost */
+            /* value into the initial totals instead of the combat loop. */
+            if (Config::fapHtValueEnabled()
+                && unitAndTarget.first->type == BWAPI::UnitTypes::Protoss_High_Templar
+                && unitAndTarget.first->completed)
+            {
+                myHtValue += UnitHelper::MineralCost(unitAndTarget.first->type)
+                             + UnitHelper::GasCost(unitAndTarget.first->type) * 2;
+            }
+
+            auto target = unitAndTarget.second ? unitAndTarget.second->ident : 0;
             if (attacking)
             {
-                sim.addPlayer1<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target));
+                sim.addPlayer1<choke>(makeUnit(unitAndTarget.first, clump->vanguard, false, targetPosition, target));
             }
             else
             {
-                sim.addPlayer2<choke>(makeUnit(unitAndTarget.first, cluster->vanguard, false, targetPosition, target));
+                sim.addPlayer2<choke>(makeUnit(unitAndTarget.first, clump->vanguard, false, targetPosition, target));
             }
 
             myCount++;
             if (unitAndTarget.first->type != BWAPI::UnitTypes::Protoss_Zealot) allTierOne = false;
 
 #if DEBUG_COMBATSIM_CSV
-            if (unitAndTarget.first->id < minUnitId) minUnitId = unitAndTarget.first->id;
+            if (unitAndTarget.first->ident < minUnitId) minUnitId = unitAndTarget.first->ident;
 #endif
         }
 
-        // Determine if we have mobile detection with this cluster
+        /* Determine if we have mobile detection with this cluster */
         bool haveMobileDetection = false;
         for (const auto &detector : detectors)
         {
-            if (cluster->vanguard && cluster->vanguard->getDistance(detector) < 480)
+            if (clump->vanguard && clump->vanguard->getDistance(detector) < 480)
             {
                 haveMobileDetection = true;
                 break;
             }
         }
 
-        // Add enemy units
+        /* Add enemy units */
         int enemyCount = 0;
+        int enemyHtValue = 0;
         bool enemyHasUndetectedUnits = false;
-        for (auto &unit : targets)
+        for (auto &gameUnit : targets)
         {
-            if (!isSimUnit(unit)) continue;
-            if (unit->undetected && !haveMobileDetection) enemyHasUndetectedUnits = true;
+            if (!isSimUnit(gameUnit)) continue;
+            if (gameUnit->undetected && !haveMobileDetection) enemyHasUndetectedUnits = true;
 
-            // Only include workers if they have been seen attacking recently
-            // TODO: Handle worker rushes
-            if (!unit->type.isWorker() || (currentFrame - unit->lastSeenAttacking) < 120)
+            /* Direction "fap_ht_value" (2026-09-30): mirror of our-side counter */
+            if (Config::fapHtValueEnabled()
+                && gameUnit->type == BWAPI::UnitTypes::Protoss_High_Templar
+                && gameUnit->completed)
+            {
+                enemyHtValue += UnitHelper::MineralCost(gameUnit->type)
+                                + UnitHelper::GasCost(gameUnit->type) * 2;
+            }
+
+            /* Only include workers if they have been seen attacking recently */
+            /* TODO: Handle worker rushes */
+            if (!gameUnit->type.isWorker() || (frameNow - gameUnit->lastSeenAttacking) < 120)
             {
                 if (attacking)
                 {
-                    sim.addPlayer2<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection));
+                    sim.addPlayer2<choke>(makeUnit(gameUnit, clump->vanguard, haveMobileDetection));
                 }
                 else
                 {
-                    sim.addPlayer1<choke>(makeUnit(unit, cluster->vanguard, haveMobileDetection));
+                    sim.addPlayer1<choke>(makeUnit(gameUnit, clump->vanguard, haveMobileDetection));
                 }
 
                 enemyCount++;
 
-                if (unit->type != BWAPI::UnitTypes::Protoss_Zealot &&
-                    unit->type != BWAPI::UnitTypes::Zerg_Zergling &&
-                    unit->type != BWAPI::UnitTypes::Terran_Marine)
+                if (gameUnit->type != BWAPI::UnitTypes::Protoss_Zealot &&
+                    gameUnit->type != BWAPI::UnitTypes::Zerg_Zergling &&
+                    gameUnit->type != BWAPI::UnitTypes::Terran_Marine)
                 {
                     allTierOne = false;
                 }
@@ -242,37 +268,37 @@ namespace
 #if DEBUG_COMBATSIM_CSV
         std::string simCsvLabel = (std::ostringstream() << "clustersim-" << minUnitId).str();
         std::string actualCsvLabel = (std::ostringstream() << "clustersimactuals-" << minUnitId).str();
-        auto writeSimCsvLine = [&simCsvLabel](const auto &unit, int simFrame)
+        auto writeSimCsvLine = [&simCsvLabel](const auto &gameUnit, int simFrame)
         {
-            auto csv = Log::Csv(simCsvLabel);
-            csv << currentFrame;
+            auto csv = AppLog::Csv(simCsvLabel);
+            csv << frameNow;
             csv << simFrame;
-            csv << currentFrame + simFrame;
-            csv << unit.unitType;
-            csv << unit.id;
-            csv << unit.x;
-            csv << unit.y;
-            csv << unit.health;
-            csv << unit.shields;
-            csv << unit.attackCooldownRemaining;
+            csv << frameNow + simFrame;
+            csv << gameUnit.unitType;
+            csv << gameUnit.ident;
+            csv << gameUnit.x;
+            csv << gameUnit.y;
+            csv << gameUnit.health;
+            csv << gameUnit.shields;
+            csv << gameUnit.attackCooldownRemaining;
         };
 
-        auto writeActualCsvLine = [&actualCsvLabel](const Unit &unit)
+        auto writeActualCsvLine = [&actualCsvLabel](const Unit &gameUnit)
         {
-            auto csv = Log::Csv(actualCsvLabel);
-            csv << currentFrame;
+            auto csv = AppLog::Csv(actualCsvLabel);
+            csv << frameNow;
             csv << "-";
-            csv << currentFrame;
-            csv << unit->type;
-            csv << unit->id;
-            csv << unit->lastPosition.x;
-            csv << unit->lastPosition.y;
-            csv << unit->lastHealth;
-            csv << unit->lastShields;
-            csv << std::max(0, unit->cooldownUntil - currentFrame);
+            csv << frameNow;
+            csv << gameUnit->type;
+            csv << gameUnit->ident;
+            csv << gameUnit->prevPos.x;
+            csv << gameUnit->prevPos.y;
+            csv << gameUnit->lastHealth;
+            csv << gameUnit->lastShields;
+            csv << std::max(0, gameUnit->cooldownUntil - frameNow);
         };
 
-        if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && currentFrame % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
+        if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && frameNow % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
         {
             for (auto &unitAndTarget : unitsAndTargets)
             {
@@ -285,17 +311,17 @@ namespace
         }
 #endif
 #if DEBUG_COMBATSIM_CVIS
-        // Unit ID to: x, y, target, cooldown
+        /* Unit ID to: x, y, target, cooldown */
         std::unordered_map<std::string, std::vector<int>> unitLog;
         auto updateUnitLog = [&unitLog](auto &units)
         {
-            for (auto &unit : units)
+            for (auto &gameUnit : units)
             {
-                auto id = std::to_string(unit.id);
-                unitLog[id].push_back(unit.x);
-                unitLog[id].push_back(unit.y);
-                unitLog[id].push_back(unit.target);
-                unitLog[id].push_back(unit.attackCooldownRemaining);
+                auto ident = std::to_string(gameUnit.ident);
+                unitLog[ident].push_back(gameUnit.x);
+                unitLog[ident].push_back(gameUnit.y);
+                unitLog[ident].push_back(gameUnit.target);
+                unitLog[ident].push_back(gameUnit.attackCooldownRemaining);
             }
         };
         updateUnitLog(*sim.getState().first);
@@ -304,6 +330,25 @@ namespace
 
         int initialMine = score(attacking ? sim.getState().first : sim.getState().second);
         int initialEnemy = score(attacking ? sim.getState().second : sim.getState().first);
+
+        /* Direction "fap_ht_value" (2026-09-30): fold the counted HT value into */
+        /* the initial totals so engagement gates see storm casters as value at */
+        /* risk instead of free food; log the first adjustment of the game */
+        if (Config::fapHtValueEnabled() && (myHtValue || enemyHtValue))
+        {
+            initialMine += myHtValue;
+            initialEnemy += enemyHtValue;
+
+            static int loggedFrame = -1;
+            if (loggedFrame < 0)
+            {
+                loggedFrame = frameNow;
+                FileTools::appendLine("shushanking_htpipe",
+                                      (std::ostringstream() << "HTPIPE FAPHT frame=" << frameNow
+                                       << " myAdj=" << myHtValue
+                                       << " enemyAdj=" << enemyHtValue).str());
+            }
+        }
 
         int iterations = maxIterations;
         if (allTierOne && !attacking) iterations /= 4;
@@ -322,18 +367,18 @@ namespace
         while (true)
         {
 #if DEBUG_COMBATSIM_DRAW
-            // Start by recording the current location and cooldown of each unit
+            /* Start by recording the current location and cooldown of each unit */
             std::map<int, std::tuple<int, int, int>> player1DrawData;
             std::map<int, std::tuple<int, int, int>> player2DrawData;
 
             if (attacking == DEBUG_COMBATSIM_DRAW_ATTACKER
-                && ((unitsAndTargets.size() + targets.size()) < 10 || currentFrame % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
+                && ((unitsAndTargets.size() + targets.size()) < 10 || frameNow % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
                 auto setDrawData = [](auto &simData, auto &localData)
                 {
-                    for (auto &unit : simData)
+                    for (auto &gameUnit : simData)
                     {
-                        localData[unit.id] = std::make_tuple(unit.x, unit.y, unit.attackCooldownRemaining);
+                        localData[gameUnit.ident] = std::make_tuple(gameUnit.x, gameUnit.y, gameUnit.attackCooldownRemaining);
                     }
                 };
                 setDrawData(*sim.getState().first, player1DrawData);
@@ -345,34 +390,34 @@ namespace
 
 #if DEBUG_COMBATSIM_DRAW
             if (attacking == DEBUG_COMBATSIM_DRAW_ATTACKER
-                && ((unitsAndTargets.size() + targets.size()) < 10 || currentFrame % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
+                && ((unitsAndTargets.size() + targets.size()) < 10 || frameNow % DEBUG_COMBATSIM_DRAW_FREQUENCY == 0))
             {
                 auto draw = [](auto &simData, auto &localData, auto color)
                 {
-                    for (auto &unit : simData)
+                    for (auto &gameUnit : simData)
                     {
-                        auto it = localData.find(unit.id);
-                        if (it != localData.end() && unit.attackCooldownRemaining > std::get<2>(it->second))
+                        auto iterRef = localData.find(gameUnit.ident);
+                        if (iterRef != localData.end() && gameUnit.attackCooldownRemaining > std::get<2>(iterRef->second))
                         {
-                            // Attacked
-                            color = CherryVis::DrawColor::Orange;
+                            /* Attacked */
+                            color = Telemetry::DrawColor::Orange;
                         }
-                        if (it != localData.end())
+                        if (iterRef != localData.end())
                         {
-                            localData.erase(it);
+                            localData.erase(iterRef);
                         }
 
-                        CherryVis::drawCircle(unit.x, unit.y, 1, color, unit.id);
+                        Telemetry::drawCircle(gameUnit.x, gameUnit.y, 1, color, gameUnit.ident);
                     }
 
-                    // Everything left here has died
-                    for (auto &unit : localData)
+                    /* Everything left here has died */
+                    for (auto &gameUnit : localData)
                     {
-                        CherryVis::drawCircle(std::get<0>(unit.second), std::get<1>(unit.second), 1, CherryVis::DrawColor::Red, unit.first);
+                        Telemetry::drawCircle(std::get<0>(gameUnit.second), std::get<1>(gameUnit.second), 1, Telemetry::DrawColor::Red, gameUnit.first);
                     }
                 };
-                draw(*sim.getState().first, player1DrawData, CherryVis::DrawColor::Yellow);
-                draw(*sim.getState().second, player2DrawData, CherryVis::DrawColor::Cyan);
+                draw(*sim.getState().first, player1DrawData, Telemetry::DrawColor::Yellow);
+                draw(*sim.getState().second, player2DrawData, Telemetry::DrawColor::Cyan);
             }
 #endif
 
@@ -382,15 +427,15 @@ namespace
 #endif
 
 #if DEBUG_COMBATSIM_CSV
-            if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && currentFrame % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
+            if (attacking == DEBUG_COMBATSIM_CSV_ATTACKER && frameNow % DEBUG_COMBATSIM_CSV_FREQUENCY == 0)
             {
-                for (auto unit : *sim.getState().first)
+                for (auto gameUnit : *sim.getState().first)
                 {
-                    writeSimCsvLine(unit, i);
+                    writeSimCsvLine(gameUnit, i);
                 }
-                for (auto unit : *sim.getState().second)
+                for (auto gameUnit : *sim.getState().second)
                 {
-                    writeSimCsvLine(unit, i);
+                    writeSimCsvLine(gameUnit, i);
                 }
             }
 #endif
@@ -407,7 +452,7 @@ namespace
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - startTime).count();
             if (duration > LIMIT_MICROSECONDS)
             {
-                if (iterations < maxIterations) CherryVis::log() << "Sim aborted after " << i << "iterations";
+                if (iterations < maxIterations) Telemetry::log() << "Sim aborted after " << i << "iterations";
                 break;
             }
         }
@@ -417,18 +462,18 @@ namespace
 
 #if DEBUG_COMBATSIM_LOG
         std::ostringstream debug;
-        debug << BWAPI::WalkPosition(cluster->center);
+        debug << BWAPI::WalkPosition(clump->midpoint);
         if (!attacking && narrowChoke)
         {
-            debug << " (defend " << BWAPI::WalkPosition(narrowChoke->center) << ")";
+            debug << " (defend " << BWAPI::WalkPosition(narrowChoke->midpoint) << ")";
         }
         else if (narrowChoke)
         {
-            debug << " (through " << BWAPI::WalkPosition(narrowChoke->center) << ")";
+            debug << " (through " << BWAPI::WalkPosition(narrowChoke->midpoint) << ")";
         }
         debug << ": " << initialMine << "," << initialEnemy
               << "-" << finalMine << "," << finalEnemy;
-        CherryVis::log() << debug.str();
+        Telemetry::log() << debug.str();
 #endif
 
         return {
@@ -460,20 +505,20 @@ namespace CombatSim
 
         for (auto type : BWAPI::UnitTypes::allUnitTypes())
         {
-            // Base the score on the cost
-            int score = UnitUtil::MineralCost(type) + UnitUtil::GasCost(type) * 2;
+            /* Base the score on the cost */
+            int score = UnitHelper::MineralCost(type) + UnitHelper::GasCost(type) * 2;
 
-            // Add cost of built / loaded units
+            /* Add cost of built / loaded units */
             if (type == BWAPI::UnitTypes::Terran_Bunker)
             {
-                score += 4 * UnitUtil::MineralCost(BWAPI::UnitTypes::Terran_Marine);
+                score += 4 * UnitHelper::MineralCost(BWAPI::UnitTypes::Terran_Marine);
             }
             else if (type == BWAPI::UnitTypes::Protoss_Carrier)
             {
-                score += 8 * UnitUtil::MineralCost(BWAPI::UnitTypes::Protoss_Interceptor);
+                score += 8 * UnitHelper::MineralCost(BWAPI::UnitTypes::Protoss_Interceptor);
             }
 
-            // Adjust units whose combat value differs from their cost
+            /* Adjust units whose combat value differs from their cost */
             if (type == BWAPI::UnitTypes::Zerg_Sunken_Colony)
             {
                 score += 125;
@@ -526,15 +571,15 @@ namespace CombatSim
         maxIterations = 288;
     }
 
-    int unitValue(const FAP::FAPUnit<> &unit)
+    int unitValue(const FAP::FAPUnit<> &gameUnit)
     {
-        return baseScore[unit.unitType] + (scaledScore[unit.unitType] * (unit.health * 3 + unit.shields)) / (unit.maxHealth * 3 + unit.maxShields);
+        return baseScore[gameUnit.unitType] + (scaledScore[gameUnit.unitType] * (gameUnit.health * 3 + gameUnit.shields)) / (gameUnit.maxHealth * 3 + gameUnit.maxShields);
     }
 
-    int unitValue(const Unit &unit)
+    int unitValue(const Unit &gameUnit)
     {
-        return baseScore[unit->type] +
-               (scaledScore[unit->type] * (unit->lastHealth * 3 + unit->lastShields)) / (unit->type.maxHitPoints() * 3 + unit->type.maxShields());
+        return baseScore[gameUnit->type] +
+               (scaledScore[gameUnit->type] * (gameUnit->lastHealth * 3 + gameUnit->lastShields)) / (gameUnit->type.maxHitPoints() * 3 + gameUnit->type.maxShields());
     }
 
     int unitValue(BWAPI::UnitType type)
@@ -549,9 +594,9 @@ namespace CombatSim
 }
 
 CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
-                                          std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                                          std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                                           std::set<Unit> &targets,
-                                          std::set<MyUnit> &detectors,
+                                          std::set<OwnedUnit> &detectors,
                                           bool attacking,
                                           Choke *choke)
 {
@@ -560,34 +605,34 @@ CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
         return CombatSimResult{};
     }
 
-    // Check if the armies are separated by a narrow choke
-    // We consider this to be the case if our cluster center is on one side of the choke
-    // and most of their units are on the other side
+    /* Check if the armies are separated by a narrow choke */
+    /* We consider this to be the case if our cluster center is on one side of the choke */
+    /* and most of their units are on the other side */
     Choke *narrowChoke = choke;
     if (!narrowChoke)
     {
-        // First check for the next narrow choke between our center and the target position
-        narrowChoke = PathFinding::SeparatingNarrowChoke(center,
+        /* First check for the next narrow choke between our center and the target position */
+        narrowChoke = Pathfinder::SeparatingNarrowChoke(midpoint,
                                                          targetPosition,
                                                          BWAPI::UnitTypes::Protoss_Dragoon,
-                                                         PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
+                                                         Pathfinder::PathFindingOptions::UseNeighbouringBWEMArea);
 
-        // Next validate that most of the enemy units are behind that choke
+        /* Next validate that most of the enemy units are behind that choke */
         if (narrowChoke)
         {
             int count = 0;
             int total = 0;
-            for (const auto &unit : targets)
+            for (const auto &gameUnit : targets)
             {
-                if (!isSimUnit(unit)) continue;
-                if (!unit->simPositionValid) continue;
+                if (!isSimUnit(gameUnit)) continue;
+                if (!gameUnit->simPositionValid) continue;
 
                 total++;
 
-                if (narrowChoke == PathFinding::SeparatingNarrowChoke(center,
-                                                                      unit->simPosition,
+                if (narrowChoke == Pathfinder::SeparatingNarrowChoke(midpoint,
+                                                                      gameUnit->simPosition,
                                                                       BWAPI::UnitTypes::Protoss_Dragoon,
-                                                                      PathFinding::PathFindingOptions::UseNeighbouringBWEMArea))
+                                                                      Pathfinder::PathFindingOptions::UseNeighbouringBWEMArea))
                 {
                     count++;
                 }
@@ -606,8 +651,8 @@ CombatSimResult UnitCluster::runCombatSim(BWAPI::Position targetPosition,
 
 void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
 {
-    // Reset recent sim results if it hasn't been run on the last frame
-    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame != currentFrame - 1)
+    /* Reset recent sim results if it hasn't been run on the last frame */
+    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.tick != frameNow - 1)
     {
         recentSimResults.clear();
     }
@@ -617,8 +662,8 @@ void UnitCluster::addSimResult(CombatSimResult &simResult, bool attack)
 
 void UnitCluster::addRegroupSimResult(CombatSimResult &simResult, bool contain)
 {
-    // Reset recent sim results if it hasn't been run on the last frame
-    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame != currentFrame - 1)
+    /* Reset recent sim results if it hasn't been run on the last frame */
+    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.tick != frameNow - 1)
     {
         recentRegroupSimResults.clear();
     }
@@ -640,11 +685,11 @@ int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, boo
     bool isConsecutive = true;
     int consecutive = 0;
     int count = 0;
-    for (auto it = simResults.rbegin(); it != simResults.rend() && count < limit; it++)
+    for (auto iterRef = simResults.rbegin(); iterRef != simResults.rend() && count < limit; iterRef++)
     {
         if (isConsecutive)
         {
-            if (it->second == firstResult)
+            if (iterRef->second == firstResult)
             {
                 consecutive++;
             }
@@ -654,7 +699,7 @@ int UnitCluster::consecutiveSimResults(std::deque<std::pair<CombatSimResult, boo
             }
         }
 
-        if (it->second)
+        if (iterRef->second)
         {
             (*attack)++;
         }

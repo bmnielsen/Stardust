@@ -41,9 +41,9 @@ namespace NavigationGridGlobals
     }
 }
 
-NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize) : goal(goal)
+NavGrid::NavGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goalSize) : goal(goal)
 {
-    // Create each grid cell with its x,y coordinates
+    /* Create each grid cell with its x,y coordinates */
     grid.reserve(mapWidth * mapHeight);
     for (int y = 0; y < mapHeight; y++)
     {
@@ -53,11 +53,11 @@ NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goa
         }
     }
 
-    auto pushInitialTile = [&](BWAPI::TilePosition tile)
+    auto pushInitialTile = [&](BWAPI::TilePosition tilePos)
     {
-        if (!tile.isValid()) return;
+        if (!tilePos.isValid()) return;
 
-        auto &node = (*this)[tile];
+        auto &node = (*this)[tilePos];
         node.cost = 0;
         nodeQueue.emplace(COST_STRAIGHT, &node, false);
         nodeQueue.emplace(COST_DIAGONAL, &node, true);
@@ -84,53 +84,53 @@ NavigationGrid::NavigationGrid(BWAPI::TilePosition goal, BWAPI::TilePosition goa
     update();
 }
 
-NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::Position pos)
+NavGrid::GridNode &NavGrid::operator[](BWAPI::Position pt)
 {
-    return grid[(pos.x >> 5U) + (pos.y >> 5U) * mapWidth];
+    return grid[(pt.x >> 5U) + (pt.y >> 5U) * mapWidth];
 }
 
-const NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::Position pos) const
+const NavGrid::GridNode &NavGrid::operator[](BWAPI::Position pt) const
 {
-    return grid[(pos.x >> 5U) + (pos.y >> 5U) * mapWidth];
+    return grid[(pt.x >> 5U) + (pt.y >> 5U) * mapWidth];
 }
 
-NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::WalkPosition pos)
+NavGrid::GridNode &NavGrid::operator[](BWAPI::WalkPosition pt)
 {
-    return grid[(pos.x >> 2U) + (pos.y >> 2U) * mapWidth];
+    return grid[(pt.x >> 2U) + (pt.y >> 2U) * mapWidth];
 }
 
-const NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::WalkPosition pos) const
+const NavGrid::GridNode &NavGrid::operator[](BWAPI::WalkPosition pt) const
 {
-    return grid[(pos.x >> 2U) + (pos.y >> 2U) * mapWidth];
+    return grid[(pt.x >> 2U) + (pt.y >> 2U) * mapWidth];
 }
 
-NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::TilePosition pos)
+NavGrid::GridNode &NavGrid::operator[](BWAPI::TilePosition pt)
 {
-    return grid[pos.x + pos.y * mapWidth];
+    return grid[pt.x + pt.y * mapWidth];
 }
 
-const NavigationGrid::GridNode &NavigationGrid::operator[](BWAPI::TilePosition pos) const
+const NavGrid::GridNode &NavGrid::operator[](BWAPI::TilePosition pt) const
 {
-    return grid[pos.x + pos.y * mapWidth];
+    return grid[pt.x + pt.y * mapWidth];
 }
 
-void NavigationGrid::update()
+void NavGrid::update()
 {
     updateBlockingTiles();
     if (nodeQueue.empty()) return;
 
 #if DEBUG_LOG_UPDATES
-    Log::Debug() << "Grid-" << goal << ": Updating grid";
+    AppLog::Debug() << "Grid-" << goal << ": Updating grid";
 #endif
 
 #if OUTPUT_GRID_TIMING
     auto start = std::chrono::high_resolution_clock::now();
 #endif
 
-    auto visit = [&](NavigationGrid::GridNode *current, unsigned short x, unsigned short y, unsigned char direction)
+    auto visit = [&](NavGrid::GridNode *current, unsigned short x, unsigned short y, unsigned char direction)
     {
-        // Check validity of the tile
-        // Since we are using unsigned shorts, we don't need to worry about <0 (they will wrap to be larger than the map)
+        /* Check validity of the tile */
+        /* Since we are using unsigned shorts, we don't need to worry about <0 (they will wrap to be larger than the map) */
         if (x >= mapWidth || y >= mapHeight)
         {
             return;
@@ -138,25 +138,25 @@ void NavigationGrid::update()
 
         auto &node = grid[x + y * mapWidth];
 
-        // Compute the cost of this node
+        /* Compute the cost of this node */
         auto cost = current->cost + (direction % 2 == 1 ? COST_DIAGONAL : COST_STRAIGHT);
-        //cost -= std::max((unsigned short)4U, Map::unwalkableProximity(x, y));
+        /* cost -= std::max((unsigned short)4U, Map::unwalkableProximity(x, y)); */
 
-        // If the node already has a lower cost, we don't need to consider it
+        /* If the node already has a lower cost, we don't need to consider it */
         if (node.cost <= cost) return;
 
-        // Don't allow a diagonal connection from a walkable tile through a blocked tile
+        /* Don't allow a diagonal connection from a walkable tile through a blocked tile */
         if (direction % 2 == 1 && Map::isWalkable(x, y) &&
             (!allowDiagonalConnectionThrough(x, current->y) || !allowDiagonalConnectionThrough(current->x, y)))
         {
             return;
         }
 
-        // Make the connection if it isn't already done
+        /* Make the connection if it isn't already done */
         node.cost = cost;
         if (node.nextNode != current)
         {
-            // Remove the reverse connection if the node was previously connected to another one
+            /* Remove the reverse connection if the node was previously connected to another one */
             if (node.nextNode)
             {
                 if (node.nextNode->x < node.x)
@@ -202,16 +202,16 @@ void NavigationGrid::update()
                 }
             }
 
-            // Create the connection
+            /* Create the connection */
             node.nextNode = current;
             current->prevNodes |= 1U << direction;
         }
 
-        // Queue the node if it is walkable
+        /* Queue the node if it is walkable */
         if (walkableAndNotMineralLine(x, y))
         {
 #if DEBUG_LOG_UPDATES
-            Log::Debug() << "Grid-" << goal << ": Queueing " << node;
+            AppLog::Debug() << "Grid-" << goal << ": Queueing " << node;
 #endif
 
             nodeQueue.emplace(node.cost + COST_STRAIGHT, &node, false);
@@ -229,13 +229,13 @@ void NavigationGrid::update()
         if (!walkableAndNotMineralLine(node->x, node->y) || node->cost == USHRT_MAX) continue;
 
 #if DEBUG_LOG_UPDATES
-        Log::Debug() << "Grid-" << goal << ": Processing " << *node << "; diag=" << std::get<2>(current);
+        AppLog::Debug() << "Grid-" << goal << ": Processing " << *node << "; diag=" << std::get<2>(current);
 #endif
 
-        // Boolean controls whether we are considering diagonal edges or straight edges
+        /* Boolean controls whether we are considering diagonal edges or straight edges */
         if (std::get<2>(current))
         {
-            // Diagonals
+            /* Diagonals */
             visit(node, node->x - 1, node->y + 1, 1);
             visit(node, node->x + 1, node->y + 1, 3);
             visit(node, node->x - 1, node->y - 1, 5);
@@ -243,7 +243,7 @@ void NavigationGrid::update()
         }
         else
         {
-            // Straight edges
+            /* Straight edges */
             visit(node, node->x - 1, node->y, 0);
             visit(node, node->x + 1, node->y, 2);
             visit(node, node->x, node->y - 1, 4);
@@ -253,7 +253,7 @@ void NavigationGrid::update()
 
 #if OUTPUT_GRID_TIMING
     auto now = std::chrono::high_resolution_clock::now();
-    Log::Get() << "Update navigation grid " << goal << ": " << std::chrono::duration_cast<std::chrono::microseconds>(now - start).count() << "us";
+    AppLog::Get() << "Update navigation grid " << goal << ": " << std::chrono::duration_cast<std::chrono::microseconds>(now - start).count() << "us";
 #endif
 
 #if NAVIGATION_HEATMAP_ENABLED
@@ -269,13 +269,13 @@ void NavigationGrid::update()
 
             if (node.cost > 0 && node.cost < USHRT_MAX && !node.nextNode)
             {
-                Log::Get() << "ERROR: Grid-" << goal << ": Node with no next node " << node;
+                AppLog::Get() << "ERROR: Grid-" << goal << ": Node with no next node " << node;
                 return;
             }
 
             if (node.cost == 0 && node.nextNode)
             {
-                Log::Get() << "ERROR: Grid-" << goal << ": Goal node with next node " << node;
+                AppLog::Get() << "ERROR: Grid-" << goal << ": Goal node with next node " << node;
                 return;
             }
 
@@ -284,17 +284,17 @@ void NavigationGrid::update()
                 int costDiff = node.cost - node.nextNode->cost;
                 if (costDiff <= 0)
                 {
-                    Log::Get() << "ERROR: Grid-" << goal << ": Non-decreasing cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
+                    AppLog::Get() << "ERROR: Grid-" << goal << ": Non-decreasing cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
                 }
                 if (costDiff != COST_STRAIGHT && costDiff != COST_DIAGONAL)
                 {
-                    Log::Get() << "ERROR: Grid-" << goal << ": Invalid cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
+                    AppLog::Get() << "ERROR: Grid-" << goal << ": Invalid cost from " << node << " to " << (*node.nextNode) << ": " << costDiff;
                     return;
                 }
                 if (costDiff == COST_DIAGONAL && Map::isWalkable(x, y) &&
                     (!allowDiagonalConnectionThrough(node.nextNode->x, y) || !allowDiagonalConnectionThrough(x, node.nextNode->y)))
                 {
-                    Log::Get() << "ERROR: Grid-" << goal << ": Diagonal path through blocked tile from " << node << " to " << (*node.nextNode);
+                    AppLog::Get() << "ERROR: Grid-" << goal << ": Diagonal path through blocked tile from " << node << " to " << (*node.nextNode);
                     return;
                 }
             }
@@ -305,13 +305,13 @@ void NavigationGrid::update()
             {
                 if (current == &node)
                 {
-                    Log::Get() << "ERROR: Grid-" << goal << ": Loop between " << node << " and " << *current;
+                    AppLog::Get() << "ERROR: Grid-" << goal << ": Loop between " << node << " and " << *current;
                     return;
                 }
 
                 if (!Map::isWalkable(current->x, current->y))
                 {
-                    Log::Get() << "ERROR: Grid-" << goal << ": Path from " << node << " goes through unwalkable tile " << *current;
+                    AppLog::Get() << "ERROR: Grid-" << goal << ": Path from " << node << " goes through unwalkable tile " << *current;
                     return;
                 }
 
@@ -323,21 +323,21 @@ void NavigationGrid::update()
 #endif
 }
 
-void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)
+void NavGrid::addBlockingObject(BWAPI::TilePosition tilePos, BWAPI::TilePosition size)
 {
 #if DEBUG_LOG_UPDATES
-    Log::Debug() << "Grid-" << goal << ": addBlockingObject(" << tile << "," << size << ")";
+    AppLog::Debug() << "Grid-" << goal << ": addBlockingObject(" << tilePos << "," << size << ")";
 #endif
 
-    for (int x = tile.x; x < tile.x + size.x; x++)
+    for (int x = tilePos.x; x < tilePos.x + size.x; x++)
     {
-        for (int y = tile.y; y < tile.y + size.y; y++)
+        for (int y = tilePos.y; y < tilePos.y + size.y; y++)
         {
             pendingBlockingTiles.insert(BWAPI::TilePosition(x, y));
         }
     }
 
-    // Add tiles that have diagonal connections through a corner of the object
+    /* Add tiles that have diagonal connections through a corner of the object */
     auto addCornerTile = [&](int toX, int toY, unsigned int direction)
     {
         if (toX < 0) return;
@@ -349,37 +349,37 @@ void NavigationGrid::addBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosi
         if (node.prevNodes & (1U << direction))
         {
 #if DEBUG_LOG_UPDATES
-            Log::Debug() << "Grid-" << goal << ": Added corner tile " << BWAPI::TilePosition(toX, toY) << " for direction " << direction;
+            AppLog::Debug() << "Grid-" << goal << ": Added corner tile " << BWAPI::TilePosition(toX, toY) << " for direction " << direction;
 #endif
 
             pendingBlockingTiles.insert(BWAPI::TilePosition(toX, toY));
         }
     };
-    addCornerTile(tile.x, tile.y - 1, 1); // up-right, top-left corner
-    addCornerTile(tile.x + size.x, tile.y + size.y - 1, 1); // up-right, bottom-right corner
-    addCornerTile(tile.x + size.x - 1, tile.y - 1, 3); // up-left, top-right corner
-    addCornerTile(tile.x - 1, tile.y + size.y - 1, 3); // up-left, bottom-left corner
-    addCornerTile(tile.x + size.x, tile.y, 5); // down-right, top-right corner
-    addCornerTile(tile.x, tile.y + size.y, 5); // down-right, bottom-left corner
-    addCornerTile(tile.x - 1, tile.y, 7); // down-left, top-left corner
-    addCornerTile(tile.x + size.x - 1, tile.y + size.y, 7); // down-left, bottom-right corner
+    addCornerTile(tilePos.x, tilePos.y - 1, 1); // up-right, top-left corner
+    addCornerTile(tilePos.x + size.x, tilePos.y + size.y - 1, 1); // up-right, bottom-right corner
+    addCornerTile(tilePos.x + size.x - 1, tilePos.y - 1, 3); // up-left, top-right corner
+    addCornerTile(tilePos.x - 1, tilePos.y + size.y - 1, 3); // up-left, bottom-left corner
+    addCornerTile(tilePos.x + size.x, tilePos.y, 5); // down-right, top-right corner
+    addCornerTile(tilePos.x, tilePos.y + size.y, 5); // down-right, bottom-left corner
+    addCornerTile(tilePos.x - 1, tilePos.y, 7); // down-left, top-left corner
+    addCornerTile(tilePos.x + size.x - 1, tilePos.y + size.y, 7); // down-left, bottom-right corner
 }
 
-void NavigationGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
+void NavGrid::addBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
 {
     pendingBlockingTiles.insert(tiles.begin(), tiles.end());
 }
 
-void NavigationGrid::removeBlockingObject(BWAPI::TilePosition tile, BWAPI::TilePosition size)
+void NavGrid::removeBlockingObject(BWAPI::TilePosition tilePos, BWAPI::TilePosition size)
 {
 #if DEBUG_LOG_UPDATES
-    Log::Debug() << "Grid-" << goal << ": removeBlockingObject(" << tile << "," << size << ")";
+    AppLog::Debug() << "Grid-" << goal << ": removeBlockingObject(" << tilePos << "," << size << ")";
 #endif
 
     std::set<BWAPI::TilePosition> tiles;
-    for (int x = tile.x; x < tile.x + size.x; x++)
+    for (int x = tilePos.x; x < tilePos.x + size.x; x++)
     {
-        for (int y = tile.y; y < tile.y + size.y; y++)
+        for (int y = tilePos.y; y < tilePos.y + size.y; y++)
         {
             tiles.insert(BWAPI::TilePosition(x, y));
         }
@@ -388,11 +388,11 @@ void NavigationGrid::removeBlockingObject(BWAPI::TilePosition tile, BWAPI::TileP
     removeBlockingTiles(tiles);
 }
 
-void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
+void NavGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &tiles)
 {
-    // Reset the cost of all nodes corresponding to the blocking tiles being removed
-    // While doing this, gather tiles that potentially border these blocking tiles
-    // Finally add the valid border tiles to the update queue
+    /* Reset the cost of all nodes corresponding to the blocking tiles being removed */
+    /* While doing this, gather tiles that potentially border these blocking tiles */
+    /* Finally add the valid border tiles to the update queue */
 
     std::set<GridNode *> bordering;
     auto addBordering = [&](unsigned short x, unsigned short y)
@@ -421,9 +421,9 @@ void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &ti
         addBordering(x - 1, y + 1);
         addBordering(x + 1, y + 1);
     };
-    for (const auto &tile : tiles)
+    for (const auto &tilePos : tiles)
     {
-        visit(tile.x, tile.y);
+        visit(tilePos.x, tilePos.y);
     }
 
     for (auto node : bordering)
@@ -431,7 +431,7 @@ void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &ti
         if (node->nextNode)
         {
 #if DEBUG_LOG_UPDATES
-            Log::Debug() << "Grid-" << goal << ": removeBlocking, enqueued " << node->tile;
+            AppLog::Debug() << "Grid-" << goal << ": removeBlocking, enqueued " << node->tilePos;
 #endif
 
             nodeQueue.emplace(node->cost + COST_STRAIGHT, node, false);
@@ -440,22 +440,22 @@ void NavigationGrid::removeBlockingTiles(const std::set<BWAPI::TilePosition> &ti
     }
 }
 
-void NavigationGrid::updateBlockingTiles()
+void NavGrid::updateBlockingTiles()
 {
     if (pendingBlockingTiles.empty()) return;
 
 #if DEBUG_LOG_UPDATES
-    Log::Debug() << "Grid-" << goal << ": Updating blocking tiles";
+    AppLog::Debug() << "Grid-" << goal << ": Updating blocking tiles";
 #endif
 
-    // First, invalidate every path that goes through the tiles
-    // Then push all still-valid tiles bordering an invalidated tile to the update queue
-    // When the grid is updated, all of the invalidated tiles will receive a new path from these bordering tiles
+    /* First, invalidate every path that goes through the tiles */
+    /* Then push all still-valid tiles bordering an invalidated tile to the update queue */
+    /* When the grid is updated, all of the invalidated tiles will receive a new path from these bordering tiles */
 
     std::queue<GridNode *> queue;
-    for (const auto &tile : pendingBlockingTiles)
+    for (const auto &tilePos : pendingBlockingTiles)
     {
-        auto &node = grid[tile.x + tile.y * mapWidth];
+        auto &node = grid[tilePos.x + tilePos.y * mapWidth];
         queue.push(&node);
     }
 
@@ -470,7 +470,7 @@ void NavigationGrid::updateBlockingTiles()
         bordering.insert(&grid[x + y * mapWidth]);
     };
 
-    auto visit = [&](NavigationGrid::GridNode *current, unsigned short x, unsigned short y)
+    auto visit = [&](NavGrid::GridNode *current, unsigned short x, unsigned short y)
     {
         auto &node = grid[x + y * mapWidth];
 
@@ -506,13 +506,13 @@ void NavigationGrid::updateBlockingTiles()
         current->prevNodes = 0;
     }
 
-    // Push all valid bordering tiles to the update queue
+    /* Push all valid bordering tiles to the update queue */
     for (auto &borderingNode : bordering)
     {
         if (borderingNode->nextNode)
         {
 #if DEBUG_LOG_UPDATES
-            Log::Debug() << "Grid-" << goal << ": updateBlockingTiles, enqueued " << borderingNode->tile;
+            AppLog::Debug() << "Grid-" << goal << ": updateBlockingTiles, enqueued " << borderingNode->tilePos;
 #endif
 
             nodeQueue.emplace(borderingNode->cost + COST_STRAIGHT, borderingNode, false);
@@ -523,9 +523,9 @@ void NavigationGrid::updateBlockingTiles()
     pendingBlockingTiles.clear();
 }
 
-void NavigationGrid::dumpHeatmap()
+void NavGrid::dumpHeatmap()
 {
-    // Dump to CherryVis
+    /* Dump to CherryVis */
     std::vector<long> costs(mapWidth * mapHeight);
     for (int y = 0; y < mapHeight; y++)
     {
@@ -536,5 +536,5 @@ void NavigationGrid::dumpHeatmap()
         }
     }
 
-    CherryVis::addHeatmap((std::ostringstream() << "Navigation@" << goal).str(), costs, mapWidth, mapHeight);
+    Telemetry::addHeatmap((std::ostringstream() << "Navigation@" << goal).str(), costs, mapWidth, mapHeight);
 }

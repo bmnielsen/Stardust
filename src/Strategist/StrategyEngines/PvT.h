@@ -18,8 +18,8 @@ public:
         NormalOpening,      // Normal opening
         MidGameMech,        // Opponent has transitioned from opening into a mech-heavy composition
         MidGameBio,         // Opponent has transitioned from opening into a bio-heavy composition
-        // TODO: Learn more Terran openings
-        // TODO: Mid- and late game
+        /* TODO: Learn more Terran openings */
+        /* TODO: Mid- and late game */
     };
     static std::map<TerranStrategy, std::string> TerranStrategyNames;
 
@@ -32,8 +32,7 @@ public:
         Defensive,              // For when the opponent is playing an aggressive strategy that isn't considered a zealot rush
         NormalOpening,          // Normal non-greedy and non-cautious opening
         MidGame,                // When we have reached the mid-game
-        LateGameCarriers,       // Late-game carrier strategy
-        // TODO: More mid- and late-game strategies
+        /* TODO: More mid- and late-game strategies */
     };
     static std::map<OurStrategy, std::string> OurStrategyNames;
 
@@ -42,12 +41,12 @@ public:
 
     PvT() : enemyStrategy(TerranStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
 
-    void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride) override;
+    void initialize(std::vector<std::shared_ptr<PlayItem>> &playList, bool transitioningFromRandom, const std::string &openingOverride) override;
 
-    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
+    void updatePlays(std::vector<std::shared_ptr<PlayItem>> &playList) override;
 
-    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+    void updateProduction(std::vector<std::shared_ptr<PlayItem>> &playList,
+                          std::map<int, std::vector<ProductionGoal>> &prioProdGoals,
                           std::vector<std::pair<int, int>> &mineralReservations) override;
 
     std::string getEnemyStrategy() override { return TerranStrategyNames[enemyStrategy]; }
@@ -71,11 +70,16 @@ private:
 
     TerranStrategy recognizeEnemyStrategy();
 
-    OurStrategy chooseOurStrategy(TerranStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays);
+    /* P2-D: declaration-table recognition (same predicates/thresholds as the */
+    /* switch path, expressed as a RecognizerShared transition table). Runs in */
+    /* shadow mode until zero-divergence is proven, then replaces the switch. */
+    TerranStrategy recognizeEnemyStrategyTable(TerranStrategy current);
 
-    void handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    OurStrategy chooseOurStrategy(TerranStrategy newEnemyStrategy, std::vector<std::shared_ptr<PlayItem>> &playList);
 
-    void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    void handleNaturalExpansion(std::vector<std::shared_ptr<PlayItem>> &playList, std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
 
-    void handleDetection(std::vector<std::shared_ptr<Play>> &plays, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
+
+    void handleDetection(std::vector<std::shared_ptr<PlayItem>> &playList, std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
 };

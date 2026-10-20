@@ -45,10 +45,10 @@ namespace BuildingPlacement
         bool operator()(const BuildLocation &a, const BuildLocation &b) const;
     };
 
-    // Small struct to hold data about a build location
+    /* Small struct to hold data about a build location */
     struct BuildLocation
     {
-        Block::Location location;
+        BuildBlock::Location location;
         int builderFrames;             // Approximately how many frames the builder will take to get to this location
         int framesUntilPowered;        // Approximately how many frames will elapse before this position is powered
         int distanceToExit;            // Approximate ground distance from this build location to the neighbourhood exit
@@ -56,7 +56,7 @@ namespace BuildingPlacement
         BuildLocationSet powersMedium; // For a pylon, what medium build locations would be powered by it
         BuildLocationSet powersLarge;  // For a pylon, what large build locations would be powered by it
 
-        BuildLocation(Block::Location location, int builderFrames, int framesUntilPowered, int distanceToExit, bool isTech = false)
+        BuildLocation(BuildBlock::Location location, int builderFrames, int framesUntilPowered, int distanceToExit, bool isTech = false)
                 : location(location)
                 , builderFrames(builderFrames)
                 , framesUntilPowered(framesUntilPowered)
@@ -79,9 +79,9 @@ namespace BuildingPlacement
 
     void onBuildingCancelled(const Building *building);
 
-    void onUnitCreate(const Unit &unit);
+    void onUnitCreate(const Unit &gameUnit);
 
-    void onUnitDestroy(const Unit &unit);
+    void onUnitDestroy(const Unit &gameUnit);
 
     void onMainChokeChanged();
 
@@ -91,17 +91,17 @@ namespace BuildingPlacement
 
     BuildLocationSet &availableGeysers();
 
-    int builderFrames(BWAPI::Position origin, BWAPI::TilePosition tile, BWAPI::UnitType type);
+    int builderFrames(BWAPI::Position origin, BWAPI::TilePosition tilePos, BWAPI::UnitType type);
 
-    BaseStaticDefenseLocations &baseStaticDefenseLocations(Base *base);
+    BaseStaticDefenseLocations &baseStaticDefenseLocations(Base *baseLoc);
 
     std::pair<BWAPI::TilePosition, BWAPI::TilePosition> mainChokeCannonLocations();
 
     bool isInNeighbourhood(BWAPI::TilePosition buildTile, Neighbourhood neighbourhood);
 
-    std::tuple<Resource, Resource, std::set<BWAPI::TilePosition>> initializeBaseDefenseAnalysis(Base *base);
+    std::tuple<Resource, Resource, std::set<BWAPI::TilePosition>> initializeBaseDefenseAnalysis(Base *baseLoc);
 
-    ForgeGatewayWall createForgeGatewayWall(bool tight, Base *base);
+    ForgeGatewayWall createForgeGatewayWall(bool tight, Base *baseLoc);
 
     bool hasForgeGatewayWall();
 
@@ -109,5 +109,5 @@ namespace BuildingPlacement
 
     void setUseStartBlocksForAllStartingLocations(bool value);
 
-    std::shared_ptr<Block> startBlockForBase(Base *base);
+    std::shared_ptr<BuildBlock> startBlockForBase(Base *baseLoc);
 }

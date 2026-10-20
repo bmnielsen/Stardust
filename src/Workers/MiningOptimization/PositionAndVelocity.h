@@ -19,20 +19,20 @@ public:
     PositionAndVelocity(uint16_t x, uint16_t y, int8_t dx, int8_t dy, uint8_t heading)
         : x(x), y(y), dx(dx), dy(dy), heading(heading) {}
 
-    explicit PositionAndVelocity(const BWAPI::Unit &unit)
-            : x((uint16_t)unit->getPosition().x)
-            , y((uint16_t)unit->getPosition().y)
-            , dx(MyWorkerImpl::to8bSpeed(unit->getVelocityX()))
-            , dy(MyWorkerImpl::to8bSpeed(unit->getVelocityY()))
-            , heading(MyWorkerImpl::to8bHeading(unit->getAngle()))
+    explicit PositionAndVelocity(const BWAPI::Unit &gameUnit)
+            : x((uint16_t)gameUnit->getPosition().x)
+            , y((uint16_t)gameUnit->getPosition().y)
+            , dx(MyWorkerImpl::to8bSpeed(gameUnit->getVelocityX()))
+            , dy(MyWorkerImpl::to8bSpeed(gameUnit->getVelocityY()))
+            , heading(MyWorkerImpl::to8bHeading(gameUnit->getAngle()))
     {}
 
-    explicit PositionAndVelocity(const MyWorker &worker)
-            : x((uint16_t)worker->lastPosition.x)
-            , y((uint16_t)worker->lastPosition.y)
-            , dx(worker->horizontalSpeed8b)
-            , dy(worker->verticalSpeed8b)
-            , heading(worker->heading8b)
+    explicit PositionAndVelocity(const OwnedWorker &wrk)
+            : x((uint16_t)wrk->prevPos.x)
+            , y((uint16_t)wrk->prevPos.y)
+            , dx(wrk->horizontalSpeed8b)
+            , dy(wrk->verticalSpeed8b)
+            , heading(wrk->heading8b)
     {}
 
     bool operator==(const PositionAndVelocity &other) const
@@ -58,19 +58,19 @@ public:
         return heading != UINT8_MAX;
     }
 
-    [[nodiscard]] bool positionEquals(const BWAPI::Unit &unit) const
+    [[nodiscard]] bool positionEquals(const BWAPI::Unit &gameUnit) const
     {
-        return x == unit->getPosition().x
-               && y == unit->getPosition().y;
+        return x == gameUnit->getPosition().x
+               && y == gameUnit->getPosition().y;
     }
 
-    [[nodiscard]] bool positionEquals(const MyWorker &worker) const
+    [[nodiscard]] bool positionEquals(const OwnedWorker &wrk) const
     {
-        return x == worker->lastPosition.x
-               && y == worker->lastPosition.y;
+        return x == wrk->prevPos.x
+               && y == wrk->prevPos.y;
     }
 
-    [[nodiscard]] BWAPI::Position pos() const
+    [[nodiscard]] BWAPI::Position pt() const
     {
         return {x, y};
     }
@@ -92,7 +92,7 @@ public:
         return hash;
     }
 
-    // Determines if the given position is a stable arrival position in a position history approaching a patch or depot
+    /* Determines if the given position is a stable arrival position in a position history approaching a patch or depot */
     static bool isStableArrivalPosition(
             const std::vector<std::shared_ptr<const PositionAndVelocity>> &positions,
             std::vector<std::shared_ptr<const PositionAndVelocity>>::iterator positionIt);
@@ -116,9 +116,9 @@ private:
 template <>
 struct std::hash<PositionAndVelocity>
 {
-    std::size_t operator()(const PositionAndVelocity& pos) const
+    std::size_t operator()(const PositionAndVelocity& pt) const
     {
-        return pos.getHash();
+        return pt.getHash();
     }
 };
 

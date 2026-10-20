@@ -16,9 +16,9 @@
 
 namespace
 {
-    bool isValidAndWalkable(const BWAPI::Position &pos)
+    bool isValidAndWalkable(const BWAPI::Position &pt)
     {
-        return pos.isValid() && Map::isWalkable(pos.x >> 5, pos.y >> 5);
+        return pt.isValid() && Map::isWalkable(pt.x >> 5, pt.y >> 5);
     }
 
     BWAPI::Position WalkablePositionAlongVector(
@@ -26,26 +26,26 @@ namespace
             BWAPI::Position vector,
             int minDist)
     {
-        int extent = Geo::ApproximateDistance(0, vector.x, 0, vector.y);
+        int extent = Geom::ApproximateDistance(0, vector.x, 0, vector.y);
         auto furthestWalkable = BWAPI::Positions::Invalid;
-        for (int dist = 16; dist < extent; dist += 16)
+        for (int span = 16; span < extent; span += 16)
         {
-            auto pos = start + Geo::ScaleVector(vector, dist);
-            if (!isValidAndWalkable(pos))
+            auto pt = start + Geom::ScaleVector(vector, span);
+            if (!isValidAndWalkable(pt))
             {
                 return furthestWalkable;
             }
 
-            if (dist >= minDist)
+            if (span >= minDist)
             {
-                furthestWalkable = pos;
+                furthestWalkable = pt;
             }
         }
 
-        auto pos = start + vector;
-        if (isValidAndWalkable(pos))
+        auto pt = start + vector;
+        if (isValidAndWalkable(pt))
         {
-            furthestWalkable = pos;
+            furthestWalkable = pt;
         }
 
         return furthestWalkable;
@@ -56,25 +56,25 @@ namespace
             BWAPI::Position vector,
             BWAPI::Position &collisionVector)
     {
-        int extent = Geo::ApproximateDistance(0, vector.x, 0, vector.y);
+        int extent = Geom::ApproximateDistance(0, vector.x, 0, vector.y);
         auto furthestWalkable = start;
         collisionVector = Map::collisionVector(start.x >> 5, start.y >> 5);
-        for (int dist = 16; dist < extent; dist += 16)
+        for (int span = 16; span < extent; span += 16)
         {
-            auto pos = start + Geo::ScaleVector(vector, dist);
-            if (!isValidAndWalkable(pos))
+            auto pt = start + Geom::ScaleVector(vector, span);
+            if (!isValidAndWalkable(pt))
             {
                 return furthestWalkable;
             }
 
-            furthestWalkable = pos;
-            collisionVector += Map::collisionVector(pos.x >> 5, pos.y >> 5);
+            furthestWalkable = pt;
+            collisionVector += Map::collisionVector(pt.x >> 5, pt.y >> 5);
         }
 
-        auto pos = start + vector;
-        if (isValidAndWalkable(pos))
+        auto pt = start + vector;
+        if (isValidAndWalkable(pt))
         {
-            furthestWalkable = pos;
+            furthestWalkable = pt;
             collisionVector = BWAPI::Positions::Invalid;
         }
 
@@ -84,36 +84,36 @@ namespace
 
 namespace Boids
 {
-    BWAPI::Position AvoidNoGoArea(const UnitImpl *unit)
+    BWAPI::Position AvoidNoGoArea(const UnitImpl *gameUnit)
     {
-        // If the unit itself is not currently in a no-go area, just stay put
-        if (!NoGoAreas::isNoGo(unit->tilePositionX, unit->tilePositionY)) return unit->lastPosition;
+        /* If the unit itself is not currently in a no-go area, just stay put */
+        if (!NoGoAreas::isNoGo(gameUnit->tilePositionX, gameUnit->tilePositionY)) return gameUnit->prevPos;
 
-        // Find the closest tile that is walkable and not in a no-go area
-        // We prefer tiles that are not in a mineral line
+        /* Find the closest tile that is walkable and not in a no-go area */
+        /* We prefer tiles that are not in a mineral line */
         int closestDist = INT_MAX;
         bool closestIsOutsideMineralLine = false;
-        int closestX = unit->lastPosition.x;
-        int closestY = unit->lastPosition.y;
-        for (int y = unit->tilePositionY - 5; y < unit->tilePositionY + 5; y++)
+        int closestX = gameUnit->prevPos.x;
+        int closestY = gameUnit->prevPos.y;
+        for (int y = gameUnit->tilePositionY - 5; y < gameUnit->tilePositionY + 5; y++)
         {
             if (y < 0 || y >= BWAPI::Broodwar->mapHeight()) continue;
 
-            for (int x = unit->tilePositionX - 5; x < unit->tilePositionX + 5; x++)
+            for (int x = gameUnit->tilePositionX - 5; x < gameUnit->tilePositionX + 5; x++)
             {
                 if (x < 0 || x >= BWAPI::Broodwar->mapWidth()) continue;
 
-                if (!unit->isFlying && !Map::isWalkable(x, y)) continue;
+                if (!gameUnit->isFlying && !Map::isWalkable(x, y)) continue;
                 if (NoGoAreas::isNoGo(x, y)) continue;
-                if (unit->type.isWorker() && Map::bordersMineralPatch(x, y)) continue;
+                if (gameUnit->type.isWorker() && Map::bordersMineralPatch(x, y)) continue;
 
                 auto isInMineralLine = Map::isInOwnMineralLine(x, y);
                 if (isInMineralLine && closestIsOutsideMineralLine) continue;
 
-                int dist = Geo::ApproximateDistance(unit->tilePositionX, x, unit->tilePositionY, y);
-                if (dist < closestDist || (!isInMineralLine && !closestIsOutsideMineralLine))
+                int span = Geom::ApproximateDistance(gameUnit->tilePositionX, x, gameUnit->tilePositionY, y);
+                if (span < closestDist || (!isInMineralLine && !closestIsOutsideMineralLine))
                 {
-                    closestDist = dist;
+                    closestDist = span;
                     closestX = x * 32 + 16;
                     closestY = y * 32 + 16;
                     closestIsOutsideMineralLine = !isInMineralLine;
@@ -124,51 +124,51 @@ namespace Boids
         return {closestX, closestY};
     }
 
-    void AddSeparation(const UnitImpl *unit, const Unit &other, double detectionLimitFactor, double weight, int &separationX, int &separationY)
+    void AddSeparation(const UnitImpl *gameUnit, const Unit &other, double detectionLimitFactor, double weight, int &separationX, int &separationY)
     {
-        auto dist = unit->getDistance(other);
-        double detectionLimit = std::max(unit->type.width(), other->type.width()) * detectionLimitFactor;
-        if (dist >= (int) detectionLimit) return;
+        auto span = gameUnit->getDistance(other);
+        double detectionLimit = std::max(gameUnit->type.width(), other->type.width()) * detectionLimitFactor;
+        if (span >= (int) detectionLimit) return;
 
-        // We are within the detection limit
-        // Push away with maximum force at 0 distance, no force at detection limit
-        double distFactor = 1.0 - (double) dist / detectionLimit;
-        int centerDist = Geo::ApproximateDistance(unit->lastPosition.x, other->lastPosition.x, unit->lastPosition.y, other->lastPosition.y);
+        /* We are within the detection limit */
+        /* Push away with maximum force at 0 distance, no force at detection limit */
+        double distFactor = 1.0 - (double) span / detectionLimit;
+        int centerDist = Geom::ApproximateDistance(gameUnit->prevPos.x, other->prevPos.x, gameUnit->prevPos.y, other->prevPos.y);
         if (centerDist == 0) return;
         double scalingFactor = distFactor * distFactor * weight / centerDist;
-        separationX -= (int) ((double) (other->lastPosition.x - unit->lastPosition.x) * scalingFactor);
-        separationY -= (int) ((double) (other->lastPosition.y - unit->lastPosition.y) * scalingFactor);
+        separationX -= (int) ((double) (other->prevPos.x - gameUnit->prevPos.x) * scalingFactor);
+        separationY -= (int) ((double) (other->prevPos.y - gameUnit->prevPos.y) * scalingFactor);
     }
 
-    void AddSeparation(const UnitImpl *unit, const Unit &other, int detectionLimit, double weight, int &separationX, int &separationY)
+    void AddSeparation(const UnitImpl *gameUnit, const Unit &other, int detectionLimit, double weight, int &separationX, int &separationY)
     {
-        auto dist = unit->getDistance(other);
-        if (dist >= detectionLimit) return;
+        auto span = gameUnit->getDistance(other);
+        if (span >= detectionLimit) return;
 
-        // We are within the detection limit
-        // Push away with maximum force at 0 distance, no force at detection limit
-        double distFactor = 1.0 - (double) dist / (double)detectionLimit;
-        int centerDist = Geo::ApproximateDistance(unit->lastPosition.x, other->lastPosition.x, unit->lastPosition.y, other->lastPosition.y);
+        /* We are within the detection limit */
+        /* Push away with maximum force at 0 distance, no force at detection limit */
+        double distFactor = 1.0 - (double) span / (double)detectionLimit;
+        int centerDist = Geom::ApproximateDistance(gameUnit->prevPos.x, other->prevPos.x, gameUnit->prevPos.y, other->prevPos.y);
         if (centerDist == 0) return;
         double scalingFactor = distFactor * distFactor * weight / centerDist;
-        separationX -= (int) ((double) (other->lastPosition.x - unit->lastPosition.x) * scalingFactor);
-        separationY -= (int) ((double) (other->lastPosition.y - unit->lastPosition.y) * scalingFactor);
+        separationX -= (int) ((double) (other->prevPos.x - gameUnit->prevPos.x) * scalingFactor);
+        separationY -= (int) ((double) (other->prevPos.y - gameUnit->prevPos.y) * scalingFactor);
     }
 
-    BWAPI::Position ComputePosition(const UnitImpl *unit,
+    BWAPI::Position ComputePosition(const UnitImpl *gameUnit,
                                     const std::vector<int> &x,
                                     const std::vector<int> &y,
                                     int scale,
                                     int minDist,
                                     bool collision)
     {
-        // Increase the minimum distance so it is at least the size of the unit
-        minDist = std::max(minDist, std::max(unit->type.width(), unit->type.height()));
+        /* Increase the minimum distance so it is at least the size of the unit */
+        minDist = std::max(minDist, std::max(gameUnit->type.width(), gameUnit->type.height()));
 
-        // The scale must be at least the min dist
+        /* The scale must be at least the min dist */
         if (scale > 0) scale = std::max(scale, minDist);
 
-        // Start by combining into a (possibly scaled) vector
+        /* Start by combining into a (possibly scaled) vector */
         int totalX = 0;
         for (const auto &xval : x)
         {
@@ -186,151 +186,151 @@ namespace Boids
         {
             if (x[i] == 0 && y[i] == 0) continue;
 
-            CherryVis::DrawColor color;
+            Telemetry::DrawColor color;
             switch (i)
             {
                 case 0:
-                    color = CherryVis::DrawColor::Yellow;
+                    color = Telemetry::DrawColor::Yellow;
                     break;
                 case 1:
-                    color = CherryVis::DrawColor::Green;
+                    color = Telemetry::DrawColor::Green;
                     break;
                 case 2:
-                    color = CherryVis::DrawColor::Orange;
+                    color = Telemetry::DrawColor::Orange;
                     break;
                 default:
-                    color = CherryVis::DrawColor::Grey;
+                    color = Telemetry::DrawColor::Grey;
                     break;
             }
 
-            CherryVis::drawLine(
-                    unit->lastPosition.x,
-                    unit->lastPosition.y,
-                    unit->lastPosition.x + x[i],
-                    unit->lastPosition.y + y[i],
+            Telemetry::drawLine(
+                    gameUnit->prevPos.x,
+                    gameUnit->prevPos.y,
+                    gameUnit->prevPos.x + x[i],
+                    gameUnit->prevPos.y + y[i],
                     color,
-                    unit->id);
+                    gameUnit->ident);
         }
 #endif
 
         auto vector = (scale > 0)
-                      ? Geo::ScaleVector(BWAPI::Position(totalX, totalY), scale)
+                      ? Geom::ScaleVector(BWAPI::Position(totalX, totalY), scale)
                       : BWAPI::Position(totalX, totalY);
 
-        // If the desired target position is inside a no-go area, use special logic instead to avoid the no-go area
-        auto tile = BWAPI::TilePosition(unit->lastPosition + vector);
-        if (tile.isValid() && NoGoAreas::isNoGo(tile))
+        /* If the desired target position is inside a no-go area, use special logic instead to avoid the no-go area */
+        auto tilePos = BWAPI::TilePosition(gameUnit->prevPos + vector);
+        if (tilePos.isValid() && NoGoAreas::isNoGo(tilePos))
         {
-            auto pos = AvoidNoGoArea(unit);
+            auto pt = AvoidNoGoArea(gameUnit);
 
 #if DRAW_BOIDS
-            CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Purple, unit->id);
+            Telemetry::drawLine(gameUnit->prevPos.x, gameUnit->prevPos.y, pt.x, pt.y, Telemetry::DrawColor::Purple, gameUnit->ident);
 #endif
 
-            return pos;
+            return pt;
         }
 
-        // If the vector is zero or invalid, the unit doesn't want to move, so return its current position
+        /* If the vector is zero or invalid, the unit doesn't want to move, so return its current position */
         if (vector == BWAPI::Positions::Invalid || (totalX == 0 && totalY == 0))
         {
-            return unit->lastPosition;
+            return gameUnit->prevPos;
         }
 
-        // Flying units don't need to worry about walkability or collisions
-        if (unit->isFlying)
+        /* Flying units don't need to worry about walkability or collisions */
+        if (gameUnit->isFlying)
         {
-            auto pos = unit->lastPosition + vector;
+            auto pt = gameUnit->prevPos + vector;
 
-            // Snap to map edges
-            if (pos.x < 0) pos.x = 0;
-            if (pos.x >= BWAPI::Broodwar->mapWidth() * 32) pos.x = (BWAPI::Broodwar->mapWidth() * 32) - 1;
-            if (pos.y < 0) pos.y = 0;
-            if (pos.y >= BWAPI::Broodwar->mapHeight() * 32) pos.y = (BWAPI::Broodwar->mapHeight() * 32) - 1;
+            /* Snap to map edges */
+            if (pt.x < 0) pt.x = 0;
+            if (pt.x >= BWAPI::Broodwar->mapWidth() * 32) pt.x = (BWAPI::Broodwar->mapWidth() * 32) - 1;
+            if (pt.y < 0) pt.y = 0;
+            if (pt.y >= BWAPI::Broodwar->mapHeight() * 32) pt.y = (BWAPI::Broodwar->mapHeight() * 32) - 1;
 
 #if DRAW_BOIDS
-            if (pos != BWAPI::Positions::Invalid)
+            if (pt != BWAPI::Positions::Invalid)
             {
-                CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue, unit->id);
+                Telemetry::drawLine(gameUnit->prevPos.x, gameUnit->prevPos.y, pt.x, pt.y, Telemetry::DrawColor::Blue, gameUnit->ident);
             }
 #endif
 
-            return pos;
+            return pt;
         }
 
-        // If we aren't worried about collisions, just trace a path along the vector and move if there is a walkable position far enough away
+        /* If we aren't worried about collisions, just trace a path along the vector and move if there is a walkable position far enough away */
         if (!collision)
         {
-            auto pos = WalkablePositionAlongVector(unit->lastPosition, vector, minDist);
+            auto pt = WalkablePositionAlongVector(gameUnit->prevPos, vector, minDist);
 
 #if DRAW_BOIDS
-            if (pos != BWAPI::Positions::Invalid)
+            if (pt != BWAPI::Positions::Invalid)
             {
-                CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue, unit->id);
+                Telemetry::drawLine(gameUnit->prevPos.x, gameUnit->prevPos.y, pt.x, pt.y, Telemetry::DrawColor::Blue, gameUnit->ident);
             }
 #endif
 
-            return pos;
+            return pt;
         }
 
-        // We want to consider collisions, so trace the path along the vector as usual, but if we meet a collision, try to resolve it
-        // We do this by accumulating a collision vector along the path and applying it to the previous position to get out of a collision
+        /* We want to consider collisions, so trace the path along the vector as usual, but if we meet a collision, try to resolve it */
+        /* We do this by accumulating a collision vector along the path and applying it to the previous position to get out of a collision */
         BWAPI::Position collisionVector;
-        auto pos = WalkablePositionAlongVector(unit->lastPosition, vector, collisionVector);
+        auto pt = WalkablePositionAlongVector(gameUnit->prevPos, vector, collisionVector);
 
-        // If there was no collision, use the position
+        /* If there was no collision, use the position */
         if (collisionVector == BWAPI::Positions::Invalid)
         {
 #if DRAW_BOIDS
-            if (pos != BWAPI::Positions::Invalid)
+            if (pt != BWAPI::Positions::Invalid)
             {
-                CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue, unit->id);
+                Telemetry::drawLine(gameUnit->prevPos.x, gameUnit->prevPos.y, pt.x, pt.y, Telemetry::DrawColor::Blue, gameUnit->ident);
             }
 #endif
 
-            return pos;
+            return pt;
         }
 
-        // There was a collision
-        // Our approach to resolving collisions is to pull the last found walkable position based on the average collision vector collected
-        // during the search
-        // We prefer to pull it directly in the direction of the collision vector, but in cases where this is in opposition to our desired
-        // movement, we may choose a perpendicular vector instead
+        /* There was a collision */
+        /* Our approach to resolving collisions is to pull the last found walkable position based on the average collision vector collected */
+        /* during the search */
+        /* We prefer to pull it directly in the direction of the collision vector, but in cases where this is in opposition to our desired */
+        /* movement, we may choose a perpendicular vector instead */
         
 #if DEBUG_UNIT_BOIDS_VERBOSE
         std::ostringstream dbg;
-        dbg << "Collision along vector " << vector << ", walkable pos " << pos;
+        dbg << "Collision along vector " << vector << ", walkable pos " << pt;
 #endif
 
-        // Scale the vectors so we can apply them incrementally in our collision resolution
-        collisionVector = Geo::ScaleVector(collisionVector, 16);
+        /* Scale the vectors so we can apply them incrementally in our collision resolution */
+        collisionVector = Geom::ScaleVector(collisionVector, 16);
         if (collisionVector == BWAPI::Positions::Invalid)
         {
 #if DEBUG_UNIT_BOIDS_VERBOSE
             dbg << "\nNo valid collision vector.";
-            CherryVis::log(unit->id) << dbg.str();
+            Telemetry::log(gameUnit->ident) << dbg.str();
 #endif
             return BWAPI::Positions::Invalid;
         }
-        auto vectorStep = Geo::ScaleVector(vector, 16);
+        auto vectorStep = Geom::ScaleVector(vector, 16);
 
-        // Compute perpendicular vectors
-        int collisionAngle = Geo::BWDirection(collisionVector);
-        int vectorAngle = Geo::BWDirection(vector);
-        auto moveTarget = unit->bwapiUnit->getLastCommand().type == BWAPI::UnitCommandTypes::Move
-                          ? unit->bwapiUnit->getLastCommand().getTargetPosition()
+        /* Compute perpendicular vectors */
+        int collisionAngle = Geom::BWDirection(collisionVector);
+        int vectorAngle = Geom::BWDirection(vector);
+        auto moveTarget = gameUnit->rawUnit->getLastCommand().type == BWAPI::UnitCommandTypes::Move
+                          ? gameUnit->rawUnit->getLastCommand().getTargetPosition()
                           : BWAPI::Positions::Invalid;
         auto getPerpendicularVector = [&](const BWAPI::Position &reference, int &referenceAngle, int &compareAngle)
         {
-            auto perpendicularVector = Geo::PerpendicularVector(reference, 16);
+            auto perpendicularVector = Geom::PerpendicularVector(reference, 16);
 
-            // There are two perpendicular vectors, so we need to pick the best one
-            // We use the angle to determine it, unless they are both very close, in which case we use the current move target
-            int angleDiff = Geo::BWAngleDiff(compareAngle, Geo::BWAngleAdd(referenceAngle, 64))
-                    - Geo::BWAngleDiff(compareAngle, Geo::BWAngleAdd(referenceAngle, -64));
+            /* There are two perpendicular vectors, so we need to pick the best one */
+            /* We use the angle to determine it, unless they are both very close, in which case we use the current move target */
+            int angleDiff = Geom::BWAngleDiff(compareAngle, Geom::BWAngleAdd(referenceAngle, 64))
+                    - Geom::BWAngleDiff(compareAngle, Geom::BWAngleAdd(referenceAngle, -64));
             if (std::abs(angleDiff) < 16)
             {
-                int firstDist = moveTarget.getApproxDistance(pos + perpendicularVector);
-                int secondDist = moveTarget.getApproxDistance(pos - perpendicularVector);
+                int firstDist = moveTarget.getApproxDistance(pt + perpendicularVector);
+                int secondDist = moveTarget.getApproxDistance(pt - perpendicularVector);
                 if (firstDist < secondDist)
                 {
                     return perpendicularVector;
@@ -350,14 +350,14 @@ namespace Boids
         auto perpendicularCollisionVector = getPerpendicularVector(collisionVector, collisionAngle, vectorAngle);
         auto perpendicularVector = getPerpendicularVector(vector, vectorAngle, collisionAngle);
 
-        // Main collision adjustment method
+        /* Main collision adjustment method */
 #if DEBUG_UNIT_BOIDS_VERBOSE
-        auto adjustForCollision = [&pos, &unit, &minDist, &dbg](BWAPI::Position collisionVector, BWAPI::Position vectorStep)
+        auto adjustForCollision = [&pt, &gameUnit, &minDist, &dbg](BWAPI::Position collisionVector, BWAPI::Position vectorStep)
 #else
-        auto adjustForCollision = [&pos, &unit, &minDist](BWAPI::Position collisionVector, BWAPI::Position vectorStep)
+        auto adjustForCollision = [&pt, &gameUnit, &minDist](BWAPI::Position collisionVector, BWAPI::Position vectorStep)
 #endif
         {
-            auto current = pos;
+            auto current = pt;
 
             auto candidates = {
                     vectorStep,
@@ -367,7 +367,7 @@ namespace Boids
                     vectorStep + collisionVector + collisionVector
             };
 
-            // Repeatedly add either a step of the vector or the collision vector to get to a walkable tile until we've reached the desired distance
+            /* Repeatedly add either a step of the vector or the collision vector to get to a walkable tile until we've reached the desired distance */
             for (int tries = 0; tries < 6; tries++)
             {
 #if DEBUG_UNIT_BOIDS_VERBOSE
@@ -394,33 +394,33 @@ namespace Boids
                 return false;
 
                 validPositionFound:;
-                int dist = unit->lastPosition.getApproxDistance(current);
-                if (dist >= minDist)
+                int span = gameUnit->prevPos.getApproxDistance(current);
+                if (span >= minDist)
                 {
 #if DEBUG_UNIT_BOIDS_VERBOSE
                     dbg << "*";
 #endif
 #if DRAW_BOIDS
-                    CherryVis::drawLine(
-                            pos.x,
-                            pos.y,
+                    Telemetry::drawLine(
+                            pt.x,
+                            pt.y,
                             current.x,
                             current.y,
-                            CherryVis::DrawColor::Teal,
-                            unit->id);
+                            Telemetry::DrawColor::Teal,
+                            gameUnit->ident);
 #endif
-                    pos = current;
+                    pt = current;
                     return true;
                 }
             }
 #if DEBUG_UNIT_BOIDS_VERBOSE
             dbg << "##";
 #endif
-            // Exceeded max number of tries
+            /* Exceeded max number of tries */
             return false;
         };
 
-        // Try in this order
+        /* Try in this order */
         std::initializer_list<std::pair<BWAPI::Position, BWAPI::Position>> candidates = {
                 {collisionVector, vectorStep},
                 {collisionVector, perpendicularVector},
@@ -436,25 +436,25 @@ namespace Boids
             if (adjustForCollision(candidate.first, candidate.second))
             {
 #if DEBUG_UNIT_BOIDS_VERBOSE
-                CherryVis::log(unit->id) << dbg.str();
+                Telemetry::log(gameUnit->ident) << dbg.str();
 #endif
 
 #if DRAW_BOIDS
-                CherryVis::drawLine(unit->lastPosition.x, unit->lastPosition.y, pos.x, pos.y, CherryVis::DrawColor::Blue, unit->id);
+                Telemetry::drawLine(gameUnit->prevPos.x, gameUnit->prevPos.y, pt.x, pt.y, Telemetry::DrawColor::Blue, gameUnit->ident);
 #endif
-                // If the final position borders an unwalkable tile, move the position to the center of the tile
-                // Otherwise we might generate a position where the unit can't actually fit
-                if (Map::unwalkableProximity(pos.x >> 5, pos.y >> 5) == 1)
+                /* If the final position borders an unwalkable tile, move the position to the center of the tile */
+                /* Otherwise we might generate a position where the unit can't actually fit */
+                if (Map::unwalkableProximity(pt.x >> 5, pt.y >> 5) == 1)
                 {
-                    pos = {((pos.x >> 5) << 5) + 16, ((pos.y >> 5) << 5) + 16};
+                    pt = {((pt.x >> 5) << 5) + 16, ((pt.y >> 5) << 5) + 16};
                 }
 
-                return pos;
+                return pt;
             }
         }
 
 #if DEBUG_UNIT_BOIDS_VERBOSE
-        CherryVis::log(unit->id) << dbg.str();
+        Telemetry::log(gameUnit->ident) << dbg.str();
 #endif
         return BWAPI::Positions::Invalid;
     }

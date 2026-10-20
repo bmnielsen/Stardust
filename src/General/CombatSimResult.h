@@ -7,7 +7,7 @@
 class CombatSimResult
 {
 public:
-    int frame;
+    int tick;
     int myUnitCount;
     int enemyUnitCount;
     int initialMine;
@@ -48,7 +48,7 @@ public:
             , std::unordered_map<std::string, std::vector<int>> unitLog
 #endif
 )
-            : frame(currentFrame)
+            : tick(frameNow)
             , myUnitCount(myUnitCount)
             , enemyUnitCount(enemyUnitCount)
             , initialMine(initialMine)
@@ -80,19 +80,19 @@ public:
 #endif
     ) {};
 
-    // What percentage of my army value was lost during the sim
+    /* What percentage of my army value was lost during the sim */
     [[nodiscard]] double myPercentLost() const;
 
-    // What percentage of the enemy's army value was lost during the sim
+    /* What percentage of the enemy's army value was lost during the sim */
     [[nodiscard]] double enemyPercentLost() const;
 
-    // How much relative value was gained by my army during the sim (i.e. if positive, the value the enemy lost more than mine)
+    /* How much relative value was gained by my army during the sim (i.e. if positive, the value the enemy lost more than mine) */
     [[nodiscard]] int valueGain() const;
 
-    // Similar to valueGain, but dealing in percentages (i.e. if positive, the enemy lost a higher percentage of their army than we lost of ours)
+    /* Similar to valueGain, but dealing in percentages (i.e. if positive, the enemy lost a higher percentage of their army than we lost of ours) */
     [[nodiscard]] double percentGain() const;
 
-    // What percentage of the total army value is ours
+    /* What percentage of the total army value is ours */
     [[nodiscard]] double myPercentageOfTotal() const;
 
     CombatSimResult &operator+=(const CombatSimResult &other)

@@ -2,7 +2,7 @@
 
 #include "Common.h"
 
-namespace Geo
+namespace Geom
 {
     void initialize();
 
@@ -10,20 +10,20 @@ namespace Geo
 
     int EdgeToEdgeDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter);
 
-    int EdgeToPointDistance(BWAPI::UnitType type, BWAPI::Position center, BWAPI::Position point);
+    int EdgeToPointDistance(BWAPI::UnitType type, BWAPI::Position midpoint, BWAPI::Position point);
 
-    int EdgeToTileDistance(BWAPI::UnitType type, BWAPI::TilePosition topLeft, BWAPI::TilePosition tile);
+    int EdgeToTileDistance(BWAPI::UnitType type, BWAPI::TilePosition cornerTL, BWAPI::TilePosition tilePos);
 
-    BWAPI::Position NearestPointOnEdge(BWAPI::Position point, BWAPI::UnitType type, BWAPI::Position center);
+    BWAPI::Position NearestPointOnEdge(BWAPI::Position point, BWAPI::UnitType type, BWAPI::Position midpoint);
 
     bool Overlaps(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter);
 
-    bool Overlaps(BWAPI::UnitType type, BWAPI::Position center, BWAPI::Position point);
+    bool Overlaps(BWAPI::UnitType type, BWAPI::Position midpoint, BWAPI::Position point);
 
     bool Overlaps(BWAPI::TilePosition firstTopLeft, int firstWidth, int firstHeight,
                   BWAPI::TilePosition secondtopLeft, int secondWidth, int secondHeight);
 
-    bool Walkable(BWAPI::UnitType type, BWAPI::Position center);
+    bool Walkable(BWAPI::UnitType type, BWAPI::Position midpoint);
 
     BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start,
                                                   int searchRadius,
@@ -34,15 +34,15 @@ namespace Geo
                                                   int searchRadius,
                                                   BWAPI::Position furtherFrom = BWAPI::Positions::Invalid);
 
-    void FindWalkablePositionsBetween(BWAPI::Position start, BWAPI::Position end, std::vector<BWAPI::Position> &result);
+    void FindWalkablePositionsBetween(BWAPI::Position start, BWAPI::Position end, std::vector<BWAPI::Position> &outcome);
 
-    void FindTilesBetween(BWAPI::TilePosition start, BWAPI::TilePosition end, std::vector<BWAPI::TilePosition> &result);
+    void FindTilesBetween(BWAPI::TilePosition start, BWAPI::TilePosition end, std::vector<BWAPI::TilePosition> &outcome);
 
-    void FindWalkTilesBetween(BWAPI::WalkPosition start, BWAPI::WalkPosition end, std::vector<BWAPI::WalkPosition> &result);
+    void FindWalkTilesBetween(BWAPI::WalkPosition start, BWAPI::WalkPosition end, std::vector<BWAPI::WalkPosition> &outcome);
 
-    BWAPI::Position CenterOfUnit(BWAPI::TilePosition topLeft, BWAPI::UnitType type);
+    BWAPI::Position CenterOfUnit(BWAPI::TilePosition cornerTL, BWAPI::UnitType type);
 
-    BWAPI::Position CenterOfUnit(BWAPI::Position topLeft, BWAPI::UnitType type);
+    BWAPI::Position CenterOfUnit(BWAPI::Position cornerTL, BWAPI::UnitType type);
 
     BWAPI::Position ScaleVector(BWAPI::Position vector, int length);
 
@@ -52,20 +52,20 @@ namespace Geo
 
     enum Direction { up, down, left, right, upleft, downleft, upright, downright, error };
 
-    // Gets the relative direction between a building and a position
-    Direction directionFromBuilding(BWAPI::TilePosition tile, BWAPI::TilePosition size, BWAPI::Position pos, bool fourDirections = false);
+    /* Gets the relative direction between a building and a position */
+    Direction directionFromBuilding(BWAPI::TilePosition tilePos, BWAPI::TilePosition size, BWAPI::Position pt, bool fourDirections = false);
 
-    // The direction along a vector in BW representation (1/256th of a circle)
+    /* The direction along a vector in BW representation (1/256th of a circle) */
     int BWDirection(BWAPI::Position vector);
 
-    // Difference between two angles in BW representation (1/256th of a circle)
+    /* Difference between two angles in BW representation (1/256th of a circle) */
     int BWAngleDiff(int a, int b);
 
-    // Adds twho angles in BW representation (1/256th of a circle)
+    /* Adds twho angles in BW representation (1/256th of a circle) */
     int BWAngleAdd(int a, int b);
 
-    // Simulate a frame of movement of a unit
-    // All values are in BW representation (positions and speeds are multiples of 1/256, angles are 1/256th of a circle)
+    /* Simulate a frame of movement of a unit */
+    /* All values are in BW representation (positions and speeds are multiples of 1/256, angles are 1/256th of a circle) */
     void BWMovement(int &x, int &y, int &heading, int desiredHeading, int turnRate, int &speed, int acceleration, int topSpeed);
 
     class Spiral

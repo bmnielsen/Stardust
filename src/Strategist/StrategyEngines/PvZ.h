@@ -18,7 +18,7 @@ public:
         Turtle,                 // Mass sunkens
         Lair,                   // Have seen lair, indicates possibility of mutas or lurkers
         MutaRush,               // Builds that get mutas quickly
-        // TODO: Mid- and late game
+        /* TODO: Mid- and late game */
     };
     static std::map<ZergStrategy, std::string> ZergStrategyNames;
 
@@ -33,7 +33,7 @@ public:
         Defensive,              // Cautious opening, for when we don't know if the opponent could be going for an all-in
         Normal,                 // Normal non-greedy and non-cautious opening
         MidGame,                // When we have reached the mid-game
-        // TODO: Various mid-game and late-game strategies
+        /* TODO: Various mid-game and late-game strategies */
     };
     static std::map<OurStrategy, std::string> OurStrategyNames;
 
@@ -42,12 +42,12 @@ public:
 
     PvZ() : enemyStrategy(ZergStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
 
-    void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride) override;
+    void initialize(std::vector<std::shared_ptr<PlayItem>> &playList, bool transitioningFromRandom, const std::string &openingOverride) override;
 
-    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
+    void updatePlays(std::vector<std::shared_ptr<PlayItem>> &playList) override;
 
-    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+    void updateProduction(std::vector<std::shared_ptr<PlayItem>> &playList,
+                          std::map<int, std::vector<ProductionGoal>> &prioProdGoals,
                           std::vector<std::pair<int, int>> &mineralReservations) override;
 
     std::string getEnemyStrategy() override { return ZergStrategyNames[enemyStrategy]; }
@@ -65,13 +65,18 @@ private:
 
     ZergStrategy recognizeEnemyStrategy();
 
-    OurStrategy chooseOurStrategy(ZergStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays);
+    /* P2-C: declaration-table recognition (same predicates/thresholds as the */
+    /* switch path, expressed as a RecognizerShared transition table). Runs in */
+    /* shadow mode until zero-divergence is proven, then replaces the switch. */
+    ZergStrategy recognizeEnemyStrategyTable(ZergStrategy current);
 
-    void handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    OurStrategy chooseOurStrategy(ZergStrategy newEnemyStrategy, std::vector<std::shared_ptr<PlayItem>> &playList);
 
-    static void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    void handleNaturalExpansion(std::vector<std::shared_ptr<PlayItem>> &playList, std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
 
-    void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    static void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
+
+    void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
 
     bool isFFE();
 };

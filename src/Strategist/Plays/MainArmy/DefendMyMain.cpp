@@ -19,7 +19,7 @@ DefendMyMain::DefendMyMain()
         , lastRegroupFrame(0)
         , reservedGasStealAttacker(nullptr)
 {
-    General::addSquad(squad);
+    Marshal::addSquad(squad);
 }
 
 void DefendMyMain::update()
@@ -29,20 +29,20 @@ void DefendMyMain::update()
         reservedGasStealAttacker = nullptr;
     }
     
-    // Get enemy combat units in our base
+    /* Get enemy combat units in our base */
     std::set<Unit> enemyCombatUnits;
     std::set<Unit> enemyWorkers;
     bool scoutHarass = true;
     bool requireDragoons = false;
     Unit gasSteal = nullptr;
-    for (const Unit &unit : Units::allEnemy())
+    for (const Unit &gameUnit : UnitMgr::allEnemy())
     {
-        if (!unit->lastPositionValid) continue;
+        if (!gameUnit->lastPositionValid) continue;
 
         bool isInArea = false;
         for (const auto &area : Map::getMyMainAreas())
         {
-            if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(unit->lastPosition)) == area)
+            if (BWEM::Map::Instance().GetArea(BWAPI::WalkPosition(gameUnit->prevPos)) == area)
             {
                 isInArea = true;
                 break;
@@ -50,40 +50,40 @@ void DefendMyMain::update()
         }
         if (!isInArea) continue;
 
-        if (unit->type.isWorker())
+        if (gameUnit->type.isWorker())
         {
-            enemyWorkers.insert(unit);
-            if (unit->lastSeenAttacking > (currentFrame - 48)) enemyCombatUnits.insert(unit);
+            enemyWorkers.insert(gameUnit);
+            if (gameUnit->lastSeenAttacking > (frameNow - 48)) enemyCombatUnits.insert(gameUnit);
         }
-        else if (UnitUtil::IsCombatUnit(unit->type) && unit->type.canAttack())
+        else if (UnitHelper::IsCombatUnit(gameUnit->type) && gameUnit->type.canAttack())
         {
             scoutHarass = false;
-            enemyCombatUnits.insert(unit);
+            enemyCombatUnits.insert(gameUnit);
             requireDragoons = requireDragoons ||
-                              (unit->isFlying ||
-                               unit->type == BWAPI::UnitTypes::Protoss_Dragoon ||
-                               unit->type == BWAPI::UnitTypes::Terran_Vulture);
+                              (gameUnit->isFlying ||
+                               gameUnit->type == BWAPI::UnitTypes::Protoss_Dragoon ||
+                               gameUnit->type == BWAPI::UnitTypes::Terran_Vulture);
         }
-        else if (unit->type.isRefinery())
+        else if (gameUnit->type.isRefinery())
         {
-            gasSteal = unit;
+            gasSteal = gameUnit;
         }
     }
 
     if (gasSteal)
     {
-        // Reserve a gas steal attacker if we have three units in the squad
+        /* Reserve a gas steal attacker if we have three units in the squad */
         auto units = (reservedGasStealAttacker ? 1 : 0) + squad->getUnits().size();
         if (units > 2 && !reservedGasStealAttacker)
         {
             int minDist = INT_MAX;
-            for (const auto &unit : squad->getUnits())
+            for (const auto &gameUnit : squad->getUnits())
             {
-                int dist = unit->getDistance(gasSteal);
-                if (dist < minDist)
+                int span = gameUnit->getDistance(gasSteal);
+                if (span < minDist)
                 {
-                    minDist = dist;
-                    reservedGasStealAttacker = unit;
+                    minDist = span;
+                    reservedGasStealAttacker = gameUnit;
                 }
             }
 
@@ -94,85 +94,85 @@ void DefendMyMain::update()
         }
         else if (units < 3 && reservedGasStealAttacker)
         {
-            // Release the reserved gas steal attacker if we need it for defense
+            /* Release the reserved gas steal attacker if we need it for defense */
             squad->addUnit(reservedGasStealAttacker);
             reservedGasStealAttacker = nullptr;
         }
 
-        // Pull workers to attack the gas steal
+        /* Pull workers to attack the gas steal */
         int desiredWorkers = 2;
-        if (Units::countAll(BWAPI::UnitTypes::Protoss_Zealot) > 0) desiredWorkers = 4;
+        if (UnitMgr::countAll(BWAPI::UnitTypes::Protoss_Zealot) > 0) desiredWorkers = 4;
         if (reservedWorkerGasStealAttackers.size() < desiredWorkers)
         {
             for (int i = 0; i < (desiredWorkers - reservedWorkerGasStealAttackers.size()); i++)
             {
-                auto worker = Workers::getClosestReassignableWorker(Map::getMyMain()->getPosition(), false);
-                if (!worker) break;
+                auto wrk = WorkerMgr::getClosestReassignableWorker(Map::getMyMain()->getPosition(), false);
+                if (!wrk) break;
 
-                Workers::reserveWorker(worker);
-                reservedWorkerGasStealAttackers.push_back(worker);
+                WorkerMgr::reserveWorker(wrk);
+                reservedWorkerGasStealAttackers.push_back(wrk);
             }
         }
         else if (reservedWorkerGasStealAttackers.size() > desiredWorkers)
         {
-            auto it = reservedWorkerGasStealAttackers.begin();
-            Workers::releaseWorker(*it);
-            reservedWorkerGasStealAttackers.erase(it);
+            auto iterRef = reservedWorkerGasStealAttackers.begin();
+            WorkerMgr::releaseWorker(*iterRef);
+            reservedWorkerGasStealAttackers.erase(iterRef);
         }
 
-        // Execute attack with our reserved units
+        /* Execute attack with our reserved units */
         if (reservedGasStealAttacker) reservedGasStealAttacker->attackUnit(gasSteal);
-        for (auto &worker : reservedWorkerGasStealAttackers)
+        for (auto &wrk : reservedWorkerGasStealAttackers)
         {
-            std::static_pointer_cast<MyUnitImpl>(worker)->attackUnit(gasSteal);
+            std::static_pointer_cast<MyUnitImpl>(wrk)->attackUnit(gasSteal);
         }
     }
     else
     {
-        // Release the reserved gas steal attacker when it is no longer needed
+        /* Release the reserved gas steal attacker when it is no longer needed */
         if (reservedGasStealAttacker)
         {
             squad->addUnit(reservedGasStealAttacker);
             reservedGasStealAttacker = nullptr;
         }
 
-        // Release the worker gas steal attackers when they are no longer needed
+        /* Release the worker gas steal attackers when they are no longer needed */
         if (!reservedWorkerGasStealAttackers.empty())
         {
             for (const auto &workerGasStealAttacker : reservedWorkerGasStealAttackers)
             {
-                Workers::releaseWorker(workerGasStealAttacker);
+                WorkerMgr::releaseWorker(workerGasStealAttacker);
             }
             reservedWorkerGasStealAttackers.clear();
         }
     }
 
-    // If there are more than two workers, consider this to be a worker rush and add them to the set of combat units
+    /* If there are more than two workers, consider this to be a worker rush and add them to the set of combat units */
     if (enemyWorkers.size() > 2)
     {
         scoutHarass = false;
         enemyCombatUnits.insert(enemyWorkers.begin(), enemyWorkers.end());
     }
 
-    // Keep track of when the squad was last regrouping, considering an empty squad to be regrouping
+    /* Keep track of when the squad was last regrouping, considering an empty squad to be regrouping */
     if (!enemyCombatUnits.empty() && !scoutHarass && (squad->getUnits().empty() || squad->hasClusterWithActivity(UnitCluster::Activity::Regrouping)))
     {
-        lastRegroupFrame = currentFrame;
+        lastRegroupFrame = frameNow;
     }
 
-    // Queue emergency production if:
-    // - The squad has been regrouping recently
-    // - The enemy has us outnumbered by more than two combat units
-    // - We don't have any completed cannons (vs. Terran)
-    if (lastRegroupFrame > 0 && lastRegroupFrame > (currentFrame - REGROUP_EMERGENCY_TIMEOUT) &&
-        (BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran || Units::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) == 0) &&
+    /* Queue emergency production if: */
+    /* - The squad has been regrouping recently */
+    /* - The enemy has us outnumbered by more than two combat units */
+    /* - We don't have any completed cannons (vs. Terran) */
+    if (lastRegroupFrame > 0 && lastRegroupFrame > (frameNow - REGROUP_EMERGENCY_TIMEOUT) &&
+        (BWAPI::Broodwar->enemy()->getRace() != BWAPI::Races::Terran || UnitMgr::countCompleted(BWAPI::UnitTypes::Protoss_Photon_Cannon) == 0) &&
         (squad->combatUnitCount() == 0 || (enemyCombatUnits.size() + std::max(0, (int) enemyWorkers.size() - 1)) > (squad->combatUnitCount() + 2)))
     {
         auto desiredEmergencyProduction = requireDragoons ? BWAPI::UnitTypes::Protoss_Dragoon : BWAPI::UnitTypes::Protoss_Zealot;
         if (emergencyProduction != desiredEmergencyProduction)
         {
             emergencyProduction = desiredEmergencyProduction;
-            CherryVis::log() << "DefendMyMain: emergency, producing " << emergencyProduction;
+            Telemetry::log() << "DefendMyMain: emergency, producing " << emergencyProduction;
         }
 
         return;
@@ -180,24 +180,24 @@ void DefendMyMain::update()
     else if (emergencyProduction != BWAPI::UnitTypes::None)
     {
         emergencyProduction = BWAPI::UnitTypes::None;
-        CherryVis::log() << "DefendMyMain: emergency cleared";
+        Telemetry::log() << "DefendMyMain: emergency cleared";
     }
 }
 
-void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals)
+void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals)
 {
-    // If we have an emergency production type, produce an infinite number of them off two gateways
+    /* If we have an emergency production type, produce an infinite number of them off two gateways */
     if (emergencyProduction != BWAPI::UnitTypes::None)
     {
-        prioritizedProductionGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>, label, emergencyProduction, -1, 2);
+        prioProdGoals[PRIORITY_EMERGENCY].emplace_back(std::in_place_type<UnitProductionGoal>, label, emergencyProduction, -1, 2);
         return;
     }
 
-    // Otherwise produce to fulfill our unit requirements
+    /* Otherwise produce to fulfill our unit requirements */
     for (auto &unitRequirement : status.unitRequirements)
     {
         if (unitRequirement.count < 1) continue;
-        prioritizedProductionGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
+        prioProdGoals[PRIORITY_BASEDEFENSE].emplace_back(std::in_place_type<UnitProductionGoal>,
                                                                       label,
                                                                       unitRequirement.type,
                                                                       unitRequirement.count,
@@ -205,12 +205,12 @@ void DefendMyMain::addPrioritizedProductionGoals(std::map<int, std::vector<Produ
     }
 }
 
-void DefendMyMain::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                           const std::function<void(const MyUnit)> &movableUnitCallback)
+void DefendMyMain::disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                           const std::function<void(const OwnedUnit)> &movableUnitCallback)
 {
-    Play::disband(removedUnitCallback, movableUnitCallback);
+    PlayItem::disband(removedUnitCallback, movableUnitCallback);
 
-    // Also move the reserved gas steal attacker if we have one
+    /* Also move the reserved gas steal attacker if we have one */
     if (reservedGasStealAttacker)
     {
         movableUnitCallback(reservedGasStealAttacker);
@@ -218,7 +218,7 @@ void DefendMyMain::disband(const std::function<void(const MyUnit)> &removedUnitC
 
     for (const auto &workerGasStealAttacker : reservedWorkerGasStealAttackers)
     {
-        Workers::releaseWorker(workerGasStealAttacker);
+        WorkerMgr::releaseWorker(workerGasStealAttacker);
     }
 }
 
@@ -227,12 +227,12 @@ bool DefendMyMain::canTransitionToAttack() const
     return squad->canTransitionToAttack();
 }
 
-void DefendMyMain::removeUnit(const MyUnit &unit)
+void DefendMyMain::removeUnit(const OwnedUnit &gameUnit)
 {
-    if (unit == reservedGasStealAttacker)
+    if (gameUnit == reservedGasStealAttacker)
     {
         reservedGasStealAttacker = nullptr;
     }
 
-    Play::removeUnit(unit);
+    PlayItem::removeUnit(gameUnit);
 }

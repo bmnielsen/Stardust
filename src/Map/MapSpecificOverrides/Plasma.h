@@ -13,14 +13,14 @@ public:
 
     bool canUseBwemPath(BWAPI::UnitType unitType) override
     {
-        // On Plasma, BWEM doesn't mark the mineral walking chokes as blocked
-        // So we can use BWEM pathing for workers but nothing else
+        /* On Plasma, BWEM doesn't mark the mineral walking chokes as blocked */
+        /* So we can use BWEM pathing for workers but nothing else */
         return unitType.isWorker();
     }
 
-    void onUnitDestroy(BWAPI::Unit unit) override;
+    void onUnitDestroy(BWAPI::Unit gameUnit) override;
 
-    bool clusterMove(UnitCluster &cluster, BWAPI::Position targetPosition) override;
+    bool clusterMove(UnitCluster &clump, BWAPI::Position targetPosition) override;
 
     void modifyMainBaseBuildingPlacementAreas(std::set<const BWEM::Area *> &areas) override;
 
@@ -28,7 +28,7 @@ public:
 
     bool allowDiagonalPathingThrough(int x, int y) override
     {
-        // On Plasma we allow diagonal pathing through all of the narrow ramps
+        /* On Plasma we allow diagonal pathing through all of the narrow ramps */
         return
                 (x == 13 && y == 26) || (x == 14 && y == 27) ||     // top-left main
                 (x == 25 && y == 119) || (x == 26 && y == 118) ||   // bottom-left main

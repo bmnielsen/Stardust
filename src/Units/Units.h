@@ -8,7 +8,7 @@
 #include "UpgradeOrTechType.h"
 #include "Base.h"
 
-namespace Units
+namespace UnitMgr
 {
     void initialize();
 
@@ -16,30 +16,30 @@ namespace Units
 
     void issueOrders();
 
-    void onUnitDestroy(BWAPI::Unit unit);
+    void onUnitDestroy(BWAPI::Unit gameUnit);
 
     void onBulletCreate(BWAPI::Bullet bullet);
 
-    Unit get(BWAPI::Unit unit);
+    Unit get(BWAPI::Unit gameUnit);
 
-    MyUnit mine(BWAPI::Unit unit);
+    OwnedUnit mine(BWAPI::Unit gameUnit);
 
-    MyUnit myBuildingAt(BWAPI::TilePosition tile);
+    OwnedUnit myBuildingAt(BWAPI::TilePosition tilePos);
 
-    std::unordered_set<MyUnit> &allMine();
+    std::unordered_set<OwnedUnit> &allMine();
 
-    std::unordered_set<MyUnit> &allMineCompletedOfType(BWAPI::UnitType type);
+    std::unordered_set<OwnedUnit> &allMineCompletedOfType(BWAPI::UnitType type);
 
-    std::unordered_set<MyUnit> &allMineIncompleteOfType(BWAPI::UnitType type);
+    std::unordered_set<OwnedUnit> &allMineIncompleteOfType(BWAPI::UnitType type);
 
-    std::map<BWAPI::UnitType, std::unordered_set<MyUnit>> &allMineIncompleteByType();
+    std::map<BWAPI::UnitType, std::unordered_set<OwnedUnit>> &allMineIncompleteByType();
 
     std::unordered_set<Unit> &allEnemy();
 
     std::unordered_set<Unit> &allEnemyOfType(BWAPI::UnitType type);
 
-    void mine(std::set<MyUnit> &units,
-              const std::function<bool(const MyUnit &)> &predicate = nullptr);
+    void mine(std::set<OwnedUnit> &units,
+              const std::function<bool(const OwnedUnit &)> &predicate = nullptr);
 
     void enemy(std::set<Unit> &units,
                const std::function<bool(const Unit &)> &predicate = nullptr);
@@ -53,7 +53,7 @@ namespace Units
                      const BWEM::Area *area,
                      const std::function<bool(const Unit &)> &predicate = nullptr);
 
-    std::unordered_set<Unit> &enemyAtBase(Base *base);
+    std::unordered_set<Unit> &enemyAtBase(Base *baseLoc);
 
     int countAll(BWAPI::UnitType type);
 
@@ -69,11 +69,11 @@ namespace Units
 
     bool hasEnemyBuilt(BWAPI::UnitType type);
 
-    Resource resourceAt(BWAPI::TilePosition tile);
+    Resource resourceAt(BWAPI::TilePosition tilePos);
 
     std::vector<Resource> myCompletedRefineries();
 
-    // TODO: This doesn't really fit here
+    /* TODO: This doesn't really fit here */
     bool isBeingUpgradedOrResearched(UpgradeOrTechType type);
 
 #if LOGGING_ENABLED

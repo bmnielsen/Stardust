@@ -1,0 +1,11 @@
+{
+  "name": "PvP_2gate_3zealot",
+  "matchup": "PvP",
+  "legacy_opening": "TwoGateDT",
+  "record_label": "TwoGateDT",
+  "legality": {
+    "blacklist_vs": ["ZealotRush", "ProxyRush", "WorkerRush", "TwoGate"]
+  },
+  "note": "D2 (AIIDE2025 report 2026-09-17). Aggression line for greedy opponents only; source BB 10/12gate (ProtossStrategy.cpp:2826-2879) + PW GGC-3Zealot (PvPOpening.scala:641-659). INERT BY DESIGN: no tier0_vs -> never selected until the scoring layer consumes the JSON library; opening array below is documentation only (no executor). Executor = existing TwoGateDT play.",
+  "transitions": []
+}

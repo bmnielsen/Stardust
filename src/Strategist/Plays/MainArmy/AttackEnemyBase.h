@@ -6,13 +6,17 @@
 class AttackEnemyBase : public MainArmyPlay
 {
 public:
-    Base *base;
+    Base *baseLoc;
 
-    explicit AttackEnemyBase(Base *base);
+    explicit AttackEnemyBase(Base *baseLoc);
 
     [[nodiscard]] bool isDefensive() const override { return false; }
 
-    std::shared_ptr<Squad> getSquad() override { return squad; }
+    std::shared_ptr<UnitSquad> getSquad() override { return squad; }
+
+    /* window_push (2026-10-08): puts the squad into all-in mode - it bypasses
+     * the whole fight-or-flight decision and presses the attack continuously */
+    void setAllIn(bool v) { squad->ignoreCombatSim = v; }
 
 private:
     std::shared_ptr<AttackBaseSquad> squad;

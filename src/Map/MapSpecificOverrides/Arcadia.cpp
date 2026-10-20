@@ -5,21 +5,21 @@
 
 void Arcadia::modifyBases(std::vector<Base *> &bases)
 {
-    // Top-right min-only
+    /* Top-right min-only */
 
-    // Hop out if we have the base
-    for (auto &base : bases)
+    /* Hop out if we have the base */
+    for (auto &baseLoc : bases)
     {
-        if (base->getTilePosition() == BWAPI::TilePosition(113, 40)) return;
+        if (baseLoc->getTilePosition() == BWAPI::TilePosition(113, 40)) return;
     }
 
     const BWEM::Area *area = BWEM::Map::Instance().GetNearestArea(BWAPI::TilePosition(113, 40));
 
     std::vector<Resource> mineralPatches;
 
-    auto addResource = [](BWAPI::TilePosition tile, std::vector<Resource> &resources)
+    auto addResource = [](BWAPI::TilePosition tilePos, std::vector<Resource> &resources)
     {
-        auto resource = Units::resourceAt(tile);
+        auto resource = UnitMgr::resourceAt(tilePos);
         if (resource)
         {
             resources.emplace_back(resource);
@@ -27,12 +27,12 @@ void Arcadia::modifyBases(std::vector<Base *> &bases)
 #if LOGGING_ENABLED
         else
         {
-            Log::Get() << "ERROR: Cannot find our resource unit for resource @ " << tile;
+            AppLog::Get() << "ERROR: Cannot find our resource unit for resource @ " << tilePos;
         }
 #endif
     };
 
-    for (auto tile : {
+    for (auto tilePos : {
             BWAPI::TilePosition(119, 36),
             BWAPI::TilePosition(120, 37),
             BWAPI::TilePosition(120, 39),
@@ -41,7 +41,7 @@ void Arcadia::modifyBases(std::vector<Base *> &bases)
             BWAPI::TilePosition(120, 43),
     })
     {
-        addResource(tile, mineralPatches);
+        addResource(tilePos, mineralPatches);
     }
 
     bases.push_back(new Base(BWAPI::TilePosition(113, 40), area, mineralPatches, {}));

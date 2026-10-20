@@ -4,7 +4,7 @@
 #include "Choke.h"
 #include "WorkerDefenseSquad.h"
 
-class EarlyGameDefendMainBaseSquad : public Squad
+class EarlyGameDefendMainBaseSquad : public UnitSquad
 {
 public:
     EarlyGameDefendMainBaseSquad();
@@ -24,11 +24,11 @@ private:
 
     void initializeChoke();
 
-    void execute(UnitCluster &cluster) override;
+    void execute(UnitCluster &clump) override;
 
-    [[nodiscard]] bool canAddUnitToCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster, int dist) const override;
+    [[nodiscard]] bool canAddUnitToCluster(const OwnedUnit &gameUnit, const std::shared_ptr<UnitCluster> &clump, int span) const override;
 
     [[nodiscard]] bool shouldCombineClusters(const std::shared_ptr<UnitCluster> &first, const std::shared_ptr<UnitCluster> &second) const override;
 
-    [[nodiscard]] bool shouldRemoveFromCluster(const MyUnit &unit, const std::shared_ptr<UnitCluster> &cluster) const override;
+    [[nodiscard]] bool shouldRemoveFromCluster(const OwnedUnit &gameUnit, const std::shared_ptr<UnitCluster> &clump) const override;
 };

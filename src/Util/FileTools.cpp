@@ -1,6 +1,8 @@
 #include "FileTools.h"
 
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 
 #define DEBUG_FAILED_PATHS false
 
@@ -11,7 +13,8 @@ namespace FileTools
         std::vector<std::string> dataLoadPaths = {
                 "bwapi-data/read/",
                 "bwapi-data/write/",
-                "bwapi-data/AI/"
+                "bwapi-data/AI/",
+                "bwapi-data/"
         };
         std::string dataWritePath = "bwapi-data/write/";
     }
@@ -47,9 +50,15 @@ namespace FileTools
             dbg << sep << path;
             sep = ", ";
         }
-        Log::Get() << dbg.str();
+        AppLog::Get() << dbg.str();
 #endif
 
         return "";
+    }
+
+    void appendLine(const std::string &label, const std::string &line)
+    {
+        std::ofstream out(getFilePath(label, "txt", true), std::ofstream::app);
+        if (out.is_open()) out << line << "\n";
     }
 }

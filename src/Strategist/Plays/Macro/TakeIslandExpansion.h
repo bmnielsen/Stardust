@@ -3,22 +3,22 @@
 #include "TakeExpansion.h"
 #include "MyWorker.h"
 
-// Takes the next expansion.
+/* Takes the next expansion. */
 class TakeIslandExpansion : public TakeExpansion
 {
 public:
-    explicit TakeIslandExpansion(Base *base, bool canCancel = true, bool transferWorkers = true);
+    explicit TakeIslandExpansion(Base *baseLoc, bool canCancel = true, bool transferWorkers = true);
 
     void update() override;
 
-    void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                 const std::function<void(const MyUnit)> &movableUnitCallback) override;
+    void disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                 const std::function<void(const OwnedUnit)> &movableUnitCallback) override;
 
-    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) override;
+    void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals) override;
 
-    void addUnit(const MyUnit &unit) override;
+    void addUnit(const OwnedUnit &gameUnit) override;
 
-    void removeUnit(const MyUnit &unit) override;
+    void removeUnit(const OwnedUnit &gameUnit) override;
 
     bool cancellable() override;
 
@@ -26,7 +26,7 @@ public:
 
 private:
     bool canCancel;
-    MyUnit shuttle;
+    OwnedUnit shuttle;
     int workerTransferState; // 0 = picking up workers, 1 = unloading workers, 2 = done
-    std::vector<MyWorker> workerTransfer;
+    std::vector<OwnedWorker> workerTransfer;
 };

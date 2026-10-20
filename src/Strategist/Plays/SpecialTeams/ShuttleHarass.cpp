@@ -13,9 +13,9 @@
 
 namespace
 {
-    const int HALT_DISTANCE = UnitUtil::HaltDistance(BWAPI::UnitTypes::Protoss_Shuttle) + 16;
+    const int HALT_DISTANCE = UnitHelper::HaltDistance(BWAPI::UnitTypes::Protoss_Shuttle) + 16;
 
-    // Define some positions for use in searching outwards from a point at tile resolution
+    /* Define some positions for use in searching outwards from a point at tile resolution */
     const BWAPI::Position surroundingPositions[] = {
             BWAPI::Position(0, -48),
             BWAPI::Position(16, -48),
@@ -36,43 +36,43 @@ namespace
 
     BWAPI::Position scaledPosition(BWAPI::Position currentPosition, BWAPI::Position vector, int length)
     {
-        auto scaledVector = Geo::ScaleVector(vector, length);
+        auto scaledVector = Geom::ScaleVector(vector, length);
         if (scaledVector == BWAPI::Positions::Invalid) return BWAPI::Positions::Invalid;
 
         return currentPosition + scaledVector;
     }
 
-    void movePreservingSpeed(const MyUnit &shuttle, BWAPI::Position target)
+    void movePreservingSpeed(const OwnedUnit &shuttle, BWAPI::Position target)
     {
-        int dist = shuttle->lastPosition.getApproxDistance(target);
-        if (dist == 0)
+        int span = shuttle->prevPos.getApproxDistance(target);
+        if (span == 0)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(shuttle->id) << "Move to " << BWAPI::WalkPosition(target) << ": on top; moving towards main";
+            Telemetry::log(shuttle->ident) << "Move to " << BWAPI::WalkPosition(target) << ": on top; moving towards main";
 #endif
 
-            // We're directly on top of the target, so we just need to move away
+            /* We're directly on top of the target, so we just need to move away */
             shuttle->moveTo(Map::getMyMain()->getPosition());
             return;
         }
 
-        // If the target is far enough away, just move directly
-        if (dist >= HALT_DISTANCE)
+        /* If the target is far enough away, just move directly */
+        if (span >= HALT_DISTANCE)
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(shuttle->id) << "Move to " << BWAPI::WalkPosition(target) << ": far away; moving directly";
+            Telemetry::log(shuttle->ident) << "Move to " << BWAPI::WalkPosition(target) << ": far away; moving directly";
 #endif
             shuttle->moveTo(target);
             return;
         }
 
-        // Otherwise get a position that overshoots the target sufficiently
-        auto scaledVector = Geo::ScaleVector(target - shuttle->lastPosition, HALT_DISTANCE);
-        auto scaledTarget = shuttle->lastPosition + scaledVector;
+        /* Otherwise get a position that overshoots the target sufficiently */
+        auto scaledVector = Geom::ScaleVector(target - shuttle->prevPos, HALT_DISTANCE);
+        auto scaledTarget = shuttle->prevPos + scaledVector;
         if (!scaledTarget.isValid())
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(shuttle->id) << "Move to " << BWAPI::WalkPosition(target) << ": near map edge; moving directly";
+            Telemetry::log(shuttle->ident) << "Move to " << BWAPI::WalkPosition(target) << ": near map edge; moving directly";
 #endif
 
             shuttle->moveTo(target);
@@ -80,55 +80,55 @@ namespace
         }
 
 #if DEBUG_UNIT_ORDERS
-        CherryVis::log(shuttle->id) << "Move to " << BWAPI::WalkPosition(target) << ": moving to " << BWAPI::WalkPosition(scaledTarget);
+        Telemetry::log(shuttle->ident) << "Move to " << BWAPI::WalkPosition(target) << ": moving to " << BWAPI::WalkPosition(scaledTarget);
 #endif
 
         shuttle->moveTo(scaledTarget);
     }
 
-    void moveAvoidingThreats(const Grid &grid, const MyUnit &shuttle, BWAPI::Position target)
+    void moveAvoidingThreats(const Grid &grid, const OwnedUnit &shuttle, BWAPI::Position target)
     {
-        // Check for threats one-and-a-half tiles ahead
-        auto ahead = scaledPosition(shuttle->lastPosition, target - shuttle->lastPosition, 48);
+        /* Check for threats one-and-a-half tiles ahead */
+        auto ahead = scaledPosition(shuttle->prevPos, target - shuttle->prevPos, 48);
         if (!ahead.isValid() || grid.airThreat(ahead) == 0)
         {
             movePreservingSpeed(shuttle, target);
             return;
         }
 
-        // Get the surrounding position closest to the target that is not under air threat
+        /* Get the surrounding position closest to the target that is not under air threat */
         int bestDist = INT_MAX;
         BWAPI::Position best = BWAPI::Positions::Invalid;
         for (auto &offset : surroundingPositions)
         {
-            auto here = shuttle->lastPosition + offset;
+            auto here = shuttle->prevPos + offset;
             if (!here.isValid()) continue;
             if (grid.airThreat(here) > 0) continue;
 
-            int dist = here.getApproxDistance(target);
-            if (dist < bestDist)
+            int span = here.getApproxDistance(target);
+            if (span < bestDist)
             {
                 best = here;
-                bestDist = dist;
+                bestDist = span;
             }
         }
 
-        // Move towards the best tile if possible
+        /* Move towards the best tile if possible */
         if (best != BWAPI::Positions::Invalid)
         {
             movePreservingSpeed(shuttle, best);
             return;
         }
 
-        // We couldn't find a better tile to move to, so just move away from the target position
-        auto behind = scaledPosition(shuttle->lastPosition, shuttle->lastPosition - target, 64);
+        /* We couldn't find a better tile to move to, so just move away from the target position */
+        auto behind = scaledPosition(shuttle->prevPos, shuttle->prevPos - target, 64);
         if (behind.isValid())
         {
             movePreservingSpeed(shuttle, behind);
         }
         else
         {
-            // Default to main base location when we don't have anywhere better to go
+            /* Default to main base location when we don't have anywhere better to go */
             shuttle->moveTo(Map::getMyMain()->getPosition());
         }
     }
@@ -136,74 +136,74 @@ namespace
 
 void ShuttleHarass::update()
 {
-    // Always request shuttles so all unassigned shuttles get assigned to this play
-    // This play is always at lowest priority with respect to other plays utilizing shuttles
+    /* Always request shuttles so all unassigned shuttles get assigned to this play */
+    /* This play is always at lowest priority with respect to other plays utilizing shuttles */
     status.unitRequirements.emplace_back(10, BWAPI::UnitTypes::Protoss_Shuttle, Map::getMyMain()->getPosition());
 
-    // Micro dropped units
+    /* Micro dropped units */
     for (auto &cargoAndTarget : cargoAndTargets)
     {
-        // We are still loaded - wait until we get dropped
-        if (cargoAndTarget.first->bwapiUnit->isLoaded())
+        /* We are still loaded - wait until we get dropped */
+        if (cargoAndTarget.first->rawUnit->isLoaded())
         {
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(cargoAndTarget.first->id) << "Waiting to be unloaded";
+            Telemetry::log(cargoAndTarget.first->ident) << "Waiting to be unloaded";
 #endif
             continue;
         }
 
-        // Target is dead
+        /* Target is dead */
         if (cargoAndTarget.second == nullptr || !cargoAndTarget.second->exists())
         {
             Unit target = nullptr;
             int bestDist = INT_MAX;
-            auto processUnit = [&](const Unit &unit)
+            auto processUnit = [&](const Unit &gameUnit)
             {
-                if (!unit->lastPositionValid) return;
-                if (unit->bwapiUnit->isStasised()) return;
+                if (!gameUnit->lastPositionValid) return;
+                if (gameUnit->rawUnit->isStasised()) return;
 
-                int dist = PathFinding::GetGroundDistance(cargoAndTarget.first->lastPosition,
-                                                          unit->lastPosition,
+                int span = Pathfinder::GetGroundDistance(cargoAndTarget.first->prevPos,
+                                                          gameUnit->prevPos,
                                                           cargoAndTarget.first->type,
-                                                          PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
-                if (dist != -1 && dist < bestDist)
+                                                          Pathfinder::PathFindingOptions::UseNeighbouringBWEMArea);
+                if (span != -1 && span < bestDist)
                 {
-                    bestDist = dist;
-                    target = unit;
+                    bestDist = span;
+                    target = gameUnit;
                 }
             };
 
-            for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode))
+            for (auto &gameUnit : UnitMgr::allEnemyOfType(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode))
             {
-                processUnit(unit);
+                processUnit(gameUnit);
             }
-            for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode))
+            for (auto &gameUnit : UnitMgr::allEnemyOfType(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode))
             {
-                processUnit(unit);
+                processUnit(gameUnit);
             }
 
             if (!target)
             {
 #if DEBUG_UNIT_ORDERS
-                CherryVis::log(cargoAndTarget.first->id) << "No targets available";
+                Telemetry::log(cargoAndTarget.first->ident) << "No targets available";
 #endif
                 status.removedUnits.emplace_back(cargoAndTarget.first);
                 continue;
             }
 
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(cargoAndTarget.first->id) << "Retargeted to " << (*target);
+            Telemetry::log(cargoAndTarget.first->ident) << "Retargeted to " << (*target);
 #endif
             cargoAndTarget.second = target;
         }
 
-        // Attack the target
+        /* Attack the target */
         cargoAndTarget.first->attackUnit(cargoAndTarget.second);
     }
 
-    // Micro shuttles
-    auto &grid = Players::grid(BWAPI::Broodwar->enemy());
-    auto mainArmyPlay = Strategist::getMainArmyPlay();
+    /* Micro shuttles */
+    auto &grid = PlayerInfo::grid(BWAPI::Broodwar->enemy());
+    auto mainArmyPlay = Director::getMainArmyPlay();
     auto mainArmySquad = mainArmyPlay ? mainArmyPlay->getSquad() : nullptr;
     auto mainArmyVanguard = mainArmySquad ? mainArmySquad->vanguardCluster() : nullptr;
     for (auto &shuttleAndCargo : shuttlesAndCargo)
@@ -211,42 +211,42 @@ void ShuttleHarass::update()
         auto &shuttle = shuttleAndCargo.first;
         auto &cargo = shuttleAndCargo.second;
 
-        // If all cargo is loaded, update their target
+        /* If all cargo is loaded, update their target */
         if (cargo.size() >= 2 &&
-            std::all_of(cargo.begin(), cargo.end(), [](const MyUnit& unit){ return unit->bwapiUnit->isLoaded(); }))
+            std::all_of(cargo.begin(), cargo.end(), [](const OwnedUnit& gameUnit){ return gameUnit->rawUnit->isLoaded(); }))
         {
-            // Ensure we have a target
+            /* Ensure we have a target */
             Unit target = nullptr;
-            auto it = cargoAndTargets.find(*cargo.begin());
-            if (it != cargoAndTargets.end() && it->second)
+            auto iterRef = cargoAndTargets.find(*cargo.begin());
+            if (iterRef != cargoAndTargets.end() && iterRef->second)
             {
-                target = it->second;
+                target = iterRef->second;
 
                 if (!target->exists())
                 {
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Clearing target as it no longer exists";
+                    Telemetry::log(shuttle->ident) << "Clearing target as it no longer exists";
 #endif
                     target = nullptr;
                 }
                 else if (!target->lastPositionValid)
                 {
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Clearing target as its last position is no longer valid";
+                    Telemetry::log(shuttle->ident) << "Clearing target as its last position is no longer valid";
 #endif
                     target = nullptr;
                 }
-                else if (shuttle->getDistance(target) > 48 && grid.airThreat(target->lastPosition) > 0)
+                else if (shuttle->getDistance(target) > 48 && grid.airThreat(target->prevPos) > 0)
                 {
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Clearing target as its last position is now under air threat";
+                    Telemetry::log(shuttle->ident) << "Clearing target as its last position is now under air threat";
 #endif
                     target = nullptr;
                 }
-                else if (grid.groundThreat(target->lastPosition) - grid.staticGroundThreat(target->lastPosition) > 30)
+                else if (grid.groundThreat(target->prevPos) - grid.staticGroundThreat(target->prevPos) > 30)
                 {
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Clearing target as its last position is now under non-static ground threat";
+                    Telemetry::log(shuttle->ident) << "Clearing target as its last position is now under non-static ground threat";
 #endif
                     target = nullptr;
                 }
@@ -255,79 +255,79 @@ void ShuttleHarass::update()
             if (!target)
             {
                 double bestScore = DBL_MAX;
-                auto processUnit = [&](const Unit &unit)
+                auto processUnit = [&](const Unit &gameUnit)
                 {
-                    if (!unit->lastPositionValid) return;
-                    if (unit->bwapiUnit->isStasised()) return;
+                    if (!gameUnit->lastPositionValid) return;
+                    if (gameUnit->rawUnit->isStasised()) return;
 
-                    // Skip tanks that have been repaired in the last 30 seconds
-                    if (unit->lastHealFrame > (currentFrame - 640)) return;
+                    /* Skip tanks that have been repaired in the last 30 seconds */
+                    if (gameUnit->lastHealFrame > (frameNow - 640)) return;
 
-                    int dist = shuttle->getDistance(unit);
+                    int span = shuttle->getDistance(gameUnit);
 
-                    // Don't drop on units covered by anti-air
-                    if (dist > 48 && grid.airThreat(unit->lastPosition) > 0) return;
+                    /* Don't drop on units covered by anti-air */
+                    if (span > 48 && grid.airThreat(gameUnit->prevPos) > 0) return;
 
-                    // Don't drop on units that are covered by excessive non-static ground threats
-                    if (grid.groundThreat(unit->lastPosition) - grid.staticGroundThreat(unit->lastPosition) > 30) return;
+                    /* Don't drop on units that are covered by excessive non-static ground threats */
+                    if (grid.groundThreat(gameUnit->prevPos) - grid.staticGroundThreat(gameUnit->prevPos) > 30) return;
 
-                    // Prefer sieged tanks
-                    double score = dist;
-                    if (unit->type == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) score *= 1.5;
+                    /* Prefer sieged tanks */
+                    double score = span;
+                    if (gameUnit->type == BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode) score *= 1.5;
 
-                    // Prefer damaged tanks
-                    double percentDamaged = (double)unit->health / BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode.maxHitPoints();
+                    /* Prefer damaged tanks */
+                    double percentDamaged = (double)gameUnit->health / BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode.maxHitPoints();
                     score /= std::max(percentDamaged, 0.25);
 
                     if (score < bestScore)
                     {
                         bestScore = score;
-                        target = unit;
+                        target = gameUnit;
                     }
                 };
-                for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode))
+                for (auto &gameUnit : UnitMgr::allEnemyOfType(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode))
                 {
-                    processUnit(unit);
+                    processUnit(gameUnit);
                 }
-                for (auto &unit : Units::allEnemyOfType(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode))
+                for (auto &gameUnit : UnitMgr::allEnemyOfType(BWAPI::UnitTypes::Terran_Siege_Tank_Tank_Mode))
                 {
-                    processUnit(unit);
+                    processUnit(gameUnit);
                 }
 
 #if DEBUG_UNIT_ORDERS
                 if (target)
                 {
-                    CherryVis::log(shuttle->id) << "Selected target " << (*target);
+                    Telemetry::log(shuttle->ident) << "Selected target " << (*target);
                 }
 #endif
-                for (auto &unit : cargo)
+                for (auto &gameUnit : cargo)
                 {
-                    cargoAndTargets[unit] = target;
+                    cargoAndTargets[gameUnit] = target;
                 }
             }
 
-            // If we don't have a target, hang around the vanguard cluster until we get one
+            /* If we don't have a target, hang around the vanguard cluster until we get one */
             if (!target)
             {
                 if (mainArmyVanguard)
                 {
-                    moveAvoidingThreats(grid, shuttle, mainArmyVanguard->center);
+                    moveAvoidingThreats(grid, shuttle, mainArmyVanguard->midpoint);
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Cargo loaded; no target; moving to vanguard @ " << BWAPI::WalkPosition(mainArmyVanguard->center);
+                    Telemetry::log(shuttle->ident) << "Cargo loaded; no target; moving to vanguard @ " << BWAPI::WalkPosition(mainArmyVanguard->midpoint);
 #endif
                 }
                 else
                 {
                     moveAvoidingThreats(grid, shuttle, Map::getMyMain()->getPosition());
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Cargo loaded; no target; moving to main";
+                    Telemetry::log(shuttle->ident) << "Cargo loaded; no target; moving to main";
 #endif
                 }
                 continue;
             }
         }
 
-        // If we are in the drop phase, drop loaded cargo on the target
+        /* If we are in the drop phase, drop loaded cargo on the target */
         Unit firstTarget = nullptr;
         auto firstTargetExists = [&]()
         {
@@ -342,66 +342,66 @@ void ShuttleHarass::update()
         };
         if (!cargo.empty() && firstTargetExists())
         {
-            // If all of our cargo is dropped, clear it and fall through to get new cargo
-            if (std::all_of(cargo.begin(), cargo.end(), [](const MyUnit& unit){ return !unit->bwapiUnit->isLoaded(); }))
+            /* If all of our cargo is dropped, clear it and fall through to get new cargo */
+            if (std::all_of(cargo.begin(), cargo.end(), [](const OwnedUnit& gameUnit){ return !gameUnit->rawUnit->isLoaded(); }))
             {
 #if DEBUG_UNIT_ORDERS
-                CherryVis::log(shuttle->id) << "Cleared cargo";
+                Telemetry::log(shuttle->ident) << "Cleared cargo";
 #endif
                 cargo.clear();
             }
             else
             {
-                // Drop loaded units on the target
+                /* Drop loaded units on the target */
                 auto distToTarget = shuttle->getDistance(firstTarget);
                 if (distToTarget > 16)
                 {
-                    moveAvoidingThreats(grid, shuttle, firstTarget->lastPosition);
+                    moveAvoidingThreats(grid, shuttle, firstTarget->prevPos);
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Cargo loaded; moving to target " << BWAPI::WalkPosition(firstTarget->lastPosition);
+                    Telemetry::log(shuttle->ident) << "Cargo loaded; moving to target " << BWAPI::WalkPosition(firstTarget->prevPos);
 #endif
                 }
                 else
                 {
-                    for (auto &unit : cargo)
+                    for (auto &gameUnit : cargo)
                     {
-                        if (unit->bwapiUnit->isLoaded())
+                        if (gameUnit->rawUnit->isLoaded())
                         {
-                            shuttle->unload(unit->bwapiUnit);
+                            shuttle->unload(gameUnit->rawUnit);
                             break;
                         }
                     }
 #if DEBUG_UNIT_ORDERS
-                    CherryVis::log(shuttle->id) << "Cargo loaded; unloading on target " << BWAPI::WalkPosition(firstTarget->lastPosition);
+                    Telemetry::log(shuttle->ident) << "Cargo loaded; unloading on target " << BWAPI::WalkPosition(firstTarget->prevPos);
 #endif
                 }
                 continue;
             }
         }
 
-        // We have cargo awaiting pickup
+        /* We have cargo awaiting pickup */
         if (!cargo.empty() &&
-            std::any_of(cargo.begin(), cargo.end(), [](const MyUnit& unit){ return !unit->bwapiUnit->isLoaded(); }))
+            std::any_of(cargo.begin(), cargo.end(), [](const OwnedUnit& gameUnit){ return !gameUnit->rawUnit->isLoaded(); }))
         {
-            for (auto &unit : cargo)
+            for (auto &gameUnit : cargo)
             {
-                if (!unit->bwapiUnit->isLoaded())
+                if (!gameUnit->rawUnit->isLoaded())
                 {
-                    unit->moveTo(shuttle->lastPosition);
+                    gameUnit->moveTo(shuttle->prevPos);
 
-                    auto distToCargo = shuttle->getDistance(unit);
+                    auto distToCargo = shuttle->getDistance(gameUnit);
                     if (distToCargo > 100)
                     {
-                        moveAvoidingThreats(grid, shuttle, unit->lastPosition);
+                        moveAvoidingThreats(grid, shuttle, gameUnit->prevPos);
 #if DEBUG_UNIT_ORDERS
-                        CherryVis::log(shuttle->id) << "Moving to cargo " << (*unit);
+                        Telemetry::log(shuttle->ident) << "Moving to cargo " << (*gameUnit);
 #endif
                     }
                     else
                     {
-                        shuttle->load(unit->bwapiUnit);
+                        shuttle->load(gameUnit->rawUnit);
 #if DEBUG_UNIT_ORDERS
-                        CherryVis::log(shuttle->id) << "Loading cargo " << (*unit);
+                        Telemetry::log(shuttle->ident) << "Loading cargo " << (*gameUnit);
 #endif
                     }
                     break;
@@ -411,28 +411,28 @@ void ShuttleHarass::update()
             continue;
         }
 
-        // We need more cargo
+        /* We need more cargo */
 
-        // If we don't have a main army vanguard, move the shuttle to our main base until we do
+        /* If we don't have a main army vanguard, move the shuttle to our main base until we do */
         if (!mainArmyVanguard)
         {
             moveAvoidingThreats(grid, shuttle, Map::getMyMain()->getPosition());
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(shuttle->id) << "Waiting for vanguard";
+            Telemetry::log(shuttle->ident) << "Waiting for vanguard";
 #endif
             continue;
         }
 
-        // Move to the vanguard center
-        moveAvoidingThreats(grid, shuttle, mainArmyVanguard->center);
+        /* Move to the vanguard center */
+        moveAvoidingThreats(grid, shuttle, mainArmyVanguard->midpoint);
 
-        // If the shuttle is near the vanguard center, and there is a potential target, request a zealot
-        auto vanguardDist = shuttle->getDistance(mainArmyVanguard->center);
-        if (vanguardDist < (500 + mainArmyVanguard->lineRadius) && Units::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode))
+        /* If the shuttle is near the vanguard center, and there is a potential target, request a zealot */
+        auto vanguardDist = shuttle->getDistance(mainArmyVanguard->midpoint);
+        if (vanguardDist < (500 + mainArmyVanguard->lineRadius) && UnitMgr::countEnemy(BWAPI::UnitTypes::Terran_Siege_Tank_Siege_Mode))
         {
-            status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Zealot, shuttle->lastPosition, 640);
+            status.unitRequirements.emplace_back(1, BWAPI::UnitTypes::Protoss_Zealot, shuttle->prevPos, 640);
 #if DEBUG_UNIT_ORDERS
-            CherryVis::log(shuttle->id) << "Requesting zealot";
+            Telemetry::log(shuttle->ident) << "Requesting zealot";
 #endif
         }
     }

@@ -9,99 +9,99 @@ namespace WorkerMiningOptimization
 {
     struct WorkerGatherStatus
     {
-        // The worker gathering
-        MyWorker worker;
+        /* The worker gathering */
+        OwnedWorker wrk;
 
-        // The depot returning to
-        MyUnit depot;
+        /* The depot returning to */
+        OwnedUnit depot;
 
-        // The resource being gathered from
+        /* The resource being gathered from */
         Resource resource;
 
-        // The last frame this worker was optimized
+        /* The last frame this worker was optimized */
         int lastProcessedFrame;
 
-        // The positions this worker has visited while on its way to the patch
+        /* The positions this worker has visited while on its way to the patch */
         std::vector<std::shared_ptr<const PositionAndVelocity>> positionHistory;
 
-        // Whether the path started at the depot
+        /* Whether the path started at the depot */
         bool pathStartsAtDepot;
 
-        // Whether the path started at the worker's spawn position
+        /* Whether the path started at the worker's spawn position */
         bool pathStartsAtSpawnPosition;
 
-        // How many positions should be ignored before optimizing the worker
+        /* How many positions should be ignored before optimizing the worker */
         int remainingIgnorePositions;
 
-        // Whether the worker has left the depot
+        /* Whether the worker has left the depot */
         bool hasLeftDepot;
 
-        // Whether we have planned the resends we want to send on this path
+        /* Whether we have planned the resends we want to send on this path */
         bool resendsPlanned;
 
-        // Whether we have planned a resend to explore an unobserved path
+        /* Whether we have planned a resend to explore an unobserved path */
         bool exploring;
 
-        // Planned first resend position
+        /* Planned first resend position */
         std::unique_ptr<GatherPositionObservationPtr> plannedResendPosition;
 
-        // Planned second resend position
+        /* Planned second resend position */
         std::unique_ptr<GatherPositionObservationPtr> plannedSecondResendPosition;
 
-        // The expected node path the worker will follow
+        /* The expected node path the worker will follow */
         std::deque<GatherPositionObservationPtr> expectedPath;
 
-        // The root node of the path being followed
-        // This is stored here to ensure the entire path is kept in memory until the gather status is destroyed
+        /* The root node of the path being followed */
+        /* This is stored here to ensure the entire path is kept in memory until the gather status is destroyed */
         std::unique_ptr<GatherPositionObservations> rootNode;
 
-        // The current position of the worker in the expected path
+        /* The current position of the worker in the expected path */
         std::unique_ptr<GatherPositionObservationPtr> currentNode;
 
-        // The expected frames the worker could arrive at the patch with their occurrence rates
+        /* The expected frames the worker could arrive at the patch with their occurrence rates */
         std::vector<std::pair<int, int>> expectedArrivalFrameAndOccurrenceRate;
 
-        // Positions at which the gather command was resent
+        /* Positions at which the gather command was resent */
         std::vector<std::shared_ptr<const PositionAndVelocity>> resentPositions;
 
-        // Frames at which we have send gather commands
+        /* Frames at which we have send gather commands */
         std::set<int> resentFrames;
 
-        // Mode to use for takeover, current allowed values: 0=use normal approach optimization, 1=use takeover optimization, 2=at patch
+        /* Mode to use for takeover, current allowed values: 0=use normal approach optimization, 1=use takeover optimization, 2=at patch */
         int takeoverState;
 
-        // The frame where we want to take over mining from another worker
+        /* The frame where we want to take over mining from another worker */
         int takeoverFrame;
 
-        // Tracks the frame when the worker passed a position LF+1 before reaching 10 distance from the patch
+        /* Tracks the frame when the worker passed a position LF+1 before reaching 10 distance from the patch */
         int passed10DistancePosition;
 
-        // Whether the worker passed a previously-unregistered 10-distance position
+        /* Whether the worker passed a previously-unregistered 10-distance position */
         bool passedUnregistered10DistancePosition;
 
-        // Whether the worker switched patches while trying to mine
+        /* Whether the worker switched patches while trying to mine */
         bool switchedPatches;
 
-        // Whether the worker had path data it could use on this approach
+        /* Whether the worker had path data it could use on this approach */
         bool hasPathData;
 
-        // The frame at which the worker is expected to lock to the patch
-        // If the worker is not expected to lock to the patch, this will be -1
-        // Only applicable when taking over from another worker
+        /* The frame at which the worker is expected to lock to the patch */
+        /* If the worker is not expected to lock to the patch, this will be -1 */
+        /* Only applicable when taking over from another worker */
         int expectedPatchLockFrame;
 
-        // Same as the above, but the actual frame after patch lock has occurred
+        /* Same as the above, but the actual frame after patch lock has occurred */
         int actualPatchLockFrame;
 
-        // The frame this worker is expected to start mining
-        // Not relevant if the worker has an expected patch lock frame, since the mining start frame then depends on the
-        // worker being taken over from
-        // If the expected mining start frame is unknown, this will be -1
-        // Only applicable when taking over from another worker
+        /* The frame this worker is expected to start mining */
+        /* Not relevant if the worker has an expected patch lock frame, since the mining start frame then depends on the */
+        /* worker being taken over from */
+        /* If the expected mining start frame is unknown, this will be -1 */
+        /* Only applicable when taking over from another worker */
         int expectedMiningStartFrame;
 
-        WorkerGatherStatus(MyWorker worker, MyUnit depot, Resource resource)
-                : worker(std::move(worker))
+        WorkerGatherStatus(OwnedWorker wrk, OwnedUnit depot, Resource resource)
+                : wrk(std::move(wrk))
                 , depot(std::move(depot))
                 , resource(std::move(resource))
                 , lastProcessedFrame(-2)
@@ -155,12 +155,12 @@ namespace WorkerMiningOptimization
         {
             if (!positionHistory.empty()) return false;
 
-            // If the path started at the worker's spawn position, ignore the first 12 positions
-            // The rationale for this is that spawning workers get a random heading, so treating each spawn location separately will result in
-            // an excessive number of root nodes
+            /* If the path started at the worker's spawn position, ignore the first 12 positions */
+            /* The rationale for this is that spawning workers get a random heading, so treating each spawn location separately will result in */
+            /* an excessive number of root nodes */
             if (!pathStartsAtSpawnPosition)
             {
-                pathStartsAtSpawnPosition = (worker->lastCarryingResourceChange == -1) && (worker->lastPosition == worker->spawnPosition);
+                pathStartsAtSpawnPosition = (wrk->lastCarryingResourceChange == -1) && (wrk->prevPos == wrk->spawnPosition);
                 if (!pathStartsAtSpawnPosition) return false;
 
                 remainingIgnorePositions = 12;
@@ -183,10 +183,10 @@ namespace WorkerMiningOptimization
 
         [[nodiscard]] int plannedResendCount() const
         {
-            int result = 0;
-            if (plannedResendPosition) result++;
-            if (plannedSecondResendPosition) result++;
-            return result;
+            int outcome = 0;
+            if (plannedResendPosition) outcome++;
+            if (plannedSecondResendPosition) outcome++;
+            return outcome;
         }
 
         [[nodiscard]] int lastResendFrame() const
@@ -199,7 +199,7 @@ namespace WorkerMiningOptimization
         {
             if (!expectedPath.empty())
             {
-                return currentFrame + ((int)expectedPath.size() - 1);
+                return frameNow + ((int)expectedPath.size() - 1);
             }
             if (resentFrames.empty()) return -1;
             return *resentFrames.rbegin();
@@ -238,9 +238,9 @@ namespace WorkerMiningOptimization
             {
                 buf << "[";
                 std::string sep;
-                for (const auto &[frame, occurrenceRate] : expectedArrivalFrameAndOccurrenceRate)
+                for (const auto &[tick, occurrenceRate] : expectedArrivalFrameAndOccurrenceRate)
                 {
-                    buf << sep << frame << "/" << std::round((double)occurrenceRate / 255.0);
+                    buf << sep << tick << "/" << std::round((double)occurrenceRate / 255.0);
                     sep = ", ";
                 }
                 buf << "]";

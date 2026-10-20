@@ -12,7 +12,7 @@ public:
 
     explicit UpgradeTracker(BWAPI::Player player) : player(player) {}
 
-    // Updates the items that have been queried previously
+    /* Updates the items that have been queried previously */
     void update(Grid &grid);
 
     int weaponDamage(BWAPI::WeaponType wpn);

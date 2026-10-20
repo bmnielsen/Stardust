@@ -4,10 +4,10 @@
 #include "UnitUtil.h"
 #include "NoGoAreas.h"
 
-Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyWorker builder, int desiredStartFrame)
+Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tilePos, OwnedWorker builder, int desiredStartFrame)
         : type(type)
-        , tile(tile)
-        , unit(nullptr)
+        , tilePos(tilePos)
+        , gameUnit(nullptr)
         , builder(std::move(builder))
         , desiredStartFrame(desiredStartFrame)
         , buildCommandSuccessFrames(0)
@@ -17,45 +17,45 @@ Building::Building(BWAPI::UnitType type, BWAPI::TilePosition tile, MyWorker buil
 {
 }
 
-void Building::constructionStarted(MyUnit startedUnit)
+void Building::constructionStarted(OwnedUnit startedUnit)
 {
-    unit = std::move(startedUnit);
-    startFrame = currentFrame;
+    gameUnit = std::move(startedUnit);
+    startFrame = frameNow;
 }
 
 BWAPI::Position Building::getPosition() const
 {
-    return BWAPI::Position(tile) + BWAPI::Position(type.tileWidth() * 16, type.tileHeight() * 16);
+    return BWAPI::Position(tilePos) + BWAPI::Position(type.tileWidth() * 16, type.tileHeight() * 16);
 }
 
 bool Building::isConstructionStarted() const
 {
-    return unit && unit->exists();
+    return gameUnit && gameUnit->exists();
 }
 
 int Building::expectedFramesUntilStarted() const
 {
-    if (unit && unit->exists()) return 0;
+    if (gameUnit && gameUnit->exists()) return 0;
 
-    // This can be inaccurate if this isn't the next building in the builder's queue
-    // TODO: Verify this doesn't cause problems
+    /* This can be inaccurate if this isn't the next building in the builder's queue */
+    /* TODO: Verify this doesn't cause problems */
     int workerFrames =
-            PathFinding::ExpectedTravelTime(builder->lastPosition,
+            Pathfinder::ExpectedTravelTime(builder->prevPos,
                                             getPosition(),
                                             builder->type,
-                                            PathFinding::PathFindingOptions::UseNearestBWEMArea);
+                                            Pathfinder::PathFindingOptions::UseNearestBWEMArea);
 
-    return std::max(workerFrames, desiredStartFrame - currentFrame);
+    return std::max(workerFrames, desiredStartFrame - frameNow);
 }
 
 int Building::expectedFramesUntilCompletion() const
 {
     if (startFrame != -1)
     {
-        return UnitUtil::BuildTime(type) - (currentFrame - startFrame);
+        return UnitHelper::BuildTime(type) - (frameNow - startFrame);
     }
 
-    return UnitUtil::BuildTime(type) + expectedFramesUntilStarted();
+    return UnitHelper::BuildTime(type) + expectedFramesUntilStarted();
 }
 
 bool Building::builderReady() const
@@ -69,10 +69,10 @@ void Building::addNoGoAreaWhenNeeded()
 {
     if (noGoAreaAdded) return;
 
-    // Add the no-go area when the desired start frame is within 5 seconds of now
+    /* Add the no-go area when the desired start frame is within 5 seconds of now */
     if (expectedFramesUntilStarted() > 120) return;
 
-    NoGoAreas::addBox(NoGoAreas::Type::GroundNavigational, tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
+    NoGoAreas::addBox(NoGoAreas::Type::GroundNavigational, tilePos - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
     noGoAreaAdded = true;
 }
 
@@ -80,7 +80,7 @@ void Building::removeNoGoArea()
 {
     if (!noGoAreaAdded) return;
 
-    NoGoAreas::removeBox(NoGoAreas::Type::GroundNavigational, tile - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
+    NoGoAreas::removeBox(NoGoAreas::Type::GroundNavigational, tilePos - BWAPI::TilePosition(1, 1), type.tileSize() + BWAPI::TilePosition(2, 2));
     noGoAreaAdded = false;
 }
 

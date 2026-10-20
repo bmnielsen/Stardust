@@ -15,45 +15,45 @@ namespace
 
 bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
 {
-    // Don't form an arc if the cluster only consists of flying units
+    /* Don't form an arc if the cluster only consists of flying units */
     if (vanguard->isFlying) return false;
 
-    // Don't form an arc if the walkable width at the vanguard unit is too small
-    // This indicates we are in a narrow space that isn't well-suited to forming an arc
+    /* Don't form an arc if the walkable width at the vanguard unit is too small */
+    /* This indicates we are in a narrow space that isn't well-suited to forming an arc */
     if (Map::walkableWidth(vanguard->tilePositionX, vanguard->tilePositionY) < 7)
     {
         return false;
     }
 
-    int vanguardDistToPivot = vanguard->lastPosition.getApproxDistance(pivot);
+    int vanguardDistToPivot = vanguard->prevPos.getApproxDistance(pivot);
 
-    // Now micro the units
+    /* Now micro the units */
     for (auto &myUnit : units)
     {
         if (myUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
 
-        // If the unit is stuck, unstick it
+        /* If the unit is stuck, unstick it */
         if (myUnit->unstick()) continue;
 
-        // If the unit is not ready (i.e. is already in the middle of an attack), don't touch it
+        /* If the unit is not ready (i.e. is already in the middle of an attack), don't touch it */
         if (!myUnit->isReady()) continue;
 
-        // Flying units go to the vanguard
+        /* Flying units go to the vanguard */
         if (myUnit->isFlying)
         {
-            myUnit->moveTo(vanguard->lastPosition);
+            myUnit->moveTo(vanguard->prevPos);
             continue;
         }
 
-        // Units that are too far away move towards the vanguard
-        int distToPivot = myUnit->lastPosition.getApproxDistance(pivot);
+        /* Units that are too far away move towards the vanguard */
+        int distToPivot = myUnit->prevPos.getApproxDistance(pivot);
         if (distToPivot - vanguardDistToPivot > 128)
         {
-            myUnit->moveTo(vanguard->lastPosition);
+            myUnit->moveTo(vanguard->prevPos);
             continue;
         }
 
-        // Separation boid: push away from friendly units
+        /* Separation boid: push away from friendly units */
         int separationX = 0;
         int separationY = 0;
         for (const auto &other : units)
@@ -70,21 +70,21 @@ bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
                                  separationY);
         }
 
-        // Goal boid: attempt to keep the desired distance from the pivot
+        /* Goal boid: attempt to keep the desired distance from the pivot */
         int goalX = 0;
         int goalY = 0;
 
-        // If we have a separation component, weight the goal at least twice as high
-        int separationLength = Geo::ApproximateDistance(separationX, 0, separationY, 0);
-        int desiredDistChange = myUnit->lastPosition.getApproxDistance(pivot) - desiredDistance + (UnitUtil::IsRangedUnit(myUnit->type) ? 0 : 32);
+        /* If we have a separation component, weight the goal at least twice as high */
+        int separationLength = Geom::ApproximateDistance(separationX, 0, separationY, 0);
+        int desiredDistChange = myUnit->prevPos.getApproxDistance(pivot) - desiredDistance + (UnitHelper::IsRangedUnit(myUnit->type) ? 0 : 32);
         BWAPI::Position vector;
         if (desiredDistChange > 0)
         {
-            vector = Geo::ScaleVector(pivot - myUnit->lastPosition, std::max(desiredDistChange, separationLength * 2));
+            vector = Geom::ScaleVector(pivot - myUnit->prevPos, std::max(desiredDistChange, separationLength * 2));
         }
         else
         {
-            vector = Geo::ScaleVector(pivot - myUnit->lastPosition, -std::max(-desiredDistChange, separationLength * 2));
+            vector = Geom::ScaleVector(pivot - myUnit->prevPos, -std::max(-desiredDistChange, separationLength * 2));
         }
 
         if (vector != BWAPI::Positions::Invalid)
@@ -93,36 +93,36 @@ bool UnitCluster::formArc(BWAPI::Position pivot, int desiredDistance)
             goalY = vector.y;
         }
 
-        auto pos = Boids::ComputePosition(myUnit.get(), {goalX, separationX}, {goalY, separationY}, 0, 4);
+        auto pt = Boids::ComputePosition(myUnit.get(), {goalX, separationX}, {goalY, separationY}, 0, 4);
 
 #if DEBUG_UNIT_BOIDS
-        CherryVis::log(myUnit->id) << "Arc boids " << desiredDistance << " from " << BWAPI::WalkPosition(pivot)
+        Telemetry::log(myUnit->ident) << "Arc boids " << desiredDistance << " from " << BWAPI::WalkPosition(pivot)
                                    << ", change=" << desiredDistChange
-                                   << ": goal=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX, goalY))
-                                   << "; separation=" << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(separationX, separationY))
+                                   << ": goal=" << BWAPI::WalkPosition(myUnit->prevPos + BWAPI::Position(goalX, goalY))
+                                   << "; separation=" << BWAPI::WalkPosition(myUnit->prevPos + BWAPI::Position(separationX, separationY))
                                    << "; total="
-                                   << BWAPI::WalkPosition(myUnit->lastPosition + BWAPI::Position(goalX + separationX, goalY + separationY))
-                                   << "; target=" << BWAPI::WalkPosition(pos);
+                                   << BWAPI::WalkPosition(myUnit->prevPos + BWAPI::Position(goalX + separationX, goalY + separationY))
+                                   << "; target=" << BWAPI::WalkPosition(pt);
 #elif DEBUG_UNIT_ORDERS
-        if (pos == BWAPI::Positions::Invalid)
+        if (pt == BWAPI::Positions::Invalid)
         {
-            CherryVis::log(myUnit->id) << "Arc boids: Invalid; moving to "
-                                       << BWAPI::WalkPosition(vanguard->lastPosition);
+            Telemetry::log(myUnit->ident) << "Arc boids: Invalid; moving to "
+                                       << BWAPI::WalkPosition(vanguard->prevPos);
         }
         else
         {
-            CherryVis::log(myUnit->id) << "Arc boids: Moving to " << BWAPI::WalkPosition(pos);
+            Telemetry::log(myUnit->ident) << "Arc boids: Moving to " << BWAPI::WalkPosition(pt);
         }
 #endif
 
-        // If the unit can't move in the desired direction, move towards the vanguard unit
-        if (pos == BWAPI::Positions::Invalid)
+        /* If the unit can't move in the desired direction, move towards the vanguard unit */
+        if (pt == BWAPI::Positions::Invalid)
         {
-            myUnit->moveTo(vanguard->lastPosition);
+            myUnit->moveTo(vanguard->prevPos);
         }
         else
         {
-            myUnit->moveTo(pos, true);
+            myUnit->moveTo(pt, true);
         }
     }
 

@@ -15,7 +15,7 @@ namespace
     };
     std::vector<radiusPosition> radiusPositions;
 
-    // Copied from openbw's bwgame.h, used for BW direction math
+    /* Copied from openbw's bwgame.h, used for BW direction math */
     const std::array<unsigned int, 64> tan_table = {
             7, 13, 19, 26, 32, 38, 45, 51, 58, 65, 71, 78, 85, 92,
             99, 107, 114, 122, 129, 137, 146, 154, 163, 172, 181,
@@ -66,7 +66,7 @@ namespace
     };    
 }
 
-namespace Geo
+namespace Geom
 {
     void initialize()
     {
@@ -76,9 +76,9 @@ namespace Geo
         {
             for (int y = -256; y <= 256; y++)
             {
-                int dist = Geo::ApproximateDistance(0, x, 0, y);
-                if (dist > 256) continue;
-                radiusPositions.emplace_back(radiusPosition{dist, x, y});
+                int span = Geom::ApproximateDistance(0, x, 0, y);
+                if (span > 256) continue;
+                radiusPositions.emplace_back(radiusPosition{span, x, y});
             }
         }
 
@@ -109,60 +109,60 @@ namespace Geo
 
     int EdgeToEdgeDistance(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter)
     {
-        // Compute bounding boxes
+        /* Compute bounding boxes */
         BWAPI::Position firstTopLeft = firstCenter + BWAPI::Position(-firstType.dimensionLeft(), -firstType.dimensionUp());
         BWAPI::Position firstBottomRight = firstCenter + BWAPI::Position(firstType.dimensionRight(), firstType.dimensionDown());
         BWAPI::Position secondTopLeft = secondCenter + BWAPI::Position(-secondType.dimensionLeft(), -secondType.dimensionUp());
         BWAPI::Position secondBottomRight = secondCenter + BWAPI::Position(secondType.dimensionRight(), secondType.dimensionDown());
 
-        // Compute offsets
+        /* Compute offsets */
         int xDist = (std::max)({firstTopLeft.x - secondBottomRight.x - 1, secondTopLeft.x - firstBottomRight.x - 1, 0});
         int yDist = (std::max)({firstTopLeft.y - secondBottomRight.y - 1, secondTopLeft.y - firstBottomRight.y - 1, 0});
 
-        // Compute distance
+        /* Compute distance */
         return ApproximateDistance(xDist, 0, yDist, 0);
     }
 
-    int EdgeToPointDistance(BWAPI::UnitType type, BWAPI::Position center, BWAPI::Position point)
+    int EdgeToPointDistance(BWAPI::UnitType type, BWAPI::Position midpoint, BWAPI::Position point)
     {
-        // Compute bounding box
-        BWAPI::Position topLeft = center + BWAPI::Position(-type.dimensionLeft(), -type.dimensionUp());
-        BWAPI::Position bottomRight = center + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
+        /* Compute bounding box */
+        BWAPI::Position cornerTL = midpoint + BWAPI::Position(-type.dimensionLeft(), -type.dimensionUp());
+        BWAPI::Position bottomRight = midpoint + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
 
-        // Compute offsets
-        int xDist = (std::max)({topLeft.x - point.x, point.x - bottomRight.x - 1, 0});
-        int yDist = (std::max)({topLeft.y - point.y, point.y - bottomRight.y - 1, 0});
+        /* Compute offsets */
+        int xDist = (std::max)({cornerTL.x - point.x, point.x - bottomRight.x - 1, 0});
+        int yDist = (std::max)({cornerTL.y - point.y, point.y - bottomRight.y - 1, 0});
 
-        // Compute distance
+        /* Compute distance */
         return ApproximateDistance(xDist, 0, yDist, 0);
     }
 
-    int EdgeToTileDistance(BWAPI::UnitType type, BWAPI::TilePosition topLeft, BWAPI::TilePosition tile)
+    int EdgeToTileDistance(BWAPI::UnitType type, BWAPI::TilePosition cornerTL, BWAPI::TilePosition tilePos)
     {
-        BWAPI::TilePosition bottomRight = topLeft + type.tileSize();
+        BWAPI::TilePosition bottomRight = cornerTL + type.tileSize();
 
-        // Compute offsets
-        int xDist = (std::max)({topLeft.x - tile.x - 1, tile.x - bottomRight.x - 1, 0});
-        int yDist = (std::max)({topLeft.y - tile.y - 1, tile.y - bottomRight.y - 1, 0});
+        /* Compute offsets */
+        int xDist = (std::max)({cornerTL.x - tilePos.x - 1, tilePos.x - bottomRight.x - 1, 0});
+        int yDist = (std::max)({cornerTL.y - tilePos.y - 1, tilePos.y - bottomRight.y - 1, 0});
 
-        // Compute distance
+        /* Compute distance */
         return ApproximateDistance(xDist, 0, yDist, 0);
     }
 
-    BWAPI::Position NearestPointOnEdge(BWAPI::Position point, BWAPI::UnitType type, BWAPI::Position center)
+    BWAPI::Position NearestPointOnEdge(BWAPI::Position point, BWAPI::UnitType type, BWAPI::Position midpoint)
     {
-        // Compute bounding box
-        BWAPI::Position topLeft = center + BWAPI::Position(-type.dimensionLeft(), -type.dimensionUp());
-        BWAPI::Position bottomRight = center + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
+        /* Compute bounding box */
+        BWAPI::Position cornerTL = midpoint + BWAPI::Position(-type.dimensionLeft(), -type.dimensionUp());
+        BWAPI::Position bottomRight = midpoint + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
 
         return {
-                point.x < topLeft.x ? topLeft.x : (point.x > bottomRight.x ? bottomRight.x : point.x),
-                point.y < topLeft.y ? topLeft.y : (point.y > bottomRight.y ? bottomRight.y : point.y)};
+                point.x < cornerTL.x ? cornerTL.x : (point.x > bottomRight.x ? bottomRight.x : point.x),
+                point.y < cornerTL.y ? cornerTL.y : (point.y > bottomRight.y ? bottomRight.y : point.y)};
     }
 
     bool Overlaps(BWAPI::UnitType firstType, BWAPI::Position firstCenter, BWAPI::UnitType secondType, BWAPI::Position secondCenter)
     {
-        // Compute bounding boxes
+        /* Compute bounding boxes */
         BWAPI::Position firstTopLeft = firstCenter + BWAPI::Position(-firstType.dimensionLeft(), -firstType.dimensionUp());
         BWAPI::Position firstBottomRight = firstCenter + BWAPI::Position(firstType.dimensionRight(), firstType.dimensionDown());
         BWAPI::Position secondTopLeft = secondCenter + BWAPI::Position(-secondType.dimensionLeft(), -secondType.dimensionUp());
@@ -172,14 +172,14 @@ namespace Geo
                firstBottomRight.y >= secondTopLeft.y && secondBottomRight.y >= firstTopLeft.y;
     }
 
-    bool Overlaps(BWAPI::UnitType type, BWAPI::Position center, BWAPI::Position point)
+    bool Overlaps(BWAPI::UnitType type, BWAPI::Position midpoint, BWAPI::Position point)
     {
-        // Compute bounding box
-        BWAPI::Position topLeft = center + BWAPI::Position(-type.dimensionLeft(), -type.dimensionUp());
-        BWAPI::Position bottomRight = center + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
+        /* Compute bounding box */
+        BWAPI::Position cornerTL = midpoint + BWAPI::Position(-type.dimensionLeft(), -type.dimensionUp());
+        BWAPI::Position bottomRight = midpoint + BWAPI::Position(type.dimensionRight(), type.dimensionDown());
 
-        return bottomRight.x >= point.x && point.x >= topLeft.x &&
-               bottomRight.y >= point.y && point.y >= topLeft.y;
+        return bottomRight.x >= point.x && point.x >= cornerTL.x &&
+               bottomRight.y >= point.y && point.y >= cornerTL.y;
     }
 
     bool Overlaps(BWAPI::TilePosition firstTopLeft, int firstWidth, int firstHeight,
@@ -192,11 +192,11 @@ namespace Geo
     }
 
 
-    bool Walkable(BWAPI::UnitType type, BWAPI::Position center)
+    bool Walkable(BWAPI::UnitType type, BWAPI::Position midpoint)
     {
-        for (int x = center.x - type.dimensionLeft(); x <= center.x + type.dimensionRight(); x++)
+        for (int x = midpoint.x - type.dimensionLeft(); x <= midpoint.x + type.dimensionRight(); x++)
         {
-            for (int y = center.y - type.dimensionUp(); y <= center.y + type.dimensionDown(); y++)
+            for (int y = midpoint.y - type.dimensionUp(); y <= midpoint.y + type.dimensionDown(); y++)
             {
                 if (!BWAPI::Broodwar->isWalkable(x / 8, y / 8))
                     return false;
@@ -207,20 +207,20 @@ namespace Geo
 
     BWAPI::Position FindClosestUnwalkablePosition(BWAPI::Position start, int searchRadius, BWAPI::Position furtherFrom)
     {
-        if (searchRadius > 256) return Geo::FindClosestUnwalkablePosition(start, start, searchRadius, furtherFrom);
+        if (searchRadius > 256) return Geom::FindClosestUnwalkablePosition(start, start, searchRadius, furtherFrom);
 
         double furtherFromAngle = furtherFrom == BWAPI::Positions::Invalid ? 0.0 : atan2(start.y - furtherFrom.y, start.x - furtherFrom.x);
         for (auto &radiusPosition : radiusPositions)
         {
-            // Stop the search when we exceed the radius
+            /* Stop the search when we exceed the radius */
             if (radiusPosition.radius > searchRadius) return BWAPI::Positions::Invalid;
 
             auto here = BWAPI::Position(start.x + radiusPosition.x, start.y + radiusPosition.y);
 
-            // Skip valid and walkable positions
+            /* Skip valid and walkable positions */
             if (here.isValid() && BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(here))) continue;
 
-            // If this is defined, we expect this position to be opposite the one we find here
+            /* If this is defined, we expect this position to be opposite the one we find here */
             if (furtherFrom != BWAPI::Positions::Invalid)
             {
                 double angle = atan2(here.y - start.y, here.x - start.x);
@@ -245,19 +245,19 @@ namespace Geo
                 BWAPI::Position current(x, y);
                 if (current.isValid() && BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(current))) continue;
 
-                int dist = current.getApproxDistance(closeTo);
+                int span = current.getApproxDistance(closeTo);
 
-                // If this is defined, we expect this position to be opposite the one we find here
+                /* If this is defined, we expect this position to be opposite the one we find here */
                 if (furtherFrom != BWAPI::Positions::Invalid)
                 {
                     double angle = atan2(current.y - start.y, current.x - start.x);
                     if (std::abs(angle - furtherFromAngle) > (pi / 2.0)) continue;
                 }
 
-                if (dist < bestDist)
+                if (span < bestDist)
                 {
                     bestPos = current;
-                    bestDist = dist;
+                    bestDist = span;
                 }
             }
         }
@@ -265,7 +265,7 @@ namespace Geo
         return bestPos;
     }
 
-    void FindWalkablePositionsBetween(BWAPI::Position start, BWAPI::Position end, std::vector<BWAPI::Position> &result)
+    void FindWalkablePositionsBetween(BWAPI::Position start, BWAPI::Position end, std::vector<BWAPI::Position> &outcome)
     {
         std::set<BWAPI::Position> added;
         int distTotal = start.getApproxDistance(end);
@@ -273,20 +273,20 @@ namespace Geo
         int ydiff = end.y - start.y;
         for (int distStop = 0; distStop <= distTotal; distStop++)
         {
-            BWAPI::Position pos(
+            BWAPI::Position pt(
                     start.x + (int) std::round(((double) distStop / distTotal) * xdiff),
                     start.y + (int) std::round(((double) distStop / distTotal) * ydiff));
 
-            if (!pos.isValid()) continue;
-            if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pos))) continue;
-            if (added.contains(pos)) continue;
+            if (!pt.isValid()) continue;
+            if (!BWAPI::Broodwar->isWalkable(BWAPI::WalkPosition(pt))) continue;
+            if (added.contains(pt)) continue;
 
-            result.push_back(pos);
-            added.insert(pos);
+            outcome.push_back(pt);
+            added.insert(pt);
         }
     }
 
-    void FindTilesBetween(BWAPI::TilePosition start, BWAPI::TilePosition end, std::vector<BWAPI::TilePosition> &result)
+    void FindTilesBetween(BWAPI::TilePosition start, BWAPI::TilePosition end, std::vector<BWAPI::TilePosition> &outcome)
     {
         std::set<BWAPI::TilePosition> added;
         int distTotal = start.getApproxDistance(end);
@@ -294,19 +294,19 @@ namespace Geo
         int ydiff = end.y - start.y;
         for (int distStop = 0; distStop <= distTotal; distStop++)
         {
-            BWAPI::TilePosition pos(
+            BWAPI::TilePosition pt(
                     start.x + (int) std::round(((double) distStop / distTotal) * xdiff),
                     start.y + (int) std::round(((double) distStop / distTotal) * ydiff));
 
-            if (!pos.isValid()) continue;
-            if (added.contains(pos)) continue;
+            if (!pt.isValid()) continue;
+            if (added.contains(pt)) continue;
 
-            result.push_back(pos);
-            added.insert(pos);
+            outcome.push_back(pt);
+            added.insert(pt);
         }
     }
 
-    void FindWalkTilesBetween(BWAPI::WalkPosition start, BWAPI::WalkPosition end, std::vector<BWAPI::WalkPosition> &result)
+    void FindWalkTilesBetween(BWAPI::WalkPosition start, BWAPI::WalkPosition end, std::vector<BWAPI::WalkPosition> &outcome)
     {
         std::set<BWAPI::WalkPosition> added;
         int distTotal = start.getApproxDistance(end);
@@ -314,32 +314,32 @@ namespace Geo
         int ydiff = end.y - start.y;
         for (int distStop = 0; distStop <= distTotal; distStop++)
         {
-            BWAPI::WalkPosition pos(
+            BWAPI::WalkPosition pt(
                     start.x + (int) std::round(((double) distStop / distTotal) * xdiff),
                     start.y + (int) std::round(((double) distStop / distTotal) * ydiff));
 
-            if (!pos.isValid()) continue;
-            if (added.contains(pos)) continue;
+            if (!pt.isValid()) continue;
+            if (added.contains(pt)) continue;
 
-            result.push_back(pos);
-            added.insert(pos);
+            outcome.push_back(pt);
+            added.insert(pt);
         }
     }
 
-    BWAPI::Position CenterOfUnit(BWAPI::TilePosition topLeft, BWAPI::UnitType type)
+    BWAPI::Position CenterOfUnit(BWAPI::TilePosition cornerTL, BWAPI::UnitType type)
     {
-        return CenterOfUnit(BWAPI::Position(topLeft), type);
+        return CenterOfUnit(BWAPI::Position(cornerTL), type);
     }
 
-    BWAPI::Position CenterOfUnit(BWAPI::Position topLeft, BWAPI::UnitType type)
+    BWAPI::Position CenterOfUnit(BWAPI::Position cornerTL, BWAPI::UnitType type)
     {
-        // For buildings we assume the top left is the top left of the tile placement, not the top left of the actual building dimensions
+        /* For buildings we assume the top left is the top left of the tile placement, not the top left of the actual building dimensions */
         if (type.isBuilding())
         {
-            return {topLeft.x + type.tileWidth() * 16, topLeft.y + type.tileHeight() * 16};
+            return {cornerTL.x + type.tileWidth() * 16, cornerTL.y + type.tileHeight() * 16};
         }
 
-        return {topLeft.x + type.dimensionLeft() + 1, topLeft.y + type.dimensionUp() + 1};
+        return {cornerTL.x + type.dimensionLeft() + 1, cornerTL.y + type.dimensionUp() + 1};
     }
 
     BWAPI::Position ScaleVector(BWAPI::Position vector, int length)
@@ -358,73 +358,73 @@ namespace Geo
 
     std::vector<BWAPI::Position> TenDistancePositionsAroundPatch(BWAPI::Position patchCenter)
     {
-        std::vector<BWAPI::Position> result = {{-54,-30},{-54,-29},{-54,-28},{-54,-27},{-54,-26},{-54,-25},{-54,-24},{-54,-23},{-54,-22},{-54,-21},{-54,-20},{-54,-19},{-54,-18},{-54,-17},{-54,-16},{-54,-15},{-54,-14},{-54,-13},{-54,-12},{-54,-11},{-54,-10},{-54,-9},{-54,-8},{-54,-7},{-54,-6},{-54,-5},{-54,-4},{-54,-3},{-54,-2},{-54,-1},{-54,0},{-54,1},{-54,2},{-54,3},{-54,4},{-54,5},{-54,6},{-54,7},{-54,8},{-54,9},{-54,10},{-54,11},{-54,12},{-54,13},{-54,14},{-54,15},{-54,16},{-54,17},{-54,18},{-54,19},{-54,20},{-54,21},{-54,22},{-54,23},{-54,24},{-54,25},{-54,26},{-54,27},{-54,28},{-54,29},{-53,-33},{-53,-32},{-53,-31},{-53,30},{-53,31},{-53,32},{-52,-35},{-52,-34},{-52,33},{-52,34},{-51,-36},{-51,35},{-50,-36},{-50,35},{-49,-37},{-49,36},{-48,-37},{-48,36},{-47,-37},{-47,36},{-46,-38},{-46,37},{-45,-38},{-45,37},{-44,-38},{-44,37},{-43,-38},{-43,37},{-42,-38},{-42,37},{-41,-38},{-41,37},{-40,-38},{-40,37},{-39,-38},{-39,37},{-38,-38},{-38,37},{-37,-38},{-37,37},{-36,-38},{-36,37},{-35,-38},{-35,37},{-34,-38},{-34,37},{-33,-38},{-33,37},{-32,-38},{-32,37},{-31,-38},{-31,37},{-30,-38},{-30,37},{-29,-38},{-29,37},{-28,-38},{-28,37},{-27,-38},{-27,37},{-26,-38},{-26,37},{-25,-38},{-25,37},{-24,-38},{-24,37},{-23,-38},{-23,37},{-22,-38},{-22,37},{-21,-38},{-21,37},{-20,-38},{-20,37},{-19,-38},{-19,37},{-18,-38},{-18,37},{-17,-38},{-17,37},{-16,-38},{-16,37},{-15,-38},{-15,37},{-14,-38},{-14,37},{-13,-38},{-13,37},{-12,-38},{-12,37},{-11,-38},{-11,37},{-10,-38},{-10,37},{-9,-38},{-9,37},{-8,-38},{-8,37},{-7,-38},{-7,37},{-6,-38},{-6,37},{-5,-38},{-5,37},{-4,-38},{-4,37},{-3,-38},{-3,37},{-2,-38},{-2,37},{-1,-38},{-1,37},{0,-38},{0,37},{1,-38},{1,37},{2,-38},{2,37},{3,-38},{3,37},{4,-38},{4,37},{5,-38},{5,37},{6,-38},{6,37},{7,-38},{7,37},{8,-38},{8,37},{9,-38},{9,37},{10,-38},{10,37},{11,-38},{11,37},{12,-38},{12,37},{13,-38},{13,37},{14,-38},{14,37},{15,-38},{15,37},{16,-38},{16,37},{17,-38},{17,37},{18,-38},{18,37},{19,-38},{19,37},{20,-38},{20,37},{21,-38},{21,37},{22,-38},{22,37},{23,-38},{23,37},{24,-38},{24,37},{25,-38},{25,37},{26,-38},{26,37},{27,-38},{27,37},{28,-38},{28,37},{29,-38},{29,37},{30,-38},{30,37},{31,-38},{31,37},{32,-38},{32,37},{33,-38},{33,37},{34,-38},{34,37},{35,-38},{35,37},{36,-38},{36,37},{37,-38},{37,37},{38,-38},{38,37},{39,-38},{39,37},{40,-38},{40,37},{41,-38},{41,37},{42,-38},{42,37},{43,-38},{43,37},{44,-38},{44,37},{45,-38},{45,37},{46,-37},{46,36},{47,-37},{47,36},{48,-37},{48,36},{49,-36},{49,35},{50,-36},{50,35},{51,-35},{51,-34},{51,33},{51,34},{52,-33},{52,-32},{52,-31},{52,30},{52,31},{52,32},{53,-30},{53,-29},{53,-28},{53,-27},{53,-26},{53,-25},{53,-24},{53,-23},{53,-22},{53,-21},{53,-20},{53,-19},{53,-18},{53,-17},{53,-16},{53,-15},{53,-14},{53,-13},{53,-12},{53,-11},{53,-10},{53,-9},{53,-8},{53,-7},{53,-6},{53,-5},{53,-4},{53,-3},{53,-2},{53,-1},{53,0},{53,1},{53,2},{53,3},{53,4},{53,5},{53,6},{53,7},{53,8},{53,9},{53,10},{53,11},{53,12},{53,13},{53,14},{53,15},{53,16},{53,17},{53,18},{53,19},{53,20},{53,21},{53,22},{53,23},{53,24},{53,25},{53,26},{53,27},{53,28},{53,29}};
-        for (auto &pos : result)
+        std::vector<BWAPI::Position> outcome = {{-54,-30},{-54,-29},{-54,-28},{-54,-27},{-54,-26},{-54,-25},{-54,-24},{-54,-23},{-54,-22},{-54,-21},{-54,-20},{-54,-19},{-54,-18},{-54,-17},{-54,-16},{-54,-15},{-54,-14},{-54,-13},{-54,-12},{-54,-11},{-54,-10},{-54,-9},{-54,-8},{-54,-7},{-54,-6},{-54,-5},{-54,-4},{-54,-3},{-54,-2},{-54,-1},{-54,0},{-54,1},{-54,2},{-54,3},{-54,4},{-54,5},{-54,6},{-54,7},{-54,8},{-54,9},{-54,10},{-54,11},{-54,12},{-54,13},{-54,14},{-54,15},{-54,16},{-54,17},{-54,18},{-54,19},{-54,20},{-54,21},{-54,22},{-54,23},{-54,24},{-54,25},{-54,26},{-54,27},{-54,28},{-54,29},{-53,-33},{-53,-32},{-53,-31},{-53,30},{-53,31},{-53,32},{-52,-35},{-52,-34},{-52,33},{-52,34},{-51,-36},{-51,35},{-50,-36},{-50,35},{-49,-37},{-49,36},{-48,-37},{-48,36},{-47,-37},{-47,36},{-46,-38},{-46,37},{-45,-38},{-45,37},{-44,-38},{-44,37},{-43,-38},{-43,37},{-42,-38},{-42,37},{-41,-38},{-41,37},{-40,-38},{-40,37},{-39,-38},{-39,37},{-38,-38},{-38,37},{-37,-38},{-37,37},{-36,-38},{-36,37},{-35,-38},{-35,37},{-34,-38},{-34,37},{-33,-38},{-33,37},{-32,-38},{-32,37},{-31,-38},{-31,37},{-30,-38},{-30,37},{-29,-38},{-29,37},{-28,-38},{-28,37},{-27,-38},{-27,37},{-26,-38},{-26,37},{-25,-38},{-25,37},{-24,-38},{-24,37},{-23,-38},{-23,37},{-22,-38},{-22,37},{-21,-38},{-21,37},{-20,-38},{-20,37},{-19,-38},{-19,37},{-18,-38},{-18,37},{-17,-38},{-17,37},{-16,-38},{-16,37},{-15,-38},{-15,37},{-14,-38},{-14,37},{-13,-38},{-13,37},{-12,-38},{-12,37},{-11,-38},{-11,37},{-10,-38},{-10,37},{-9,-38},{-9,37},{-8,-38},{-8,37},{-7,-38},{-7,37},{-6,-38},{-6,37},{-5,-38},{-5,37},{-4,-38},{-4,37},{-3,-38},{-3,37},{-2,-38},{-2,37},{-1,-38},{-1,37},{0,-38},{0,37},{1,-38},{1,37},{2,-38},{2,37},{3,-38},{3,37},{4,-38},{4,37},{5,-38},{5,37},{6,-38},{6,37},{7,-38},{7,37},{8,-38},{8,37},{9,-38},{9,37},{10,-38},{10,37},{11,-38},{11,37},{12,-38},{12,37},{13,-38},{13,37},{14,-38},{14,37},{15,-38},{15,37},{16,-38},{16,37},{17,-38},{17,37},{18,-38},{18,37},{19,-38},{19,37},{20,-38},{20,37},{21,-38},{21,37},{22,-38},{22,37},{23,-38},{23,37},{24,-38},{24,37},{25,-38},{25,37},{26,-38},{26,37},{27,-38},{27,37},{28,-38},{28,37},{29,-38},{29,37},{30,-38},{30,37},{31,-38},{31,37},{32,-38},{32,37},{33,-38},{33,37},{34,-38},{34,37},{35,-38},{35,37},{36,-38},{36,37},{37,-38},{37,37},{38,-38},{38,37},{39,-38},{39,37},{40,-38},{40,37},{41,-38},{41,37},{42,-38},{42,37},{43,-38},{43,37},{44,-38},{44,37},{45,-38},{45,37},{46,-37},{46,36},{47,-37},{47,36},{48,-37},{48,36},{49,-36},{49,35},{50,-36},{50,35},{51,-35},{51,-34},{51,33},{51,34},{52,-33},{52,-32},{52,-31},{52,30},{52,31},{52,32},{53,-30},{53,-29},{53,-28},{53,-27},{53,-26},{53,-25},{53,-24},{53,-23},{53,-22},{53,-21},{53,-20},{53,-19},{53,-18},{53,-17},{53,-16},{53,-15},{53,-14},{53,-13},{53,-12},{53,-11},{53,-10},{53,-9},{53,-8},{53,-7},{53,-6},{53,-5},{53,-4},{53,-3},{53,-2},{53,-1},{53,0},{53,1},{53,2},{53,3},{53,4},{53,5},{53,6},{53,7},{53,8},{53,9},{53,10},{53,11},{53,12},{53,13},{53,14},{53,15},{53,16},{53,17},{53,18},{53,19},{53,20},{53,21},{53,22},{53,23},{53,24},{53,25},{53,26},{53,27},{53,28},{53,29}};
+        for (auto &pt : outcome)
         {
-            pos.x += patchCenter.x;
-            pos.y += patchCenter.y;
+            pt.x += patchCenter.x;
+            pt.y += patchCenter.y;
         }
-        return result;
+        return outcome;
     }
 
-    Direction directionFromBuilding(BWAPI::TilePosition tile, BWAPI::TilePosition size, BWAPI::Position pos, bool fourDirections)
+    Direction directionFromBuilding(BWAPI::TilePosition tilePos, BWAPI::TilePosition size, BWAPI::Position pt, bool fourDirections)
     {
-        int left = BWAPI::Position(tile).x;
-        int right = BWAPI::Position(tile + BWAPI::TilePosition(size.x, 0)).x;
-        int top = BWAPI::Position(tile).y;
-        int bottom = BWAPI::Position(tile + BWAPI::TilePosition(0, size.y)).y;
+        int left = BWAPI::Position(tilePos).x;
+        int right = BWAPI::Position(tilePos + BWAPI::TilePosition(size.x, 0)).x;
+        int top = BWAPI::Position(tilePos).y;
+        int bottom = BWAPI::Position(tilePos + BWAPI::TilePosition(0, size.y)).y;
 
-        if (pos.x >= left && pos.x <= right && pos.y >= top && pos.y <= bottom)
+        if (pt.x >= left && pt.x <= right && pt.y >= top && pt.y <= bottom)
         {
             return Direction::error;
         }
 
-        if (pos.x >= left && pos.x <= right)
+        if (pt.x >= left && pt.x <= right)
         {
-            if (pos.y < top)
+            if (pt.y < top)
             {
                 return Direction::up;
             }
             return Direction::down;
         }
-        if (pos.y >= top && pos.y <= bottom)
+        if (pt.y >= top && pt.y <= bottom)
         {
-            if (pos.x < left)
+            if (pt.x < left)
             {
                 return Direction::left;
             }
             return Direction::right;
         }
-        if (pos.x < left)
+        if (pt.x < left)
         {
-            if (pos.y < top)
+            if (pt.y < top)
             {
                 if (fourDirections)
                 {
-                    if ((top - pos.y) > (left - pos.x)) return Direction::up;
+                    if ((top - pt.y) > (left - pt.x)) return Direction::up;
                     return Direction::left;
                 }
                 return Direction::upleft;
             }
             if (fourDirections)
             {
-                if ((pos.y - bottom) > (left - pos.x)) return Direction::down;
+                if ((pt.y - bottom) > (left - pt.x)) return Direction::down;
                 return Direction::left;
             }
             return Direction::downleft;
         }
-        if (pos.y < top)
+        if (pt.y < top)
         {
             if (fourDirections)
             {
-                if ((top - pos.y) > (pos.x - right)) return Direction::up;
+                if ((top - pt.y) > (pt.x - right)) return Direction::up;
                 return Direction::right;
             }
             return Direction::upright;
         }
         if (fourDirections)
         {
-            if ((pos.y - bottom) > (pos.x - right)) return Direction::down;
+            if ((pt.y - bottom) > (pt.x - right)) return Direction::down;
             return Direction::right;
         }
         return Direction::downright;
@@ -432,7 +432,7 @@ namespace Geo
 
     int BWDirection(BWAPI::Position vector)
     {
-        // Combination of the logic in openbw's xy_direction and atan
+        /* Combination of the logic in openbw's xy_direction and atan */
 
         if (vector.x == 0) return vector.y <= 0 ? 0 : -128;
 
@@ -456,22 +456,22 @@ namespace Geo
 
     int BWAngleAdd(int a, int b)
     {
-        int result = a + b;
-        while (result > 127) result -= 256;
-        while (result < -128) result += 256;
-        return result;
+        int outcome = a + b;
+        while (outcome > 127) outcome -= 256;
+        while (outcome < -128) outcome += 256;
+        return outcome;
     }
 
     void BWMovement(int &x, int &y, int &heading, int desiredHeading, int turnRate, int &speed, int acceleration, int topSpeed)
     {
-        // BW updates position, then heading, then speed
+        /* BW updates position, then heading, then speed */
 
-        // Use the heading to update the position
+        /* Use the heading to update the position */
         int dirHeading = (heading < 0) ? (heading + 256) : heading;
         x += (direction_table[dirHeading].x * speed) >> 8;
         y += (direction_table[dirHeading].y * speed) >> 8;
 
-        // Update the heading
+        /* Update the heading */
         int diff = BWAngleDiff(heading, desiredHeading);
         if (diff < turnRate)
         {
@@ -491,7 +491,7 @@ namespace Geo
             }
         }
 
-        // Update the speed
+        /* Update the speed */
         speed += acceleration;
         if (speed > topSpeed) speed = topSpeed;
         if (speed < 0) speed = 0;

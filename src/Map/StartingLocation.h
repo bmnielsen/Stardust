@@ -8,14 +8,14 @@ class StartingLocation
 {
 public:
     Base *main;
-    Base *natural;
+    Base *natBase;
     Choke *mainChoke;
     Choke *naturalChoke;
 
     StartingLocation(
             Base *main,
-            Base *natural,
+            Base *natBase,
             Choke *mainChoke,
-            Choke *naturalChoke) : main(main), natural(natural), mainChoke(mainChoke), naturalChoke(naturalChoke)
+            Choke *naturalChoke) : main(main), natBase(natBase), mainChoke(mainChoke), naturalChoke(naturalChoke)
     {}
 };

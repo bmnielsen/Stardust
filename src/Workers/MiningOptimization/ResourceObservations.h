@@ -26,19 +26,19 @@ namespace WorkerMiningOptimization
 
     struct ResourceObservations
     {
-        TilePosition tile;
+        TilePosition tilePos;
 
-        // Tracks the rotation time when a single worker is assigned to this patch
-        // Measured as the time from the worker delivering one cargo to the same worker delivering its next cargo
+        /* Tracks the rotation time when a single worker is assigned to this patch */
+        /* Measured as the time from the worker delivering one cargo to the same worker delivering its next cargo */
         ResourceObservation singleWorkerRotations;
 
-        // Tracks the rotation time when two workers are assigned to this patch
-        // Measured as the time from the first worker delivering its cargo to the other worker delivering its cargo
+        /* Tracks the rotation time when two workers are assigned to this patch */
+        /* Measured as the time from the first worker delivering its cargo to the other worker delivering its cargo */
         ResourceObservation doubleWorkerRotations;
 
-        // For starting workers, we measure the frame on which each worker delivers its second set of minerals from this patch
-        // The vector will either have 4 entries or be empty (for resources not at a starting position)
-        // The workers in the vector are in the same order as in MapSpecificOverride::startingWorkerPositions
+        /* For starting workers, we measure the frame on which each worker delivers its second set of minerals from this patch */
+        /* The vector will either have 4 entries or be empty (for resources not at a starting position) */
+        /* The workers in the vector are in the same order as in MapSpecificOverride::startingWorkerPositions */
         std::vector<ResourceObservation> startingWorkerObservations;
 
         ResourceObservation &startingWorkerObservationsFor(int startingWorkerIndex);

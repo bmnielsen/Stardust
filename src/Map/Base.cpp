@@ -6,38 +6,38 @@
 
 namespace
 {
-    std::vector<BWAPI::Unit> getBlockingNeutrals(BWAPI::TilePosition tile)
+    std::vector<BWAPI::Unit> getBlockingNeutrals(BWAPI::TilePosition tilePos)
     {
-        std::vector<BWAPI::Unit> result;
-        for (auto unit : BWAPI::Broodwar->getStaticNeutralUnits())
+        std::vector<BWAPI::Unit> outcome;
+        for (auto gameUnit : BWAPI::Broodwar->getStaticNeutralUnits())
         {
-            if (unit->getType().isMineralField())
+            if (gameUnit->getType().isMineralField())
             {
-                if (Geo::Overlaps(tile - BWAPI::TilePosition(3, 3),
+                if (Geom::Overlaps(tilePos - BWAPI::TilePosition(3, 3),
                                   10,
                                   9,
-                                  unit->getInitialTilePosition(),
+                                  gameUnit->getInitialTilePosition(),
                                   2,
                                   1))
                 {
-                    result.push_back(unit);
+                    outcome.push_back(gameUnit);
                 }
             }
             else
             {
-                if (Geo::Overlaps(tile,
+                if (Geom::Overlaps(tilePos,
                                   4,
                                   3,
-                                  unit->getInitialTilePosition(),
-                                  unit->getType().tileWidth(),
-                                  unit->getType().tileHeight()))
+                                  gameUnit->getInitialTilePosition(),
+                                  gameUnit->getType().tileWidth(),
+                                  gameUnit->getType().tileHeight()))
                 {
-                    result.push_back(unit);
+                    outcome.push_back(gameUnit);
                 }
             }
         }
 
-        return result;
+        return outcome;
     }
 
     void updateResourcesInSwitchPatchRange(std::vector<Resource> &mineralPatches)
@@ -46,17 +46,17 @@ namespace
         {
             std::set<Resource> resourcesInSwitchPatchRange;
 
-            auto tenDistancePositions = Geo::TenDistancePositionsAroundPatch(thisPatch->center);
+            auto tenDistancePositions = Geom::TenDistancePositionsAroundPatch(thisPatch->midpoint);
 
             for (auto &otherPatch : mineralPatches)
             {
                 if (thisPatch == otherPatch) continue;
 
                 bool inRange = false;
-                for (auto &pos : tenDistancePositions)
+                for (auto &pt : tenDistancePositions)
                 {
-                    // Game looks for a free patch within 8 tiles, ref: order_MoveToMinerals in bwgame.h
-                    if (Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe, pos, BWAPI::UnitTypes::Resource_Mineral_Field, otherPatch->center)
+                    /* Game looks for a free patch within 8 tiles, ref: order_MoveToMinerals in bwgame.h */
+                    if (Geom::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe, pt, BWAPI::UnitTypes::Resource_Mineral_Field, otherPatch->midpoint)
                         <= (32 * 8))
                     {
                         inRange = true;
@@ -71,7 +71,7 @@ namespace
     }
 }
 
-Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
+Base::Base(BWAPI::TilePosition tilePos, const BWEM::Base *bwemBase)
         : owner(nullptr)
         , resourceDepot(nullptr)
         , ownedSince(-1)
@@ -80,16 +80,16 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
         , requiresMineralWalkFromEnemyStartLocations(false)
         , island(true) // set to false later where appropriate
         , workerDefenseRallyPatch(nullptr)
-        , blockingNeutrals(getBlockingNeutrals(tile))
+        , blockingNeutrals(getBlockingNeutrals(tilePos))
         , minerals(0)
         , gas(0)
-        , tile(tile)
-        , center(BWAPI::Position(tile) + BWAPI::Position(64, 48))
+        , tilePos(tilePos)
+        , midpoint(BWAPI::Position(tilePos) + BWAPI::Position(64, 48))
         , bwemArea(bwemBase->GetArea())
 {
     for (const auto &mineralPatch : bwemBase->Minerals())
     {
-        auto resource = Units::resourceAt(mineralPatch->TopLeft());
+        auto resource = UnitMgr::resourceAt(mineralPatch->TopLeft());
         if (resource)
         {
             _mineralPatches.emplace_back(resource);
@@ -97,14 +97,14 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
 #if LOGGING_ENABLED
         else
         {
-            Log::Get() << "ERROR: Cannot find our resource unit for mineral field @ " << mineralPatch->TopLeft();
+            AppLog::Get() << "ERROR: Cannot find our resource unit for mineral field @ " << mineralPatch->TopLeft();
         }
 #endif
     }
 
     for (const auto &geyser : bwemBase->Geysers())
     {
-        auto resource = Units::resourceAt(geyser->TopLeft());
+        auto resource = UnitMgr::resourceAt(geyser->TopLeft());
         if (resource)
         {
             _geysersOrRefineries.emplace_back(resource);
@@ -112,19 +112,19 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
 #if LOGGING_ENABLED
         else
         {
-            Log::Get() << "ERROR: Cannot find our resource unit for geyser @ " << geyser->TopLeft();
+            AppLog::Get() << "ERROR: Cannot find our resource unit for geyser @ " << geyser->TopLeft();
         }
 #endif
     }
 
-    // Call update to set the minerals and gas counts
+    /* Call update to set the minerals and gas counts */
     update();
 
     analyzeMineralLine();
 
     for (auto startLocationTile : BWAPI::Broodwar->getStartLocations())
     {
-        if (PathFinding::GetGroundDistance(BWAPI::Position(tile), BWAPI::Position(startLocationTile), BWAPI::UnitTypes::Protoss_Probe) != -1)
+        if (Pathfinder::GetGroundDistance(BWAPI::Position(tilePos), BWAPI::Position(startLocationTile), BWAPI::UnitTypes::Protoss_Probe) != -1)
         {
             island = false;
             break;
@@ -134,7 +134,7 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Base *bwemBase)
     updateResourcesInSwitchPatchRange(_mineralPatches);
 }
 
-Base::Base(BWAPI::TilePosition tile, const BWEM::Area *bwemArea, std::vector<Resource> mineralPatches, std::vector<Resource> geysers)
+Base::Base(BWAPI::TilePosition tilePos, const BWEM::Area *bwemArea, std::vector<Resource> mineralPatches, std::vector<Resource> geysers)
         : owner(nullptr)
         , resourceDepot(nullptr)
         , ownedSince(-1)
@@ -143,23 +143,23 @@ Base::Base(BWAPI::TilePosition tile, const BWEM::Area *bwemArea, std::vector<Res
         , requiresMineralWalkFromEnemyStartLocations(false)
         , island(true) // set to false later where appropriate
         , workerDefenseRallyPatch(nullptr)
-        , blockingNeutrals(getBlockingNeutrals(tile))
+        , blockingNeutrals(getBlockingNeutrals(tilePos))
         , minerals(0)
         , gas(0)
-        , tile(tile)
-        , center(BWAPI::Position(tile) + BWAPI::Position(64, 48))
+        , tilePos(tilePos)
+        , midpoint(BWAPI::Position(tilePos) + BWAPI::Position(64, 48))
         , bwemArea(bwemArea)
         , _mineralPatches(std::move(mineralPatches))
         , _geysersOrRefineries(std::move(geysers))
 {
-    // Call update to set the minerals and gas counts
+    /* Call update to set the minerals and gas counts */
     update();
 
     analyzeMineralLine();
 
     for (auto startLocationTile : BWAPI::Broodwar->getStartLocations())
     {
-        if (PathFinding::GetGroundDistance(BWAPI::Position(tile), BWAPI::Position(startLocationTile), BWAPI::UnitTypes::Protoss_Probe) != -1)
+        if (Pathfinder::GetGroundDistance(BWAPI::Position(tilePos), BWAPI::Position(startLocationTile), BWAPI::UnitTypes::Protoss_Probe) != -1)
         {
             island = false;
             break;
@@ -174,19 +174,19 @@ bool Base::isStartingBase() const
     return std::find(
             BWAPI::Broodwar->getStartLocations().begin(),
             BWAPI::Broodwar->getStartLocations().end(),
-            tile) != BWAPI::Broodwar->getStartLocations().end();
+            tilePos) != BWAPI::Broodwar->getStartLocations().end();
 }
 
-bool Base::isInMineralLine(BWAPI::TilePosition pos) const
+bool Base::isInMineralLine(BWAPI::TilePosition pt) const
 {
-    return mineralLineTiles.contains(pos);
+    return mineralLineTiles.contains(pt);
 }
 
 bool Base::hasGeyserOrRefineryAt(BWAPI::TilePosition geyserTopLeft) const
 {
     return std::any_of(_geysersOrRefineries.begin(), _geysersOrRefineries.end(), [&geyserTopLeft](const auto &geyserOrRefinery)
     {
-        return geyserTopLeft == geyserOrRefinery->tile;
+        return geyserTopLeft == geyserOrRefinery->tilePos;
     });
 }
 
@@ -194,27 +194,27 @@ bool Base::gasRequiresFourWorkers(BWAPI::TilePosition geyserTopLeft) const
 {
     if (!hasGeyserOrRefineryAt(geyserTopLeft)) return false;
 
-    return (geyserTopLeft.y - tile.y) > 5;
+    return (geyserTopLeft.y - tilePos.y) > 5;
 }
 
 void Base::update()
 {
-    // Count total minerals available and remove destroyed minerals
+    /* Count total minerals available and remove destroyed minerals */
     minerals = 0;
-    for (auto it = _mineralPatches.begin(); it != _mineralPatches.end(); )
+    for (auto iterRef = _mineralPatches.begin(); iterRef != _mineralPatches.end(); )
     {
-        if ((*it)->destroyed)
+        if ((*iterRef)->destroyed)
         {
-            it = _mineralPatches.erase(it);
+            iterRef = _mineralPatches.erase(iterRef);
         }
         else
         {
-            minerals += (*it)->currentAmount;
-            it++;
+            minerals += (*iterRef)->currentAmount;
+            iterRef++;
         }
     }
 
-    // Count total gas available
+    /* Count total gas available */
     gas = 0;
     for (const auto &geyserOrRefinery : _geysersOrRefineries)
     {
@@ -226,15 +226,15 @@ void Base::analyzeMineralLine()
 {
     mineralLineTiles.clear();
 
-    // Compute the approximate center of the mineral line
+    /* Compute the approximate center of the mineral line */
     if (mineralPatchCount() > 0)
     {
         size_t x = 0;
         size_t y = 0;
         for (const auto &mineral : _mineralPatches)
         {
-            x += mineral->center.x;
-            y += mineral->center.y;
+            x += mineral->midpoint.x;
+            y += mineral->midpoint.y;
         }
 
         mineralLineCenter = (getPosition() + BWAPI::Position((int)(x / mineralPatchCount()), (int)(y / mineralPatchCount())) * 2) / 3;
@@ -244,22 +244,22 @@ void Base::analyzeMineralLine()
         mineralLineCenter = getPosition();
     }
 
-    // Compute the tiles that are considered part of the mineral line
-    // We do this by tracing lines from each mineral patch to the center of the resource depot and adding all surrounding tiles
+    /* Compute the tiles that are considered part of the mineral line */
+    /* We do this by tracing lines from each mineral patch to the center of the resource depot and adding all surrounding tiles */
     {
         auto handleTile = [&](BWAPI::TilePosition input)
         {
             std::vector<BWAPI::TilePosition> tilesBetween;
-            Geo::FindTilesBetween(input, BWAPI::TilePosition(getPosition()), tilesBetween);
-            for (auto pos : tilesBetween)
+            Geom::FindTilesBetween(input, BWAPI::TilePosition(getPosition()), tilesBetween);
+            for (auto pt : tilesBetween)
             {
-                if (Geo::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, getPosition(), BWAPI::Position(pos) + BWAPI::Position(16, 16))
+                if (Geom::EdgeToPointDistance(BWAPI::UnitTypes::Protoss_Nexus, getPosition(), BWAPI::Position(pt) + BWAPI::Position(16, 16))
                     < 1)
                     continue;
 
-                for (int x = pos.x - 1; x <= pos.x + 1; x++)
+                for (int x = pt.x - 1; x <= pt.x + 1; x++)
                 {
-                    for (int y = pos.y - 1; y <= pos.y + 1; y++)
+                    for (int y = pt.y - 1; y <= pt.y + 1; y++)
                     {
                         BWAPI::TilePosition here(x, y);
                         if (here.isValid())
@@ -272,47 +272,47 @@ void Base::analyzeMineralLine()
         };
         for (const auto &mineralPatch : _mineralPatches)
         {
-            handleTile(mineralPatch->tile);
-            handleTile(mineralPatch->tile + BWAPI::TilePosition(1, 0));
+            handleTile(mineralPatch->tilePos);
+            handleTile(mineralPatch->tilePos + BWAPI::TilePosition(1, 0));
         }
         for (const auto &geyser : _geysersOrRefineries)
         {
-            handleTile(geyser->tile);
-            handleTile(geyser->tile + BWAPI::TilePosition(1, 0));
-            handleTile(geyser->tile + BWAPI::TilePosition(2, 0));
-            handleTile(geyser->tile + BWAPI::TilePosition(3, 0));
-            handleTile(geyser->tile + BWAPI::TilePosition(0, 1));
-            handleTile(geyser->tile + BWAPI::TilePosition(1, 1));
-            handleTile(geyser->tile + BWAPI::TilePosition(2, 1));
-            handleTile(geyser->tile + BWAPI::TilePosition(3, 1));
+            handleTile(geyser->tilePos);
+            handleTile(geyser->tilePos + BWAPI::TilePosition(1, 0));
+            handleTile(geyser->tilePos + BWAPI::TilePosition(2, 0));
+            handleTile(geyser->tilePos + BWAPI::TilePosition(3, 0));
+            handleTile(geyser->tilePos + BWAPI::TilePosition(0, 1));
+            handleTile(geyser->tilePos + BWAPI::TilePosition(1, 1));
+            handleTile(geyser->tilePos + BWAPI::TilePosition(2, 1));
+            handleTile(geyser->tilePos + BWAPI::TilePosition(3, 1));
         }
     }
 
-    // Compute the best mineral patch to use for rallying workers during worker defense
+    /* Compute the best mineral patch to use for rallying workers during worker defense */
     {
-        // Start with the closest patch to the mineral line center
+        /* Start with the closest patch to the mineral line center */
         int closestPatchDist = INT_MAX;
         for (const auto &mineralPatch : _mineralPatches)
         {
-            int dist = mineralPatch->getDistance(mineralLineCenter);
-            if (dist < closestPatchDist)
+            int span = mineralPatch->getDistance(mineralLineCenter);
+            if (span < closestPatchDist)
             {
                 workerDefenseRallyPatch = mineralPatch;
-                closestPatchDist = dist;
+                closestPatchDist = span;
             }
         }
 
-        // Now try to get a neighbouring mineral patch that is further away from the depot
+        /* Now try to get a neighbouring mineral patch that is further away from the depot */
         if (workerDefenseRallyPatch)
         {
-            int currentDist = workerDefenseRallyPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, center);
+            int currentDist = workerDefenseRallyPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, midpoint);
             for (const auto &mineralPatch : mineralPatches())
             {
                 if (mineralPatch == workerDefenseRallyPatch) continue;
                 if (mineralPatch->getDistance(workerDefenseRallyPatch) > 0) continue;
 
-                int dist = mineralPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, center);
-                if (dist > currentDist)
+                int span = mineralPatch->getDistance(BWAPI::UnitTypes::Protoss_Nexus, midpoint);
+                if (span > currentDist)
                 {
                     workerDefenseRallyPatch = mineralPatch;
                     break;

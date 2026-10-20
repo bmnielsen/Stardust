@@ -23,7 +23,7 @@ public:
         Turtle,             // Early cannons or FFE
         DarkTemplarRush,    // Dark templar or dark templar tech
         MidGame,            // Generic for when the opponent has transitioned out of their opening
-        // TODO: Mid- and late game
+        /* TODO: Mid- and late game */
     };
     static std::map<ProtossStrategy, std::string> ProtossStrategyNames;
 
@@ -37,10 +37,11 @@ public:
         FastExpansion,          // For when the opponent plays a greedy or turtle strategy
         Defensive,              // For when the opponent is playing an aggressive strategy that isn't considered a zealot rush
         Normal,                 // Normal non-greedy and non-cautious opening
+        OneGateCoreNoZealot,    // S7: core-first, no zealots, dragoons + range (the nzcore line PW/BB standard on; production via oneGateCoreOpening(0))
         ThreeGateRobo,          // 3 gate robo opening
         DTExpand,               // Reaction to dragoon all-in, gets one DT, moves out and expands behind it
         MidGame,                // When we have reached the mid-game
-        // TODO: Various mid-game and late-game strategies
+        /* TODO: Various mid-game and late-game strategies */
     };
     static std::map<OurStrategy, std::string> OurStrategyNames;
 
@@ -49,12 +50,12 @@ public:
 
     PvP() : enemyStrategy(ProtossStrategy::Unknown), ourStrategy(OurStrategy::EarlyGameDefense), enemyStrategyChanged(0) {}
 
-    void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride) override;
+    void initialize(std::vector<std::shared_ptr<PlayItem>> &playList, bool transitioningFromRandom, const std::string &openingOverride) override;
 
-    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
+    void updatePlays(std::vector<std::shared_ptr<PlayItem>> &playList) override;
 
-    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+    void updateProduction(std::vector<std::shared_ptr<PlayItem>> &playList,
+                          std::map<int, std::vector<ProductionGoal>> &prioProdGoals,
                           std::vector<std::pair<int, int>> &mineralReservations) override;
 
     std::string getEnemyStrategy() override { return ProtossStrategyNames[enemyStrategy]; }
@@ -76,13 +77,24 @@ public:
 private:
     int enemyStrategyChanged;
 
+    /* P1-A/P1-B (2026-09-20 report v2): late-game transition + one-base exit */
+    bool allinExitDue();
+    void handleLateTransition(std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
+    int allinExitCheckedAt = -1;
+    bool allinExitDueCache = false;
+
     ProtossStrategy recognizeEnemyStrategy();
 
-    OurStrategy chooseOurStrategy(ProtossStrategy newEnemyStrategy, std::vector<std::shared_ptr<Play>> &plays);
+    /* P2-E: declaration-table recognition (same predicates/thresholds as the */
+    /* switch path, expressed as a RecognizerShared transition table). Runs in */
+    /* shadow mode until zero-divergence is proven, then replaces the switch. */
+    ProtossStrategy recognizeEnemyStrategyTable(ProtossStrategy current);
 
-    void handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays, std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    OurStrategy chooseOurStrategy(ProtossStrategy newEnemyStrategy, std::vector<std::shared_ptr<PlayItem>> &playList);
 
-    static void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    void handleNaturalExpansion(std::vector<std::shared_ptr<PlayItem>> &playList, std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
 
-    void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    static void handleUpgrades(std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
+
+    void handleDetection(std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
 };

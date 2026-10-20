@@ -11,26 +11,26 @@ namespace CsvTools
     template<typename T>
     std::vector<T> parseList(const std::string &str, char sep = ',')
     {
-        std::vector<T> result;
+        std::vector<T> outcome;
 
         std::stringstream listStream(str);
-        std::string item;
+        std::string goalEntry;
 
-        while (std::getline(listStream, item, sep))
+        while (std::getline(listStream, goalEntry, sep))
         {
-            result.push_back(T::fromString(item));
+            outcome.push_back(T::fromString(goalEntry));
         }
 
-        return result;
+        return outcome;
     }
 
     template<typename T>
     void outputList(std::ostream &os, const std::vector<T> &list, char sep = ',')
     {
         std::string separator;
-        for (const auto &item : list)
+        for (const auto &goalEntry : list)
         {
-            os << separator << item;
+            os << separator << goalEntry;
             separator = sep;
         }
     }

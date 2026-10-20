@@ -6,22 +6,22 @@ void JudgmentDay::modifyStartingLocation(std::unique_ptr<StartingLocation> &star
 {
     if (startingLocation->main->getTilePosition() == BWAPI::TilePosition(7, 6))
     {
-        startingLocation->natural = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(9, 34)));
+        startingLocation->natBase = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(9, 34)));
         startingLocation->naturalChoke = Map::chokeNear(BWAPI::Position(BWAPI::WalkPosition(151, 112)));
     }
     else if (startingLocation->main->getTilePosition() == BWAPI::TilePosition(116, 7))
     {
-        startingLocation->natural = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(115, 34)));
+        startingLocation->natBase = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(115, 34)));
         startingLocation->naturalChoke = Map::chokeNear(BWAPI::Position(BWAPI::WalkPosition(353, 111)));
     }
     else if (startingLocation->main->getTilePosition() == BWAPI::TilePosition(8, 118))
     {
-        startingLocation->natural = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(9, 92)));
+        startingLocation->natBase = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(9, 92)));
         startingLocation->naturalChoke = Map::chokeNear(BWAPI::Position(BWAPI::WalkPosition(157, 403)));
     }
     else if (startingLocation->main->getTilePosition() == BWAPI::TilePosition(116, 118))
     {
-        startingLocation->natural = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(115, 92)));
+        startingLocation->natBase = Map::baseNear(BWAPI::Position(BWAPI::TilePosition(115, 92)));
         startingLocation->naturalChoke = Map::chokeNear(BWAPI::Position(BWAPI::WalkPosition(355, 405)));
     }
 }

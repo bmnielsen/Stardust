@@ -9,15 +9,15 @@
 
 class MyUnitImpl;
 
-typedef std::shared_ptr<MyUnitImpl> MyUnit;
+typedef std::shared_ptr<MyUnitImpl> OwnedUnit;
 
 class MyUnitImpl : public UnitImpl
 {
 public:
-    // A number indicating when this unit's orders will be processed relative to our other units
-    // Unit orders are processed in reverse order of when they were added to the visible units list
-    // When units are hidden, they move up in the order processing list once they appear again
-    // See usages of hide_unit in bwgame.h for situations that cause units to be removed from the visible units list
+    /* A number indicating when this unit's orders will be processed relative to our other units */
+    /* Unit orders are processed in reverse order of when they were added to the visible units list */
+    /* When units are hidden, they move up in the order processing list once they appear again */
+    /* See usages of hide_unit in bwgame.h for situations that cause units to be removed from the visible units list */
     int orderProcessIndex;
 
     BWAPI::Unit producer;
@@ -26,11 +26,11 @@ public:
     int lastCastFrame;                  // Last frame the unit cast some kind of energy-using spell
     int completionFrame;                // Actual completion frame, -1 until complete
 
-    explicit MyUnitImpl(BWAPI::Unit unit);
+    explicit MyUnitImpl(BWAPI::Unit gameUnit);
 
     ~MyUnitImpl() override = default;
 
-    void update(BWAPI::Unit unit) override;
+    void update(BWAPI::Unit gameUnit) override;
 
     [[nodiscard]] bool isBeingManufacturedOrCarried() const override;
 
@@ -45,18 +45,18 @@ public:
     void issueMoveOrders();
 
     virtual void attackUnit(const Unit &target,
-                            std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                            std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                             bool clusterAttacking,
                             int enemyAoeRadius);
 
     void attackUnit(const Unit &target)
     {
-        static std::vector<std::pair<MyUnit, Unit>> emptyUnitsAndTargets;
+        static std::vector<std::pair<OwnedUnit, Unit>> emptyUnitsAndTargets;
         attackUnit(target, emptyUnitsAndTargets, true, 0);
     }
 
     void attackUnit(const Unit &target,
-                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                    std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                     bool clusterAttacking = true)
     {
         attackUnit(target, unitsAndTargets, clusterAttacking, 0);
@@ -78,7 +78,7 @@ public:
 
     void rightClick(BWAPI::Unit target);
 
-    bool build(BWAPI::UnitType type, BWAPI::TilePosition tile);
+    bool build(BWAPI::UnitType type, BWAPI::TilePosition tilePos);
 
     bool train(BWAPI::UnitType type);
 
@@ -92,11 +92,11 @@ public:
 
     void load(BWAPI::Unit cargo);
 
-    void unloadAll(BWAPI::Position pos);
+    void unloadAll(BWAPI::Position pt);
 
     void unload(BWAPI::Unit cargo);
 
-    void setProducerRallyPosition(BWAPI::Position pos) const;
+    void setProducerRallyPosition(BWAPI::Position pt) const;
 
 protected:
     bool issuedOrderThisFrame;
@@ -110,32 +110,32 @@ protected:
         MoveCommand(BWAPI::Position targetPosition, bool direct) : targetPosition(targetPosition), direct(direct) {}
     };
 
-    // The move command to be issued this frame.
+    /* The move command to be issued this frame. */
     std::unique_ptr<MoveCommand> moveCommand;
 
-    // The final target position of the current move. If invalid, the unit is not performing a move.
+    /* The final target position of the current move. If invalid, the unit is not performing a move. */
     BWAPI::Position targetPosition;
 
-    // For grid-based moves, the position of the grid node currently being moved towards.
-    // For choke-based moves, the position of the choke currently being moved towards.
-    // For direct moves, is set to targetPosition when the move command is issued.
+    /* For grid-based moves, the position of the grid node currently being moved towards. */
+    /* For choke-based moves, the position of the choke currently being moved towards. */
+    /* For direct moves, is set to targetPosition when the move command is issued. */
     BWAPI::Position currentlyMovingTowards;
 
-    // The remaining choke points between the unit and its target.
+    /* The remaining choke points between the unit and its target. */
     std::deque<const BWEM::ChokePoint *> chokePath;
 
-    // The current navigation grid being used for a move. May or may not apply all the way to targetPosition. For example, if a worker needs to
-    // do mineral walking, it may use a navigation grid to get to the mineral walk choke, then a different navigation grid to get from there to
-    // the target.
-    NavigationGrid *grid;
+    /* The current navigation grid being used for a move. May or may not apply all the way to targetPosition. For example, if a worker needs to */
+    /* do mineral walking, it may use a navigation grid to get to the mineral walk choke, then a different navigation grid to get from there to */
+    /* the target. */
+    NavGrid *grid;
 
-    // The current grid node occupied by the unit in the above grid.
-    const NavigationGrid::GridNode *gridNode;
+    /* The current grid node occupied by the unit in the above grid. */
+    const NavGrid::GridNode *gridNode;
 
-    // The last frame where we sent a move command to the unit.
+    /* The last frame where we sent a move command to the unit. */
     int lastMoveFrame;
 
-    // If we have sent a command to the unit to unstick it, when we should next send a normal command again.
+    /* If we have sent a command to the unit to unstick it, when we should next send a normal command again. */
     int unstickUntil;
 
     void initiateMove();
@@ -161,10 +161,10 @@ private:
     mutable std::vector<int> simulatedHeading;               // Simulated heading up to LF ahead assuming no collisions
     mutable bool simulatedPositionsUpdated;                  // Whether the simulated positions have been updated this frame
 
-    // Whether the unit is visible
+    /* Whether the unit is visible */
     bool visible;
 
     void updateSimulatedPositions() const;
 };
 
-std::ostream &operator<<(std::ostream &os, const MyUnitImpl &unit);
+std::ostream &operator<<(std::ostream &os, const MyUnitImpl &gameUnit);

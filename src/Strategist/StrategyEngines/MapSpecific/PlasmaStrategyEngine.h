@@ -7,12 +7,12 @@ class PlasmaStrategyEngine : public StrategyEngine
 public:
     PlasmaStrategyEngine() : enemyStrategy(EnemyStrategy::Unknown) {}
 
-    void initialize(std::vector<std::shared_ptr<Play>> &plays, bool transitioningFromRandom, const std::string &openingOverride) override;
+    void initialize(std::vector<std::shared_ptr<PlayItem>> &playList, bool transitioningFromRandom, const std::string &openingOverride) override;
 
-    void updatePlays(std::vector<std::shared_ptr<Play>> &plays) override;
+    void updatePlays(std::vector<std::shared_ptr<PlayItem>> &playList) override;
 
-    void updateProduction(std::vector<std::shared_ptr<Play>> &plays,
-                          std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals,
+    void updateProduction(std::vector<std::shared_ptr<PlayItem>> &playList,
+                          std::map<int, std::vector<ProductionGoal>> &prioProdGoals,
                           std::vector<std::pair<int, int>> &mineralReservations) override;
 
     std::string getEnemyStrategy() override { return EnemyStrategyNames[enemyStrategy]; }
@@ -31,6 +31,6 @@ private:
 
     EnemyStrategy recognizeEnemyStrategy();
 
-    static void handleNaturalExpansion(std::vector<std::shared_ptr<Play>> &plays,
-                                       std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals);
+    static void handleNaturalExpansion(std::vector<std::shared_ptr<PlayItem>> &playList,
+                                       std::map<int, std::vector<ProductionGoal>> &prioProdGoals);
 };

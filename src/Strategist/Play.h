@@ -15,7 +15,7 @@
 #define PRIORITY_MAINARMY 90
 #define PRIORITY_LOWEST 100
 
-class Play;
+class PlayItem;
 
 struct PlayUnitRequirement
 {
@@ -25,7 +25,7 @@ struct PlayUnitRequirement
     int distanceLimit;
     bool allowFromVanguardCluster;
     bool allowFailingGridNodePredicate;
-    const std::function<bool(const NavigationGrid::GridNode &gridNode)> gridNodePredicate;
+    const std::function<bool(const NavGrid::GridNode &gridNode)> gridNodePredicate;
 
     PlayUnitRequirement(int count,
                         BWAPI::UnitType type,
@@ -43,7 +43,7 @@ struct PlayUnitRequirement
                         BWAPI::UnitType type,
                         BWAPI::Position position,
                         bool allowFromVanguardCluster,
-                        const std::function<bool(const NavigationGrid::GridNode &gridNode)> gridNodePredicate = nullptr,
+                        const std::function<bool(const NavGrid::GridNode &gridNode)> gridNodePredicate = nullptr,
                         bool allowFailingGridNodePredicate = false)
             : count(count)
             , type(type)
@@ -58,50 +58,50 @@ struct PlayStatus
 {
     bool complete = false;
     std::vector<PlayUnitRequirement> unitRequirements = {};
-    std::vector<MyUnit> removedUnits = {};
-    std::shared_ptr<Play> transitionTo = nullptr;
+    std::vector<OwnedUnit> removedUnits = {};
+    std::shared_ptr<PlayItem> transitionTo = nullptr;
 };
 
-class Play
+class PlayItem
 {
 public:
     std::string label;
     PlayStatus status;
     std::map<BWAPI::UnitType, int> assignedIncompleteUnits;
 
-    explicit Play(std::string label) : label(std::move(label)) {};
+    explicit PlayItem(std::string label) : label(std::move(label)) {};
 
-    virtual ~Play() = default;
+    virtual ~PlayItem() = default;
 
-    // Whether this play should receive any unassigned combat units
+    /* Whether this play should receive any unassigned combat units */
     [[nodiscard]] virtual bool receivesUnassignedUnits() const { return false; }
 
-    [[nodiscard]] virtual bool canReassignUnit(const MyUnit &unit) const { return true; }
+    [[nodiscard]] virtual bool canReassignUnit(const OwnedUnit &gameUnit) const { return true; }
 
-    // Returns the play's squad, if it has one
-    virtual std::shared_ptr<Squad> getSquad() { return nullptr; }
+    /* Returns the play's squad, if it has one */
+    virtual std::shared_ptr<UnitSquad> getSquad() { return nullptr; }
 
-    // Add a unit to the play. By default, this adds it to the play's squad, if it has one.
-    virtual void addUnit(const MyUnit &unit);
+    /* Add a unit to the play. By default, this adds it to the play's squad, if it has one. */
+    virtual void addUnit(const OwnedUnit &gameUnit);
 
-    // Remove a unit from the play. By default, this removes it from the play's squad, if it has one.
-    virtual void removeUnit(const MyUnit &unit);
+    /* Remove a unit from the play. By default, this removes it from the play's squad, if it has one. */
+    virtual void removeUnit(const OwnedUnit &gameUnit);
 
-    // Runs at the start of the Strategist's frame and updates the play status.
+    /* Runs at the start of the Strategist's frame and updates the play status. */
     virtual void update() {}
 
-    // Runs just after the play has transitioned from another play.
+    /* Runs just after the play has transitioned from another play. */
     virtual void postTransition() {}
 
-    // Runs at the end of the Strategist's frame and allows the play to order units or upgrades from the producer.
-    virtual void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioritizedProductionGoals) {}
+    /* Runs at the end of the Strategist's frame and allows the play to order units or upgrades from the producer. */
+    virtual void addPrioritizedProductionGoals(std::map<int, std::vector<ProductionGoal>> &prioProdGoals) {}
 
-    // Runs at the end of the Strategist's frame and allows the play to reserve minerals at a specific future frame.
+    /* Runs at the end of the Strategist's frame and allows the play to reserve minerals at a specific future frame. */
     virtual void addMineralReservations(std::vector<std::pair<int, int>> &mineralReservations) {}
 
-    // Called when a play is being disbanded (either removed completely or transitioned to a different play).
-    // It is the play's responsibility to call either removedUnitCallback or movableUnitCallback for all units that have been assigned
-    // to it via addUnit (and not removed earlier through status.removedUnits).
-    virtual void disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                         const std::function<void(const MyUnit)> &movableUnitCallback);
+    /* Called when a play is being disbanded (either removed completely or transitioned to a different play). */
+    /* It is the play's responsibility to call either removedUnitCallback or movableUnitCallback for all units that have been assigned */
+    /* to it via addUnit (and not removed earlier through status.removedUnits). */
+    virtual void disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                         const std::function<void(const OwnedUnit)> &movableUnitCallback);
 };

@@ -5,13 +5,13 @@
 class MyCorsair : public MyUnitImpl
 {
 public:
-    explicit MyCorsair(BWAPI::Unit unit) : MyUnitImpl(unit) {}
+    explicit MyCorsair(BWAPI::Unit gameUnit) : MyUnitImpl(gameUnit) {}
 
 private:
     [[nodiscard]] bool isReady() const override;
 
     void attackUnit(const Unit &target,
-                    std::vector<std::pair<MyUnit, Unit>> &unitsAndTargets,
+                    std::vector<std::pair<OwnedUnit, Unit>> &unitsAndTargets,
                     bool clusterAttacking,
                     int enemyAoeRadius) override;
 };

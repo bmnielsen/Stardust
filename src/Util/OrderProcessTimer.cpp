@@ -9,87 +9,87 @@ namespace
 {
     int botFrameToGameFrame(int botFrame)
     {
-        // Convert based on the current difference between the engine and bot frames
-        // Note that this might not be correct if a pause happens / happened between the current frame and the frame we are converting
-        return botFrame + (BWAPI::Broodwar->getFrameCount() - currentFrame);
+        /* Convert based on the current difference between the engine and bot frames */
+        /* Note that this might not be correct if a pause happens / happened between the current frame and the frame we are converting */
+        return botFrame + (BWAPI::Broodwar->getFrameCount() - frameNow);
     }
 }
 
 namespace OrderProcessTimer
 {
-    int framesToPreviousReset(int frame)
+    int framesToPreviousReset(int tick)
     {
-        return (botFrameToGameFrame(frame) - FIRST_RESET_FRAME) % RESET_FREQUENCY;
+        return (botFrameToGameFrame(tick) - FIRST_RESET_FRAME) % RESET_FREQUENCY;
     }
 
     int framesToPreviousReset()
     {
-        return framesToPreviousReset(currentFrame);
+        return framesToPreviousReset(frameNow);
     }
 
-    int framesToNextReset(int frame)
+    int framesToNextReset(int tick)
     {
-        return (RESET_FREQUENCY - framesToPreviousReset(frame)) % RESET_FREQUENCY;
+        return (RESET_FREQUENCY - framesToPreviousReset(tick)) % RESET_FREQUENCY;
     }
 
     int framesToNextReset()
     {
-        return framesToNextReset(currentFrame);
+        return framesToNextReset(frameNow);
     }
 
-    int nextResetFrame(int frame)
+    int nextResetFrame(int tick)
     {
-        return frame + framesToNextReset(frame);
+        return tick + framesToNextReset(tick);
     }
 
     int nextResetFrame()
     {
-        return nextResetFrame(currentFrame);
+        return nextResetFrame(frameNow);
     }
 
-    int previousResetFrame(int frame)
+    int previousResetFrame(int tick)
     {
-        return frame - framesToPreviousReset(frame);
+        return tick - framesToPreviousReset(tick);
     }
 
     int previousResetFrame()
     {
-        return previousResetFrame(currentFrame);
+        return previousResetFrame(frameNow);
     }
 
-    int isResetFrame(int frame)
+    int isResetFrame(int tick)
     {
-        return framesToPreviousReset(frame) == 0;
+        return framesToPreviousReset(tick) == 0;
     }
 
     int isResetFrame()
     {
-        return isResetFrame(currentFrame);
+        return isResetFrame(frameNow);
     }
 
-    int unitOrderProcessTimerAtDelta(int frame, int unitOrderProcessTimer, int frameDelta)
+    int unitOrderProcessTimerAtDelta(int tick, int unitOrderProcessTimer, int frameDelta)
     {
         if (frameDelta == 0) return unitOrderProcessTimer;
         if (unitOrderProcessTimer == -1) return -1;
 
         if (frameDelta > 0)
         {
-            if (framesToNextReset(frame + 1) < frameDelta) return -1;
+            if (framesToNextReset(tick + 1) < frameDelta) return -1;
 
-            int result = unitOrderProcessTimer - frameDelta;
-            while (result < 0) result += 9;
-            return result;
+            int outcome = unitOrderProcessTimer - frameDelta;
+            while (outcome < 0) outcome += 9;
+            return outcome;
         }
 
-        if (framesToPreviousReset(frame) < (-frameDelta)) return -1;
+        if (framesToPreviousReset(tick) < (-frameDelta)) return -1;
 
-        int result = unitOrderProcessTimer - frameDelta;
-        while (result > 8) result -= 9;
-        return result;
+        int outcome = unitOrderProcessTimer - frameDelta;
+        while (outcome > 8) outcome -= 9;
+        return outcome;
     }
 
     int unitOrderProcessTimerAtDelta(int unitOrderProcessTimer, int frameDelta)
     {
-        return unitOrderProcessTimerAtDelta(currentFrame, unitOrderProcessTimer, frameDelta);
+        return unitOrderProcessTimerAtDelta(frameNow, unitOrderProcessTimer, frameDelta);
     }
 }

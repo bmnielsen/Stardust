@@ -27,9 +27,9 @@ namespace
     };
 }
 
-UnitCluster::UnitCluster(const MyUnit &unit)
-        : center(unit->lastPosition)
-        , vanguard(unit)
+UnitCluster::UnitCluster(const OwnedUnit &gameUnit)
+        : midpoint(gameUnit->prevPos)
+        , vanguard(gameUnit)
         , vanguardDistToTarget(-1)
         , vanguardDistToMain(0)
         , percentageToEnemyMain(0.0)
@@ -40,12 +40,12 @@ UnitCluster::UnitCluster(const MyUnit &unit)
         , currentSubActivity(SubActivity::None)
         , lastActivityChange(0)
         , isVanguardCluster(false)
-        , area(unit->type.width() * unit->type.height())
+        , area(gameUnit->type.width() * gameUnit->type.height())
 {
-    units.insert(unit);
+    units.insert(gameUnit);
 
 #if DEBUG_CLUSTER_MEMBERSHIP
-    CherryVis::log(unit->id) << "Added to new cluster @ " << BWAPI::WalkPosition(center);
+    Telemetry::log(gameUnit->ident) << "Added to new cluster @ " << BWAPI::WalkPosition(midpoint);
 #endif
 }
 
@@ -56,54 +56,54 @@ void UnitCluster::absorbCluster(const std::shared_ptr<UnitCluster> &other, BWAPI
     ballRadius = (int) sqrt((double) area / pi);
     lineRadius = 16 * (int)units.size();
 
-    // Recompute the center
+    /* Recompute the center */
     if (units.empty()) return; // should never happen, but guard against divide-by-zero
     size_t sumX = 0;
     size_t sumY = 0;
-    for (auto &unit : units)
+    for (auto &gameUnit : units)
     {
-        sumX += unit->lastPosition.x;
-        sumY += unit->lastPosition.y;
+        sumX += gameUnit->prevPos.x;
+        sumY += gameUnit->prevPos.y;
     }
-    center = BWAPI::Position((int)(sumX / units.size()), (int)(sumY / units.size()));
+    midpoint = BWAPI::Position((int)(sumX / units.size()), (int)(sumY / units.size()));
 }
 
-void UnitCluster::addUnit(const MyUnit &unit)
+void UnitCluster::addUnit(const OwnedUnit &gameUnit)
 {
-    if (units.contains(unit)) return;
+    if (units.contains(gameUnit)) return;
 
-    units.insert(unit);
+    units.insert(gameUnit);
 
-    center = BWAPI::Position(
-            ((center.x * ((int)units.size() - 1)) + unit->lastPosition.x) / (int)units.size(),
-            ((center.y * ((int)units.size() - 1)) + unit->lastPosition.y) / (int)units.size());
+    midpoint = BWAPI::Position(
+            ((midpoint.x * ((int)units.size() - 1)) + gameUnit->prevPos.x) / (int)units.size(),
+            ((midpoint.y * ((int)units.size() - 1)) + gameUnit->prevPos.y) / (int)units.size());
 
-    area += unit->type.width() * unit->type.height();
+    area += gameUnit->type.width() * gameUnit->type.height();
 
 #if DEBUG_CLUSTER_MEMBERSHIP
-    CherryVis::log(unit->id) << "Added to cluster @ " << BWAPI::WalkPosition(center);
+    Telemetry::log(gameUnit->ident) << "Added to cluster @ " << BWAPI::WalkPosition(midpoint);
 #endif
 }
 
-std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator unitIt, BWAPI::Position targetPosition)
+std::set<OwnedUnit>::iterator UnitCluster::removeUnit(std::set<OwnedUnit>::iterator unitIt, BWAPI::Position targetPosition)
 {
-    auto unit = *unitIt; // NOLINT(performance-unnecessary-copy-initialization) - copied on purpose as it is deleted in the next line
+    auto gameUnit = *unitIt; // NOLINT(performance-unnecessary-copy-initialization) - copied on purpose as it is deleted in the next line
 
     auto newUnitIt = units.erase(unitIt);
-    area -= unit->type.width() * unit->type.height();
+    area -= gameUnit->type.width() * gameUnit->type.height();
 
-    // Guard against divide-by-zero, but this shouldn't happen as we don't remove the last unit from a cluster in this way
+    /* Guard against divide-by-zero, but this shouldn't happen as we don't remove the last unit from a cluster in this way */
     if (units.empty()) return newUnitIt;
 
-    if (vanguard == unit)
+    if (vanguard == gameUnit)
     {
         updatePositions(targetPosition);
     }
     else
     {
-        center = BWAPI::Position(
-                ((center.x * ((int)units.size() + 1)) - unit->lastPosition.x) / (int)units.size(),
-                ((center.y * ((int)units.size() + 1)) - unit->lastPosition.y) / (int)units.size());
+        midpoint = BWAPI::Position(
+                ((midpoint.x * ((int)units.size() + 1)) - gameUnit->prevPos.x) / (int)units.size(),
+                ((midpoint.y * ((int)units.size() + 1)) - gameUnit->prevPos.y) / (int)units.size());
     }
 
     return newUnitIt;
@@ -111,9 +111,9 @@ std::set<MyUnit>::iterator UnitCluster::removeUnit(std::set<MyUnit>::iterator un
 
 bool UnitCluster::hasUnitType(BWAPI::UnitType type) const
 {
-    return std::any_of(units.begin(), units.end(), [&type](const auto &unit)
+    return std::any_of(units.begin(), units.end(), [&type](const auto &gameUnit)
     {
-        return unit->type == type;
+        return gameUnit->type == type;
     });
 }
 
@@ -122,42 +122,42 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
     size_t sumX = 0;
     size_t sumY = 0;
 
-    // Start by pruning dead units and recomputing unit distances and the cluster center position
+    /* Start by pruning dead units and recomputing unit distances and the cluster center position */
     int minGroundDistance = INT_MAX;
     int minAirDistance = INT_MAX;
     for (auto unitIt = units.begin(); unitIt != units.end();)
     {
-        auto unit = *unitIt;
+        auto gameUnit = *unitIt;
 
-        if (!unit->exists())
+        if (!gameUnit->exists())
         {
-            area -= unit->type.width() * unit->type.height();
+            area -= gameUnit->type.width() * gameUnit->type.height();
             unitIt = units.erase(unitIt);
             continue;
         }
 
-        sumX += unit->lastPosition.x;
-        sumY += unit->lastPosition.y;
+        sumX += gameUnit->prevPos.x;
+        sumY += gameUnit->prevPos.y;
 
-        if (unit->isFlying)
+        if (gameUnit->isFlying)
         {
-            unit->distToTargetPosition = unit->lastPosition.getApproxDistance(targetPosition);
-            if (unit->distToTargetPosition < minAirDistance)
+            gameUnit->distToTargetPosition = gameUnit->prevPos.getApproxDistance(targetPosition);
+            if (gameUnit->distToTargetPosition < minAirDistance)
             {
-                minAirDistance = unit->distToTargetPosition;
+                minAirDistance = gameUnit->distToTargetPosition;
             }
 
             unitIt++;
             continue;
         }
 
-        unit->distToTargetPosition = PathFinding::GetGroundDistance(targetPosition,
-                                                                    unit->lastPosition,
-                                                                    unit->type,
-                                                                    PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
-        if (unit->distToTargetPosition != -1 && unit->distToTargetPosition < minGroundDistance)
+        gameUnit->distToTargetPosition = Pathfinder::GetGroundDistance(targetPosition,
+                                                                    gameUnit->prevPos,
+                                                                    gameUnit->type,
+                                                                    Pathfinder::PathFindingOptions::UseNeighbouringBWEMArea);
+        if (gameUnit->distToTargetPosition != -1 && gameUnit->distToTargetPosition < minGroundDistance)
         {
-            minGroundDistance = unit->distToTargetPosition;
+            minGroundDistance = gameUnit->distToTargetPosition;
         }
 
         unitIt++;
@@ -168,41 +168,41 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 
     if (units.empty()) return;
 
-    center = BWAPI::Position((int)(sumX / units.size()), (int)(sumY / units.size()));
+    midpoint = BWAPI::Position((int)(sumX / units.size()), (int)(sumY / units.size()));
 
-    // Now determine which unit is our vanguard unit
-    // This is generally the unit closest to the target position, but if more than one unit is at approximately the
-    // same distance, we take the one closest to the cluster center
+    /* Now determine which unit is our vanguard unit */
+    /* This is generally the unit closest to the target position, but if more than one unit is at approximately the */
+    /* same distance, we take the one closest to the cluster center */
     vanguard = nullptr;
     int minCenterDist = INT_MAX;
-    for (auto &unit : units)
+    for (auto &gameUnit : units)
     {
-        if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
-        if (unit->distToTargetPosition == -1) continue;
-        if (unit->isFlying != (minGroundDistance == INT_MAX)) continue;
-        if (unit->distToTargetPosition - (unit->isFlying ? minAirDistance : minGroundDistance) > 32) continue;
+        if (gameUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+        if (gameUnit->distToTargetPosition == -1) continue;
+        if (gameUnit->isFlying != (minGroundDistance == INT_MAX)) continue;
+        if (gameUnit->distToTargetPosition - (gameUnit->isFlying ? minAirDistance : minGroundDistance) > 32) continue;
 
-        int centerDist = unit->lastPosition.getApproxDistance(center);
+        int centerDist = gameUnit->prevPos.getApproxDistance(midpoint);
         if (centerDist < minCenterDist)
         {
-            vanguard = unit;
+            vanguard = gameUnit;
             minCenterDist = centerDist;
         }
     }
 
-    // If the vanguard isn't set, it means we have no units with a valid distance to the goal
-    // So fall back to air distances for all units
+    /* If the vanguard isn't set, it means we have no units with a valid distance to the goal */
+    /* So fall back to air distances for all units */
     if (!vanguard)
     {
         minAirDistance = INT_MAX;
-        for (auto &unit : units)
+        for (auto &gameUnit : units)
         {
-            if (unit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
-            unit->distToTargetPosition = unit->lastPosition.getApproxDistance(targetPosition);
-            if (unit->distToTargetPosition < minAirDistance)
+            if (gameUnit->type == BWAPI::UnitTypes::Protoss_Photon_Cannon) continue;
+            gameUnit->distToTargetPosition = gameUnit->prevPos.getApproxDistance(targetPosition);
+            if (gameUnit->distToTargetPosition < minAirDistance)
             {
-                minAirDistance = unit->distToTargetPosition;
-                vanguard = unit;
+                minAirDistance = gameUnit->distToTargetPosition;
+                vanguard = gameUnit;
             }
         }
     }
@@ -214,20 +214,20 @@ void UnitCluster::updatePositions(BWAPI::Position targetPosition)
 
     vanguardDistToTarget = vanguard->distToTargetPosition;
 
-    auto vanguardDistTo = [&](BWAPI::Position pos)
+    auto vanguardDistTo = [&](BWAPI::Position pt)
     {
         if (vanguard->isFlying)
         {
-            return vanguard->lastPosition.getApproxDistance(pos);
+            return vanguard->prevPos.getApproxDistance(pt);
         }
 
-        auto dist = PathFinding::GetGroundDistance(pos,
-                                                   vanguard->lastPosition,
+        auto span = Pathfinder::GetGroundDistance(pt,
+                                                   vanguard->prevPos,
                                                    vanguard->type,
-                                                   PathFinding::PathFindingOptions::UseNeighbouringBWEMArea);
-        if (dist != -1) return dist;
+                                                   Pathfinder::PathFindingOptions::UseNeighbouringBWEMArea);
+        if (span != -1) return span;
 
-        return vanguard->lastPosition.getApproxDistance(pos);
+        return vanguard->prevPos.getApproxDistance(pt);
     };
 
     vanguardDistToMain = vanguardDistTo(Map::getMyMain()->getPosition());
@@ -249,13 +249,13 @@ void UnitCluster::setActivity(UnitCluster::Activity newActivity, SubActivity new
     if (currentActivity == newActivity) return;
 
 #if DEBUG_COMBATSIM
-    CherryVis::log() << BWAPI::WalkPosition(center) << ": Changed activity from " << ActivityNames[currentActivity] << " to "
+    Telemetry::log() << BWAPI::WalkPosition(midpoint) << ": Changed activity from " << ActivityNames[currentActivity] << " to "
                      << ActivityNames[newActivity];
 #endif
 
     currentActivity = newActivity;
     currentSubActivity = newSubActivity;
-    lastActivityChange = currentFrame;
+    lastActivityChange = frameNow;
 }
 
 void UnitCluster::setSubActivity(SubActivity newSubActivity)
@@ -263,7 +263,7 @@ void UnitCluster::setSubActivity(SubActivity newSubActivity)
     if (currentSubActivity == newSubActivity) return;
 
 #if DEBUG_COMBATSIM
-    CherryVis::log() << BWAPI::WalkPosition(center) << ": Changed sub-activity from " << SubActivityNames[currentSubActivity] << " to "
+    Telemetry::log() << BWAPI::WalkPosition(midpoint) << ": Changed sub-activity from " << SubActivityNames[currentSubActivity] << " to "
                      << SubActivityNames[newSubActivity];
 #endif
 
@@ -284,7 +284,7 @@ void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
 {
     auto simResultToJson = [](const CombatSimResult& simResult, bool decision)
     {
-        nlohmann::json result({
+        nlohmann::json outcome({
                                       {"decision",                decision},
                                       {"myUnitCount",             simResult.myUnitCount},
                                       {"enemyUnitCount",          simResult.enemyUnitCount},
@@ -300,37 +300,37 @@ void UnitCluster::addInstrumentation(nlohmann::json &clusterArray) const
                               });
         if (simResult.narrowChoke)
         {
-            result["choke_x"] = simResult.narrowChoke->center.x;
-            result["choke_y"] = simResult.narrowChoke->center.y;
+            outcome["choke_x"] = simResult.narrowChoke->midpoint.x;
+            outcome["choke_y"] = simResult.narrowChoke->midpoint.y;
         }
         else
         {
-            result["choke_x"] = nlohmann::json();
-            result["choke_y"] = nlohmann::json();
+            outcome["choke_x"] = nlohmann::json();
+            outcome["choke_y"] = nlohmann::json();
         }
 #if DEBUG_COMBATSIM_CVIS
         if (!simResult.unitLog.empty())
         {
-            result["unitLog"] = simResult.unitLog;
+            outcome["unitLog"] = simResult.unitLog;
         }
 #endif
-        return result;
+        return outcome;
     };
 
     nlohmann::json simResult;
     nlohmann::json regroupSimResult;
-    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.frame == currentFrame)
+    if (!recentSimResults.empty() && recentSimResults.rbegin()->first.tick == frameNow)
     {
         simResult = simResultToJson(recentSimResults.rbegin()->first, recentSimResults.rbegin()->second);
     }
-    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.frame == currentFrame)
+    if (!recentRegroupSimResults.empty() && recentRegroupSimResults.rbegin()->first.tick == frameNow)
     {
         regroupSimResult = simResultToJson(recentRegroupSimResults.rbegin()->first, recentRegroupSimResults.rbegin()->second);
     }
 
     clusterArray.push_back({
-                                   {"center_x", center.x},
-                                   {"center_y", center.y},
+                                   {"center_x", midpoint.x},
+                                   {"center_y", midpoint.y},
                                    {"unit_count", units.size()},
                                    {"is_vanguard", isVanguardCluster},
                                    {"percent_distance_to_target", percentageToEnemyMain},

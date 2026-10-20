@@ -6,78 +6,78 @@
 #include "Map.h"
 
 DefendWallSquad::DefendWallSquad()
-        : Squad("Defend wall")
+        : UnitSquad("Defend wall")
 {
     wall = BuildingPlacement::getForgeGatewayWall();
     if (!wall.isValid())
     {
-        Log::Get() << "ERROR: DefendWallSquad for invalid wall";
+        AppLog::Get() << "ERROR: DefendWallSquad for invalid wall";
     }
 
     targetPosition = wall.gapCenter;
 }
 
-void DefendWallSquad::execute(UnitCluster &cluster)
+void DefendWallSquad::execute(UnitCluster &clump)
 {
-    auto combatUnitSeenRecentlyPredicate = [](const Unit &unit)
+    auto combatUnitSeenRecentlyPredicate = [](const Unit &gameUnit)
     {
-        if (!unit->type.isBuilding() && unit->lastSeen < (currentFrame - 48)) return false;
-        if (!UnitUtil::IsCombatUnit(unit->type) && unit->lastSeenAttacking < (currentFrame - 120)) return false;
-        if (!unit->isTransport() && !UnitUtil::CanAttackGround(unit->type)) return false;
+        if (!gameUnit->type.isBuilding() && gameUnit->lastSeen < (frameNow - 48)) return false;
+        if (!UnitHelper::IsCombatUnit(gameUnit->type) && gameUnit->lastSeenAttacking < (frameNow - 120)) return false;
+        if (!gameUnit->isTransport() && !UnitHelper::CanAttackGround(gameUnit->type)) return false;
 
         return true;
     };
 
-    // Gather all enemy units in our main or natural area or close to the wall center
+    /* Gather all enemy units in our main or natural area or close to the wall center */
     std::set<Unit> enemyUnits;
-    Units::enemyInRadius(enemyUnits, targetPosition, 240, combatUnitSeenRecentlyPredicate);
-    for (const auto &area : Map::getMyMainAreas()) Units::enemyInArea(enemyUnits, area, combatUnitSeenRecentlyPredicate);
+    UnitMgr::enemyInRadius(enemyUnits, targetPosition, 240, combatUnitSeenRecentlyPredicate);
+    for (const auto &area : Map::getMyMainAreas()) UnitMgr::enemyInArea(enemyUnits, area, combatUnitSeenRecentlyPredicate);
 
-    auto natural = Map::mapSpecificOverride()->naturalForWallPlacement(Map::getMyMain());
-    if (!natural) natural = Map::getMyNatural();
-    if (natural) Units::enemyInArea(enemyUnits, natural->getArea(), combatUnitSeenRecentlyPredicate);
+    auto natBase = Map::mapSpecificOverride()->naturalForWallPlacement(Map::getMyMain());
+    if (!natBase) natBase = Map::getMyNatural();
+    if (natBase) UnitMgr::enemyInArea(enemyUnits, natBase->getArea(), combatUnitSeenRecentlyPredicate);
 
-    // Remove enemy units that are outside and not close to the wall
-    for (auto it = enemyUnits.begin(); it != enemyUnits.end(); )
+    /* Remove enemy units that are outside and not close to the wall */
+    for (auto iterRef = enemyUnits.begin(); iterRef != enemyUnits.end(); )
     {
-        auto tile = (*it)->getTilePosition();
-        if (wall.tilesOutsideWall.contains(tile) && !wall.tilesOutsideButCloseToWall.contains(tile))
+        auto tilePos = (*iterRef)->getTilePosition();
+        if (wall.tilesOutsideWall.contains(tilePos) && !wall.tilesOutsideButCloseToWall.contains(tilePos))
         {
-            it = enemyUnits.erase(it);
+            iterRef = enemyUnits.erase(iterRef);
         }
         else
         {
-            it++;
+            iterRef++;
         }
     }
 
-    // If there are no enemy units, move to the wall center
+    /* If there are no enemy units, move to the wall center */
     if (enemyUnits.empty())
     {
-        cluster.setActivity(UnitCluster::Activity::Moving);
+        clump.setActivity(UnitCluster::Activity::Moving);
 
-        // If any of our units are outside the wall, move to our main to give them room to get in
+        /* If any of our units are outside the wall, move to our main to give them room to get in */
         bool unitOutsideWall = false;
-        for (const auto &unit : cluster.units)
+        for (const auto &gameUnit : clump.units)
         {
-            if (!wall.tilesOutsideWall.contains(unit->getTilePosition())) continue;
+            if (!wall.tilesOutsideWall.contains(gameUnit->getTilePosition())) continue;
             unitOutsideWall = true;
             break;
         }
 
         if (unitOutsideWall)
         {
-            cluster.move(Map::getMyMain()->getPosition());
+            clump.move(Map::getMyMain()->getPosition());
         }
         else
         {
-            cluster.move(targetPosition);
+            clump.move(targetPosition);
         }
 
         return;
     }
 
-    auto unitsAndTargets = cluster.selectTargets(enemyUnits, targetPosition);
-    cluster.setActivity(UnitCluster::Activity::Attacking);
-    cluster.attack(unitsAndTargets, targetPosition);
+    auto unitsAndTargets = clump.selectTargets(enemyUnits, targetPosition);
+    clump.setActivity(UnitCluster::Activity::Attacking);
+    clump.attack(unitsAndTargets, targetPosition);
 }

@@ -14,23 +14,23 @@ namespace Map
 
     void initializeWalkability();
 
-    void onUnitCreated(const Unit &unit);
+    void onUnitCreated(const Unit &gameUnit);
 
-    void onUnitCreated_Walkability(const Unit &unit);
+    void onUnitCreated_Walkability(const Unit &gameUnit);
 
-    void onUnitDiscover(BWAPI::Unit unit);
+    void onUnitDiscover(BWAPI::Unit gameUnit);
 
-    void onUnitDestroy(const Unit &unit);
+    void onUnitDestroy(const Unit &gameUnit);
 
-    void onUnitDestroy(BWAPI::Unit unit);
+    void onUnitDestroy(BWAPI::Unit gameUnit);
 
-    void onUnitDestroy_Walkability(const Unit &unit);
+    void onUnitDestroy_Walkability(const Unit &gameUnit);
 
-    void onUnitDestroy_Walkability(BWAPI::Unit unit);
+    void onUnitDestroy_Walkability(BWAPI::Unit gameUnit);
 
-    void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile);
+    void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tilePos);
 
-    void onBuildingLanded(BWAPI::UnitType type, BWAPI::TilePosition tile);
+    void onBuildingLanded(BWAPI::UnitType type, BWAPI::TilePosition tilePos);
 
     void update();
 
@@ -50,7 +50,7 @@ namespace Map
 
     Base *getMyNatural();
 
-    void setMyNatural(Base *base);
+    void setMyNatural(Base *baseLoc);
 
     Base *getEnemyStartingMain();
 
@@ -58,11 +58,11 @@ namespace Map
 
     Base *getEnemyMain();
 
-    void setEnemyStartingMain(Base *base);
+    void setEnemyStartingMain(Base *baseLoc);
 
-    void setEnemyStartingNatural(Base *base);
+    void setEnemyStartingNatural(Base *baseLoc);
 
-    // A base with gas that is far away from both starting bases
+    /* A base with gas that is far away from both starting bases */
     Base *getHiddenBase();
 
     Base *baseNear(BWAPI::Position position);
@@ -73,8 +73,8 @@ namespace Map
 
     std::vector<Choke *> allChokes();
 
-    // Gets the choke with the center nearest the given position, up to maxDistance away.
-    Choke *chokeNear(BWAPI::Position pos, int maxDistance = 160);
+    /* Gets the choke with the center nearest the given position, up to maxDistance away. */
+    Choke *chokeNear(BWAPI::Position pt, int maxDistance = 160);
 
     Choke *choke(const BWEM::ChokePoint *bwemChoke);
 
@@ -92,11 +92,11 @@ namespace Map
 
     std::set<const BWEM::Area *> &getMyMainAreas();
 
-    std::set<const BWEM::Area *> &getStartingBaseAreas(Base *base);
+    std::set<const BWEM::Area *> &getStartingBaseAreas(Base *baseLoc);
 
-    Base *getStartingBaseNatural(Base *base);
+    Base *getStartingBaseNatural(Base *baseLoc);
 
-    std::pair<Choke*, Choke*> getStartingBaseChokes(Base *base);
+    std::pair<Choke*, Choke*> getStartingBaseChokes(Base *baseLoc);
 
     std::map<const BWEM::Area *, std::set<BWAPI::TilePosition>> &getAreasToEdgePositions();
 
@@ -106,10 +106,10 @@ namespace Map
 
     void dumpWalkability();
 
-    // Walkable tiles are defined here as:
-    // - All of its contained walk positions are walkable according to BWAPI
-    // - It is not occupied by a building
-    bool isWalkable(BWAPI::TilePosition pos);
+    /* Walkable tiles are defined here as: */
+    /* - All of its contained walk positions are walkable according to BWAPI */
+    /* - It is not occupied by a building */
+    bool isWalkable(BWAPI::TilePosition pt);
 
     bool isWalkable(int x, int y);
 
@@ -121,19 +121,19 @@ namespace Map
 
     BWAPI::Position collisionVector(int x, int y);
 
-    bool isInOwnMineralLine(BWAPI::TilePosition tile);
+    bool isInOwnMineralLine(BWAPI::TilePosition tilePos);
 
     bool isInOwnMineralLine(int x, int y);
 
     bool bordersMineralPatch(int x, int y);
 
-    bool isInNarrowChoke(BWAPI::TilePosition pos);
+    bool isInNarrowChoke(BWAPI::TilePosition pt);
 
-    bool isInLeafArea(BWAPI::TilePosition pos);
+    bool isInLeafArea(BWAPI::TilePosition pt);
 
-    bool isOnIsland(BWAPI::TilePosition pos);
+    bool isOnIsland(BWAPI::TilePosition pt);
 
-    int lastSeen(BWAPI::TilePosition tile);
+    int lastSeen(BWAPI::TilePosition tilePos);
 
     int lastSeen(int x, int y);
 

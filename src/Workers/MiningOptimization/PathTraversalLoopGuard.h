@@ -14,25 +14,25 @@ namespace WorkerMiningOptimization
     class PathTraversalLoopGuard
     {
     public:
-        // Pushes a next position onto the traversal stack, returning true if it has already been seen.
-        bool push(const PositionAndVelocity &pos)
+        /* Pushes a next position onto the traversal stack, returning true if it has already been seen. */
+        bool push(const PositionAndVelocity &pt)
         {
 #if INSTRUMENTATION_ENABLED
             depth++;
             return depth == RECURSION_LIMIT;
 #else
-            auto result = visited.insert(pos);
-            return !result.second || visited.size() == RECURSION_LIMIT;
+            auto outcome = visited.insert(pt);
+            return !outcome.second || visited.size() == RECURSION_LIMIT;
 #endif
         }
 
-        // Pops the latest position from the stack.
-        void pop(const PositionAndVelocity &pos)
+        /* Pops the latest position from the stack. */
+        void pop(const PositionAndVelocity &pt)
         {
 #if INSTRUMENTATION_ENABLED
             depth--;
 #else
-            visited.erase(pos);
+            visited.erase(pt);
 #endif
         }
     private:

@@ -1,5 +1,5 @@
-// Worker mining optimization is split into multiple files
-// This file contains the logic to find the optimal path from a position for a worker mining a patch together with another worker
+/* Worker mining optimization is split into multiple files */
+/* This file contains the logic to find the optimal path from a position for a worker mining a patch together with another worker */
 
 #include "WorkerMiningOptimization.h"
 #include "PathTraversalLoopGuard.h"
@@ -42,52 +42,52 @@ namespace WorkerMiningOptimization
         {
             uint32_t total = collisions + nonCollisions;
 
-            // Always explore until 2 observations and stop exploring after 5
+            /* Always explore until 2 observations and stop exploring after 5 */
             if (total < 2) return true;
             if (total >= 5) return false;
 
-            // In the in-between period, explore if there is disagreement
+            /* In the in-between period, explore if there is disagreement */
             return collisions != total && nonCollisions != total;
         }
 
-        // Attempts to predict what the worker's order process timer will be on the next frame
+        /* Attempts to predict what the worker's order process timer will be on the next frame */
         int nextOrderProcessTimer(int simulationFrame, int currentOrderProcessTimer, int firstResendFrame = -1)
         {
             if (firstResendFrame != -1 && (simulationFrame + 1) == (firstResendFrame + BWAPI::Broodwar->getLatencyFrames()))
             {
-                // Really it sets to 0 for two frames while the worker recomputes its path, but for our logic we don't care
+                /* Really it sets to 0 for two frames while the worker recomputes its path, but for our logic we don't care */
                 return 10;
             }
             if (currentOrderProcessTimer == -1 || OrderProcessTimer::isResetFrame(simulationFrame + 1))
             {
                 return -1;
             }
-            int result = currentOrderProcessTimer - 1;
-            if (result < 0) result = 8;
-            return result;
+            int outcome = currentOrderProcessTimer - 1;
+            if (outcome < 0) outcome = 8;
+            return outcome;
         }
 
-        double otherPatchesForecastAtFrame(const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast, int frame)
+        double otherPatchesForecastAtFrame(const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast, int tick)
         {
-            int frameIdx = frame - currentFrame - 1;
+            int frameIdx = tick - frameNow - 1;
             if (frameIdx < 0 || frameIdx >= GATHER_FORECAST_FRAMES) return 0.0;
             return otherPatchesForecast[frameIdx];
         }
 
-        bool isPatchSwitchPossible(const WorkerGatherStatus &workerStatus,
+        bool isPatchSwitchPossible(const WorkerGatherStatus &wrkStatus,
                                    const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                    int simulationFrame,
                                    int orderProcessTimer,
-                                   const PositionAndVelocity &pos)
+                                   const PositionAndVelocity &pt)
         {
-            if (simulationFrame >= workerStatus.takeoverFrame) return false;
+            if (simulationFrame >= wrkStatus.takeoverFrame) return false;
             if (orderProcessTimer > 0) return false;
 
-            auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                pos.pos(),
+            auto span = Geom::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                pt.pt(),
                                                 BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                workerStatus.resource->center);
-            if (dist > 10) return false;
+                                                wrkStatus.resource->midpoint);
+            if (span > 10) return false;
 
             if (otherPatchesForecastAtFrame(otherPatchesForecast, simulationFrame) < PATCH_LOCK_THRESHOLD)
             {
@@ -99,7 +99,7 @@ namespace WorkerMiningOptimization
 
         double expectedPatchCollisionDelay(uint8_t collisionRate)
         {
-            // A collision adds an extra order process timer cycle of delay
+            /* A collision adds an extra order process timer cycle of delay */
             return 9.0 * (double)collisionRate / 255.0;
         }
 
@@ -116,32 +116,32 @@ namespace WorkerMiningOptimization
             std::deque<GatherPositionObservationPtr> expectedPath;
             std::unique_ptr<GatherPositionObservationPtr> resendPosition;
 
-            // Combines the logic we use to determine whether one evaluation is better than another
-            // Note that this is not intended to be reversible - rather it is intended to be called on one position's evaluation with the next
-            // positions provided as an argument
+            /* Combines the logic we use to determine whether one evaluation is better than another */
+            /* Note that this is not intended to be reversible - rather it is intended to be called on one position's evaluation with the next */
+            /* positions provided as an argument */
             [[nodiscard]] bool isBetterThan(const PositionEvaluation &other) const
             {
-                // Use this if the other is unusable for whatever reason
+                /* Use this if the other is unusable for whatever reason */
                 if (other.potentialPatchSwitchFrame != INT_MAX) return true;
                 if (!other.explored) return true;
 
-                // Possibility of patch lock is most important
+                /* Possibility of patch lock is most important */
                 if (other.patchLockFrameDelta >= 0 && patchLockFrameDelta < 0) return false;
                 if (patchLockFrameDelta >= 0 && other.patchLockFrameDelta < 0) return true;
 
-                // If both have a possible patch lock, consider collision delay in the weighting
+                /* If both have a possible patch lock, consider collision delay in the weighting */
                 if (other.patchLockFrameDelta >= 0 && patchLockFrameDelta >= 0)
                 {
-                    // We subtract the collision delay from each frame delta to balance locking early with avoiding collisions
+                    /* We subtract the collision delay from each frame delta to balance locking early with avoiding collisions */
                     double otherPatchLockScore = (double)other.patchLockFrameDelta - other.expectedCollisionDelay;
                     double thisPatchLockScore = (double)patchLockFrameDelta - expectedCollisionDelay;
                     return thisPatchLockScore > otherPatchLockScore;
                 }
 
-                // Compare the delays
-                // Since we have started doing patch lock optimization, we are now including the collision delay here to optimize for fewer collisions
-                // The reason for this is that it is now much more important to get back to the patch quickly, to give the largest window of
-                // opportunity for patch locking
+                /* Compare the delays */
+                /* Since we have started doing patch lock optimization, we are now including the collision delay here to optimize for fewer collisions */
+                /* The reason for this is that it is now much more important to get back to the patch quickly, to give the largest window of */
+                /* opportunity for patch locking */
                 auto thisDelay = expectedDelay + expectedCollisionDelay;
                 auto otherDelay = other.expectedDelay + other.expectedCollisionDelay;
 
@@ -149,9 +149,9 @@ namespace WorkerMiningOptimization
                 return false;
             }
 
-            static PositionEvaluation patchSwitch(int frame)
+            static PositionEvaluation patchSwitch(int tick)
             {
-                return {-1, 0.0, 0.0, {}, frame};
+                return {-1, 0.0, 0.0, {}, tick};
             }
 
             static PositionEvaluation exploring(GatherPositionObservations &firstResend, GatherPositionObservationPtr secondResend)
@@ -168,7 +168,7 @@ namespace WorkerMiningOptimization
                                               GatherPositionObservationPtr secondResend,
                                               bool unexploredPositionOnExpectedPath)
             {
-                // Generate the possible arrival frames with their weighting
+                /* Generate the possible arrival frames with their weighting */
                 std::vector<std::pair<int, int>> _expectedArrivalFrameAndOccurrenceRate;
                 _expectedArrivalFrameAndOccurrenceRate.reserve(arrivalObservations.packedArrivalDelayAndFacingPatchToOccurrenceRate.size());
                 for (const auto &[packedArrivalDelayAndFacingPatch, occurrenceRate]
@@ -201,46 +201,46 @@ namespace WorkerMiningOptimization
             return first.expectedPath.begin()->position() < second.expectedPath.begin()->position();
         }
 
-        std::optional<double> computeExpectedDelay(const WorkerGatherStatus &workerStatus,
+        std::optional<double> computeExpectedDelay(const WorkerGatherStatus &wrkStatus,
                                                    int simulationFrame,
                                                    const GatherResendArrivalObservations &observations)
         {
-            // Given an arrival delay, figures out how long after the takeover frame mining will start
-            // Returns nullopt if this arrival delay is unusable
+            /* Given an arrival delay, figures out how long after the takeover frame mining will start */
+            /* Returns nullopt if this arrival delay is unusable */
             auto packedArrivalDelayAndFacingPatchToMiningDelay =
                     [&](int8_t packedArrivalDelayAndFacingPatch)->std::optional<double>
             {
                 int arrivalDelay = GatherResendArrivalObservations::unpackArrivalDelay(packedArrivalDelayAndFacingPatch);
 
-                // If the worker is not facing the patch, add a penalty to the expected mining start time
-                // This will usually be a full order process timer cycle. Technically it could be shortened by an order process timer reset, but generally
-                // we just want to avoid these paths anyway.
+                /* If the worker is not facing the patch, add a penalty to the expected mining start time */
+                /* This will usually be a full order process timer cycle. Technically it could be shortened by an order process timer reset, but generally */
+                /* we just want to avoid these paths anyway. */
                 int facePatchPenalty = GatherResendArrivalObservations::unpackFacingPatch(packedArrivalDelayAndFacingPatch) ? 0 : 9;
 
                 int miningStartFrame = simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11;
                 int arrivalFrame = miningStartFrame + arrivalDelay;
 
-                // If we arrive 11 or more frames ahead of takeover, we can always optimize perfectly since we can freely resend commands after
-                // arrival, but we have to make sure we arrive at the patch before our order timer reaches 0
-                if (arrivalFrame <= (workerStatus.takeoverFrame - 11))
+                /* If we arrive 11 or more frames ahead of takeover, we can always optimize perfectly since we can freely resend commands after */
+                /* arrival, but we have to make sure we arrive at the patch before our order timer reaches 0 */
+                if (arrivalFrame <= (wrkStatus.takeoverFrame - 11))
                 {
                     if (arrivalDelay > 0) return std::nullopt;
                     return 0.0 + facePatchPenalty;
                 }
 
-                // If our mining start time is before the takeover frame, we can't use this position
-                if (miningStartFrame < workerStatus.takeoverFrame) return std::nullopt;
+                /* If our mining start time is before the takeover frame, we can't use this position */
+                if (miningStartFrame < wrkStatus.takeoverFrame) return std::nullopt;
 
-                // From here we can use the same logic as for single-worker takeover, as we know our mining starts at or after the takeover frame
-                // and there are no order process timer resets prior to takeover
+                /* From here we can use the same logic as for single-worker takeover, as we know our mining starts at or after the takeover frame */
+                /* and there are no order process timer resets prior to takeover */
 
-                // Get the delay with respect to the mining start frame
+                /* Get the delay with respect to the mining start frame */
                 double miningDelay =
                         GatherResendArrivalObservations::packedArrivalDelayAndFacingPatchToMiningDelay(
                                 packedArrivalDelayAndFacingPatch, simulationFrame);
 
-                // Adjust it to be relative to the takeover frame
-                return miningDelay + (miningStartFrame - workerStatus.takeoverFrame) + facePatchPenalty;
+                /* Adjust it to be relative to the takeover frame */
+                return miningDelay + (miningStartFrame - wrkStatus.takeoverFrame) + facePatchPenalty;
             };
 
             if (observations.packedArrivalDelayAndFacingPatchToOccurrenceRate.size() == 1)
@@ -261,18 +261,18 @@ namespace WorkerMiningOptimization
             return totalMiningDelay;
         }
 
-        std::optional<std::pair<int, double>> evaluatePatchLock(const MyWorker &worker,
+        std::optional<std::pair<int, double>> evaluatePatchLock(const OwnedWorker &wrk,
                                                                 const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                                                 int lastResendFrame,
                                                                 int arrivalFrame)
         {
-            // Compute the worker's order process timer at the start of the arrival frame
+            /* Compute the worker's order process timer at the start of the arrival frame */
             int orderProcessTimerAtArrival;
             if (lastResendFrame == -1)
             {
-                // Not sure if we will ever evaluate a no-resend approach, but including this in case we want to at some point
+                /* Not sure if we will ever evaluate a no-resend approach, but including this in case we want to at some point */
                 orderProcessTimerAtArrival =
-                        OrderProcessTimer::unitOrderProcessTimerAtDelta(worker->orderProcessTimer, arrivalFrame - currentFrame - 1);
+                        OrderProcessTimer::unitOrderProcessTimerAtDelta(wrk->orderProcessTimer, arrivalFrame - frameNow - 1);
             }
             else
             {
@@ -281,19 +281,19 @@ namespace WorkerMiningOptimization
                         OrderProcessTimer::unitOrderProcessTimerAtDelta(commandFrame, 10, arrivalFrame - commandFrame - 1);
             }
 
-            // There are four possibilities we need to consider:
-            // - We know the order process timer at arrival, and there is no reset before it reaches 0
-            //   - Here we only need to consider the frame where it reaches 0
-            // - We know the order process timer at arrival, but there is a reset before it reaches 0
-            //   - Here the order process timer can reach 0 from the reset frame and 7 frames ahead
-            // - We don't know the order process timer at arrival, and there is no reset in the following 8 frames
-            //   - Here there is an equal probability of the order process timer reaching 0 the next 8 frames ahead
-            // - We don't know the order process timer at arrival, and there is a reset in the following 8 frames
-            //   - Here there is a chance the order process timer reaches 0 before the reset, then an equal probability of it reaching
-            //     0 during the following 7 frames
+            /* There are four possibilities we need to consider: */
+            /* - We know the order process timer at arrival, and there is no reset before it reaches 0 */
+            /* - Here we only need to consider the frame where it reaches 0 */
+            /* - We know the order process timer at arrival, but there is a reset before it reaches 0 */
+            /* - Here the order process timer can reach 0 from the reset frame and 7 frames ahead */
+            /* - We don't know the order process timer at arrival, and there is no reset in the following 8 frames */
+            /* - Here there is an equal probability of the order process timer reaching 0 the next 8 frames ahead */
+            /* - We don't know the order process timer at arrival, and there is a reset in the following 8 frames */
+            /* - Here there is a chance the order process timer reaches 0 before the reset, then an equal probability of it reaching */
+            /* 0 during the following 7 frames */
 
-            // To make things as simple as possible, we start by building a list of frames with the probability of the order process
-            // timer reaching 0 at each
+            /* To make things as simple as possible, we start by building a list of frames with the probability of the order process */
+            /* timer reaching 0 at each */
             std::vector<std::pair<int, double>> possibleFramesAndProbabilities;
             if (orderProcessTimerAtArrival != -1)
             {
@@ -304,35 +304,35 @@ namespace WorkerMiningOptimization
                 else
                 {
                     int resetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame);
-                    for (int frame = resetFrame; frame <= (resetFrame + 7); frame++)
+                    for (int tick = resetFrame; tick <= (resetFrame + 7); tick++)
                     {
-                        possibleFramesAndProbabilities.emplace_back(frame, 1.0 / 8.0);
+                        possibleFramesAndProbabilities.emplace_back(tick, 1.0 / 8.0);
                     }
                 }
             }
             else
             {
                 int resetFrame = OrderProcessTimer::nextResetFrame(arrivalFrame);
-                for (int frame = arrivalFrame; frame <= (arrivalFrame + 8); frame++)
+                for (int tick = arrivalFrame; tick <= (arrivalFrame + 8); tick++)
                 {
-                    if (frame == resetFrame)
+                    if (tick == resetFrame)
                     {
-                        double probabilityOfReachingHere = 1.0 - (double)(frame - arrivalFrame) / 9.0;
+                        double probabilityOfReachingHere = 1.0 - (double)(tick - arrivalFrame) / 9.0;
                         for (int frameAfterReset = resetFrame; frameAfterReset <= (resetFrame + 7); frameAfterReset++)
                         {
                             possibleFramesAndProbabilities.emplace_back(frameAfterReset, probabilityOfReachingHere / 8.0);
                         }
                         break;
                     }
-                    possibleFramesAndProbabilities.emplace_back(frame, 1.0 / 9.0);
+                    possibleFramesAndProbabilities.emplace_back(tick, 1.0 / 9.0);
                 }
             }
 
-            // Now evaluate whether we expect to patch lock
+            /* Now evaluate whether we expect to patch lock */
             double probabilityAccumulator = 0.0;
-            for (const auto &[frame, probability] : possibleFramesAndProbabilities)
+            for (const auto &[tick, probability] : possibleFramesAndProbabilities)
             {
-                probabilityAccumulator += probability * otherPatchesForecastAtFrame(otherPatchesForecast, frame);
+                probabilityAccumulator += probability * otherPatchesForecastAtFrame(otherPatchesForecast, tick);
             }
             if (probabilityAccumulator < PATCH_LOCK_THRESHOLD)
             {
@@ -341,9 +341,9 @@ namespace WorkerMiningOptimization
             return std::make_pair(possibleFramesAndProbabilities.rbegin()->first, probabilityAccumulator);
         }
 
-        // Checks whether the worker is expected to patch lock, returning the last frame if it will
+        /* Checks whether the worker is expected to patch lock, returning the last frame if it will */
         template<typename T>
-        std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus,
+        std::optional<int> checkForPatchLock(const WorkerGatherStatus &wrkStatus,
                                              const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                              int resendFrame,
                                              const T &arrivalFramesAndOccurrenceRates)
@@ -353,18 +353,18 @@ namespace WorkerMiningOptimization
             int mostCommonLockFrame = 0;
             for (const auto &[arrivalFrame, occurrenceRate] : arrivalFramesAndOccurrenceRates)
             {
-                auto result = evaluatePatchLock(
-                        workerStatus.worker,
+                auto outcome = evaluatePatchLock(
+                        wrkStatus.wrk,
                         otherPatchesForecast,
                         resendFrame,
                         arrivalFrame);
-                if (!result.has_value()) return std::nullopt;
+                if (!outcome.has_value()) return std::nullopt;
 
-                probabilityAccumulator += (result.value().second) * ((double)occurrenceRate / 255.0);
+                probabilityAccumulator += (outcome.value().second) * ((double)occurrenceRate / 255.0);
                 if (occurrenceRate > bestOccurrenceRate)
                 {
                     bestOccurrenceRate = occurrenceRate;
-                    mostCommonLockFrame = result.value().first;
+                    mostCommonLockFrame = outcome.value().first;
                 }
             }
 
@@ -375,12 +375,12 @@ namespace WorkerMiningOptimization
             return mostCommonLockFrame;
         }
 
-        std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus,
+        std::optional<int> checkForPatchLock(const WorkerGatherStatus &wrkStatus,
                                              const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                              int simulationFrame,
                                              const GatherResendArrivalObservations &observations)
         {
-            // Transforms the arrival delays into arrival frames
+            /* Transforms the arrival delays into arrival frames */
             auto arrivalFrames =
                     std::ranges::views::transform(observations.packedArrivalDelayAndFacingPatchToOccurrenceRate, [&](auto a)
             {
@@ -388,10 +388,10 @@ namespace WorkerMiningOptimization
                         simulationFrame + BWAPI::Broodwar->getLatencyFrames() + 11 + GatherResendArrivalObservations::unpackArrivalDelay(a.first),
                         (int)a.second);
             });
-            return checkForPatchLock(workerStatus, otherPatchesForecast, simulationFrame, arrivalFrames);
+            return checkForPatchLock(wrkStatus, otherPatchesForecast, simulationFrame, arrivalFrames);
         }
 
-        PositionEvaluation evaluateSecondResendPositions(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
+        PositionEvaluation evaluateSecondResendPositions(const WorkerGatherStatus &wrkStatus, // NOLINT(*-no-recursion)
                                                          const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                                          int firstResendFrame,
                                                          int simulationFrame,
@@ -400,48 +400,48 @@ namespace WorkerMiningOptimization
                                                          GatherPositionObservationPtr here,
                                                          uint8_t deltaToFirstResend)
         {
-            // Reference the observations and next positions
-            auto &observations = (here.pos ? here.pos->noSecondResendArrivalObservations : here.secondResendPos->arrivalObservations);
+            /* Reference the observations and next positions */
+            auto &observations = (here.pt ? here.pt->noSecondResendArrivalObservations : here.secondResendPos->arrivalObservations);
             auto &nextPositions = here.nextSecondResendPositions();
 
-            // If we have no further next positions, we are at the end of our recorded path
-            // We return a patch switch to indicate that we don't want to resend commands close to the end
+            /* If we have no further next positions, we are at the end of our recorded path */
+            /* We return a patch switch to indicate that we don't want to resend commands close to the end */
             if (nextPositions.empty())
             {
                 return PositionEvaluation::patchSwitch(simulationFrame + 1);
             }
 
-            // Do not resend from positions that are at the patch, unless this is a stable path moving parallel with the patch
-            if (Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                        here.position().pos(),
+            /* Do not resend from positions that are at the patch, unless this is a stable path moving parallel with the patch */
+            if (Geom::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                        here.position().pt(),
                                         BWAPI::UnitTypes::Resource_Mineral_Field,
-                                        workerStatus.resource->center) == 0)
+                                        wrkStatus.resource->midpoint) == 0)
             {
-                // Require there to be at least one next position, and no next positions equal to this one
+                /* Require there to be at least one next position, and no next positions equal to this one */
                 if (nextPositions.empty()) return {};
                 for (const auto &nextPos : nextPositions)
                 {
-                    if (nextPos.pos.pos() == here.position().pos()) return {};
+                    if (nextPos.pt.pt() == here.position().pt()) return {};
                 }
             }
 
-            // Compute the order process timer for the next frame
+            /* Compute the order process timer for the next frame */
             int nextWorkerOrderProcessTimer = nextOrderProcessTimer(simulationFrame, workerOrderProcessTimer, firstResendFrame);
 
-            // Get the data for doing a second resend at all of the next positions
+            /* Get the data for doing a second resend at all of the next positions */
             PositionEvaluation nextPositionsEvaluation;
             auto evaluateNextPosition = [&](SecondResendGatherPositionObservations &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
             {
-                if (isPatchSwitchPossible(workerStatus,
+                if (isPatchSwitchPossible(wrkStatus,
                                           otherPatchesForecast,
                                           simulationFrame,
                                           workerOrderProcessTimer,
-                                          nextPosition.pos))
+                                          nextPosition.pt))
                 {
                     return PositionEvaluation::patchSwitch(simulationFrame + 1);
                 }
 
-                return evaluateSecondResendPositions(workerStatus,
+                return evaluateSecondResendPositions(wrkStatus,
                                                      otherPatchesForecast,
                                                      firstResendFrame,
                                                      simulationFrame + 1,
@@ -480,7 +480,7 @@ namespace WorkerMiningOptimization
                 }
                 nextPositionsEvaluation.expectedDelay = delayAccumulator;
 
-                // If patch locking is not guaranteed at high enough probability, clear it
+                /* If patch locking is not guaranteed at high enough probability, clear it */
                 if (nextPositionsEvaluation.patchLockFrameDelta >= 0 && (patchLockAccumulator / 255.0) < PATCH_LOCK_THRESHOLD)
                 {
                     nextPositionsEvaluation.patchLockFrameDelta = -1;
@@ -488,24 +488,24 @@ namespace WorkerMiningOptimization
             }
             nextPositionsEvaluation.expectedPath.insert(nextPositionsEvaluation.expectedPath.begin(), here);
 
-            // If there is a potential patch switch, back off until the last safe frame
+            /* If there is a potential patch switch, back off until the last safe frame */
             if (nextPositionsEvaluation.potentialPatchSwitchFrame < (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
             {
                 return nextPositionsEvaluation;
             }
 
-            // We can't send another command at LF after previous command
+            /* We can't send another command at LF after previous command */
             if (deltaToFirstResend == BWAPI::Broodwar->getLatencyFrames()) return nextPositionsEvaluation;
 
-            // We can't send a command LF+1 frames before an order process timer reset
+            /* We can't send a command LF+1 frames before an order process timer reset */
             if (OrderProcessTimer::framesToNextReset(simulationFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
-            // Avoid frames that could block commands needed for takeover, either for reset frame or takeover frame
-            // TODO: Figure out if any of this needs to be adjusted to take patch locking into consideration
-            int orderTimerResetFrame = OrderProcessTimer::previousResetFrame(workerStatus.takeoverFrame);
-            if (orderTimerResetFrame == workerStatus.takeoverFrame) orderTimerResetFrame -= 150;
+            /* Avoid frames that could block commands needed for takeover, either for reset frame or takeover frame */
+            /* TODO: Figure out if any of this needs to be adjusted to take patch locking into consideration */
+            int orderTimerResetFrame = OrderProcessTimer::previousResetFrame(wrkStatus.takeoverFrame);
+            if (orderTimerResetFrame == wrkStatus.takeoverFrame) orderTimerResetFrame -= 150;
 
-            int commandFrameForTakeOver = workerStatus.takeoverFrame - 11 - BWAPI::Broodwar->getLatencyFrames();
+            int commandFrameForTakeOver = wrkStatus.takeoverFrame - 11 - BWAPI::Broodwar->getLatencyFrames();
             int commandFrameForReset = orderTimerResetFrame - BWAPI::Broodwar->getLatencyFrames();
             if ((commandFrameForTakeOver - commandFrameForReset) == BWAPI::Broodwar->getLatencyFrames()) commandFrameForReset++;
 
@@ -515,45 +515,45 @@ namespace WorkerMiningOptimization
                 return nextPositionsEvaluation;
             }
 
-            // If the next positions' expected path has a position to try, return it
+            /* If the next positions' expected path has a position to try, return it */
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
 
-            // Compute whether we expect a patch lock from resending in this position
+            /* Compute whether we expect a patch lock from resending in this position */
             int patchLockFrameDelta = -1;
-            auto patchLock = checkForPatchLock(workerStatus, otherPatchesForecast, simulationFrame, observations);
+            auto patchLock = checkForPatchLock(wrkStatus, otherPatchesForecast, simulationFrame, observations);
             if (patchLock.has_value())
             {
-                patchLockFrameDelta = workerStatus.takeoverFrame - patchLock.value();
+                patchLockFrameDelta = wrkStatus.takeoverFrame - patchLock.value();
             }
 
-            // If there is an order process timer reset before the takeover frame, we can't use this position
-            // Exception is if the order process timer reset happens on the frame the command kicks in or we expect to patch lock
-            // TODO: It is presumably also ok if we reach the patch before the reset, but we would have to consider Unit_Busy timings
+            /* If there is an order process timer reset before the takeover frame, we can't use this position */
+            /* Exception is if the order process timer reset happens on the frame the command kicks in or we expect to patch lock */
+            /* TODO: It is presumably also ok if we reach the patch before the reset, but we would have to consider Unit_Busy timings */
             if (patchLockFrameDelta < 0)
             {
                 int nextResetFrame = OrderProcessTimer::nextResetFrame(simulationFrame);
-                if (nextResetFrame < workerStatus.takeoverFrame && nextResetFrame != (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
+                if (nextResetFrame < wrkStatus.takeoverFrame && nextResetFrame != (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
                 {
                     return nextPositionsEvaluation;
                 }
             }
 
-            // Check if this position should be tried
+            /* Check if this position should be tried */
             if (WorkerMiningOptimization::isExploring() &&
                 (observations.empty() || shouldExploreCollisions(observations.collisions, observations.nonCollisions)))
             {
                 return PositionEvaluation::exploring(firstResend, here);
             }
 
-            // If this position hasn't been explored, mark this and return the evaluation for the next positions
+            /* If this position hasn't been explored, mark this and return the evaluation for the next positions */
             if (observations.empty())
             {
                 nextPositionsEvaluation.hasUnexploredPositionOnExpectedPath = true;
                 return nextPositionsEvaluation;
             }
 
-            // Compute the expected delay for this position
-            auto expectedDelay = computeExpectedDelay(workerStatus, simulationFrame, observations);
+            /* Compute the expected delay for this position */
+            auto expectedDelay = computeExpectedDelay(wrkStatus, simulationFrame, observations);
             auto expectedCollisionDelay = expectedPatchCollisionDelay(observations.collisionRate);
             auto evaluationHere = PositionEvaluation::resends(patchLockFrameDelta,
                                                               expectedDelay.has_value() ? expectedDelay.value() : 100.0,
@@ -572,29 +572,29 @@ namespace WorkerMiningOptimization
             return nextPositionsEvaluation;
         }
 
-        PositionEvaluation evaluatePosition(const WorkerGatherStatus &workerStatus, // NOLINT(*-no-recursion)
+        PositionEvaluation evaluatePosition(const WorkerGatherStatus &wrkStatus, // NOLINT(*-no-recursion)
                                             const std::array<double, GATHER_FORECAST_FRAMES> &otherPatchesForecast,
                                             int simulationFrame,
                                             int workerOrderProcessTimer,
                                             GatherPositionObservations &positionMetadata)
         {
-            // Compute the order process timer for the next frame
+            /* Compute the order process timer for the next frame */
             int nextWorkerOrderProcessTimer = nextOrderProcessTimer(simulationFrame, workerOrderProcessTimer);
 
-            // Get data for all of the next positions
+            /* Get data for all of the next positions */
             PositionEvaluation nextPositionsEvaluation;
             auto evaluateNextPosition = [&](GatherPositionObservations &nextPosition)->PositionEvaluation // NOLINT(*-no-recursion)
             {
-                if (isPatchSwitchPossible(workerStatus,
+                if (isPatchSwitchPossible(wrkStatus,
                                           otherPatchesForecast,
                                           simulationFrame,
                                           workerOrderProcessTimer,
-                                          nextPosition.pos))
+                                          nextPosition.pt))
                 {
                     return PositionEvaluation::patchSwitch(simulationFrame + 1);
                 }
 
-                return evaluatePosition(workerStatus,
+                return evaluatePosition(wrkStatus,
                                         otherPatchesForecast,
                                         simulationFrame + 1,
                                         nextWorkerOrderProcessTimer,
@@ -630,7 +630,7 @@ namespace WorkerMiningOptimization
                 }
                 nextPositionsEvaluation.expectedDelay = delayAccumulator;
 
-                // If patch locking is not guaranteed at high enough probability, clear it
+                /* If patch locking is not guaranteed at high enough probability, clear it */
                 if (nextPositionsEvaluation.patchLockFrameDelta >= 0 && (patchLockAccumulator / 255.0) < PATCH_LOCK_THRESHOLD)
                 {
                     nextPositionsEvaluation.patchLockFrameDelta = -1;
@@ -638,22 +638,22 @@ namespace WorkerMiningOptimization
             }
             nextPositionsEvaluation.expectedPath.emplace(nextPositionsEvaluation.expectedPath.begin(), &positionMetadata);
 
-            // If there is a potential patch switch, back off until the last safe frame
+            /* If there is a potential patch switch, back off until the last safe frame */
             if (nextPositionsEvaluation.potentialPatchSwitchFrame < (simulationFrame + BWAPI::Broodwar->getLatencyFrames()))
             {
                 return nextPositionsEvaluation;
             }
 
-            // When exploring, always explore the furthest position possible
+            /* When exploring, always explore the furthest position possible */
             if (nextPositionsEvaluation.positionToTryOnExpectedPath) return nextPositionsEvaluation;
 
-            // We can't send a command LF+1 frames before an order process timer reset
-            // Note that this is actually ok in cases where there is a second resend later, but we can't always trust that this will happen
-            // if we discover a new path branch
+            /* We can't send a command LF+1 frames before an order process timer reset */
+            /* Note that this is actually ok in cases where there is a second resend later, but we can't always trust that this will happen */
+            /* if we discover a new path branch */
             if (OrderProcessTimer::framesToNextReset(simulationFrame) == (BWAPI::Broodwar->getLatencyFrames() + 1)) return nextPositionsEvaluation;
 
-            // Now evaluate this position using the second resend metadata
-            auto evaluationHere = evaluateSecondResendPositions(workerStatus,
+            /* Now evaluate this position using the second resend metadata */
+            auto evaluationHere = evaluateSecondResendPositions(wrkStatus,
                                                                 otherPatchesForecast,
                                                                 simulationFrame,
                                                                 simulationFrame,
@@ -662,7 +662,7 @@ namespace WorkerMiningOptimization
                                                                 GatherPositionObservationPtr(&positionMetadata),
                                                                 0);
 
-            // If exploring, return now
+            /* If exploring, return now */
             if (evaluationHere.positionToTryOnExpectedPath) return evaluationHere;
 
             if (evaluationHere.isBetterThan(nextPositionsEvaluation))
@@ -674,36 +674,36 @@ namespace WorkerMiningOptimization
         }
     }
 
-    void planGatherResendsDouble(WorkerGatherStatus &workerStatus, GatherPositionObservations &positionMetadata)
+    void planGatherResendsDouble(WorkerGatherStatus &wrkStatus, GatherPositionObservations &positionMetadata)
     {
-        // Don't plan anything until we have left the depot
-        if (!workerStatus.hasLeftDepot) return;
+        /* Don't plan anything until we have left the depot */
+        if (!wrkStatus.hasLeftDepot) return;
 
-        // Wait to start planning until we reach a position that is usable
+        /* Wait to start planning until we reach a position that is usable */
         if (!positionMetadata.usableForPathPlanning()) return;
 
-        workerStatus.hasPathData = true;
-        workerStatus.resendsPlanned = true;
+        wrkStatus.hasPathData = true;
+        wrkStatus.resendsPlanned = true;
 
         auto shouldResend = [&](const PositionEvaluation &evaluation)
         {
             if (!evaluation.resendPosition)
             {
 #if TAKEOVER_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "No path could be found";
+                Telemetry::log(wrkStatus.wrk->ident) << "No path could be found";
 #endif
                 return false;
             }
             if (evaluation.positionToTryOnExpectedPath) return true;
 
-            // Always use a patch lock solution
+            /* Always use a patch lock solution */
             if (evaluation.patchLockFrameDelta >= 0) return true;
 
-            // If the evaluation has unexplored positions on it, only accept perfect solutions
+            /* If the evaluation has unexplored positions on it, only accept perfect solutions */
             if (evaluation.hasUnexploredPositionOnExpectedPath && evaluation.expectedDelay > 0.5)
             {
 #if TAKEOVER_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "Path has unexplored positions and is non-optimal";
+                Telemetry::log(wrkStatus.wrk->ident) << "Path has unexplored positions and is non-optimal";
 #endif
                 return false;
             }
@@ -711,49 +711,49 @@ namespace WorkerMiningOptimization
             return true;
         };
 
-        auto evaluation = evaluatePosition(workerStatus,
-                                           workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
-                                           currentFrame,
-                                           workerStatus.worker->orderProcessTimer,
+        auto evaluation = evaluatePosition(wrkStatus,
+                                           wrkStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
+                                           frameNow,
+                                           wrkStatus.wrk->orderProcessTimer,
                                            positionMetadata);
         if (shouldResend(evaluation))
         {
-            workerStatus.exploring = evaluation.positionToTryOnExpectedPath;
-            workerStatus.plannedResendPosition = std::move(evaluation.resendPosition);
-            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
-            if ((*workerStatus.plannedResendPosition) == (*workerStatus.plannedSecondResendPosition))
+            wrkStatus.exploring = evaluation.positionToTryOnExpectedPath;
+            wrkStatus.plannedResendPosition = std::move(evaluation.resendPosition);
+            wrkStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
+            if ((*wrkStatus.plannedResendPosition) == (*wrkStatus.plannedSecondResendPosition))
             {
-                workerStatus.plannedSecondResendPosition = nullptr;
+                wrkStatus.plannedSecondResendPosition = nullptr;
             }
 
-            workerStatus.expectedPath = std::move(evaluation.expectedPath);
-            workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
+            wrkStatus.expectedPath = std::move(evaluation.expectedPath);
+            wrkStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
             if (evaluation.patchLockFrameDelta >= 0)
             {
-                workerStatus.expectedPatchLockFrame = workerStatus.takeoverFrame - evaluation.patchLockFrameDelta;
-                workerStatus.expectedMiningStartFrame = -1;
+                wrkStatus.expectedPatchLockFrame = wrkStatus.takeoverFrame - evaluation.patchLockFrameDelta;
+                wrkStatus.expectedMiningStartFrame = -1;
             }
             else
             {
-                workerStatus.expectedPatchLockFrame = -1;
-                workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay) + 1;
+                wrkStatus.expectedPatchLockFrame = -1;
+                wrkStatus.expectedMiningStartFrame = wrkStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay) + 1;
             }
 
 #if TAKEOVER_DEBUG
             {
                 std::ostringstream out;
                 out << std::fixed << std::setprecision(1) << "Planned gather command(s): ";
-                if (workerStatus.plannedResendPosition)
+                if (wrkStatus.plannedResendPosition)
                 {
-                    out << *workerStatus.plannedResendPosition;
+                    out << *wrkStatus.plannedResendPosition;
                 }
                 else
                 {
                     out << "none";
                 }
-                if (workerStatus.plannedSecondResendPosition)
+                if (wrkStatus.plannedSecondResendPosition)
                 {
-                    out << " : " << *workerStatus.plannedSecondResendPosition;
+                    out << " : " << *wrkStatus.plannedSecondResendPosition;
                 }
                 if (evaluation.positionToTryOnExpectedPath)
                 {
@@ -763,109 +763,109 @@ namespace WorkerMiningOptimization
                 {
                     out << " expected delay " << evaluation.expectedDelay
                         << "; expected collision delay " << evaluation.expectedCollisionDelay
-                        << "; expected arrival frame(s) " << workerStatus.expectedArrivalFramesDebug()
-                        << "; expected patch lock frame " << workerStatus.expectedPatchLockFrame
-                        << "; expected mining start frame " << workerStatus.expectedMiningStartFrame;
+                        << "; expected arrival frame(s) " << wrkStatus.expectedArrivalFramesDebug()
+                        << "; expected patch lock frame " << wrkStatus.expectedPatchLockFrame
+                        << "; expected mining start frame " << wrkStatus.expectedMiningStartFrame;
                 }
 
-                CherryVis::log(workerStatus.worker->id) << out.str();
+                Telemetry::log(wrkStatus.wrk->ident) << out.str();
             }
 
             {
                 std::ostringstream out;
                 out << "Expected path:";
-                int frame = currentFrame;
-                int orderProcessTimer = workerStatus.worker->orderProcessTimer;
-                for (const auto &pos : workerStatus.expectedPath)
+                int tick = frameNow;
+                int orderProcessTimer = wrkStatus.wrk->orderProcessTimer;
+                for (const auto &pt : wrkStatus.expectedPath)
                 {
-                    if (frame == currentFrame)
+                    if (tick == frameNow)
                     {
-                        frame++;
+                        tick++;
                         continue;
                     }
 
-                    auto dist = Geo::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
-                                                        pos.position().pos(),
+                    auto span = Geom::EdgeToEdgeDistance(BWAPI::UnitTypes::Protoss_Probe,
+                                                        pt.position().pt(),
                                                         BWAPI::UnitTypes::Resource_Mineral_Field,
-                                                        workerStatus.resource->center);
-                    out << "\n" << frame << ": " << pos << "; " << dist << "; " << orderProcessTimer;
+                                                        wrkStatus.resource->midpoint);
+                    out << "\n" << tick << ": " << pt << "; " << span << "; " << orderProcessTimer;
 
-                    frame++;
-                    orderProcessTimer = nextOrderProcessTimer(frame, orderProcessTimer);
+                    tick++;
+                    orderProcessTimer = nextOrderProcessTimer(tick, orderProcessTimer);
                 }
 
-                CherryVis::log(workerStatus.worker->id) << out.str();
+                Telemetry::log(wrkStatus.wrk->ident) << out.str();
             }
 #endif
         }
     }
 
-    bool validatePlannedGatherPathDouble(WorkerGatherStatus &workerStatus,
+    bool validatePlannedGatherPathDouble(WorkerGatherStatus &wrkStatus,
                                          const std::shared_ptr<PositionAndVelocity> &currentPosition)
     {
-        // Performs replanning from the current state
+        /* Performs replanning from the current state */
         auto replan = [&]()
         {
-            // We always need to clear second resend and path expectations
-            workerStatus.exploring = false;
-            workerStatus.plannedSecondResendPosition = nullptr;
-            workerStatus.expectedPath.clear();
-            workerStatus.expectedArrivalFrameAndOccurrenceRate.clear();
-            workerStatus.expectedMiningStartFrame = -1;
-            workerStatus.expectedPatchLockFrame = -1;
+            /* We always need to clear second resend and path expectations */
+            wrkStatus.exploring = false;
+            wrkStatus.plannedSecondResendPosition = nullptr;
+            wrkStatus.expectedPath.clear();
+            wrkStatus.expectedArrivalFrameAndOccurrenceRate.clear();
+            wrkStatus.expectedMiningStartFrame = -1;
+            wrkStatus.expectedPatchLockFrame = -1;
 
-            // If we haven't passed the first resend position yet, then replan from scratch
-            if (!workerStatus.resentPosition())
+            /* If we haven't passed the first resend position yet, then replan from scratch */
+            if (!wrkStatus.resentPosition())
             {
-                workerStatus.resendsPlanned = false;
-                workerStatus.plannedResendPosition = nullptr;
-                if (workerStatus.currentNode && workerStatus.currentNode->pos)
+                wrkStatus.resendsPlanned = false;
+                wrkStatus.plannedResendPosition = nullptr;
+                if (wrkStatus.currentNode && wrkStatus.currentNode->pt)
                 {
-                    planGatherResendsDouble(workerStatus, *workerStatus.currentNode->pos);
+                    planGatherResendsDouble(wrkStatus, *wrkStatus.currentNode->pt);
                 }
-                return workerStatus.resendsPlanned;
+                return wrkStatus.resendsPlanned;
             }
 
-            // Guard against having sent multiple resends
-            if (workerStatus.resentPositions.size() != 1)
+            /* Guard against having sent multiple resends */
+            if (wrkStatus.resentPositions.size() != 1)
             {
 #if OPTIMALPOSITIONS_DEBUG
-                Log::Get() << "ERROR: Worker has more than one resent positions while still tracking path"
-                           << "; worker id " << workerStatus.worker->id << " @ " << workerStatus.worker->getTilePosition();
+                AppLog::Get() << "ERROR: Worker has more than one resent positions while still tracking path"
+                           << "; worker id " << wrkStatus.wrk->ident << " @ " << wrkStatus.wrk->getTilePosition();
 #endif
                 return false;
             }
 
-            // We have sent the first resend, but hit a different path before reaching the second resend position
-            auto &firstResend = *workerStatus.plannedResendPosition->pos;
+            /* We have sent the first resend, but hit a different path before reaching the second resend position */
+            auto &firstResend = *wrkStatus.plannedResendPosition->pt;
 
-            // If we haven't observed this path, abandon the plan
-            if (!workerStatus.currentNode)
+            /* If we haven't observed this path, abandon the plan */
+            if (!wrkStatus.currentNode)
             {
 #if OPTIMALPOSITIONS_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path and unexplored path discovered; aborting second resend";
+                Telemetry::log(wrkStatus.wrk->ident) << "Worker did not follow expected path and unexplored path discovered; aborting second resend";
 #endif
                 return false;
             }
 
-            // We have observed this path, so we can replan the second resend position
-            // First we need to figure out the delta between the first resend and the current position
-            int deltaFromFirstResend = currentFrame - workerStatus.lastResendFrame();
+            /* We have observed this path, so we can replan the second resend position */
+            /* First we need to figure out the delta between the first resend and the current position */
+            int deltaFromFirstResend = frameNow - wrkStatus.lastResendFrame();
 
-            // Evaluate second resends
-            auto evaluation = evaluateSecondResendPositions(workerStatus,
-                                                            workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
-                                                            currentFrame,
-                                                            currentFrame,
-                                                            workerStatus.worker->orderProcessTimer,
+            /* Evaluate second resends */
+            auto evaluation = evaluateSecondResendPositions(wrkStatus,
+                                                            wrkStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
+                                                            frameNow,
+                                                            frameNow,
+                                                            wrkStatus.wrk->orderProcessTimer,
                                                             firstResend,
-                                                            *workerStatus.currentNode,
+                                                            *wrkStatus.currentNode,
                                                             deltaFromFirstResend);
 
-            // Don't use the position if we aren't exploring and:
-            // - It hasn't been explored
-            // - It doesn't patch lock
-            // - It has unexplored positions and is imperfect
+            /* Don't use the position if we aren't exploring and: */
+            /* - It hasn't been explored */
+            /* - It doesn't patch lock */
+            /* - It has unexplored positions and is imperfect */
             if (!evaluation.positionToTryOnExpectedPath
                 && evaluation.patchLockFrameDelta < 0
                 && (!evaluation.explored || (evaluation.hasUnexploredPositionOnExpectedPath && evaluation.expectedDelay > 0.5)))
@@ -873,87 +873,87 @@ namespace WorkerMiningOptimization
                 return false;
             }
 
-            workerStatus.exploring = evaluation.positionToTryOnExpectedPath;
-            workerStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
-            workerStatus.expectedPath = std::move(evaluation.expectedPath);
-            workerStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
+            wrkStatus.exploring = evaluation.positionToTryOnExpectedPath;
+            wrkStatus.plannedSecondResendPosition = std::make_unique<GatherPositionObservationPtr>(evaluation.expectedPath.back());
+            wrkStatus.expectedPath = std::move(evaluation.expectedPath);
+            wrkStatus.expectedArrivalFrameAndOccurrenceRate = evaluation.expectedArrivalFrameAndOccurrenceRate;
             if (evaluation.patchLockFrameDelta >= 0)
             {
-                workerStatus.expectedPatchLockFrame = workerStatus.takeoverFrame - evaluation.patchLockFrameDelta;
+                wrkStatus.expectedPatchLockFrame = wrkStatus.takeoverFrame - evaluation.patchLockFrameDelta;
             }
             else
             {
-                workerStatus.expectedMiningStartFrame = workerStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay) + 1;
+                wrkStatus.expectedMiningStartFrame = wrkStatus.takeoverFrame + (int)std::round(evaluation.expectedDelay) + 1;
             }
             return true;
         };
 
-        // If we have no further resends planned, return
-        if (workerStatus.expectedPath.empty()) return true;
+        /* If we have no further resends planned, return */
+        if (wrkStatus.expectedPath.empty()) return true;
 
-        // If path does not match expectations, replan
-        if (workerStatus.expectedPath.front().position() != *currentPosition)
+        /* If path does not match expectations, replan */
+        if (wrkStatus.expectedPath.front().position() != *currentPosition)
         {
 #if TAKEOVER_DEBUG
-            CherryVis::log(workerStatus.worker->id) << "Worker did not follow expected path; replanning";
+            Telemetry::log(wrkStatus.wrk->ident) << "Worker did not follow expected path; replanning";
 #endif
 
             return replan();
         }
 
-        // Re-evaluate patch locking
+        /* Re-evaluate patch locking */
 
-        // First validate patch locking in the case where we have already planned to patch lock
-        if (workerStatus.expectedPatchLockFrame != -1)
+        /* First validate patch locking in the case where we have already planned to patch lock */
+        if (wrkStatus.expectedPatchLockFrame != -1)
         {
-            auto patchLock = checkForPatchLock(workerStatus,
-                                               workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
-                                               workerStatus.lastResendFrameIncludingPlanned(),
-                                               workerStatus.expectedArrivalFrameAndOccurrenceRate);
-            if (!patchLock.has_value() || patchLock.value() > workerStatus.takeoverFrame)
+            auto patchLock = checkForPatchLock(wrkStatus,
+                                               wrkStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(),
+                                               wrkStatus.lastResendFrameIncludingPlanned(),
+                                               wrkStatus.expectedArrivalFrameAndOccurrenceRate);
+            if (!patchLock.has_value() || patchLock.value() > wrkStatus.takeoverFrame)
             {
 #if TAKEOVER_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "No longer believe patch locking will occur; replanning";
+                Telemetry::log(wrkStatus.wrk->ident) << "No longer believe patch locking will occur; replanning";
 #endif
                 return replan();
             }
             return true;
         }
 
-        // We haven't planned for a patch lock, so try to figure out if one might now be forecasted to be possible
-        // We don't want to just blindly run the entire replanning every frame though
-        // Instead, we try to find a conservative estimate of an earliest arrival frame based on the current path data, then search if there
-        // are any frames between that frame and the takeover frame where we currently predict possible patch locking. If one is found,
-        // we replan to give the optimizer a chance to find a solution that uses it.
-        // If we run into performance issues because of running the optimizer too often, we could tighten this up a bit (by for example running
-        // a similar, but lighter-weight optimization only considering patch locking, since we already have a solution for non-patch-locking).
+        /* We haven't planned for a patch lock, so try to figure out if one might now be forecasted to be possible */
+        /* We don't want to just blindly run the entire replanning every frame though */
+        /* Instead, we try to find a conservative estimate of an earliest arrival frame based on the current path data, then search if there */
+        /* are any frames between that frame and the takeover frame where we currently predict possible patch locking. If one is found, */
+        /* we replan to give the optimizer a chance to find a solution that uses it. */
+        /* If we run into performance issues because of running the optimizer too often, we could tighten this up a bit (by for example running */
+        /* a similar, but lighter-weight optimization only considering patch locking, since we already have a solution for non-patch-locking). */
 
-        // Need path data
-        if (!workerStatus.currentNode) return true;
+        /* Need path data */
+        if (!wrkStatus.currentNode) return true;
 
-        // Default to the arrival frame we are currently planning for
+        /* Default to the arrival frame we are currently planning for */
         int earliestArrivalFrame = INT_MAX;
-        for (const auto &[arrivalFrame, _] : workerStatus.expectedArrivalFrameAndOccurrenceRate)
+        for (const auto &[arrivalFrame, _] : wrkStatus.expectedArrivalFrameAndOccurrenceRate)
         {
             earliestArrivalFrame = std::min(earliestArrivalFrame, arrivalFrame);
         }
 
-        // If we know the no-resend arrival from here, consider it
-        if (workerStatus.currentNode->pos && !workerStatus.currentNode->pos->deltaToBenchmarkAndOccurrenceRate.empty())
+        /* If we know the no-resend arrival from here, consider it */
+        if (wrkStatus.currentNode->pt && !wrkStatus.currentNode->pt->deltaToBenchmarkAndOccurrenceRate.empty())
         {
             earliestArrivalFrame = std::min(
                     earliestArrivalFrame,
-                    currentFrame + BWAPI::Broodwar->getLatencyFrames() + 11 - workerStatus.currentNode->pos->smallestDeltaToBenchmark());
+                    frameNow + BWAPI::Broodwar->getLatencyFrames() + 11 - wrkStatus.currentNode->pt->smallestDeltaToBenchmark());
         }
 
-        // Check if we forecast possible patch locking at any of the frames between arrival and takeover
-        auto &forecast = workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast();
-        for (int frame = earliestArrivalFrame; frame < workerStatus.takeoverFrame; frame++)
+        /* Check if we forecast possible patch locking at any of the frames between arrival and takeover */
+        auto &forecast = wrkStatus.resource->getAllOtherPatchesGatheredProbabilityForecast();
+        for (int tick = earliestArrivalFrame; tick < wrkStatus.takeoverFrame; tick++)
         {
-            if (otherPatchesForecastAtFrame(forecast, frame) >= PATCH_LOCK_THRESHOLD)
+            if (otherPatchesForecastAtFrame(forecast, tick) >= PATCH_LOCK_THRESHOLD)
             {
 #if TAKEOVER_DEBUG
-                CherryVis::log(workerStatus.worker->id) << "Patch locking could be possible at frame " << frame << "; replanning";
+                Telemetry::log(wrkStatus.wrk->ident) << "Patch locking could be possible at frame " << tick << "; replanning";
 #endif
                 return replan();
             }
@@ -962,10 +962,10 @@ namespace WorkerMiningOptimization
         return true;
     }
 
-    std::optional<int> checkForPatchLock(const WorkerGatherStatus &workerStatus, int resendFrame)
+    std::optional<int> checkForPatchLock(const WorkerGatherStatus &wrkStatus, int resendFrame)
     {
         std::vector<std::pair<int, int>> arrivalData;
         arrivalData.emplace_back(resendFrame + BWAPI::Broodwar->getLatencyFrames() + 10, 255);
-        return checkForPatchLock(workerStatus, workerStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(), resendFrame, arrivalData);
+        return checkForPatchLock(wrkStatus, wrkStatus.resource->getAllOtherPatchesGatheredProbabilityForecast(), resendFrame, arrivalData);
     }
 }

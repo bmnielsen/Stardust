@@ -1,13 +1,13 @@
 #include "Strategies.h"
 #include "Strategist.h"
 
-namespace Strategist
+namespace Director
 {
     bool isOurStrategy(std::variant<PvP::OurStrategy, PvT::OurStrategy, PvZ::OurStrategy, PvU::OurStrategy> strategy)
     {
         if (auto *s = std::get_if<PvP::OurStrategy>(&strategy))
         {
-            if (auto strategyEngine = dynamic_cast<PvP*>(Strategist::getStrategyEngine()))
+            if (auto strategyEngine = dynamic_cast<PvP*>(Director::getStrategyEngine()))
             {
                 return strategyEngine->ourStrategy == *s;
             }
@@ -17,7 +17,7 @@ namespace Strategist
 
         if (auto *s = std::get_if<PvT::OurStrategy>(&strategy))
         {
-            if (auto strategyEngine = dynamic_cast<PvT*>(Strategist::getStrategyEngine()))
+            if (auto strategyEngine = dynamic_cast<PvT*>(Director::getStrategyEngine()))
             {
                 return strategyEngine->ourStrategy == *s;
             }
@@ -27,7 +27,7 @@ namespace Strategist
 
         if (auto *s = std::get_if<PvZ::OurStrategy>(&strategy))
         {
-            if (auto strategyEngine = dynamic_cast<PvZ*>(Strategist::getStrategyEngine()))
+            if (auto strategyEngine = dynamic_cast<PvZ*>(Director::getStrategyEngine()))
             {
                 return strategyEngine->ourStrategy == *s;
             }
@@ -37,7 +37,7 @@ namespace Strategist
 
         if (auto *s = std::get_if<PvU::OurStrategy>(&strategy))
         {
-            if (auto strategyEngine = dynamic_cast<PvU*>(Strategist::getStrategyEngine()))
+            if (auto strategyEngine = dynamic_cast<PvU*>(Director::getStrategyEngine()))
             {
                 return strategyEngine->ourStrategy == *s;
             }
@@ -52,7 +52,7 @@ namespace Strategist
     {
         if (auto *protossStrategy = std::get_if<PvP::ProtossStrategy>(&strategy))
         {
-            if (auto strategyEngine = dynamic_cast<PvP*>(Strategist::getStrategyEngine()))
+            if (auto strategyEngine = dynamic_cast<PvP*>(Director::getStrategyEngine()))
             {
                 return strategyEngine->enemyStrategy == *protossStrategy;
             }
@@ -62,7 +62,7 @@ namespace Strategist
 
         if (auto *terranStrategy = std::get_if<PvT::TerranStrategy>(&strategy))
         {
-            if (auto strategyEngine = dynamic_cast<PvT*>(Strategist::getStrategyEngine()))
+            if (auto strategyEngine = dynamic_cast<PvT*>(Director::getStrategyEngine()))
             {
                 return strategyEngine->enemyStrategy == *terranStrategy;
             }
@@ -72,7 +72,7 @@ namespace Strategist
 
         if (auto *zergStrategy = std::get_if<PvZ::ZergStrategy>(&strategy))
         {
-            if (auto strategyEngine = dynamic_cast<PvZ*>(Strategist::getStrategyEngine()))
+            if (auto strategyEngine = dynamic_cast<PvZ*>(Director::getStrategyEngine()))
             {
                 return strategyEngine->enemyStrategy == *zergStrategy;
             }

@@ -8,19 +8,19 @@
 
 void HiddenBase::update()
 {
-    // Wait until we know where the hidden base is
-    if (!base)
+    /* Wait until we know where the hidden base is */
+    if (!baseLoc)
     {
-        base = Map::getHiddenBase();
-        if (!base) return;
+        baseLoc = Map::getHiddenBase();
+        if (!baseLoc) return;
     }
 
-    // Stop the play when:
-    // - We are past frame 15000
-    // - The builder died
-    // - We have taken our natural
-    // - The enemy has scouted the base
-    if (currentFrame > 15000)
+    /* Stop the play when: */
+    /* - We are past frame 15000 */
+    /* - The builder died */
+    /* - We have taken our natural */
+    /* - The enemy has scouted the base */
+    if (frameNow > 15000)
     {
         status.complete = true;
         return;
@@ -32,62 +32,62 @@ void HiddenBase::update()
         return;
     }
 
-    auto natural = Map::getMyNatural();
-    if (natural && natural->owner == BWAPI::Broodwar->self() && natural->resourceDepot && natural->resourceDepot->completed)
+    auto natBase = Map::getMyNatural();
+    if (natBase && natBase->owner == BWAPI::Broodwar->self() && natBase->resourceDepot && natBase->resourceDepot->completed)
     {
         status.complete = true;
         return;
     }
 
     std::set<Unit> enemyUnits;
-    Units::enemyInRadius(enemyUnits, base->getPosition(), 640);
+    UnitMgr::enemyInRadius(enemyUnits, baseLoc->getPosition(), 640);
     if (!enemyUnits.empty())
     {
         status.complete = true;
         return;
     }
 
-    // Reserve a builder and send it to the base when:
-    // - Our main is saturated
-    // - Our main army is on the attack
-    // - The path to the hidden base is safe
+    /* Reserve a builder and send it to the base when: */
+    /* - Our main is saturated */
+    /* - Our main army is on the attack */
+    /* - The path to the hidden base is safe */
     if (!builder)
     {
-        if (Workers::availableMineralAssignments(Map::getMyMain()) > 0) return;
+        if (WorkerMgr::availableMineralAssignments(Map::getMyMain()) > 0) return;
 
-        auto mainArmyPlay = Strategist::getMainArmyPlay();
+        auto mainArmyPlay = Director::getMainArmyPlay();
         if (!mainArmyPlay) return;
         if (mainArmyPlay->isDefensive()) return;
 
-        // TODO: Check path
+        /* TODO: Check path */
 
-        builder = Workers::getClosestReassignableWorker(base->getPosition(), false);
+        builder = WorkerMgr::getClosestReassignableWorker(baseLoc->getPosition(), false);
         if (!builder) return;
 
-        CherryVis::log(builder->id) << "Reserving for hidden base play";
+        Telemetry::log(builder->ident) << "Reserving for hidden base play";
 
-        Builder::addReservedBuilder(builder);
-        Workers::reserveWorker(builder);
+        Constructor::addReservedBuilder(builder);
+        WorkerMgr::reserveWorker(builder);
     }
 
-    // Ensure the builder moves towards the hidden base when it isn't building anything
-    if (!Builder::hasPendingBuilding(builder))
+    /* Ensure the builder moves towards the hidden base when it isn't building anything */
+    if (!Constructor::hasPendingBuilding(builder))
     {
-        builder->moveTo(base->getPosition());
+        builder->moveTo(baseLoc->getPosition());
     }
 }
 
-void HiddenBase::disband(const std::function<void(const MyUnit)> &removedUnitCallback,
-                         const std::function<void(const MyUnit)> &movableUnitCallback)
+void HiddenBase::disband(const std::function<void(const OwnedUnit)> &removedUnitCallback,
+                         const std::function<void(const OwnedUnit)> &movableUnitCallback)
 {
-    Builder::cancelBase(base);
+    Constructor::cancelBase(baseLoc);
 
     if (builder)
     {
-        CherryVis::log(builder->id) << "Releasing from hidden base play";
-        Builder::releaseReservedBuilder(builder);
-        Workers::releaseWorker(builder);
+        Telemetry::log(builder->ident) << "Releasing from hidden base play";
+        Constructor::releaseReservedBuilder(builder);
+        WorkerMgr::releaseWorker(builder);
     }
 
-    Play::disband(removedUnitCallback, movableUnitCallback);
+    PlayItem::disband(removedUnitCallback, movableUnitCallback);
 }

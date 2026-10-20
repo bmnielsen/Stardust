@@ -140,9 +140,9 @@ namespace Map
                 int y = tileY + offsetY;
                 if (y < 0 || y >= mapHeight) return;
 
-                auto &pos = tileCollisionVector[x + y * mapWidth];
-                pos.x += deltaX;
-                pos.y += deltaY;
+                auto &pt = tileCollisionVector[x + y * mapWidth];
+                pt.x += deltaX;
+                pt.y += deltaY;
             };
 
             if (walkable)
@@ -169,15 +169,15 @@ namespace Map
             }
         }
 
-        // Updates the tile walkability grid based on appearance or disappearance of a building, mineral field, etc.
-        bool updateTileWalkability(BWAPI::TilePosition tile, BWAPI::TilePosition size, bool walkable)
+        /* Updates the tile walkability grid based on appearance or disappearance of a building, mineral field, etc. */
+        bool updateTileWalkability(BWAPI::TilePosition tilePos, BWAPI::TilePosition size, bool walkable)
         {
             bool updated = false;
-            auto bottomRight = tile + size;
+            auto bottomRight = tilePos + size;
 
-            for (int y = tile.y; y < bottomRight.y; y++)
+            for (int y = tilePos.y; y < bottomRight.y; y++)
             {
-                for (int x = tile.x; x < bottomRight.x; x++)
+                for (int x = tilePos.x; x < bottomRight.x; x++)
                 {
                     if (tileWalkability[x + y * mapWidth] != walkable)
                     {
@@ -190,17 +190,17 @@ namespace Map
 
             if (!updated) return false;
 
-            // Update distance to unwalkable
+            /* Update distance to unwalkable */
             std::set<std::pair<int, int>> changed;
             if (walkable)
             {
-                // We need to trace "inside out" from all of the outer tiles
+                /* We need to trace "inside out" from all of the outer tiles */
 
                 auto line = [&changed](int x, int deltaX, int y, int deltaY, int dir)
                 {
                     unsigned short current = 0;
 
-                    // Initialize the current value to the previous tile
+                    /* Initialize the current value to the previous tile */
                     int prevX = x - deltaX;
                     int prevY = y - deltaY;
                     if (prevX >= 0 && prevX < mapWidth &&
@@ -230,46 +230,46 @@ namespace Map
                     }
                 };
 
-                // Up from the bottom, down from the top
-                for (int x = tile.x; x < bottomRight.x; x++)
+                /* Up from the bottom, down from the top */
+                for (int x = tilePos.x; x < bottomRight.x; x++)
                 {
-                    line(x, 0, tile.y, 1, DIR_N); // South
+                    line(x, 0, tilePos.y, 1, DIR_N); // South
                     line(x, 0, bottomRight.y - 1, -1, DIR_S); // North
-                    line(x, 1, tile.y, 1, DIR_NW); // South-east
-                    line(x, -1, tile.y, 1, DIR_NE); // South-west
+                    line(x, 1, tilePos.y, 1, DIR_NW); // South-east
+                    line(x, -1, tilePos.y, 1, DIR_NE); // South-west
                     line(x, 1, bottomRight.y - 1, -1, DIR_SW); // North-east
                     line(x, -1, bottomRight.y - 1, -1, DIR_SE); // North-west
                 }
 
-                // Left from the right, right from the left
-                for (int y = tile.y; y < bottomRight.y; y++)
+                /* Left from the right, right from the left */
+                for (int y = tilePos.y; y < bottomRight.y; y++)
                 {
-                    line(tile.x, 1, y, 0, DIR_W); // East
+                    line(tilePos.x, 1, y, 0, DIR_W); // East
                     line(bottomRight.x - 1, -1, y, 0, DIR_E); // West
                 }
 
-                // Diagonal up from the sides
-                for (int y = tile.y; y < (bottomRight.y - 1); y++)
+                /* Diagonal up from the sides */
+                for (int y = tilePos.y; y < (bottomRight.y - 1); y++)
                 {
-                    line(tile.x, 1, y, -1, DIR_SW); // North-east
+                    line(tilePos.x, 1, y, -1, DIR_SW); // North-east
                     line(bottomRight.x - 1, -1, y, -1, DIR_SE); // North-west
                 }
 
-                // Diagonal down from the sides
-                for (int y = tile.y + 1; y < bottomRight.y; y++)
+                /* Diagonal down from the sides */
+                for (int y = tilePos.y + 1; y < bottomRight.y; y++)
                 {
-                    line(tile.x, 1, y, 1, DIR_NW); // South-east
+                    line(tilePos.x, 1, y, 1, DIR_NW); // South-east
                     line(bottomRight.x - 1, -1, y, 1, DIR_NE); // South-west
                 }
             }
             else
             {
-                // We need to zero all of the now-unwalkable tiles, then trace outwards from the surrounding tiles
+                /* We need to zero all of the now-unwalkable tiles, then trace outwards from the surrounding tiles */
 
-                // Zero
-                for (int y = tile.y; y < bottomRight.y; y++)
+                /* Zero */
+                for (int y = tilePos.y; y < bottomRight.y; y++)
                 {
-                    auto firstIndex = (tile.x + y * mapWidth);
+                    auto firstIndex = (tilePos.x + y * mapWidth);
                     std::fill(tileDistanceToUnwalkable.begin() + firstIndex,
                               tileDistanceToUnwalkable.begin() + firstIndex + size.x,
                               0);
@@ -310,36 +310,36 @@ namespace Map
                     }
                 };
 
-                // Up from the top, down from the bottom
-                for (int x = tile.x; x < bottomRight.x; x++)
+                /* Up from the top, down from the bottom */
+                for (int x = tilePos.x; x < bottomRight.x; x++)
                 {
                     line(x, 0, bottomRight.y - 1, 1, DIR_N); // South
-                    line(x, 0, tile.y, -1, DIR_S); // North
+                    line(x, 0, tilePos.y, -1, DIR_S); // North
                     line(x, 1, bottomRight.y - 1, 1, DIR_NW); // South-east
                     line(x, -1, bottomRight.y - 1, 1, DIR_NE); // South-west
-                    line(x, 1, tile.y, -1, DIR_SW); // North-east
-                    line(x, -1, tile.y, -1, DIR_SE); // North-west
+                    line(x, 1, tilePos.y, -1, DIR_SW); // North-east
+                    line(x, -1, tilePos.y, -1, DIR_SE); // North-west
                 }
 
-                // Left from the left, right from the right
-                for (int y = tile.y; y < bottomRight.y; y++)
+                /* Left from the left, right from the right */
+                for (int y = tilePos.y; y < bottomRight.y; y++)
                 {
                     line(bottomRight.x - 1, 1, y, 0, DIR_W); // East
-                    line(tile.x, -1, y, 0, DIR_E); // West
+                    line(tilePos.x, -1, y, 0, DIR_E); // West
                 }
 
-                // Diagonal down from the sides
-                for (int y = tile.y; y < (bottomRight.y - 1); y++)
+                /* Diagonal down from the sides */
+                for (int y = tilePos.y; y < (bottomRight.y - 1); y++)
                 {
                     line(bottomRight.x - 1, 1, y, 1, DIR_NW); // South-east
-                    line(tile.x, -1, y, 1, DIR_NE); // South-west
+                    line(tilePos.x, -1, y, 1, DIR_NE); // South-west
                 }
 
-                // Diagonal up from the sides
-                for (int y = tile.y + 1; y < bottomRight.y; y++)
+                /* Diagonal up from the sides */
+                for (int y = tilePos.y + 1; y < bottomRight.y; y++)
                 {
                     line(bottomRight.x - 1, 1, y, -1, DIR_SW); // North-east
-                    line(tile.x, -1, y, -1, DIR_SE); // North-west
+                    line(tilePos.x, -1, y, -1, DIR_SE); // North-west
                 }
             }
 
@@ -368,7 +368,7 @@ namespace Map
         tileTerrainWalkability.resize(mapWidth * mapHeight);
         tileWalkability.resize(mapWidth * mapHeight);
 
-        // Start by checking the normal BWAPI walkability
+        /* Start by checking the normal BWAPI walkability */
         for (int tileX = 0; tileX < mapWidth; tileX++)
         {
             for (int tileY = 0; tileY < mapHeight; tileY++)
@@ -392,7 +392,7 @@ namespace Map
             }
         }
 
-        // For collision vectors, mark the edges of the map as unwalkable
+        /* For collision vectors, mark the edges of the map as unwalkable */
         for (int tileX = -1; tileX <= mapWidth; tileX++)
         {
             updateCollisionVectors(tileX, -1, false);
@@ -404,27 +404,27 @@ namespace Map
             updateCollisionVectors(mapWidth, tileY, false);
         }
 
-        // Initialize distances to unwalkable tiles
+        /* Initialize distances to unwalkable tiles */
         initializeDistanceToUnwalkable();
 
-        // Add our start position
+        /* Add our start position */
         updateTileWalkability(BWAPI::Broodwar->self()->getStartLocation(), BWAPI::UnitTypes::Protoss_Nexus.tileSize(), false);
 
-        // Add static neutrals
-        auto handleStaticNeutral = [&](BWAPI::TilePosition tile, BWAPI::TilePosition size)
+        /* Add static neutrals */
+        auto handleStaticNeutral = [&](BWAPI::TilePosition tilePos, BWAPI::TilePosition size)
         {
-            // Update terrain walkability directly
-            auto bottomRight = tile + size;
-            for (int y = tile.y; y < bottomRight.y; y++)
+            /* Update terrain walkability directly */
+            auto bottomRight = tilePos + size;
+            for (int y = tilePos.y; y < bottomRight.y; y++)
             {
-                for (int x = tile.x; x < bottomRight.x; x++)
+                for (int x = tilePos.x; x < bottomRight.x; x++)
                 {
                     tileTerrainWalkability[x + y * mapWidth] = false;
                 }
             }
 
-            // Update our main walkability through the update method so other related structures are updated
-            updateTileWalkability(tile, size, false);
+            /* Update our main walkability through the update method so other related structures are updated */
+            updateTileWalkability(tilePos, size, false);
         };
 
         for (auto neutral : BWAPI::Broodwar->getStaticNeutralUnits())
@@ -432,7 +432,7 @@ namespace Map
             if (neutral->getType().isCritter()) continue;
             if (neutral->isFlying()) continue;
 
-            // Eggs might not be aligned to tiles, so add any tiles they overlap
+            /* Eggs might not be aligned to tiles, so add any tiles they overlap */
             if (neutral->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg ||
                 neutral->getType() == BWAPI::UnitTypes::Zerg_Egg)
             {
@@ -447,7 +447,7 @@ namespace Map
 
         dumpWalkability();
 
-        // Terrain walkability is static, so dump it only at initialization
+        /* Terrain walkability is static, so dump it only at initialization */
 #if CVIS_HEATMAPS
         std::vector<long> tileTerrainWalkabilityCVis(mapWidth * mapHeight);
         for (int y = 0; y < mapHeight; y++)
@@ -458,16 +458,16 @@ namespace Map
             }
         }
 
-        CherryVis::addHeatmap("TileTerrainWalkable", tileTerrainWalkabilityCVis, mapWidth, mapHeight);
+        Telemetry::addHeatmap("TileTerrainWalkable", tileTerrainWalkabilityCVis, mapWidth, mapHeight);
 #endif
     }
 
-    // Writes the tile walkability grid to CherryVis
+    /* Writes the tile walkability grid to CherryVis */
     void dumpWalkability()
     {
 #if DRAW_COLLISION_VECTORS
-        // Draw tile collision vectors on first frame only, as they are too intensive to draw every frame
-        if (currentFrame == 0)
+        /* Draw tile collision vectors on first frame only, as they are too intensive to draw every frame */
+        if (frameNow == 0)
         {
             for (int y = 0; y < mapHeight; y++)
             {
@@ -475,20 +475,20 @@ namespace Map
                 {
                     if (tileCollisionVector[x + y * mapWidth].x == 0 && tileCollisionVector[x + y * mapWidth].y == 0) continue;
 
-                    auto color = CherryVis::DrawColor::Green;
+                    auto color = Telemetry::DrawColor::Green;
                     if (tileCollisionVector[x + y * mapWidth].x <= 0 && tileCollisionVector[x + y * mapWidth].y <= 0)
                     {
-                        color = CherryVis::DrawColor::Red;
+                        color = Telemetry::DrawColor::Red;
                     }
                     else if (tileCollisionVector[x + y * mapWidth].x < 0 && tileCollisionVector[x + y * mapWidth].y > 0)
                     {
-                        color = CherryVis::DrawColor::Yellow;
+                        color = Telemetry::DrawColor::Yellow;
                     }
                     if (tileCollisionVector[x + y * mapWidth].x > 0 && tileCollisionVector[x + y * mapWidth].y < 0)
                     {
-                        color = CherryVis::DrawColor::Cyan;
+                        color = Telemetry::DrawColor::Cyan;
                     }
-                    CherryVis::drawLine(
+                    Telemetry::drawLine(
                             x * 32 + 16,
                             y * 32 + 16,
                             x * 32 + 16 + tileCollisionVector[x + y * mapWidth].x,
@@ -503,7 +503,7 @@ namespace Map
 
         tileWalkabilityUpdated = false;
 
-        // Dump to CherryVis
+        /* Dump to CherryVis */
         std::vector<long> tileWalkabilityCVis(mapWidth * mapHeight);
         for (int y = 0; y < mapHeight; y++)
         {
@@ -513,7 +513,7 @@ namespace Map
             }
         }
 
-        CherryVis::addHeatmap("TileWalkable", tileWalkabilityCVis, mapWidth, mapHeight);
+        Telemetry::addHeatmap("TileWalkable", tileWalkabilityCVis, mapWidth, mapHeight);
 
         std::vector<long> tileDistanceToUnwalkableCVis(mapWidth * mapHeight);
         for (int y = 0; y < mapHeight; y++)
@@ -525,7 +525,7 @@ namespace Map
             }
         }
 
-        CherryVis::addHeatmap("TileDistToUnwalkable", tileDistanceToUnwalkableCVis, mapWidth, mapHeight);
+        Telemetry::addHeatmap("TileDistToUnwalkable", tileDistanceToUnwalkableCVis, mapWidth, mapHeight);
 
         std::vector<long> tileWalkableWidthCVis(mapWidth * mapHeight);
         for (int y = 0; y < mapHeight; y++)
@@ -537,7 +537,7 @@ namespace Map
             }
         }
 
-        CherryVis::addHeatmap("TileWalkableWidth", tileWalkableWidthCVis, mapWidth, mapHeight);
+        Telemetry::addHeatmap("TileWalkableWidth", tileWalkableWidthCVis, mapWidth, mapHeight);
 
         std::vector<long> tileCollisionVectorXCVis(mapWidth * mapHeight);
         for (int y = 0; y < mapHeight; y++)
@@ -548,7 +548,7 @@ namespace Map
             }
         }
 
-        CherryVis::addHeatmap("TileCollisionVectorX", tileCollisionVectorXCVis, mapWidth, mapHeight);
+        Telemetry::addHeatmap("TileCollisionVectorX", tileCollisionVectorXCVis, mapWidth, mapHeight);
 
         std::vector<long> tileCollisionVectorYCVis(mapWidth * mapHeight);
         for (int y = 0; y < mapHeight; y++)
@@ -559,7 +559,7 @@ namespace Map
             }
         }
 
-        CherryVis::addHeatmap("TileCollisionVectorY", tileCollisionVectorYCVis, mapWidth, mapHeight);
+        Telemetry::addHeatmap("TileCollisionVectorY", tileCollisionVectorYCVis, mapWidth, mapHeight);
 #endif
 #if UNWALKABLE_DIRECTION_HEATMAP_ENABLED
         for (int dir = 0; dir < 8; dir++)
@@ -607,92 +607,92 @@ namespace Map
                     break;
             }
 
-            CherryVis::addHeatmap(key.str(), tileDistanceToUnwalkableDirectionsCVis, mapWidth, mapHeight);
+            Telemetry::addHeatmap(key.str(), tileDistanceToUnwalkableDirectionsCVis, mapWidth, mapHeight);
         }
 #endif
     }
 
-    void onUnitCreated_Walkability(const Unit &unit)
+    void onUnitCreated_Walkability(const Unit &gameUnit)
     {
-        // Units that affect tile walkability
-        // Skip on frame 0, since we handle static neutrals and our base explicitly
-        // Skip refineries, since creation of a refinery does not affect tile walkability (there was already a geyser)
-        if (currentFrame > 0 && unit->type.isBuilding() && !unit->isFlying && !unit->type.isRefinery())
+        /* Units that affect tile walkability */
+        /* Skip on frame 0, since we handle static neutrals and our base explicitly */
+        /* Skip refineries, since creation of a refinery does not affect tile walkability (there was already a geyser) */
+        if (frameNow > 0 && gameUnit->type.isBuilding() && !gameUnit->isFlying && !gameUnit->type.isRefinery())
         {
-            if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), false))
+            if (updateTileWalkability(gameUnit->getTilePosition(), gameUnit->type.tileSize(), false))
             {
-                PathFinding::addBlockingObject(unit->type, unit->getTilePosition());
+                Pathfinder::addBlockingObject(gameUnit->type, gameUnit->getTilePosition());
                 tileWalkabilityUpdated = true;
             }
         }
 
-        // FIXME: Check tile walkability for mineral fields
+        /* FIXME: Check tile walkability for mineral fields */
     }
 
-    void onUnitDiscover(BWAPI::Unit unit)
+    void onUnitDiscover(BWAPI::Unit gameUnit)
     {
-        // Update tile walkability for discovered mineral fields
-        // TODO: Is this even needed?
-        if (currentFrame > 0 && unit->getType().isMineralField())
+        /* Update tile walkability for discovered mineral fields */
+        /* TODO: Is this even needed? */
+        if (frameNow > 0 && gameUnit->getType().isMineralField())
         {
-            if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), false))
+            if (updateTileWalkability(gameUnit->getTilePosition(), gameUnit->getType().tileSize(), false))
             {
-                PathFinding::addBlockingObject(unit->getType(), unit->getTilePosition());
-                tileWalkabilityUpdated = true;
-            }
-        }
-    }
-
-    void onUnitDestroy_Walkability(const Unit &unit)
-    {
-        // Units that affect tile walkability
-        // Skip refineries, since destruction of a refinery does not affect tile walkability (there will still be a geyser)
-        if (unit->type.isBuilding() && !unit->isFlying && !unit->type.isRefinery())
-        {
-            if (updateTileWalkability(unit->getTilePosition(), unit->type.tileSize(), true))
-            {
-                PathFinding::removeBlockingObject(unit->type, unit->getTilePosition());
+                Pathfinder::addBlockingObject(gameUnit->getType(), gameUnit->getTilePosition());
                 tileWalkabilityUpdated = true;
             }
         }
     }
 
-    void onUnitDestroy_Walkability(BWAPI::Unit unit)
+    void onUnitDestroy_Walkability(const Unit &gameUnit)
     {
-        // Units that affect tile walkability
-        if (unit->getType().isMineralField() ||
-            (unit->getType().isBuilding() && !unit->isFlying() && !unit->getType().isRefinery()) ||
-            (unit->getType() == BWAPI::UnitTypes::Zerg_Egg && unit->getPlayer() == BWAPI::Broodwar->neutral()))
+        /* Units that affect tile walkability */
+        /* Skip refineries, since destruction of a refinery does not affect tile walkability (there will still be a geyser) */
+        if (gameUnit->type.isBuilding() && !gameUnit->isFlying && !gameUnit->type.isRefinery())
         {
-            if (updateTileWalkability(unit->getTilePosition(), unit->getType().tileSize(), true))
+            if (updateTileWalkability(gameUnit->getTilePosition(), gameUnit->type.tileSize(), true))
             {
-                PathFinding::removeBlockingObject(unit->getType(), unit->getTilePosition());
+                Pathfinder::removeBlockingObject(gameUnit->type, gameUnit->getTilePosition());
                 tileWalkabilityUpdated = true;
             }
         }
     }
 
-    void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tile)
+    void onUnitDestroy_Walkability(BWAPI::Unit gameUnit)
     {
-        if (updateTileWalkability(tile, type.tileSize(), true))
+        /* Units that affect tile walkability */
+        if (gameUnit->getType().isMineralField() ||
+            (gameUnit->getType().isBuilding() && !gameUnit->isFlying() && !gameUnit->getType().isRefinery()) ||
+            (gameUnit->getType() == BWAPI::UnitTypes::Zerg_Egg && gameUnit->getPlayer() == BWAPI::Broodwar->neutral()))
         {
-            PathFinding::removeBlockingObject(type, tile);
+            if (updateTileWalkability(gameUnit->getTilePosition(), gameUnit->getType().tileSize(), true))
+            {
+                Pathfinder::removeBlockingObject(gameUnit->getType(), gameUnit->getTilePosition());
+                tileWalkabilityUpdated = true;
+            }
+        }
+    }
+
+    void onBuildingLifted(BWAPI::UnitType type, BWAPI::TilePosition tilePos)
+    {
+        if (updateTileWalkability(tilePos, type.tileSize(), true))
+        {
+            Pathfinder::removeBlockingObject(type, tilePos);
             tileWalkabilityUpdated = true;
         }
     }
 
-    void onBuildingLanded(BWAPI::UnitType type, BWAPI::TilePosition tile)
+    void onBuildingLanded(BWAPI::UnitType type, BWAPI::TilePosition tilePos)
     {
-        if (updateTileWalkability(tile, type.tileSize(), false))
+        if (updateTileWalkability(tilePos, type.tileSize(), false))
         {
-            PathFinding::addBlockingObject(type, tile);
+            Pathfinder::addBlockingObject(type, tilePos);
             tileWalkabilityUpdated = true;
         }
     }
 
-    bool isWalkable(BWAPI::TilePosition pos)
+    bool isWalkable(BWAPI::TilePosition pt)
     {
-        return isWalkable(pos.x, pos.y);
+        return isWalkable(pt.x, pt.y);
     }
 
     bool isWalkable(int x, int y)

@@ -49,7 +49,7 @@ namespace WorkerMiningInstrumentation
         }
     };
 
-    void initialize(const std::function<std::map<Resource, std::set<MyWorker>> &()> &getMineralsAndAssignedWorkersOverride = nullptr);
+    void initialize(const std::function<std::map<Resource, std::set<OwnedWorker>> &()> &getMineralsAndAssignedWorkersOverride = nullptr);
 
     void update();
 

@@ -1,0 +1,90 @@
+{
+  "version": 3,
+  "comment": "D5 第六项冻结契约:指纹/策略词表(v1)。enemy=识别器标签(黑白名单 tier0 引用);ours=我方开局词表(record_label/策略 JSON 引用)。来源:PvP/PvT/PvZ.h 枚举 + PvU.cpp OurStrategyNames(2026-09-13 提取)。改名/改语义须递增 version 并提供映射表。v3:ours.PvT 移除 LateGameCarriers(P1 已删该死策略;映射=该名永久消失,历史档案无此名)。",
+  "enemy": {
+    "PvP": [
+      "Unknown",
+      "WorkerRush",
+      "ProxyRush",
+      "ZealotRush",
+      "EarlyForge",
+      "TwoGate",
+      "NoZealotCore",
+      "OneZealotCore",
+      "FastExpansion",
+      "BlockScouting",
+      "ZealotAllIn",
+      "DragoonAllIn",
+      "EarlyRobo",
+      "Turtle",
+      "DarkTemplarRush",
+      "MidGame"
+    ],
+    "PvT": [
+      "Unknown",
+      "WorkerRush",
+      "ProxyRush",
+      "MarineRush",
+      "WallIn",
+      "BlockScouting",
+      "FastExpansion",
+      "TwoFactory",
+      "Normal",
+      "MidGameMech",
+      "MidGameBio"
+    ],
+    "PvZ": [
+      "Unknown",
+      "WorkerRush",
+      "SunkenContain",
+      "ZerglingRush",
+      "PoolBeforeHatchery",
+      "HatcheryBeforePool",
+      "ZerglingAllIn",
+      "HydraBust",
+      "Turtle",
+      "Lair",
+      "MutaRush"
+    ]
+  },
+  "ours": {
+    "PvP": [
+      "ForgeExpandDT",
+      "TwoGateDT",
+      "EarlyGameDefense",
+      "AntiZealotRush",
+      "AntiDarkTemplarRush",
+      "FastExpansion",
+      "Defensive",
+      "Normal",
+      "OneGateCoreNoZealot",
+      "3GateRobo",
+      "DTExpand",
+      "MidGame"
+    ],
+    "PvT": [
+      "ForgeExpandGoons",
+      "EarlyGameDefense",
+      "AntiMarineRush",
+      "FastExpansion",
+      "Defensive",
+      "Normal",
+      "MidGame"
+    ],
+    "PvZ": [
+      "EarlyGameDefense",
+      "AntiAllIn",
+      "AntiSunkenContain",
+      "SairSpeedlot",
+      "FFEDragoons",
+      "FastExpansion",
+      "Defensive",
+      "Normal",
+      "MidGame"
+    ],
+    "PvU": [
+      "TwoGateZealots",
+      "ForgeFastExpand"
+    ]
+  }
+}

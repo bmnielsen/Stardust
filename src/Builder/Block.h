@@ -2,21 +2,21 @@
 
 #include "Common.h"
 
-// Stores information about a block of build locations.
-class Block
+/* Stores information about a block of build locations. */
+class BuildBlock
 {
 public:
     struct Location
     {
-        BWAPI::TilePosition tile;
+        BWAPI::TilePosition tilePos;
         bool converted; // Whether this position is converted from a more-efficient position
         bool hasExit; // Whether this position has an exit (only applicable to medium locations)
 
-        explicit Location(BWAPI::TilePosition tile, bool converted = false, bool hasExit = true)
-                : tile(tile), converted(converted), hasExit(hasExit) {}
+        explicit Location(BWAPI::TilePosition tilePos, bool converted = false, bool hasExit = true)
+                : tilePos(tilePos), converted(converted), hasExit(hasExit) {}
     };
 
-    BWAPI::TilePosition topLeft;
+    BWAPI::TilePosition cornerTL;
 
     BWAPI::TilePosition powerPylon;
 
@@ -26,15 +26,15 @@ public:
 
     std::vector<BWAPI::TilePosition> cannons; // Only applicable to start blocks
 
-    Block(BWAPI::TilePosition topLeft, BWAPI::TilePosition powerPylon) : topLeft(topLeft), powerPylon(powerPylon) {}
+    BuildBlock(BWAPI::TilePosition cornerTL, BWAPI::TilePosition powerPylon) : cornerTL(cornerTL), powerPylon(powerPylon) {}
 
-    virtual ~Block() = default;
+    virtual ~BuildBlock() = default;
 
     [[nodiscard]] virtual int width() const = 0;
 
     [[nodiscard]] virtual int height() const = 0;
 
-    [[nodiscard]] BWAPI::Position center() const;
+    [[nodiscard]] BWAPI::Position midpoint() const;
 
     [[nodiscard]] virtual bool allowTopEdge() const { return true; }
 
@@ -44,16 +44,16 @@ public:
 
     [[nodiscard]] virtual bool allowCorner() const { return true; }
 
-    bool tilesReserved(BWAPI::TilePosition tile, BWAPI::TilePosition size, bool permanent = false);
+    bool tilesReserved(BWAPI::TilePosition tilePos, BWAPI::TilePosition size, bool permanent = false);
 
-    virtual bool tilesUsed(BWAPI::TilePosition tile, BWAPI::TilePosition size);
+    virtual bool tilesUsed(BWAPI::TilePosition tilePos, BWAPI::TilePosition size);
 
-    bool tilesFreed(BWAPI::TilePosition tile, BWAPI::TilePosition size);
+    bool tilesFreed(BWAPI::TilePosition tilePos, BWAPI::TilePosition size);
 
-    virtual std::shared_ptr<Block> tryCreate(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability) = 0;
+    virtual std::shared_ptr<BuildBlock> tryCreate(BWAPI::TilePosition tilePos, std::vector<unsigned int> &tileAvailability) = 0;
 
 protected:
-    bool place(BWAPI::TilePosition tile, std::vector<unsigned int> &tileAvailability) const;
+    bool place(BWAPI::TilePosition tilePos, std::vector<unsigned int> &tileAvailability) const;
 
     bool placeStartBlock(BWAPI::TilePosition startPosition,
                          std::vector<BWAPI::TilePosition> &usedTiles,
